@@ -1,4 +1,4 @@
-using PIC, CUDA, MAT
+using JustPIC, CUDA, MAT
 CUDA.allowscalar(false)
 
 # TODO
