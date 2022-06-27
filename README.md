@@ -1,3 +1,3 @@
 # JustPIC.jl
 
-Particle-in-Cell advection ready for rocking the GPU  :rocket:
+Particle-in-Cell advection ready to rock the GPU  :rocket:
