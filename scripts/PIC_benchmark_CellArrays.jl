@@ -37,11 +37,25 @@ function copy_particles!(pX_old,pY_old,pC_old,pT_old,pA_old,pX,pY,pC,pT,pA)
     return
 end
 
-function blerp(fx,fy,v11,v12,v21,v22)
+@inline function blerp(fx,fy,v11,v12,v21,v22)
     return (v11*(1.0-fx) + v21*fx)*(1.0-fy) + (v12*(1.0-fx) + v22*fx)*fy
 end
 
-wrap(i,imin,imax) = clamp(i,imin,imax)
+@inline wrap(i,imin,imax) = clamp(i,imin,imax)
+
+@inline function cell_fractions(cx,cy)
+    fx = cx < 0.5 ? cx + 0.5 : cx - 0.5
+    fy = cy < 0.5 ? cy + 0.5 : cy - 0.5
+    return fx,fy
+end
+
+@inline function adjacent_cells(cx,cy,ix,iy)
+    ix1 = cx < 0.5 ? ix   : ix+1
+    iy1 = cy < 0.5 ? iy   : iy+1
+    ix2 = cx < 0.5 ? ix+1 : ix+2
+    iy2 = cy < 0.5 ? iy+1 : iy+2
+    return ix1,ix2,iy1,iy2
+end
 
 function advect!(pX,pY,pX_old,pY_old,pC,pC_old,pT,pT_old,pA,pA_old,Vx,Vy,dt,dx,dy)
     ix = (blockIdx().x-1)*blockDim().x + threadIdx().x
@@ -51,12 +65,8 @@ function advect!(pX,pY,pX_old,pY_old,pC,pC_old,pT,pT_old,pA,pA_old,Vx,Vy,dt,dx,d
     for ip = 1:prod(cellsize(pX))
         if pA_old[ix,iy][ip] == false continue end
         cx,cy  = pX_old[ix,iy][ip], pY_old[ix,iy][ip]
-        fx     = cx < 0.5 ? cx + 0.5 : cx - 0.5
-        fy     = cy < 0.5 ? cy + 0.5 : cy - 0.5
-        ix1    = cx < 0.5 ? ix   : ix+1
-        iy1    = cy < 0.5 ? iy   : iy+1
-        ix2    = cx < 0.5 ? ix+1 : ix+2
-        iy2    = cy < 0.5 ? iy+1 : iy+2
+        fx,fy  = cell_fractions(cx,cy)
+        ix1,ix2,iy1,iy2 = adjacent_cells(cx,cy,ix,iy)
         pvx    = blerp(fx,fy,Vx[ix1,iy1],Vx[ix1,iy2],Vx[ix2,iy1],Vx[ix2,iy2])
         pvy    = blerp(fx,fy,Vy[ix1,iy1],Vy[ix1,iy2],Vy[ix2,iy1],Vy[ix2,iy2])
         px_new = pX_old[ix,iy][ip] + pvx*dt/dx
@@ -76,12 +86,8 @@ function advect!(pX,pY,pX_old,pY_old,pC,pC_old,pT,pT_old,pA,pA_old,Vx,Vy,dt,dx,d
             for ip = 1:prod(cellsize(pX))
                 if pA_old[inx,iny][ip] == false continue end
                 cx,cy  = pX_old[inx,iny][ip], pY_old[inx,iny][ip]
-                fx     = cx < 0.5 ? cx + 0.5 : cx - 0.5
-                fy     = cy < 0.5 ? cy + 0.5 : cy - 0.5
-                inx1   = cx < 0.5 ? inx   : inx+1
-                iny1   = cy < 0.5 ? iny   : iny+1
-                inx2   = cx < 0.5 ? inx+1 : inx+2
-                iny2   = cy < 0.5 ? iny+1 : iny+2
+                fx,fy  = cell_fractions(cx,cy)
+                inx1,inx2,iny1,iny2 = adjacent_cells(cx,cy,inx,iny)
                 pvx    = blerp(fx,fy,Vx[inx1,iny1],Vx[inx1,iny2],Vx[inx2,iny1],Vx[inx2,iny2])
                 pvy    = blerp(fx,fy,Vy[inx1,iny1],Vy[inx1,iny2],Vy[inx2,iny1],Vy[inx2,iny2])
                 px_new = pX_old[inx,iny][ip] + pvx*dt/dx + iox
@@ -145,8 +151,7 @@ function g2p!(pT,T,T_old,pX,pY,pA,pic_amount)
     for ip = 1:prod(cellsize(pT))
         if pA[ix,iy][ip] == false continue end
         cx,cy        = pX[ix,iy][ip], pY[ix,iy][ip]
-        fx           = cx < 0.5 ? cx + 0.5 : cx - 0.5
-        fy           = cy < 0.5 ? cy + 0.5 : cy - 0.5
+        fx,fy        = cell_fractions(cx,cy)
         ix1          = cx < 0.5 ? wrap(ix-1,1,nx) : ix
         iy1          = cy < 0.5 ? wrap(iy-1,1,ny) : iy
         ix2          = cx < 0.5 ? ix : wrap(ix+1,1,nx)
