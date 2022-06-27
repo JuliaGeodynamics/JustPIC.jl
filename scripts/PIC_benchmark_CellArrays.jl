@@ -1,4 +1,4 @@
-using JustPIC, CUDA, MAT
+using JustPIC, CUDA, MAT, CellArrays, StaticArrays
 CUDA.allowscalar(false)
 
 # TODO
@@ -9,19 +9,31 @@ CUDA.allowscalar(false)
 function initialize_particles!(pX,pY,pC,pT,pA,rad2,lx,ly,dx,dy,np)
     ix = (blockIdx().x-1)*blockDim().x + threadIdx().x
     iy = (blockIdx().y-1)*blockDim().y + threadIdx().y
-    if ix > size(pX,2) || iy > size(pX,3) return end
+    if ix > size(pX,1) || iy > size(pX,2) return end
     for ipy = 1:np
         for ipx = 1:np
-            ip           = (ipx-1)*np + ipy
-            xv,yv        = (ix-1)*dx, (iy-1)*dy
-            pX[ip,ix,iy] = (ipx-0.5)/np
-            pY[ip,ix,iy] = (ipy-0.5)/np
-            pA[ip,ix,iy] = true
-            r2           = (xv + pX[ip,ix,iy]*dx - lx/2)^2 + (yv + pY[ip,ix,iy]*dy - ly/2)^2
-            pC[ip,ix,iy] = r2 < rad2 ? 1.0 : 0.0
-            pT[ip,ix,iy] = exp(-((xv + pX[ip,ix,iy]*dx - lx/2)^2 + (yv + pY[ip,ix,iy]*dy - ly/2)^2)/rad2)
+            ip                  = (ipx-1)*np + ipy
+            xv,yv               = (ix-1)*dx, (iy-1)*dy
+            field(pX,ip)[ix,iy] = (ipx-0.5)/np
+            field(pY,ip)[ix,iy] = (ipy-0.5)/np
+            field(pA,ip)[ix,iy] = true
+            r2                  = (xv + pX[ix,iy][ip]*dx - lx/2)^2 + (yv + pY[ix,iy][ip]*dy - ly/2)^2
+            field(pC,ip)[ix,iy] = r2 < rad2 ? 1.0 : 0.0
+            field(pT,ip)[ix,iy] = exp(-((xv + pX[ix,iy][ip]*dx - lx/2)^2 + (yv + pY[ix,iy][ip]*dy - ly/2)^2)/rad2)
         end
     end
+    return
+end
+
+function copy_particles!(pX_old,pY_old,pC_old,pT_old,pA_old,pX,pY,pC,pT,pA)
+    ix = (blockIdx().x-1)*blockDim().x + threadIdx().x
+    iy = (blockIdx().y-1)*blockDim().y + threadIdx().y
+    if ix > size(pX,1) || iy > size(pX,2) return end
+    pX_old[ix,iy] = pX[ix,iy]
+    pY_old[ix,iy] = pY[ix,iy]
+    pC_old[ix,iy] = pC[ix,iy]
+    pT_old[ix,iy] = pT[ix,iy]
+    pA_old[ix,iy] = pA[ix,iy]
     return
 end
 
@@ -34,26 +46,26 @@ wrap(i,imin,imax) = clamp(i,imin,imax)
 function advect!(pX,pY,pX_old,pY_old,pC,pC_old,pT,pT_old,pA,pA_old,Vx,Vy,dt,dx,dy)
     ix = (blockIdx().x-1)*blockDim().x + threadIdx().x
     iy = (blockIdx().y-1)*blockDim().y + threadIdx().y
-    if ix > size(pX,2) || iy > size(pX,3) return end
-    np,nx,ny = size(pX)
-    for ip = 1:np
-        if pA_old[ip,ix,iy] == false continue end
-        cx,cy  = pX_old[ip,ix,iy], pY_old[ip,ix,iy]
+    if ix > size(pX,1) || iy > size(pX,2) return end
+    nx,ny = size(pX)
+    for ip = 1:prod(cellsize(pX))
+        if pA_old[ix,iy][ip] == false continue end
+        cx,cy  = pX_old[ix,iy][ip], pY_old[ix,iy][ip]
         fx     = cx < 0.5 ? cx + 0.5 : cx - 0.5
         fy     = cy < 0.5 ? cy + 0.5 : cy - 0.5
-        ix1    = cx < 0.5 ? ix : ix+1
-        iy1    = cy < 0.5 ? iy : iy+1
+        ix1    = cx < 0.5 ? ix   : ix+1
+        iy1    = cy < 0.5 ? iy   : iy+1
         ix2    = cx < 0.5 ? ix+1 : ix+2
         iy2    = cy < 0.5 ? iy+1 : iy+2
         pvx    = blerp(fx,fy,Vx[ix1,iy1],Vx[ix1,iy2],Vx[ix2,iy1],Vx[ix2,iy2])
         pvy    = blerp(fx,fy,Vy[ix1,iy1],Vy[ix1,iy2],Vy[ix2,iy1],Vy[ix2,iy2])
-        px_new = pX_old[ip,ix,iy] + pvx*dt/dx
-        py_new = pY_old[ip,ix,iy] + pvy*dt/dy
+        px_new = pX_old[ix,iy][ip] + pvx*dt/dx
+        py_new = pY_old[ix,iy][ip] + pvy*dt/dy
         if px_new < 0.0 || px_new > 1.0 || py_new < 0.0 || py_new > 1.0
-            pA[ip,ix,iy] = false
+            field(pA,ip)[ix,iy] = false
         else
-            pX[ip,ix,iy] = px_new
-            pY[ip,ix,iy] = py_new
+            field(pX,ip)[ix,iy] = px_new
+            field(pY,ip)[ix,iy] = py_new
         end
     end
     # redundatly compute neighbors
@@ -61,28 +73,28 @@ function advect!(pX,pY,pX_old,pY_old,pC,pC_old,pT,pT_old,pA,pA_old,Vx,Vy,dt,dx,d
         for iox = -1:1
             inx,iny = wrap(ix+iox,1,nx), wrap(iy+ioy,1,ny)
             if inx == ix && iny == iy continue end
-            for ip = 1:np
-                if pA_old[ip,inx,iny] == false continue end
-                cx,cy  = pX_old[ip,inx,iny], pY_old[ip,inx,iny]
+            for ip = 1:prod(cellsize(pX))
+                if pA_old[inx,iny][ip] == false continue end
+                cx,cy  = pX_old[inx,iny][ip], pY_old[inx,iny][ip]
                 fx     = cx < 0.5 ? cx + 0.5 : cx - 0.5
                 fy     = cy < 0.5 ? cy + 0.5 : cy - 0.5
-                inx1   = cx < 0.5 ? inx : inx+1
-                iny1   = cy < 0.5 ? iny : iny+1
+                inx1   = cx < 0.5 ? inx   : inx+1
+                iny1   = cy < 0.5 ? iny   : iny+1
                 inx2   = cx < 0.5 ? inx+1 : inx+2
                 iny2   = cy < 0.5 ? iny+1 : iny+2
                 pvx    = blerp(fx,fy,Vx[inx1,iny1],Vx[inx1,iny2],Vx[inx2,iny1],Vx[inx2,iny2])
                 pvy    = blerp(fx,fy,Vy[inx1,iny1],Vy[inx1,iny2],Vy[inx2,iny1],Vy[inx2,iny2])
-                px_new = pX_old[ip,inx,iny] + pvx*dt/dx + iox
-                py_new = pY_old[ip,inx,iny] + pvy*dt/dy + ioy
+                px_new = pX_old[inx,iny][ip] + pvx*dt/dx + iox
+                py_new = pY_old[inx,iny][ip] + pvy*dt/dy + ioy
                 if px_new >= 0.0 && px_new <= 1.0 && py_new >= 0.0 && py_new <= 1.0
                     # find inactive particle and insert
-                    for ip2 = 1:size(pX,1)
-                        if pA[ip2,ix,iy] == false
-                            pX[ip2,ix,iy] = px_new
-                            pY[ip2,ix,iy] = py_new
-                            pC[ip2,ix,iy] = pC_old[ip,inx,iny]
-                            pT[ip2,ix,iy] = pT_old[ip,inx,iny]
-                            pA[ip2,ix,iy] = true
+                    for ip2 = 1:prod(cellsize(pX))
+                        if pA[ix,iy][ip2] == false
+                            field(pX,ip2)[ix,iy] = px_new
+                            field(pY,ip2)[ix,iy] = py_new
+                            field(pC,ip2)[ix,iy] = pC_old[inx,iny][ip]
+                            field(pT,ip2)[ix,iy] = pT_old[inx,iny][ip]
+                            field(pA,ip2)[ix,iy] = true
                             break
                         end
                     end
@@ -96,8 +108,8 @@ end
 function p2g!(C,T,pC,pT,pX,pY,pA)
     ix = (blockIdx().x-1)*blockDim().x + threadIdx().x
     iy = (blockIdx().y-1)*blockDim().y + threadIdx().y
-    if ix > size(pX,2) || iy > size(pX,3) return end
-    np,nx,ny = size(pX)
+    if ix > size(pX,1) || iy > size(pX,2) return end
+    nx,ny = size(pX)
     wt = 0.0
     pc = 0.0
     pt = 0.0
@@ -105,14 +117,14 @@ function p2g!(C,T,pC,pT,pX,pY,pA)
         for iox = -1:1
             inx,iny = wrap(ix+iox,1,nx),wrap(iy+ioy,1,ny)
             if iox != 0 && ioy != 0 && inx == ix && iny == iy continue end
-            for ip = 1:np
-                if pA[ip,inx,iny] == false continue end
-                cx  = pX[ip,inx,iny] + iox - 0.5
-                cy  = pY[ip,inx,iny] + ioy - 0.5
+            for ip = 1:prod(cellsize(pC))
+                if pA[inx,iny][ip] == false continue end
+                cx  = pX[inx,iny][ip] + iox - 0.5
+                cy  = pY[inx,iny][ip] + ioy - 0.5
                 k   = max(1.0-abs(cx),0.0)*max(1.0-abs(cy),0.0)
                 wt += k
-                pc += k*pC[ip,inx,iny]
-                pt += k*pT[ip,inx,iny]
+                pc += k*pC[inx,iny][ip]
+                pt += k*pT[inx,iny][ip]
             end
         end
     end
@@ -128,11 +140,11 @@ end
 function g2p!(pT,T,T_old,pX,pY,pA,pic_amount)
     ix = (blockIdx().x-1)*blockDim().x + threadIdx().x
     iy = (blockIdx().y-1)*blockDim().y + threadIdx().y
-    if ix > size(pX,2) || iy > size(pX,3) return end
-    np,nx,ny = size(pX)
-    for ip = 1:np
-        if pA[ip,ix,iy] == false continue end
-        cx,cy        = pX[ip,ix,iy], pY[ip,ix,iy]
+    if ix > size(pX,1) || iy > size(pX,2) return end
+    nx,ny = size(pX)
+    for ip = 1:prod(cellsize(pT))
+        if pA[ix,iy][ip] == false continue end
+        cx,cy        = pX[ix,iy][ip], pY[ix,iy][ip]
         fx           = cx < 0.5 ? cx + 0.5 : cx - 0.5
         fy           = cy < 0.5 ? cy + 0.5 : cy - 0.5
         ix1          = cx < 0.5 ? wrap(ix-1,1,nx) : ix
@@ -140,8 +152,8 @@ function g2p!(pT,T,T_old,pX,pY,pA,pic_amount)
         ix2          = cx < 0.5 ? ix : wrap(ix+1,1,nx)
         iy2          = cy < 0.5 ? iy : wrap(iy+1,1,ny)
         pT_pic       = blerp(fx,fy,T[ix1,iy1],T[ix1,iy2],T[ix2,iy1],T[ix2,iy2])
-        pT_flip      = pT[ip,ix,iy] + pT_pic - blerp(fx,fy,T_old[ix1,iy1],T_old[ix1,iy2],T_old[ix2,iy1],T_old[ix2,iy2])
-        pT[ip,ix,iy] = pT_pic*pic_amount + pT_flip*(1.0-pic_amount)
+        pT_flip      = pT[ix,iy][ip] + pT_pic - blerp(fx,fy,T_old[ix1,iy1],T_old[ix1,iy2],T_old[ix2,iy1],T_old[ix2,iy2])
+        field(pT,ip)[ix,iy] = pT_pic*pic_amount + pT_flip*(1.0-pic_amount)
     end
     return
 end
@@ -149,30 +161,30 @@ end
 function reseed!(pX,pY,pA,pC,pT,min_pcount,max_pcount,np)
     ix = (blockIdx().x-1)*blockDim().x + threadIdx().x
     iy = (blockIdx().y-1)*blockDim().y + threadIdx().y
-    if ix > size(pX,2) || iy > size(pX,3) return end
+    if ix > size(pX,1) || iy > size(pX,2) return end
     pcount   = 0
     last_idx = 1
-    for ip = 1:size(pX,1)
-        if pA[ip,ix,iy] == true
+    for ip = 1:prod(cellsize(pX))
+        if pA[ix,iy][ip] == true
             pcount += 1; last_idx = ip
         end
     end
     while pcount < min_pcount
-        for ip = 1:size(pX,1)
-            if pA[ip,ix,iy] == false
-                pX[ip,ix,iy] = ((min_pcount - pcount) ÷ np + 1 - 0.5)/np
-                pY[ip,ix,iy] = ((min_pcount - pcount) % np + 1 - 0.5)/np
-                pA[ip,ix,iy] = true
-                pC[ip,ix,iy] = 0.0
-                pT[ip,ix,iy] = 0.0
+        for ip = 1:prod(cellsize(pX))
+            if pA[ix,iy][ip] == false
+                field(pX,ip)[ix,iy] = ((min_pcount - pcount) ÷ np + 1 - 0.5)/np
+                field(pY,ip)[ix,iy] = ((min_pcount - pcount) % np + 1 - 0.5)/np
+                field(pA,ip)[ix,iy] = true
+                field(pC,ip)[ix,iy] = 0.0
+                field(pT,ip)[ix,iy] = 0.0
                 pcount += 1
                 break
             end
         end
     end
     while pcount > max_pcount
-        if pA[last_idx,ix,iy] == true
-            pA[last_idx,ix,iy] = false; pcount -= 1
+        if field(pA,last_idx)[ix,iy] == true
+            field(pA,last_idx)[ix,iy] = false; pcount -= 1
         end
         last_idx -= 1
     end
@@ -182,15 +194,15 @@ end
 function convert_viz!(pX_viz,pY_viz,pX,pY,pA,dx,dy)
     ix = (blockIdx().x-1)*blockDim().x + threadIdx().x
     iy = (blockIdx().y-1)*blockDim().y + threadIdx().y
-    if ix > size(pX,2) || iy > size(pX,3) return end
-    for ip = 1:size(pX,1)
-        if pA[ip,ix,iy] == true
+    if ix > size(pX,1) || iy > size(pX,2) return end
+    for ip = 1:prod(cellsize(pX))
+        if pA[ix,iy][ip] == true
             xv,yv = (ix-1)*dx, (iy-1)*dy
-            pX_viz[ip,ix,iy] = xv + pX[ip,ix,iy]*dx
-            pY_viz[ip,ix,iy] = yv + pY[ip,ix,iy]*dy
+            field(pX_viz,ip)[ix,iy] = xv + pX[ix,iy][ip]*dx
+            field(pY_viz,ip)[ix,iy] = yv + pY[ix,iy][ip]*dy
         else
-            pX_viz[ip,ix,iy] = NaN
-            pY_viz[ip,ix,iy] = NaN
+            field(pX_viz,ip)[ix,iy] = NaN
+            field(pY_viz,ip)[ix,iy] = NaN
         end
     end
     return
@@ -215,11 +227,11 @@ function save_timestep!(fname,C,T,pX,pY,pC,pT,pA,time)
     matwrite(fname, Dict(
         "C"  => Array(C),
         "T"  => Array(T),
-        "pX" => Array(pX),
-        "pY" => Array(pY),
-        "pC" => Array(pC),
-        "pT" => Array(pT),
-        "pA" => Array(pA),
+        "pX" => Array(pX.data),
+        "pY" => Array(pY.data),
+        "pC" => Array(pC.data),
+        "pT" => Array(pT.data),
+        "pA" => Array(pA.data),
         "time" => time,
     ); compress=true)
     return
@@ -239,7 +251,8 @@ function main()
     vx0,vy0 = maximum(abs.(Vx)),maximum(abs.(Vy))
     # numerics
     nx,ny   = 40,40
-    np      = 2
+    np_d    = 2
+    np_e    = 2
     nt      = 1000
     nsave   = 10
     pic_amount = 0.0
@@ -247,32 +260,36 @@ function main()
     dx,dy   = lx/nx,ly/ny
     dt      = min(dx,dy)/max(abs(vx0),abs(vy0))/4
     xc,yc   = LinRange(dx/2,lx-dx/2,nx),LinRange(dy/2,ly-dy/2,ny)'
+    np0     = np_d^2
+    npmax   = np0 + np_e
+    F64C    = SMatrix{npmax,1,Float64,npmax}
+    BoolC   = SMatrix{npmax,1,Bool,npmax}
     # allocations
-    pX      = CuArray{Float64}(undef,np*np+10,nx,ny)
-    pY      = CuArray{Float64}(undef,np*np+10,nx,ny)
-    pC      = CuArray{Float64}(undef,np*np+10,nx,ny)
-    pT      = CuArray{Float64}(undef,np*np+10,nx,ny)
-    pA      = CuArray{Bool}(undef,np*np+10,nx,ny)
-    pX_old  = copy(pX)
-    pY_old  = copy(pY)
-    pC_old  = copy(pC)
-    pT_old  = copy(pT)
-    pA_old  = copy(pA)
+    pX      = CuCellArray{F64C}(undef,nx,ny)
+    pY      = CuCellArray{F64C}(undef,nx,ny)
+    pC      = CuCellArray{F64C}(undef,nx,ny)
+    pT      = CuCellArray{F64C}(undef,nx,ny)
+    pA      = CuCellArray{BoolC}(undef,nx,ny)
+    pX_old  = deepcopy(pX)
+    pY_old  = deepcopy(pY)
+    pC_old  = deepcopy(pC)
+    pT_old  = deepcopy(pT)
+    pA_old  = deepcopy(pA)
     C       = CuArray{Float64}(undef,nx,ny)
     T       = CuArray{Float64}(undef,nx,ny)
     T_old   = copy(T)
     Vx      = CuArray{Float64}(Vx)
     Vy      = CuArray{Float64}(Vy)
     # visualization arrays
-    pX_viz  = copy(pX)
-    pY_viz  = copy(pY)
+    pX_viz  = deepcopy(pX)
+    pY_viz  = deepcopy(pY)
     # initialization
-    pA      .= false
+    fill!(pA,BoolC(fill(false,npmax)))
     nthreads = (16,16)
     nblocks  = ceil.(Int, (nx,ny)./nthreads)
-    CUDA.@sync @cuda threads=nthreads blocks=nblocks initialize_particles!(pX,pY,pC,pT,pA,rad2,lx,ly,dx,dy,np)
+    CUDA.@sync @cuda threads=nthreads blocks=nblocks initialize_particles!(pX,pY,pC,pT,pA,rad2,lx,ly,dx,dy,np_d)
     CUDA.@sync @cuda threads=nthreads blocks=nblocks p2g!(C,T,pC,pT,pX,pY,pA)
-    save_static_data!("out/griddata.mat",lx,ly,dx,dy,nx,ny,np,nt,dt)
+    save_static_data!("out/griddata.mat",lx,ly,dx,dy,nx,ny,np0,nt,dt)
     CUDA.@sync @cuda threads=nthreads blocks=nblocks convert_viz!(pX_viz,pY_viz,pX,pY,pA,dx,dy)
     save_timestep!("out/step_0.mat",C,T,pX_viz,pY_viz,pC,pT,pA,0.0)
     # action
@@ -280,16 +297,12 @@ function main()
     @time while it <= nt
         if it == nt ÷ 2 dt = -dt end
         println(" # it = $it")
-        pX_old .= pX
-        pY_old .= pY
-        pC_old .= pC
-        pT_old .= pT
-        pA_old .= pA
+        CUDA.@sync @cuda threads=nthreads blocks=nblocks copy_particles!(pX_old,pY_old,pC_old,pT_old,pA_old,pX,pY,pC,pT,pA)
         CUDA.@sync @cuda threads=nthreads blocks=nblocks p2g!(C,T,pC,pT,pX,pY,pA)
         T_old  .= T
         CUDA.@sync @cuda threads=nthreads blocks=nblocks advect!(pX,pY,pX_old,pY_old,pC,pC_old,pT,pT_old,pA,pA_old,Vx,Vy,dt,dx,dy)
         CUDA.@sync @cuda threads=nthreads blocks=nblocks g2p!(pT,T,T_old,pX,pY,pA,pic_amount)
-        CUDA.@sync @cuda threads=nthreads blocks=nblocks reseed!(pX,pY,pA,pC,pT,np*np,np*np+5,np)
+        CUDA.@sync @cuda threads=nthreads blocks=nblocks reseed!(pX,pY,pA,pC,pT,np0,np0+5,np_d)
         tt += dt
         # save resuts
         if it % nsave == 0
