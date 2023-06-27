@@ -1,16 +1,20 @@
 ## FUNCTIONS TO CHECK WHETER INJECTION IS NEEDED OR NOT
 
-@inline check_injection(inject::AbstractArray) = count(inject) > 0
+"""
+    check_injection(particles)
 
+Returns `true` if there is it at least one cell where injection of new particle(s) is needed.
+"""
 function check_injection(particles::Particles{N, A}) where {N, A}
     (; inject, index, min_xcell) = particles
     nxi = size(index)
-    ranges = ntuple(i -> 1:nxi[i], Val(N))
 
-    @parallel ranges check_injection!(inject, index, min_xcell)
+    @parallel @idx(nxi) check_injection!(inject, index, min_xcell)
 
     return check_injection(particles.inject)
 end
+
+@inline check_injection(inject::AbstractArray) = count(inject) > 0
 
 @parallel_indices (i, j) function check_injection!(inject::AbstractMatrix, index, min_xcell)
     if i ≤ size(index, 1) && j ≤ size(index, 2)
@@ -28,6 +32,12 @@ end
 
 ## PARTICLE INJECTION FUNCTIONS
 
+"""
+    inject_particles!(particles, args, fields, grid)
+
+Injects new particles in the struct `particles` and interpolates the nodal fields `fields` defined
+on the staggered grid `grid` onto the new particle field `args`.
+"""
 function inject_particles!(particles::Particles, args, fields, grid::NTuple{2,T}) where {T}
     # unpack
     (; inject, coords, index, nxcell) = particles
@@ -123,6 +133,13 @@ end
 
 # Injection of particles when multiple phases are present
 
+"""
+    inject_particles_phase!(particles, particles_phases, args, fields, grid)
+
+Injects new particles in the struct `particles` and interpolates the nodal fields `fields` defined
+on the staggered grid `grid` onto the new particle field `args`. The phase of the particle is given
+by `particles_phases`.
+"""
 function inject_particles_phase!(particles::Particles, particles_phases, args, fields, grid)
     # unpack
     (; inject, coords, index, min_xcell) = particles
@@ -210,24 +227,7 @@ end
 
 @inline distance2(x, y) = mapreduce(x -> (x[1]-x[2])^2, +, zip(x,y)) |> sqrt
 
-# function index_min_distance(coords, pn, current_cell, idx_cell::Vararg{Int, N}) where N
-#     idx_min = 0
-#     dist_min = Inf
-#     px, py = coords
-#     for ip in axes(px, 1)
-#         ip==current_cell && continue
-#         isnan(px[ip, idx_cell...]) && continue
-#         pxi = px[ip, idx_cell...], py[ip, idx_cell...]
-#         d = distance(pxi, pn)
-#         if d < dist_min
-#             idx_min = ip
-#             dist_min = d
-#         end
-#     end
-
-#     idx_min
-# end
-
+# find index of the closest particle w.r.t the new particle
 function index_min_distance(coords, pn, index, current_cell, icell, jcell)
    
     particle_idx_min = i_min = j_min = 0
@@ -295,13 +295,3 @@ function new_particle(xvi::NTuple{N,T}, di::NTuple{N,T}) where {N,T}
     end
     return p_new
 end
-
-# Txyz = [thermal.T[(idx_cell .+ (i,j,k))...] for i in 0:1, j in 0:1, k in 0:1][:]
-
-# cxyz = [corner_coordinate(grid, idx_cell .+ (i,j,k)) for i in 0:1, j in 0:1, k in 0:1][:]
-# cx = [c[1] for c in cxyz]
-# cy = [c[2] for c in cxyz]
-# cz = [c[3] for c in cxyz]
-
-# scatter(cx,cy,cz)
-# scatter!(p_new, color=:red)
