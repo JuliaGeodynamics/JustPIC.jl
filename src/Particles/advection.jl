@@ -1,8 +1,17 @@
-# Runge-KuttaMETHODS 
-
 ## 2D SPECIFIC FUNCTIONS 
+"""
+    advection_RK!(particles, V, grid_vx, grid_vy, dt, α)
 
-# Main Runge-Kuttaadvection function for 2D staggered grids
+Advect `particles` with the velocity field `V::NTuple{dims, AbstractArray{T,dims}`
+on the staggered grid given by `grid_vx` and `grid_vy`using a Runge-Kutta2 scheme 
+with `α` and time step `dt`.
+
+    xᵢ ← xᵢ + h*( (1-1/(2α))*f(t,xᵢ) + f(t, y+α*h*f(t,xᵢ))) / (2α)
+        α = 0.5 ==> midpoint
+        α = 1   ==> Heun
+        α = 2/3 ==> Ralston
+"""
+# Main Runge-Kutta advection function for 2D staggered grids
 function advection_RK!(
     particles::Particles, V, grid_vx::NTuple{2,T}, grid_vy::NTuple{2,T}, dt, α
 ) where {T}
@@ -52,7 +61,7 @@ end
 
 ## 3D SPECIFIC FUNCTIONS 
 
-# Main Runge-Kuttaadvection function for 3D staggered grids
+# Main Runge-Kutta advection function for 3D staggered grids
 
 function advection_RK!(
     particles::Particles, V, grid_vx::NTuple{3,T}, grid_vy::NTuple{3,T}, grid_vz::NTuple{3,T}, dt, α
@@ -109,17 +118,6 @@ end
 
 # DIMENSION AGNOSTIC KERNELS
 
-"""
-    advect_particle_RK(p0, V, grid_vi, dxi, dt, idx, α)
-
-Runge-Kuttaadvection of a single particle with coordinates `p0::NTuple{dims, T}` and velocity `V::::NTuple{dims, AbstractArray{T,dims}` 
-on a staggered grid `grid_vi` with cell sizes `dxi` and cell indices `idx` over a time step `dt` with RK2 parameter `α`.
-
-    xᵢ ← xᵢ + h*( (1-1/(2α))*f(t,xᵢ) + f(t, y+α*h*f(t,xᵢ))) / (2α)
-        α = 0.5 ==> midpoint
-        α = 1   ==> Heun
-        α = 2/3 ==> Ralston
-"""
 function advect_particle_RK(
     p0::NTuple{N,T},
     V::NTuple{N,AbstractArray{T,N}},

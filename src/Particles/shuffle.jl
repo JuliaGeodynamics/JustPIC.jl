@@ -1,3 +1,8 @@
+"""
+    shuffle_particles!(particles, grid, args)
+
+Move `particles` and their fields `args` to their new CellArray after advection.
+"""
 function shuffle_particles!(particles::Particles, grid::NTuple{2,T}, args) where {T}
     # unpack
     (; coords, index) = particles

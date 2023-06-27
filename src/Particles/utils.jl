@@ -21,7 +21,7 @@ function neighbouring_cells(i, j, nx, ny)
 end
 
 function neighbouring_cells(i, j, k, nx, ny, nz)
-    nxi = (nx, ny, nz)
+    nxi = nx, ny, nz
     idx = (
         cart2lin((clamp(i - 1, 1, nx), clamp(j - 1, 1, ny), clamp(k - 1, 1, nz)), nxi),
         cart2lin((clamp(i, 1, nx), clamp(j - 1, 1, ny), clamp(k - 1, 1, nz)), nxi),
