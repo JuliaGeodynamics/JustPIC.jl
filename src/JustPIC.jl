@@ -10,7 +10,7 @@ const PS_PACKAGE = ENV["PS_PACKAGE"]
 if !ParallelStencil.is_initialized()
     if PS_PACKAGE === "CUDA" 
         @eval @init_parallel_stencil(CUDA, Float64, 2) 
-    else
+    elseif PS_PACKAGE === "Threads"
         @eval @init_parallel_stencil(Threads, Float64, 2)
     end
 end
@@ -19,6 +19,7 @@ include("CellArrays/CellArrays.jl")
 export @cell
 
 include("Utils.jl")
+export init_cell_arrays, cell_array
 
 # INTERPOLATION RELATED FILES
 
