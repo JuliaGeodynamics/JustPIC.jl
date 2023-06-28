@@ -106,7 +106,6 @@ end
     end
     # early escape
     val ≥ min_xcell && return false
-
     # tail
     n = cellnum(index)
     for i in min_xcell+1:n

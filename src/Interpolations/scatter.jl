@@ -13,15 +13,13 @@ function _grid2particle(
     return Fp
 end
 
-
 # LAUNCHERS
 
 ## CPU 2D
 
 function grid2particle!(Fp::AbstractArray, xvi, F::Array{T,2}, particle_coords) where {T}
-    di = grid_size(xvi)
+    di     = grid_size(xvi)
     nx, ny = length.(xvi)
-    # max_xcell = cellnum(particle_coords[1])
     Threads.@threads for jnode in 1:(ny - 1)
         for inode in 1:(nx - 1)
             _grid2particle!(
@@ -36,9 +34,8 @@ end
 
 function grid2particle!(Fp::AbstractArray, xvi, F::Array{T,3}, particle_coords) where {T}
     # cell dimensions
-    di = grid_size(xvi)
+    di         = grid_size(xvi)
     nx, ny, nz = length.(xvi)
-    # max_xcell = size(particle_coords[1], 1)
     Threads.@threads for knode in 1:(nz - 1)
         for jnode in 1:(ny - 1), inode in 1:(nx - 1)
             _grid2particle!(
@@ -54,8 +51,7 @@ function grid2particle!(
     Fp, xvi, F::CuArray{T,2}, particle_coords
 ) where {T}
     # cell dimensions
-    di = grid_size(xvi)
-    # max_xcell = cellnum(particle_coords[1]) 
+    di       = grid_size(xvi)
     nx, ny   = size(particle_coords[1])
     nblocksx = ceil(Int, nx / 32)
     nblocksy = ceil(Int, ny / 32)
@@ -74,8 +70,7 @@ function grid2particle!(
 ) where {T}
 
     # cell dimensions
-    di = grid_size(xvi)
-    # max_xcell = cellnum(particle_coords[1]) 
+    di         = grid_size(xvi)
     nx, ny, nz = size(Fp)
     threadsx   = 8
     threadsy   = 8
