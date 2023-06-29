@@ -13,8 +13,8 @@ Return a the element with `element_indices` of the Cell with `cell_indices` of t
 - `element_indices::Int|NTuple{N,Int}`: the `element_indices` that designate the field in accordance with `A`'s cell type.
 - `cell_indices::Int|NTuple{N,Int}`: the `cell_indices` that designate the cell in accordance with `A`'s cell type.
 """
-Base.@propagate_inbounds @inline element(A::CellArray{SVector, N, D, T_elem}, i::Int, icell::Vararg{Int, Nc}) where {T_elem, N, Nc, D}  = viewelement(A, i, icell...)
-Base.@propagate_inbounds @inline element(A::CellArray, i::T, j::T, icell::Vararg{Int, Nc})                    where {Nc, T<:Int}        = viewelement(A, i, j, icell...)
+Base.@propagate_inbounds @inline element(A::CellArray{SVector, N, D, T_elem}, i::Int, icell::Vararg{Int, Nc}) where {T_elem, N, Nc, D} = viewelement(A, i, icell...)
+Base.@propagate_inbounds @inline element(A::CellArray, i::T, j::T, icell::Vararg{Int, Nc})                    where {Nc, T<:Int}       = viewelement(A, i, j, icell...)
 
 Base.@propagate_inbounds @inline function viewelement(A::CellArray{SMatrix{Ni, Nj, T, N_array}, N, D, T_elem}, i, j, icell::Vararg{Int, Nc}) where {Nc, Ni, Nj, N_array, T, N, T_elem, D} 
     idx_element = cart2ind((Ni, Nj), i, j)
@@ -22,13 +22,13 @@ Base.@propagate_inbounds @inline function viewelement(A::CellArray{SMatrix{Ni, N
     _viewelement(A.data, idx_element, idx_cell)
 end
 
-Base.@propagate_inbounds @inline function viewelement(A::CellArray{SVector{Ni, T}, N, D, T_elem}, i, icell::Vararg{Int, Nc})  where {Nc, Ni, N, T, T_elem, D}
+Base.@propagate_inbounds @inline function viewelement(A::CellArray{SVector{Ni, T}, N, D, T_elem}, i, icell::Vararg{Int, Nc}) where {Nc, Ni, N, T, T_elem, D}
     idx_cell = cart2ind(A.dims, icell...)
     _viewelement(A.data, i, idx_cell)
 end
 
 Base.@propagate_inbounds @inline _viewelement(A::Array, idx, icell) = A[1, idx, icell]
-Base.@propagate_inbounds @inline _viewelement(A, idx, icell)  = A[icell, idx, 1]
+Base.@propagate_inbounds @inline _viewelement(A, idx, icell) = A[icell, idx, 1]
 
 """
     setelement!(A, x, element_indices..., cell_indices...)
@@ -60,7 +60,6 @@ Base.@propagate_inbounds @inline _setelement!(A, x, idx::Int, icell::Int) = (A[i
 #     cart2ind(A)
 #
 # Return the linear index of a `n`-dimensional array corresponding to the cartesian indices `I`
-#
 # """
 @inline cart2ind(n::NTuple{N1, Int}, I::Vararg{Int, N2}) where {N1, N2} = LinearIndices(n)[CartesianIndex(I...)]
 @inline cart2ind(ni::T, nj::T, i::T, j::T)               where T<:Int   = cart2ind((ni, nj), i, j)
