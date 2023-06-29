@@ -2,8 +2,9 @@ ENV["PS_PACKAGE"] = "Threads"
 
 using JustPIC
 using CellArrays
-using ParallelStencil
 using GLMakie
+using ImplicitGlobalGrid
+using ParallelStencil
 @init_parallel_stencil(Threads, Float64, 2)
 
 const TA = ENV["PS_PACKAGE"] == "CUDA" ? JustPIC.CUDA.CuArray : Array
@@ -17,9 +18,9 @@ function init_particle(nxcell, max_xcell, min_xcell, x, y, dx, dy, nx, ny)
     inject = @fill(false, nx, ny, eltype=Bool)
     index = @fill(false, ni..., celldims=(max_xcell,), eltype=Bool) 
 
-    i , j  = Int(nx÷3), Int(ny÷3)
+    i  ,j  = Int(nx÷3), Int(ny÷3)
     x0, y0 = x[i], y[j]
-    @show i,j
+
     @cell    px[1, i, j] = x0 + dx * rand(0.05:1e-5: 0.95)
     @cell    py[1, i, j] = y0 + dy * rand(0.05:1e-5: 0.95)
     @cell index[1, i, j] = true
@@ -40,6 +41,13 @@ function expand_range(x::AbstractRange)
     range(xI, xF, length=n+2)
 end
 
+function expand_range(x::AbstractArray, dx)
+    x1, x2 = extrema(x)
+    xI = round(x1-dx; sigdigits=5)
+    xF = round(x2+dx; sigdigits=5)
+    x = TA(vcat(xI, x, xF))
+end
+
 # Analytical flow solution
 vx_stream(x, y) =   250 * sin(π*x) * cos(π*y)
 vy_stream(x, y) =  -250 * cos(π*x) * sin(π*y)
@@ -51,20 +59,28 @@ g(x) = Point2f(
 function main()
     # Initialize particles -------------------------------
     nxcell, max_xcell, min_xcell = 24, 48, 18
-    n = 65
-    nx = ny = n-1
-    Lx = Ly = 1.0
+    n   = 64
+    nx  = ny = n-1
+    igg = init_global_grid(n, n, 0; init_MPI=false)
+    Lx  = Ly = 1.0
+    dxi = dx, dy = Lx /nx_g(), Ly / ny_g()
     # nodal vertices
-    xvi = xv, yv = range(0, Lx, length=n), range(0, Ly, length=n)
-    dxi = dx, dy = xv[2] - xv[1], yv[2] - yv[1]
+    xv  = @zeros(n) 
+    yv  = @zeros(n) 
+    xv .= TA([x_g(i, dx, xv) for i in eachindex(xv)])
+    yv  = deepcopy(xv)
+    xvi = xv, yv
     # nodal centers
-    xci = xc, yc = range(0+dx/2, Lx-dx/2, length=n-1), range(0+dy/2, Ly-dy/2, length=n-1)
-    # staggered grid velocity nodal locations
-    grid_vx = xv, expand_range(yc)
-    grid_vy = expand_range(xc), yv
+    xc  = @zeros(nx) 
+    xc .= TA([x_g(i, dx, xc) for i in eachindex(xc)])
+    yc  = deepcopy(xc)
+    xci = xc, yc
+    # staggered grid for the velocity components
+    grid_vx = xv, expand_range(yc, dy)
+    grid_vy = expand_range(xc, dx), yv
 
     particles = init_particle(
-        nxcell, max_xcell, min_xcell, xvi..., dxi..., nx, ny
+        nxcell, max_xcell, min_xcell, xv, yv, dxi..., nx, ny
     )
 
     # allocate particle field
@@ -83,15 +99,23 @@ function main()
     p = [(pxv[idxv][1], pyv[idxv][1])]
 
     # Advection test
-    niter = 750
+    niter = 150
     for iter in 1:niter
         advection_RK!(particles, V, grid_vx, grid_vy, dt, 2 / 3)
         shuffle_particles!(particles, xvi, particle_args)
+
+        update_halo!(particles.coords[1].data);
+        update_halo!(particles.coords[2].data);
+        update_halo!(particles.index.data);
+        for arg in particle_args
+            update_halo!(arg)
+        end
 
         pxv = particles.coords[1].data;
         pyv = particles.coords[2].data;
         idxv = particles.index.data;
         p_i = (pxv[idxv][1], pyv[idxv][1])
+        # @show p_i, iter
         push!(p, p_i)
     end
 
@@ -101,6 +125,6 @@ function main()
 
 end
 
-# @time f = main()
+@time f = main()
 # save("single_particle_advection.png", f)
 # f

@@ -58,7 +58,7 @@ g(x) = Point2f(
 function main()
     # Initialize particles -------------------------------
     nxcell, max_xcell, min_xcell = 24, 48, 18
-    n = 65
+    n = 128
     nx = ny = n-1
     Lx = Ly = 1.0
     # nodal vertices
@@ -87,13 +87,21 @@ function main()
     grid2particle!(pT, xvi, T, particles.coords)
     
     niter = 150
+    to = TimerOutput()
     for _ in 1:niter
-        advection_RK!(particles, V, grid_vx, grid_vy, dt, 2 / 3)
-        shuffle_particles!(particles, xvi, particle_args)
-        particle2grid!(T, pT, xvi, particles.coords)
+        @timeit to "advection" advection_RK!(particles, V, grid_vx, grid_vy, dt, 2 / 3)
+        @timeit to "shuffling" shuffle_particles!(particles, xvi, particle_args)
+        @timeit to "to grid" particle2grid!(T, pT, xvi, particles.coords)
     end
-
+    display(to)
     f = heatmap(xvi..., T)
+
+    f, ax, = heatmap(xvi..., T, colormap=:batlow)
+    streamplot!(ax, g, xvi...)
+    f
 end
 
-@time main()
+main()
+
+ProfileCanvas.@profview for i in 1:100 shuffle_particles!(particles, xvi, particle_args) end
+ProfileCanvas.@profview for i in 1:100  advection_RK!(particles, V, grid_vx, grid_vy, dt, 2 / 3) end
