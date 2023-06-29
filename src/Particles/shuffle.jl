@@ -175,6 +175,8 @@ function shuffle_kernel!(
     end
 end
 
+## Utility functions
+
 function find_free_memory(index, I::Vararg{Int, N}) where {N}
     for i in cellaxes(index)
         !(@cell(index[i, I...])) && return i
@@ -186,8 +188,9 @@ end
     quote
         Base.@_inline_meta
         Base.Cartesian.@nexprs $N i -> (
-            @inbounds (domain_limits[i][1] > p[i]) && return false;
-            @inbounds (p[i] > domain_limits[i][2]) && return false
+            # @inbounds (domain_limits[i][1] > p[i]) && return false;
+            # @inbounds (p[i] > domain_limits[i][2]) && return false
+            @inbounds ((domain_limits[i][1] > p[i]) || (p[i] > domain_limits[i][2])) && return false
         )
         return true
     end
@@ -243,7 +246,7 @@ function clean_particles!(particles::Particles, grid, args)
     (; coords, index) = particles    
     dxi = compute_dx(grid)
     ni  = size(index)
-    @parallel (@idx ni) _clean!(
+    @parallel (@range ni) _clean!(
         coords, grid, dxi, index, args
     )
     return nothing
