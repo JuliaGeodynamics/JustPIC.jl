@@ -1,5 +1,7 @@
 module JustPIC
 
+using ImplicitGlobalGrid
+import MPI
 using MuladdMacro
 using ParallelStencil
 using CUDA
@@ -8,6 +10,7 @@ using CellArrays
 const PS_PACKAGE = ENV["PS_PACKAGE"]
 
 if !ParallelStencil.is_initialized()
+    println("Activating ParallelStencil with $PS_PACKAGE \n")
     if PS_PACKAGE === "CUDA" 
         @eval @init_parallel_stencil(CUDA, Float64, 2) 
     elseif PS_PACKAGE === "Threads"
@@ -16,10 +19,13 @@ if !ParallelStencil.is_initialized()
 end
 
 include("CellArrays/CellArrays.jl")
-export @cell
+export @cell, cellnum, cellaxes
 
 include("Utils.jl")
-export init_cell_arrays, cell_array
+export @range, init_cell_arrays, cell_array
+
+include("CellArrays/ImplicitGlobalGrid.jl")
+export update_cell_halo!
 
 # INTERPOLATION RELATED FILES
 
