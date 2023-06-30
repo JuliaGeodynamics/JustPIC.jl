@@ -1,6 +1,6 @@
 name = "JustPIC"
 uuid = "10dc771f-8528-4cd9-9d3b-b21b2e693339"
-authors = ["Ivan Utkin <iutkin@ethz.ch>"]
+authors = ["Albert De Montserrat <albertdemontserratnavarro@erdw.ethz.ch>, Ivan Utkin <iutkin@ethz.ch>"]
 version = "0.1.0"
 
 [deps]
