@@ -37,8 +37,6 @@ function init_particles(nxcell, max_xcell, min_xcell, x, y, dx, dy, nx, ny)
     )
 end
 
-cell_array(false, (max_xcell,), nx, ny)
-
 function expand_range(x::AbstractRange)
     dx = x[2] - x[1]
     n = length(x)
@@ -99,4 +97,4 @@ function main()
     f
 end
 
-main()
+f = main()
