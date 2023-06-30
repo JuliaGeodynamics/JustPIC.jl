@@ -1,12 +1,13 @@
-ENV["PS_PACKAGE"] = "Threads"
-
 using JustPIC
+
+# set_backend("CUDA") # need to restart session if this changes
+
 using CellArrays
 using ParallelStencil
 using GLMakie
-@init_parallel_stencil(Threads, Float64, 2)
+@init_parallel_stencil(CUDA, Float64, 2)
 
-const TA = ENV["PS_PACKAGE"] == "CUDA" ? JustPIC.CUDA.CuArray : Array
+const TA = backend == "CUDA" ? JustPIC.CUDA.CuArray : Array
 
 function init_particle(nxcell, max_xcell, min_xcell, x, y, dx, dy, nx, ny)
     ni = nx, ny
