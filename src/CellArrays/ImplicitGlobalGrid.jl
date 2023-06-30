@@ -3,16 +3,18 @@
 
 Update the halo of the `CellArray` `x`
 """
-function update_cell_halo!(x)
-    ni = size(x)
-    tmp = @fill(0, ni..., eltype=eltype(x.data))
+function update_cell_halo!(x::Vararg{CellArray, N}) where N
+    ni = size(x[1])
+    tmp = @fill(0, ni..., eltype=eltype(x[1].data))
 
-    for ip in cellaxes(x)
-        tmp .= field(x, ip)
-        update_halo!(tmp)
-        @parallel (@range ni) copy_field!(x, tmp, ip)
+    for i in 1:N
+        for ip in cellaxes(x[i])
+            tmp .= field(x[i], ip)
+            update_halo!(tmp)
+            @parallel (@range ni) copy_field!(x[i], tmp, ip)
+        end
     end
-
+    return nothing
 end
 
 @parallel_indices (i, j) function copy_field!(A::CellArray, B::AbstractArray{T, 2}, ip) where T
