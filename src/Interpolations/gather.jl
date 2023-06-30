@@ -98,13 +98,13 @@ end
 function particle2grid!(
     F::CuArray, Fp::AbstractArray, xi::NTuple{2,T}, particle_coords
 ) where {T}
-    di = grid_size(xi)
-
-    nx, ny = size(particle_coords[1])
-    nblocksx = ceil(Int, nx / 32)
-    nblocksy = ceil(Int, ny / 32)
-    threadsx = 32
-    threadsy = 32
+    di       = grid_size(xi)
+    nx, ny   = size(particle_coords[1])
+    n        = 16
+    nblocksx = ceil(Int, nx / n)
+    nblocksy = ceil(Int, ny / n)
+    threadsx = n
+    threadsy = n
 
     CUDA.@sync begin
         @cuda threads = (threadsx, threadsy) blocks = (nblocksx, nblocksy) _particle2grid!!(
