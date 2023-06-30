@@ -6,17 +6,23 @@ using MuladdMacro
 using ParallelStencil
 using CUDA
 using CellArrays
+using Preferences
 
-const PS_PACKAGE = ENV["PS_PACKAGE"]
-
-if !ParallelStencil.is_initialized()
-    println("Activating ParallelStencil with $PS_PACKAGE \n")
-    if PS_PACKAGE === "CUDA" 
-        @eval @init_parallel_stencil(CUDA, Float64, 2) 
-    elseif PS_PACKAGE === "Threads"
-        @eval @init_parallel_stencil(Threads, Float64, 2)
+function set_backend(new_backend::String)
+    if !(new_backend in ("Threads", "CUDA"))
+        throw(ArgumentError("Invalid backend: \"$(new_backend)\""))
     end
+
+    # Set it in our runtime values, as well as saving it to disk
+    @set_preferences!("backend" => new_backend)
+    @info("New backend set; restart your Julia session for this change to take effect!")
 end
+
+const backend = @load_preference("backend", "Threads")
+
+export backend, set_backend
+
+@eval @init_parallel_stencil($(Symbol(backend)), Float64, 2) 
 
 include("CellArrays/CellArrays.jl")
 export @cell, cellnum, cellaxes
