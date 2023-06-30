@@ -1,15 +1,18 @@
 ENV["PS_PACKAGE"] = "Threads"
 
-using JustPIC
-using CellArrays
-using GLMakie
-using ImplicitGlobalGrid
 using ParallelStencil
 @init_parallel_stencil(Threads, Float64, 2)
 
+using JustPIC
+using JustPIC.ImplicitGlobalGrid
+using CellArrays
+using GLMakie
+# using ImplicitGlobalGrid
+import MPI
+
 const TA = ENV["PS_PACKAGE"] == "CUDA" ? JustPIC.CUDA.CuArray : Array
 
-function init_particle(nxcell, max_xcell, min_xcell, x, y, dx, dy, nx, ny)
+function init_particle(nxcell, max_xcell, min_xcell, x, y, dx, dy, nx, ny, me)
     ni = nx, ny
     ncells = nx * ny
     np = max_xcell * ncells
@@ -18,13 +21,14 @@ function init_particle(nxcell, max_xcell, min_xcell, x, y, dx, dy, nx, ny)
     inject = @fill(false, nx, ny, eltype=Bool)
     index = @fill(false, ni..., celldims=(max_xcell,), eltype=Bool) 
 
-    i  ,j  = Int(nx÷3), Int(ny÷3)
-    x0, y0 = x[i], y[j]
+    if me == 0
+        i  ,j  = Int(nx_g()÷3), Int(nx_g()÷3)
+        x0, y0 = x[i], y[j]
 
-    @cell    px[1, i, j] = x0 + dx * rand(0.05:1e-5: 0.95)
-    @cell    py[1, i, j] = y0 + dy * rand(0.05:1e-5: 0.95)
-    @cell index[1, i, j] = true
-
+        @cell    px[1, i, j] = x0 + dx * rand(0.05:1e-5: 0.95)
+        @cell    py[1, i, j] = y0 + dy * rand(0.05:1e-5: 0.95)
+        @cell index[1, i, j] = true
+    end
     return Particles(
         (px, py), index, inject, nxcell, max_xcell, min_xcell, np, (nx, ny)
     )
@@ -58,29 +62,38 @@ g(x) = Point2f(
 
 function main()
     # Initialize particles -------------------------------
-    nxcell, max_xcell, min_xcell = 24, 48, 18
-    n   = 64
+    nxcell, max_xcell, min_xcell = 24, 24, 18
+    n   = 32
     nx  = ny = n-1
-    igg = init_global_grid(n, n, 0; init_MPI=false)
+    me, dims, = init_global_grid(
+        n-1, n-1, 0; 
+        init_MPI=JustPIC.MPI.Initialized() ? false : true, 
+        overlapx=2, overlapy=2
+    )
     Lx  = Ly = 1.0
-    dxi = dx, dy = Lx /nx_g(), Ly / ny_g()
+    dxi = dx, dy = Lx /(nx_g()-1), Ly / (ny_g()-1)
     # nodal vertices
-    xv  = @zeros(n) 
-    yv  = @zeros(n) 
-    xv .= TA([x_g(i, dx, xv) for i in eachindex(xv)])
-    yv  = deepcopy(xv)
-    xvi = xv, yv
+    xvi = xv, yv = let
+        dummy = zeros(n, n) 
+        xv  = TA([x_g(i, dx, dummy) for i in axes(dummy, 1)])
+        yv  = TA([y_g(i, dx, dummy) for i in axes(dummy, 2)])
+        xv, yv
+    end
     # nodal centers
-    xc  = @zeros(nx) 
-    xc .= TA([x_g(i, dx, xc) for i in eachindex(xc)])
-    yc  = deepcopy(xc)
-    xci = xc, yc
+    xci = xc, yc = let
+        dummy = zeros(nx, ny) 
+        xc  = @zeros(nx) 
+        xc .= TA([x_g(i, dx, dummy) for i in axes(dummy, 1)])
+        yc  = TA([y_g(i, dx, dummy) for i in axes(dummy, 2)])
+        xc, yc
+    end
+
     # staggered grid for the velocity components
     grid_vx = xv, expand_range(yc, dy)
     grid_vy = expand_range(xc, dx), yv
 
     particles = init_particle(
-        nxcell, max_xcell, min_xcell, xv, yv, dxi..., nx, ny
+        nxcell, max_xcell, min_xcell, xv, yv, dxi..., nx, ny, me
     )
 
     # allocate particle field
@@ -91,40 +104,77 @@ function main()
     Vy  = TA([vy_stream(x, y) for x in grid_vy[1], y in grid_vy[2]])
     V   = Vx, Vy
 
+    # time step
     dt = min(dx / maximum(abs.(Vx)),  dy / maximum(abs.(Vy)))
 
-    pxv = particles.coords[1].data;
-    pyv = particles.coords[2].data;
-    idxv = particles.index.data;
-    p = [(pxv[idxv][1], pyv[idxv][1])]
+    nx_v = (size(particles.coords[1].data, 2))*dims[1];
+    ny_v = (size(particles.coords[1].data, 3)-2)*dims[2];
+    px_v = fill(NaN, nx_v, ny_v)
+    py_v = fill(NaN, nx_v, ny_v)
+    index_v = fill(false, nx_v, ny_v)
+    px_nohalo = fill(NaN, size(particles.coords[1].data, 2), size(particles.coords[1].data, 3)-2)
+    py_nohalo = fill(NaN, size(particles.coords[1].data, 2), size(particles.coords[1].data, 3)-2)
+    index_nohalo = fill(false, size(particles.coords[1].data, 2), size(particles.coords[1].data, 3)-2)
+
+    p = [(NaN, NaN)]
 
     # Advection test
     niter = 150
     for iter in 1:niter
+
+        # advect particles
         advection_RK!(particles, V, grid_vx, grid_vy, dt, 2 / 3)
+        # update halos
+        update_cell_halo!(particles.coords..., particle_args...);
+        update_cell_halo!(particles.index)
+
+        # shuffle particles
         shuffle_particles!(particles, xvi, particle_args)
-
-        update_halo!(particles.coords[1].data);
-        update_halo!(particles.coords[2].data);
-        update_halo!(particles.index.data);
-        for arg in particle_args
-            update_halo!(arg)
+        
+        # gather particle data - for plotting only
+        @views px_nohalo .= particles.coords[1].data[1, :, 2:end-1]
+        @views py_nohalo .= particles.coords[2].data[1, :, 2:end-1]
+        @views index_nohalo .= particles.index.data[1, :, 2:end-1]
+        gather!(px_nohalo, px_v)
+        gather!(py_nohalo, py_v)
+        gather!(index_nohalo, index_v)
+        
+        if me == 0 
+            p_i = (px_v[index_v][1], py_v[index_v][1])
+            push!(p, p_i)
         end
-
-        pxv = particles.coords[1].data;
-        pyv = particles.coords[2].data;
-        idxv = particles.index.data;
-        p_i = (pxv[idxv][1], pyv[idxv][1])
-        # @show p_i, iter
-        push!(p, p_i)
+        
+        if me == 0 && iter % 10 == 0
+            w = 0.504
+            offset = 0.5-(w-0.5)
+            f, ax, = lines(
+                [0, w, w, 0, 0],
+                [0, 0, w, w, 0],
+                linewidth = 3
+            )
+            lines!(ax,
+                [0, w, w, 0, 0].+offset,
+                [0, 0, w, w, 0],
+                linewidth = 3
+            )
+            lines!(ax,
+                [0, w, w, 0, 0].+offset,
+                [0, 0, w, w, 0].+offset,
+                linewidth = 3
+            )
+            lines!(ax,
+                [0, w, w, 0, 0],
+                [0, 0, w, w, 0].+offset,
+                linewidth = 3
+            )
+            streamplot!(ax, g, LinRange(0, 1, 100), LinRange(0, 1, 100))
+            lines!(ax, p, color=:red)
+            scatter!(ax, p[end], color=:black)
+            save("figs/trajectory_MPI_$iter.png", f)
+        end
     end
 
-    f, ax, = streamplot(g, xvi...)
-    lines!(ax, p, color=:red)
-    f
-
+    finalize_global_grid();
 end
 
-@time f = main()
-# save("single_particle_advection.png", f)
-# f
+main()
