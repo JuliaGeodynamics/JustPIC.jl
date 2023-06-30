@@ -37,10 +37,10 @@ export update_cell_halo!
 
 include("Interpolations/utils.jl")
 
-include("Interpolations/gather.jl")
+include("Interpolations/particle_to_grid.jl")
 export particle2grid!
 
-include("Interpolations/scatter.jl")
+include("Interpolations/grid_to_particle.jl")
 export grid2particle!
 
 include("Interpolations/kernels.jl")
