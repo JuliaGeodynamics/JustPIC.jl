@@ -83,7 +83,7 @@ function main()
     p = [(pxv[idxv][1], pyv[idxv][1])]
 
     # Advection test
-    niter = 750
+    niter = 250
     for iter in 1:niter
         advection_RK!(particles, V, grid_vx, grid_vy, dt, 2 / 3)
         shuffle_particles!(particles, xvi, particle_args)
@@ -97,10 +97,10 @@ function main()
 
     f, ax, = streamplot(g, xvi...)
     lines!(ax, p, color=:red)
+    scatter!(ax, p[end], color=:black)
+    save("single_particle_advection.png", f)
     f
 
 end
 
-# @time f = main()
-# save("single_particle_advection.png", f)
-# f
+@time f = main()
