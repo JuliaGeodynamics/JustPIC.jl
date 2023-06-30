@@ -134,7 +134,16 @@ function advect_particle_RK(
     # interpolate velocity to current location
     vp0 = ntuple(ValN) do i
         Base.@_inline_meta
-        interp_velocity_grid2particle(p0, grid_vi[i], dxi, V[i], idx)
+        local_lims = extrema.(grid_vi[i])
+        v = if (local_lims[1][1] < p0[1] < local_lims[1][2]) && (local_lims[2][1] < p0[2] < local_lims[2][2])
+            interp_velocity_grid2particle(p0, grid_vi[i], dxi, V[i], idx)
+        
+        else
+            # if this condition is met, it means that the particle
+            # went outside the local rank domain. It will be removed 
+            # during shuffling
+            0.0
+        end
     end
 
     # advect α*dt
@@ -147,8 +156,10 @@ function advect_particle_RK(
     vp1 = ntuple(ValN) do i
         Base.@_inline_meta
         local_lims = extrema.(grid_vi[i])
-        v = if (local_lims[1][1] ≤ p1[1] ≤ local_lims[1][2]) && (local_lims[2][1] ≤ p1[2] ≤ local_lims[2][2])
+
+        v = if (local_lims[1][1] < p1[1] < local_lims[1][2]) && (local_lims[2][1] < p1[2] < local_lims[2][2])
             interp_velocity_grid2particle(p1, grid_vi[i], dxi, V[i], idx)
+
         else
             # if this condition is met, it means that the particle
             # went outside the local rank domain. It will be removed 
