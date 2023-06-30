@@ -3,31 +3,37 @@
 
 Move `particles` and their fields `args` to their new CellArray after advection.
 """
-function shuffle_particles!(particles::Particles, grid::NTuple{2,T}, args) where {T}
+function shuffle_particles!(particles::Particles, grid::NTuple{2,T}, args; origin=(0,0)) where {T}
     # unpack
     (; coords, index) = particles
     nxi = length.(grid)
     nx, ny = nxi
     dxi = compute_dx(grid)
 
+    # compute local grid limits
+    domain_limits = extrema.(grid)
+
     n_i = ceil(Int, nx * 0.5)
     n_j = ceil(Int, ny * 0.5)
 
     for offset_x in 1:2, offset_y in 1:2
         @parallel (1:n_i, 1:n_j) shuffle_particles_ps!(
-            coords, grid, dxi, nxi, index, offset_x, offset_y, args
+            coords, grid, domain_limits, dxi, nxi, index, offset_x, offset_y, args
         )
     end
 
     return nothing
 end
 
-function shuffle_particles!(particles::Particles, grid::NTuple{3,T}, args) where {T}
+function shuffle_particles!(particles::Particles, grid::NTuple{3,T}, args; origin=(0,0,0)) where {T}
     # unpack
     (; coords, index) = particles
     nxi = length.(grid)
     nx, ny, nz = nxi
     dxi = compute_dx(grid)
+
+    # compute local grid limits
+    domain_limits = extrema.(grid)
 
     n_i = ceil(Int, nx * 0.5)
     n_j = ceil(Int, ny * 0.5)
@@ -35,7 +41,7 @@ function shuffle_particles!(particles::Particles, grid::NTuple{3,T}, args) where
 
     for offset_x in 1:2, offset_y in 1:2, offset_z in 1:2
         @parallel (1:n_i, 1:n_j, 1:n_k) shuffle_particles_ps!(
-                coords, grid, dxi, nxi, index, offset_x, offset_y, offset_z, args,
+                coords, grid, domain_limits, dxi, nxi, index, offset_x, offset_y, offset_z, args,
             )
     end
 
@@ -43,7 +49,7 @@ function shuffle_particles!(particles::Particles, grid::NTuple{3,T}, args) where
 end
 
 @parallel_indices (icell, jcell) function shuffle_particles_ps!(
-    particle_coords, grid, dxi::NTuple{2,T}, nxi, index, offset_x, offset_y, args
+    particle_coords, grid, domain_limits, dxi::NTuple{2,T}, nxi, index, offset_x, offset_y, args
 ) where {T}
 
     nx, ny = nxi
@@ -51,7 +57,7 @@ end
     j = 2 * (jcell - 1) + offset_y
 
     if (i ≤ nx - 1) && (j ≤ ny - 1)
-        _shuffle_particles!(particle_coords, grid, dxi, nxi, index, (i, j), args)
+        _shuffle_particles!(particle_coords, grid, domain_limits, dxi, nxi, index, (i, j), args)
     end
 
     return nothing
@@ -60,6 +66,7 @@ end
 @parallel_indices (icell, jcell, kcell) function shuffle_particles_ps!(
     particle_coords,
     grid,
+    domain_limits,
     dxi::NTuple{3,T},
     nxi,
     index,
@@ -74,19 +81,19 @@ end
     k = 2 * (kcell - 1) + offset_z
 
     if (i ≤ nx - 1) && (j ≤ ny - 1) && (k ≤ nz - 1)
-        _shuffle_particles!(particle_coords, grid, dxi, nxi, index, (i, j, k), args)
+        _shuffle_particles!(particle_coords, grid, domain_limits, dxi, nxi, index, (i, j, k), args)
     end
 
     return nothing
 end
 
 function _shuffle_particles!(
-    particle_coords, grid, dxi, nxi, index, parent_cell::NTuple{2,Integer}, args
+    particle_coords, grid, domain_limits, dxi, nxi, index, parent_cell::NTuple{2,Integer}, args
 ) 
     # coordinate of the lower-most-left coordinate of the parent cell 
     corner_xi = corner_coordinate(grid, parent_cell)
     # iterate over neighbouring (child) cells
-    domain_limits = ntuple(i->extrema(grid[i]), Val(2)) 
+    # domain_limits = extrema.(grid)
     for j in -1:1, i in -1:1
         idx_loop = (i, j)
         if idx_loop != (0, 0)
@@ -100,11 +107,11 @@ function _shuffle_particles!(
 end
 
 function _shuffle_particles!(
-    particle_coords, grid, dxi, nxi, index, parent_cell::NTuple{3,Integer}, args
+    particle_coords, grid, domain_limits, dxi, nxi, index, parent_cell::NTuple{3,Integer}, args
 )
     # coordinate of the lower-most-left coordinate of the parent cell 
     corner_xi = corner_coordinate(grid, parent_cell)
-    domain_limits = ntuple(i->extrema(grid[i]), Val(3)) 
+    # domain_limits = extrema.(grid)
     # iterate over neighbouring (child) cells
     for k in -1:1, j in -1:1, i in -1:1
         idx_loop = (i, j, k)
@@ -279,4 +286,15 @@ function clean_kernel!(particle_coords, grid, dxi, index, args, cell_indices::Va
         end
     end
     return
+end
+
+function global_domain_limits(origin::NTuple{N, Any}, dxi::NTuple{N, Any}) where N
+    
+    fn = nx_g, ny_g, nz_g
+
+    lims = ntuple(Val(N)) do i
+        origin[i], (fn[i]()-1) * dxi[i]
+    end
+
+    return lims
 end
