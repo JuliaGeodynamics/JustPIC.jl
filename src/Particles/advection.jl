@@ -146,7 +146,15 @@ function advect_particle_RK(
     # interpolate velocity to new location
     vp1 = ntuple(ValN) do i
         Base.@_inline_meta
-        interp_velocity_grid2particle(p1, grid_vi[i], dxi, V[i], idx)
+        local_lims = extrema.(grid_vi[i])
+        v = if (local_lims[1][1] ≤ p1[1] ≤ local_lims[1][2]) && (local_lims[2][1] ≤ p1[2] ≤ local_lims[2][2])
+            interp_velocity_grid2particle(p1, grid_vi[i], dxi, V[i], idx)
+        else
+            # if this condition is met, it means that the particle
+            # went outside the local rank domain. It will be removed 
+            # during shuffling
+            0.0
+        end
     end
 
     # final advection step
@@ -162,13 +170,12 @@ function advect_particle_RK(
     return pf
 end
 
-
 # Interpolate velocity from staggered grid to particle
 function interp_velocity_grid2particle(
     p_i::NTuple, xi_vx::NTuple, dxi::NTuple, F::AbstractArray, idx
 )
     # F and coordinates at/of the cell corners
-    Fi, xci = @inbounds corner_field_nodes(F, p_i, xi_vx, dxi, idx)
+    Fi, xci = corner_field_nodes(F, p_i, xi_vx, dxi, idx)
     # normalize particle coordinates
     ti = normalize_coordinates(p_i, xci, dxi)
     # Interpolate field F onto particle
@@ -177,7 +184,7 @@ function interp_velocity_grid2particle(
 end
 
 # Get field F and nodal indices of the cell corners where the particle is located
-Base.@propagate_inbounds function corner_field_nodes(
+function corner_field_nodes(
     F::AbstractArray{T, N}, p_i, xi_vx, dxi, idx::NTuple{N, Integer}
 ) where {N, T}
 
