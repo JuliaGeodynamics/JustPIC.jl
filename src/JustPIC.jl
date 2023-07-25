@@ -20,7 +20,9 @@ end
 
 const backend = @load_preference("backend", "Threads")
 
-export backend, set_backend
+const TA = backend == "CUDA" ? JustPIC.CUDA.CuArray : Array
+
+export backend, set_backend, TA
 
 @eval @init_parallel_stencil($(Symbol(backend)), Float64, 2) 
 
@@ -28,7 +30,7 @@ include("CellArrays/CellArrays.jl")
 export @cell, cellnum, cellaxes
 
 include("Utils.jl")
-export @range, init_cell_arrays, cell_array
+export @range, @idx, init_cell_arrays, cell_array, add_global_ghost_nodes
 
 include("CellArrays/ImplicitGlobalGrid.jl")
 export update_cell_halo!
