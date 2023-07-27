@@ -26,7 +26,7 @@ end
 """
     add_global_ghost_nodes(x, dx, origin)
 
-Add ghost nodes to the array `x` with spacing `dx` and origin `origin`    
+Add ghost nodes to the global coordinates array `x` with spacing `dx` and origin `origin`    
 """
 function add_global_ghost_nodes(x::AbstractArray, dx, origin)
     x1, x2 = extrema(x)
@@ -37,6 +37,17 @@ function add_global_ghost_nodes(x::AbstractArray, dx, origin)
     x = TA(x)
 end
 
+"""
+    add_ghost_nodes(x, dx, origin)
+
+Add ghost nodes to the local coordinates array `x` with spacing `dx` and origin `origin`    
+"""
+function add_ghost_nodes(x::AbstractArray, dx, origin)
+    x1, x2 = extrema(x)
+    xI = round(x1-dx; sigdigits=5)
+    xF = round(x2+dx; sigdigits=5)
+    x = TA(vcat(xI, x, xF))
+end
 
 """
     @idx(args...)
