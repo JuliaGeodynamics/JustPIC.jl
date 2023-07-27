@@ -8,8 +8,6 @@ using GLMakie
 using ImplicitGlobalGrid
 @init_parallel_stencil(Threads, Float64, 2)
 
-const TA = backend == "CUDA" ? JustPIC.CUDA.CuArray : Array
-
 function init_particles(nxcell, max_xcell, min_xcell, x, y, dx, dy, nx, ny)
     ni = nx, ny
     ncells = nx * ny
@@ -38,24 +36,6 @@ function init_particles(nxcell, max_xcell, min_xcell, x, y, dx, dy, nx, ny)
     )
 end
 
-function expand_range(x::AbstractRange)
-    dx = x[2] - x[1]
-    n = length(x)
-    x1, x2 = extrema(x)
-    xI = round(x1-dx; sigdigits=5)
-    xF = round(x2+dx; sigdigits=5)
-    range(xI, xF, length=n+2)
-end
-
-function expand_range(x::AbstractArray, dx, origin)
-    x1, x2 = extrema(x)
-    xI = round(x1-dx; sigdigits=5)
-    xF = round(x2+dx; sigdigits=5)
-    x1 == origin[1] && (x = vcat(xI, x))
-    x2 == origin[2] && (x = vcat(x, xF))
-    x = TA(x)
-
-end
 # Analytical flow solution
 vx_stream(x, y) =  250 * sin(π*x) * cos(π*y)
 vy_stream(x, y) = -250 * cos(π*x) * sin(π*y)
@@ -89,9 +69,9 @@ function main()
     end
 
     # staggered grid for the velocity components
-    grid_vx = xv, expand_range(yc, dy)
-    grid_vy = expand_range(xc, dx), yv
-
+    grid_vx = xv, add_ghost_nodes(yc, dy, (0.0, Ly))
+    grid_vy = add_ghost_nodes(xc, dx, (0.0, Lx)), yv
+    
     particles = init_particles(
         nxcell, max_xcell, min_xcell, xvi..., dxi..., nx, ny
     )
@@ -100,11 +80,12 @@ function main()
     Vx = TA([vx_stream(x, y) for x in grid_vx[1], y in grid_vx[2]])
     Vy = TA([vy_stream(x, y) for x in grid_vy[1], y in grid_vy[2]])
     T  = TA([y for x in xv, y in yv])
+    T0 = deepcopy(T) 
     V  = Vx, Vy
 
     nx_v = (size(T, 1)-2)*dims[1];
     ny_v = (size(T, 2)-2)*dims[2];
-    T_v = zeros(nx_v, ny_v)
+    T_v  = zeros(nx_v, ny_v)
     T_nohalo = @zeros(size(T).-2)
 
     dt = min(dx / maximum(abs.(Vx)),  dy / maximum(abs.(Vy)))
@@ -113,10 +94,12 @@ function main()
     particle_args = pT, = init_cell_arrays(particles, Val(1))
     grid2particle!(pT, xvi, T, particles.coords)
     
-    niter = 150
+    niter = 250
     for iter in 1:niter
         me == 0 && @show iter
         
+        # grid2particle!(pT, xvi, T, T0, particles.coords)
+
         # advect particles
         advection_RK!(particles, V, grid_vx, grid_vy, dt, 2 / 3)
 
@@ -127,6 +110,7 @@ function main()
         shuffle_particles!(particles, xvi, particle_args)
         # interpolate T from particle to grid
         particle2grid!(T, pT, xvi, particles.coords)
+        # T0 .= deepcopy(T) 
 
         @views T_nohalo .= T[2:end-1, 2:end-1]
         gather!(T_nohalo, T_v)
