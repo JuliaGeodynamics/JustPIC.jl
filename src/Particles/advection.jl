@@ -135,6 +135,8 @@ function advect_particle_RK(
     vp0 = ntuple(ValN) do i
         Base.@_inline_meta
         local_lims = extrema.(grid_vi[i])
+        local_lims = ntuple(i->local_lims[i] .+ (dxi[1] * 0.5, -dxi[2] * 0.5) , Val(N))
+       
         v = if (local_lims[1][1] < p0[1] < local_lims[1][2]) && (local_lims[2][1] < p0[2] < local_lims[2][2])
             interp_velocity_grid2particle(p0, grid_vi[i], dxi, V[i], idx)
         
@@ -156,7 +158,8 @@ function advect_particle_RK(
     vp1 = ntuple(ValN) do i
         Base.@_inline_meta
         local_lims = extrema.(grid_vi[i])
-
+        local_lims = ntuple(i->local_lims[i] .+ (dxi[1] * 0.5, -dxi[2] * 0.5) , Val(N))
+       
         v = if (local_lims[1][1] < p1[1] < local_lims[1][2]) && (local_lims[2][1] < p1[2] < local_lims[2][2])
             interp_velocity_grid2particle(p1, grid_vi[i], dxi, V[i], idx)
 
