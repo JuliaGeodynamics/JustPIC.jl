@@ -25,9 +25,12 @@ function advection_RK!(
     nx, ny = size(px)
     # Need to transpose grid_vy and Vy to reuse interpolation kernels
     grid_vi = grid_vx, grid_vy
+    
+    local_limits = inner_limits(grid_vi, dxi)
+
     # launch parallel advection kernel
     @parallel (1:max_xcell, 1:nx, 1:ny) _advection_RK!(
-        coords, V, index, grid_vi, dxi, dt, α
+        coords, V, index, grid_vi, local_limits, dxi, dt, α
     )
 
     return nothing
@@ -39,6 +42,7 @@ end
     V::NTuple{2, T},
     index::AbstractArray,
     grid,
+    local_limits,
     dxi,
     dt,
     α,
@@ -50,7 +54,7 @@ end
         pᵢ = (@cell(px[ipart, icell, jcell]), @cell(py[ipart, icell, jcell]))
         if !any(isnan, pᵢ)
             px_new, py_new = advect_particle_RK(
-                pᵢ, V, grid, dxi, dt, (icell, jcell), α
+                pᵢ, V, grid, local_limits, dxi, dt, (icell, jcell), α
             )
             @cell px[ipart, icell, jcell] = px_new
             @cell py[ipart, icell, jcell] = py_new
@@ -75,9 +79,11 @@ function advection_RK!(
 
     # Need to transpose grid_vy and Vy to reuse interpolation kernels
     grid_vi = grid_vx, grid_vy, grid_vz
+    local_limits = inner_limits(grid_vi, dxi)
+
     # launch parallel advection kernel
     @parallel (1:nx, 1:ny, 1:nz) _advection_RK!(
-        coords, V, index, grid_vi, dxi, dt, α
+        coords, V, index, grid_vi, local_limits, dxi, dt, α
     )
 
     return nothing
@@ -90,6 +96,7 @@ end
     index,
     grid,
     dxi,
+    local_limits,
     dt,
     α,
 ) where T
@@ -105,7 +112,7 @@ end
 
             if !any(isnan, pᵢ)
                 px_new, py_new, pz_new = advect_particle_RK(
-                    pᵢ, V, grid, dxi, dt, (icell, jcell, kcell), α
+                    pᵢ, V, grid, local_limits, dxi, dt, (icell, jcell, kcell), α
                 )
                 @cell px[ipart, icell, jcell, kcell] = px_new
                 @cell py[ipart, icell, jcell, kcell] = py_new
@@ -123,6 +130,7 @@ function advect_particle_RK(
     p0::NTuple{N,T},
     V::NTuple{N,AbstractArray{T,N}},
     grid_vi,
+    local_limits,
     dxi,
     dt,
     idx::NTuple,
@@ -134,8 +142,10 @@ function advect_particle_RK(
     # interpolate velocity to current location
     vp0 = ntuple(ValN) do i
         Base.@_inline_meta
-        local_lims = extrema.(grid_vi[i])
-        local_lims = ntuple(i->local_lims[i] .+ (dxi[1] * 0.5, -dxi[2] * 0.5) , Val(N))
+        Base.@_propagate_inbounds_meta
+        # local_lims0 = firstlast.(grid_vi[i])
+        # local_lims = ntuple(j -> local_lims0[j] .+ (dxi[1] * 0.5, -dxi[2] * 0.5) , Val(N))
+        local_lims = local_limits[i]
        
         v = if (local_lims[1][1] < p0[1] < local_lims[1][2]) && (local_lims[2][1] < p0[2] < local_lims[2][2])
             interp_velocity_grid2particle(p0, grid_vi[i], dxi, V[i], idx)
@@ -156,10 +166,9 @@ function advect_particle_RK(
 
     # interpolate velocity to new location
     vp1 = ntuple(ValN) do i
+        Base.@_propagate_inbounds_meta
         Base.@_inline_meta
-        local_lims = extrema.(grid_vi[i])
-        local_lims = ntuple(i->local_lims[i] .+ (dxi[1] * 0.5, -dxi[2] * 0.5) , Val(N))
-       
+        local_lims = local_limits[i]
         v = if (local_lims[1][1] < p1[1] < local_lims[1][2]) && (local_lims[2][1] < p1[2] < local_lims[2][2])
             interp_velocity_grid2particle(p1, grid_vi[i], dxi, V[i], idx)
 
@@ -173,6 +182,7 @@ function advect_particle_RK(
 
     # final advection step
     pf = ntuple(ValN) do i
+        Base.@_propagate_inbounds_meta
         Base.@_inline_meta
         if α == 0.5
             @muladd p0[i] + dt * vp1[i]
@@ -250,4 +260,15 @@ end
         F[i , j1, k1], # v011
         F[i1, j1, k1], # v111
     )
+end
+
+function firstlast(x::AbstractArray)
+    first(x), last(x)
+end
+
+function inner_limits(grid, dxi::NTuple{N, T})  where {N,T}
+    ntuple(Val(N)) do i
+        x1 =  firstlast.(grid[i])
+        ntuple(j -> x1[j] .+ (dxi[j] * 0.5, -dxi[j] * 0.5) , Val(N))
+    end
 end
