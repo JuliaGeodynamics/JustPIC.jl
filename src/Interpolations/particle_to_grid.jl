@@ -1,7 +1,7 @@
 ## LAUNCHERS
 
 function particle2grid!(
-    F::Array, Fp::AbstractArray, xi::NTuple{2,T}, particle_coords
+    F::AbstractArray, Fp::AbstractArray, xi::NTuple{2,T}, particle_coords
 ) where {T}
     di = grid_size(xi)
 
