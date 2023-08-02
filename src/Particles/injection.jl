@@ -89,10 +89,7 @@ function _inject_particles!(
 )
     max_xcell = cellnum(index)
 
-    # closures -----------------------------------
-    first_cell_index(i) = (i - 1) * max_xcell + 1
-    # --------------------------------------------
-
+   
     @inbounds if inject[idx_cell...]
         # count current number of particles inside the cell
         particles_num = false
@@ -116,7 +113,7 @@ function _inject_particles!(
                     local_field = cell_field(field_i, idx_cell...)
                     upper = maximum(local_field)
                     lower = minimum(local_field)
-                    tmp   = _grid2particle_xvertex(p_new, grid, di, field_i, idx_cell)
+                    tmp   = _grid2particle(p_new, grid, di, field_i, idx_cell)
                     tmp < lower && (tmp = lower)
                     tmp > upper && (tmp = upper)
                     arg_i[i, idx_cell...] = tmp
