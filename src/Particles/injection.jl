@@ -206,7 +206,7 @@ function _inject_particles_phase!(
 
                 # interpolate fields into newly injected particle
                 for (arg_i, field_i) in zip(args, fields)
-                    tmp         = _grid2particle_xvertex(p_new, grid, di, field_i, idx_cell)
+                    tmp         = _grid2particle(p_new, grid, di, field_i, idx_cell)
                     local_field = cell_field(field_i, idx_cell...)
                     upper       = maximum(local_field)
                     lower       = minimum(local_field)
