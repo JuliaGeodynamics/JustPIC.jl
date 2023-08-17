@@ -8,8 +8,10 @@ using CUDA
 using CellArrays
 using Preferences
 
+CUDA.allowscalar(false)
+
 function set_backend(new_backend::String)
-    if !(new_backend in ("Threads", "CUDA"))
+    if !(new_backend in ("Threads_Float64_2D", "Threads_Float32_2D", "CUDA_Float64_2D", "CUDA_Float32_2D"))
         throw(ArgumentError("Invalid backend: \"$(new_backend)\""))
     end
 
@@ -18,13 +20,21 @@ function set_backend(new_backend::String)
     @info("New backend set; restart your Julia session for this change to take effect!")
 end
 
-const backend = @load_preference("backend", "Threads")
+const backend = @load_preference("backend", "Threads_Float64_2D")
 
-const TA = backend == "CUDA" ? JustPIC.CUDA.CuArray : Array
+const TA = occursin("CUDA", backend) ? JustPIC.CUDA.CuArray : Array
 
 export backend, set_backend, TA
 
-@eval @init_parallel_stencil($(Symbol(backend)), Float64, 2) 
+let 
+    s = split(backend, "_")
+    device = s[1]
+    precission = s[2]
+    dimension = parse(Int, s[3][1])
+    @eval begin
+        @init_parallel_stencil($(Symbol(device)), $(Symbol(precission)), $dimension) 
+    end    
+end
 
 include("CellArrays/CellArrays.jl")
 export @cell, cellnum, cellaxes
