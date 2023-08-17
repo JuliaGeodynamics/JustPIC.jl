@@ -46,7 +46,7 @@ function add_ghost_nodes(x::AbstractArray, dx, origin)
     x1, x2 = extrema(x)
     xI = round(x1-dx; sigdigits=5)
     xF = round(x2+dx; sigdigits=5)
-    x = TA(vcat(xI, x, xF))
+    x = TA(vcat(xI, Array(x), xF))
 end
 
 """

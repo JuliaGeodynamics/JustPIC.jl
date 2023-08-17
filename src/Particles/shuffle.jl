@@ -3,12 +3,18 @@
 
 Move `particles` and their fields `args` to their new CellArray after advection.
 """
-function shuffle_particles!(particles::Particles, grid::NTuple{2,T}, args; origin=(0,0)) where {T}
+function shuffle_particles!(particles::Particles, grid, args; origin=(0,0))
+    dxi = compute_dx(grid)
+    shuffle_particles!(particles, grid, dxi, args; origin=origin)
+
+    return nothing
+end
+
+function shuffle_particles!(particles::Particles, grid::NTuple{2,T}, dxi, args; origin=(0,0)) where {T}
     # unpack
     (; coords, index) = particles
     nxi = length.(grid)
     nx, ny = nxi
-    dxi = compute_dx(grid)
 
     # compute local grid limits
     domain_limits = extrema.(grid)
@@ -25,12 +31,11 @@ function shuffle_particles!(particles::Particles, grid::NTuple{2,T}, args; origi
     return nothing
 end
 
-function shuffle_particles!(particles::Particles, grid::NTuple{3,T}, args; origin=(0,0,0)) where {T}
+function shuffle_particles!(particles::Particles, grid::NTuple{3,T}, dxi, args; origin=(0,0,0)) where {T}
     # unpack
     (; coords, index) = particles
     nxi = length.(grid)
     nx, ny, nz = nxi
-    dxi = compute_dx(grid)
 
     # compute local grid limits
     domain_limits = extrema.(grid)
@@ -195,9 +200,7 @@ end
     quote
         Base.@_inline_meta
         Base.Cartesian.@nexprs $N i -> (
-            # @inbounds (domain_limits[i][1] > p[i]) && return false;
-            # @inbounds (p[i] > domain_limits[i][2]) && return false
-            @inbounds ((domain_limits[i][1] > p[i]) || (p[i] > domain_limits[i][2])) && return false
+            @inbounds !(domain_limits[i][1] < p[i] < domain_limits[i][2]) && return false
         )
         return true
     end

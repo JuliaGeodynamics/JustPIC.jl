@@ -126,7 +126,8 @@ end
 end
 
 @inline function compute_dx(grid::NTuple{N,T}) where {N,T}
-    return ntuple(i -> grid[i][2] - grid[i][1], Val(N))
+    # return ntuple(i -> grid[i][2] - grid[i][1], Val(N))
+    return ntuple(i -> abs(minimum(diff(grid[i]))), Val(N))
 end
 
 @inline function clamp_grid_lims(grid_lims::NTuple{N,T1}, dxi::NTuple{N,T2}) where {N,T1,T2}

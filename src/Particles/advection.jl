@@ -16,12 +16,20 @@ with `α` and time step `dt`.
 function advection_RK!(
     particles::Particles, V, grid_vx::NTuple{2,T}, grid_vy::NTuple{2,T}, dt, α
 ) where {T}
+    dxi = compute_dx(grid_vx)
+    advection_RK!(particles, V, grid_vx, grid_vy, dt, dxi, α)
+    
+    return nothing
+end
+
+function advection_RK!(
+    particles::Particles, V, grid_vx::NTuple{2,T}, grid_vy::NTuple{2,T}, dt, dxi, α
+) where {T}
     # unpack 
     (; coords, index, max_xcell) = particles
     px, = coords
-    # compute some basic stuff
-    dxi = compute_dx(grid_vx)
-   
+
+    # compute some basic stuff   
     nx, ny = size(px)
     # Need to transpose grid_vy and Vy to reuse interpolation kernels
     grid_vi = grid_vx, grid_vy
@@ -262,13 +270,12 @@ end
     )
 end
 
-function firstlast(x::AbstractArray)
-    first(x), last(x)
-end
+firstlast(x::AbstractArray) = first(x), last(x)
+firstlast(x::CuArray) = extrema(x)
 
 function inner_limits(grid, dxi::NTuple{N, T})  where {N,T}
     ntuple(Val(N)) do i
-        x1 =  firstlast.(grid[i])
+        x1 = firstlast.(grid[i])
         ntuple(j -> x1[j] .+ (dxi[j] * 0.5, -dxi[j] * 0.5) , Val(N))
     end
 end

@@ -1,16 +1,16 @@
 using JustPIC
 
-# set_backend("Threads") # need to restart session if this changes
+# set_backend("CUDA_Float64_2D") # need to restart session if this changes
+# set_backend("Threads_Float64_2D")
 
 using CellArrays
 using ParallelStencil
 using GLMakie
 using ImplicitGlobalGrid
 @init_parallel_stencil(Threads, Float64, 2)
+using TimerOutputs
 
-const TA = backend == "CUDA" ? JustPIC.CUDA.CuArray : Array
-
-function init_particles(nxcell, max_xcell, min_xcell, x, y, dx, dy, nx, ny, me)
+function init_particles(nxcell, max_xcell, min_xcell, x, y, dx, dy, nx, ny)
     ni = nx, ny
     ncells = nx * ny
     np = max_xcell * ncells
@@ -19,46 +19,23 @@ function init_particles(nxcell, max_xcell, min_xcell, x, y, dx, dy, nx, ny, me)
     inject = @fill(false, nx, ny, eltype=Bool)
     index = @fill(false, ni..., celldims=(max_xcell,), eltype=Bool) 
     
-    @parallel_indices (i, j) function fill_coords_index(px, py, index, me)
-        # if me ∈ (0, 1)
-        if me ∈ (0, 1, 2, 3)
-            # lower-left corner of the cell
-            x0, y0 = x[i], y[j]
-            # fill index array
-            for l in 1:nxcell
-                @cell px[l, i, j] = x0 + dx * rand(0.05:1e-5:0.95)
-                @cell py[l, i, j] = y0 + dy * rand(0.05:1e-5:0.95)
-                @cell index[l, i, j] = true
-            end
+    @parallel_indices (i, j) function fill_coords_index(px, py, index)
+        # lower-left corner of the cell
+        x0, y0 = x[i], y[j]
+        # fill index array
+        for l in 1:nxcell
+            @cell px[l, i, j] = x0 + dx * rand(0.05:1e-5:0.95)
+            @cell py[l, i, j] = y0 + dy * rand(0.05:1e-5:0.95)
+            @cell index[l, i, j] = true
         end
         return nothing
     end
 
-    @parallel (1:nx, 1:ny) fill_coords_index(px, py, index, me)
+    @parallel (1:nx, 1:ny) fill_coords_index(px, py, index)    
 
     return Particles(
-        (px, py), index, inject, nxcell, max_xcell, min_xcell, np, (nx, ny), 
+        (px, py), index, inject, nxcell, max_xcell, min_xcell, np, (nx, ny)
     )
-end
-
-function expand_range(x::AbstractRange)
-    dx = x[2] - x[1]
-    n = length(x)
-    x1, x2 = extrema(x)
-    xI = round(x1-dx; sigdigits=5)
-    xF = round(x2+dx; sigdigits=5)
-    range(xI, xF, length=n+2)
-end
-
-function expand_range(x::AbstractArray, dx, origin)
-    x1, x2 = extrema(x)
-    xI = round(x1-dx; sigdigits=5)
-    xF = round(x2+dx; sigdigits=5)
-    x1 == origin[1] && (x = vcat(xI, x))
-    x2 == origin[2] && (x = vcat(x, xF))
-    x = TA(x)
-
-    # x = TA(vcat(xI, x, xF))
 end
 
 # Analytical flow solution
@@ -70,9 +47,9 @@ g(x) = Point2f(
 )
 
 function main()
+
     # Initialize particles -------------------------------
-    np = 8
-    nxcell, max_xcell, min_xcell = np, np, np
+    nxcell, max_xcell, min_xcell = (8, 8, 8).*3
     n   = 32
     nx  = ny = n-1
     me, dims, = init_global_grid(n-1, n-1, 0; init_MPI=JustPIC.MPI.Initialized() ? false : true)
@@ -95,26 +72,23 @@ function main()
     end
 
     # staggered grid for the velocity components
-    grid_vx = xv, expand_range(yc, dy, (0.0, Ly))
-    grid_vy = expand_range(xc, dx, (0.0, Lx)), yv
-
-    # if me == 0
-    #     println("me = $me, grid_vx = $(extrema.(grid_vx)), grid_vy = $(extrema.(grid_vy))")
-    #     println("me = $me, grid_vx = $(extrema(xv)), grid_vy = $(extrema(xc))")
-    # end
+    grid_vx = xv, add_ghost_nodes(yc, dy, (0.0, Ly))
+    grid_vy = add_ghost_nodes(xc, dx, (0.0, Lx)), yv
+    
     particles = init_particles(
-        nxcell, max_xcell, min_xcell, xvi..., dxi..., nx, ny, me
+        nxcell, max_xcell, min_xcell, xvi..., dxi..., nx, ny
     )
 
     # Cell fields -------------------------------
     Vx = TA([vx_stream(x, y) for x in grid_vx[1], y in grid_vx[2]])
     Vy = TA([vy_stream(x, y) for x in grid_vy[1], y in grid_vy[2]])
     T  = TA([y for x in xv, y in yv])
+    T0 = deepcopy(T) 
     V  = Vx, Vy
 
     nx_v = (size(T, 1)-2)*dims[1];
     ny_v = (size(T, 2)-2)*dims[2];
-    T_v = zeros(nx_v, ny_v)
+    T_v  = zeros(nx_v, ny_v)
     T_nohalo = @zeros(size(T).-2)
 
     dt = min(dx / maximum(abs.(Vx)),  dy / maximum(abs.(Vy)))
@@ -123,22 +97,29 @@ function main()
     particle_args = pT, = init_cell_arrays(particles, Val(1))
     grid2particle!(pT, xvi, T, particles.coords)
     
-    niter = 150
+    niter = 5
+    to = TimerOutput()
     for iter in 1:niter
         me == 0 && @show iter
+        
+        # grid2particle!(pT, xvi, T, T0, particles.coords)
+        @timeit to "grid2particle!" grid2particle!(pT, xvi, T, particles.coords)
 
-        # clean particles
-        clean_particles!(particles, xvi, particle_args)
         # advect particles
-        advection_RK!(particles, V, grid_vx, grid_vy, dt, 2 / 3)
+        @timeit to "advection_RK!" advection_RK!(particles, V, grid_vx, grid_vy, dt, 2 / 3)
+
         # update halos
         update_cell_halo!(particles.coords..., particle_args...);
         update_cell_halo!(particles.index)
         # shuffle particles
-        shuffle_particles!(particles, xvi, particle_args)
-
+        @timeit to "shuffle_particles!" shuffle_particles!(particles, xvi, particle_args)
         # interpolate T from particle to grid
-        particle2grid!(T, pT, xvi, particles.coords)
+        @timeit to "particle2grid!" particle2grid!(T, pT, xvi, particles.coords)
+        T0 .= deepcopy(T) 
+
+        display(to)
+
+        reset_timer!(to)
 
         @views T_nohalo .= T[2:end-1, 2:end-1]
         gather!(T_nohalo, T_v)
@@ -174,10 +155,8 @@ function main()
             
         end    
 
-        # w = 0.504
-        # offset = 0.5-(w-0.5)
         # px = particles.coords[1].data[:]
-        # py = particles.coords[2].data[:]
+        # py = particles.coords[1].data[:]
         # idx = particles.index.data[:]
         # f, ax, = lines(
         #         [0, w, w, 0, 0],
@@ -199,14 +178,14 @@ function main()
         #         [0, 0, w, w, 0] .+ offset,
         #         linewidth = 3
         #     )
-        # scatter!(ax, px, py, color=:black)
+        # scatter(px[idx], py[idx], color=:black)
         # save("figs$me/particles_$iter.png", f)
 
     end
     
-    f, ax, = heatmap(xvi..., T, colormap=:batlow)
-    streamplot!(ax, g, xvi...)
-    f
+    # f, ax, = heatmap(xvi..., T, colormap=:batlow)
+    # streamplot!(ax, g, xvi...)
+    # f
 end
 
 main()

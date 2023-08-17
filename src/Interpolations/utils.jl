@@ -55,7 +55,7 @@ end
 
 # compute grid size
 function grid_size(x::NTuple{N,T}) where {T,N}
-    return ntuple(i -> x[i][2] - x[i][1], Val(N))
+    return ntuple(i -> abs(minimum(diff(x[i]))), Val(N))
 end
 
 # Get field F at the corners of a given cell
