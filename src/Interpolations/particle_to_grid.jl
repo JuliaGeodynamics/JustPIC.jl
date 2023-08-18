@@ -1,21 +1,27 @@
 ## LAUNCHERS
 
 function particle2grid!(
-    F::AbstractArray, Fp::AbstractArray, xi::NTuple{2,T}, particle_coords
-) where {T}
-    di = grid_size(xi)
+    F::AbstractArray, Fp::AbstractArray, xi::NTuple, particle_coords
+)
+    dxi = grid_size(xi)
 
-    @parallel (@idx size(F)) particle2grid!(F, Fp, xi, particle_coords, di)
-
+    particle2grid!(F, Fp, xi, particle_coords, dxi)
     return
 end
 
-@parallel_indices (inode, jnode) function particle2grid!(F, Fp, xi, particle_coords, di)
+function particle2grid!(
+    F::AbstractArray, Fp::AbstractArray, xi::NTuple, particle_coords, dxi
+) 
+    @parallel (@idx size(F)) particle2grid!(F, Fp, xi, particle_coords, dxi)
+    return nothing
+end
+
+@parallel_indices (inode, jnode) function particle2grid!(F, Fp, xi::NTuple{2, T}, particle_coords, di) where T
     _particle2grid!(F, Fp, inode, jnode, xi, particle_coords, di)
     return
 end
 
-@parallel_indices (inode, jnode, knode) function particle2grid!(F, Fp, knode, xi, particle_coords, di)
+@parallel_indices (inode, jnode, knode) function particle2grid!(F, Fp, xi::NTuple{3, T}, particle_coords, di) where T
     _particle2grid!(F, Fp, inode, jnode, knode, xi, particle_coords, di)
     return
 end

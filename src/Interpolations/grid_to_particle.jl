@@ -8,6 +8,15 @@ function grid2particle!(Fp::AbstractArray, xvi, F::AbstractArray, particle_coord
 
     @parallel (@idx ni.-1) grid2particle_classic!(Fp, F, xvi, di, particle_coords)
 
+    return nothing
+end
+
+function grid2particle!(Fp::AbstractArray, xvi, F::AbstractArray, particle_coords, di)
+    ni = length.(xvi)
+
+    @parallel (@idx ni.-1) grid2particle_classic!(Fp, F, xvi, di, particle_coords)
+    
+    return nothing
 end
 
 @parallel_indices (inode, jnode) function grid2particle_classic!(Fp, F, xvi, di::NTuple{2, Any}, particle_coords)
@@ -64,7 +73,16 @@ function grid2particle!(Fp::AbstractArray, xvi, F::AbstractArray, F0::AbstractAr
     ni = length.(xvi)
 
     @parallel (@idx ni.-1) grid2particle_full!(Fp, F, F0, xvi, di, particle_coords, α)
+    
+    return nothing
+end
 
+function grid2particle!(Fp::AbstractArray, xvi, F::AbstractArray, F0::AbstractArray, particle_coords, di; α = 0.0)
+    ni = length.(xvi)
+
+    @parallel (@idx ni.-1) grid2particle_full!(Fp, F, F0, xvi, di, particle_coords, α)
+    
+    return nothing
 end
 
 @parallel_indices (inode, jnode) function grid2particle_full!(Fp, F, F0, xvi, di::NTuple{2, Any}, particle_coords, α)
