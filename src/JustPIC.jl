@@ -40,7 +40,7 @@ include("CellArrays/CellArrays.jl")
 export @cell, cellnum, cellaxes
 
 include("Utils.jl")
-export @range, @idx, init_cell_arrays, cell_array, add_ghost_nodes, add_global_ghost_nodes
+export @range, init_cell_arrays, cell_array, add_ghost_nodes, add_global_ghost_nodes
 
 include("CellArrays/ImplicitGlobalGrid.jl")
 export update_cell_halo!
