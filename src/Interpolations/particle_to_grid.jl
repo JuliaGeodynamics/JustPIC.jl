@@ -43,7 +43,7 @@ end
         for ioffset in -1:0
             ivertex = ioffset + inode
             # make sure we stay within the grid
-            if (1 ≤ ivertex ≤ nx) && (1 ≤ jvertex ≤ ny)
+            if (1 ≤ ivertex < nx) && (1 ≤ jvertex < ny)
                 # iterate over cell
                 for i in cellaxes(px)
                     p_i = @cell(px[i, ivertex, jvertex]), @cell(py[i, ivertex, jvertex])
@@ -78,7 +78,7 @@ end
             for ioffset in -1:0
                 ivertex = ioffset + inode
                 # make sure we operate within the grid
-                if (1 ≤ ivertex ≤ nx) && (1 ≤ jvertex ≤ ny) && (1 ≤ kvertex ≤ nz)
+                if (1 ≤ ivertex < nx) && (1 ≤ jvertex < ny) && (1 ≤ kvertex < nz)
                     # iterate over cell
                     @inbounds for ip in cellaxes(px)
                         p_i = (
