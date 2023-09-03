@@ -34,7 +34,7 @@ function advection_RK!(
     # Need to transpose grid_vy and Vy to reuse interpolation kernels
     grid_vi = grid_vx, grid_vy
     
-    local_limits = inner_limits(grid_vi, dxi)
+    local_limits = inner_limits(grid_vi)
 
     # launch parallel advection kernel
     @parallel (1:max_xcell, 1:nx, 1:ny) _advection_RK!(
@@ -87,7 +87,7 @@ function advection_RK!(
 
     # Need to transpose grid_vy and Vy to reuse interpolation kernels
     grid_vi = grid_vx, grid_vy, grid_vz
-    local_limits = inner_limits(grid_vi, dxi)
+    local_limits = inner_limits(grid_vi)
 
     # launch parallel advection kernel
     @parallel (1:nx, 1:ny, 1:nz) _advection_RK!(
@@ -273,9 +273,12 @@ end
 firstlast(x::AbstractArray) = first(x), last(x)
 firstlast(x::CuArray) = extrema(x)
 
-function inner_limits(grid, dxi::NTuple{N, T})  where {N,T}
+function inner_limits(grid::NTuple{N, T})  where {N,T}
+    # ntuple(Val(N)) do i
+    #     x1 = firstlast.(grid[i])
+    #     ntuple(j -> x1[j] .+ (dxi[j] * 0.5, -dxi[j] * 0.5) , Val(N))
+    # end
     ntuple(Val(N)) do i
-        x1 = firstlast.(grid[i])
-        ntuple(j -> x1[j] .+ (dxi[j] * 0.5, -dxi[j] * 0.5) , Val(N))
+        ntuple(j -> JustPIC.firstlast.(grid[i])[i], Val(N))
     end
 end
