@@ -279,6 +279,6 @@ function inner_limits(grid::NTuple{N, T})  where {N,T}
     #     ntuple(j -> x1[j] .+ (dxi[j] * 0.5, -dxi[j] * 0.5) , Val(N))
     # end
     ntuple(Val(N)) do i
-        ntuple(j -> JustPIC.firstlast.(grid[i])[i], Val(N))
+        ntuple(j -> JustPIC.firstlast.(grid[i])[j], Val(N))
     end
 end
