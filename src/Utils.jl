@@ -61,5 +61,4 @@ macro idx(args...)
 end
 
 @inline _idx(args::Vararg{Int,N}) where {N} = ntuple(i -> 1:args[i], Val(N))
-@inline _idx(args::NTuple{N,Int}) where {N} = ntuple(i -> 1:args[i], Val(N))
-
+@inline _idx(args::NTuple{N,Int}) where {N} = _idx(args...)
