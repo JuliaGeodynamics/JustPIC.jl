@@ -63,7 +63,7 @@ end
     return ntuple(i -> grid[i][I[i]], Val(N))
 end
 
-@inline function corner_coordinate(grid::NTuple{N,T1}, I::Vararg{T2, N}) where {T1,T2,N}
+@inline function corner_coordinate(grid::NTuple{N,T1}, I::Vararg{T2,N}) where {T1,T2,N}
     return ntuple(i -> grid[i][I[i]], Val(N))
 end
 
@@ -97,7 +97,7 @@ end
 end
 
 @inline function isemptycell(
-    index::AbstractArray{T,N}, min_xcell::Integer, cell_indices::Vararg{Int, N}
+    index::AbstractArray{T,N}, min_xcell::Integer, cell_indices::Vararg{Int,N}
 ) where {T,N}
     # first min_xcell particles
     val = 0
@@ -108,7 +108,7 @@ end
     val ≥ min_xcell && return false
     # tail
     n = cellnum(index)
-    for i in min_xcell+1:n
+    for i in (min_xcell + 1):n
         val += @cell(index[i, cell_indices...])
     end
     return val ≥ min_xcell ? false : true

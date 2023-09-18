@@ -1,36 +1,36 @@
 ## LAUNCHERS
 
-function particle2grid!(
-    F::AbstractArray, Fp::AbstractArray, xi::NTuple, particle_coords
-)
+function particle2grid!(F::AbstractArray, Fp::AbstractArray, xi::NTuple, particle_coords)
     dxi = grid_size(xi)
 
     particle2grid!(F, Fp, xi, particle_coords, dxi)
-    return
+    return nothing
 end
 
 function particle2grid!(
     F::AbstractArray, Fp::AbstractArray, xi::NTuple, particle_coords, dxi
-) 
+)
     @parallel (@idx size(F)) particle2grid!(F, Fp, xi, particle_coords, dxi)
     return nothing
 end
 
-@parallel_indices (inode, jnode) function particle2grid!(F, Fp, xi::NTuple{2, T}, particle_coords, di) where T
+@parallel_indices (inode, jnode) function particle2grid!(
+    F, Fp, xi::NTuple{2,T}, particle_coords, di
+) where {T}
     _particle2grid!(F, Fp, inode, jnode, xi, particle_coords, di)
-    return
+    return nothing
 end
 
-@parallel_indices (inode, jnode, knode) function particle2grid!(F, Fp, xi::NTuple{3, T}, particle_coords, di) where T
+@parallel_indices (inode, jnode, knode) function particle2grid!(
+    F, Fp, xi::NTuple{3,T}, particle_coords, di
+) where {T}
     _particle2grid!(F, Fp, inode, jnode, knode, xi, particle_coords, di)
-    return
+    return nothing
 end
 
 ## INTERPOLATION KERNEL 2D
 
-@inbounds function _particle2grid!(
-    F, Fp, inode, jnode, xi::NTuple{2,T}, p, di
-) where {T}
+@inbounds function _particle2grid!(F, Fp, inode, jnode, xi::NTuple{2,T}, p, di) where {T}
     px, py = p # particle coordinates
     nx, ny = size(F)
     xvertex = xi[1][inode], xi[2][jnode] # cell lower-left coordinates
@@ -88,7 +88,7 @@ end
                         )
                         any(isnan, p_i) && continue  # ignore lines below for unused allocations
                         ω_i = bilinear_weight(xvertex, p_i, di)
-                        ω  += ω_i
+                        ω += ω_i
                         ωF += ω_i * @cell(Fp[ip, ivertex, jvertex, kvertex])
                     end
                 end

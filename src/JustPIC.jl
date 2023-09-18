@@ -1,7 +1,7 @@
 module JustPIC
 
 using ImplicitGlobalGrid
-import MPI
+using MPI: MPI
 using MuladdMacro
 using ParallelStencil
 using CUDA
@@ -11,7 +11,10 @@ using Preferences
 CUDA.allowscalar(false)
 
 function set_backend(new_backend::String)
-    if !(new_backend in ("Threads_Float64_2D", "Threads_Float32_2D", "CUDA_Float64_2D", "CUDA_Float32_2D"))
+    if !(
+        new_backend ∈
+        ("Threads_Float64_2D", "Threads_Float32_2D", "CUDA_Float64_2D", "CUDA_Float32_2D")
+    )
         throw(ArgumentError("Invalid backend: \"$(new_backend)\""))
     end
 
@@ -26,14 +29,14 @@ const TA = occursin("CUDA", backend) ? JustPIC.CUDA.CuArray : Array
 
 export backend, set_backend, TA
 
-let 
+let
     s = split(backend, "_")
     device = s[1]
     precission = s[2]
     dimension = parse(Int, s[3][1])
     @eval begin
-        @init_parallel_stencil($(Symbol(device)), $(Symbol(precission)), $dimension) 
-    end    
+        @init_parallel_stencil($(Symbol(device)), $(Symbol(precission)), $dimension)
+    end
 end
 
 include("CellArrays/CellArrays.jl")

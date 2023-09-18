@@ -17,11 +17,18 @@ end
 
 Returns `N` particle fields with the same size as `particles`
 """
-@inline function init_cell_arrays(particles, ::Val{N}) where N 
-    return ntuple(_ -> @fill(0.0, size(particles.coords[1])..., celldims=(cellsize(particles.index))), Val(N))
+@inline function init_cell_arrays(particles, ::Val{N}) where {N}
+    return ntuple(
+        _ -> @fill(
+            0.0, size(particles.coords[1])..., celldims = (cellsize(particles.index))
+        ),
+        Val(N),
+    )
 end
 
-@inline cell_array(x::T, ncells::NTuple{N, Integer}, ni::Vararg{Any, N}) where {T, N} = @fill(x, ni..., celldims=ncells, eltype=T) 
+@inline function cell_array(x::T, ncells::NTuple{N,Integer}, ni::Vararg{Any,N}) where {T,N}
+    @fill(x, ni..., celldims = ncells, eltype = T)
+end
 
 """
     add_global_ghost_nodes(x, dx, origin)
@@ -30,11 +37,11 @@ Add ghost nodes to the global coordinates array `x` with spacing `dx` and origin
 """
 function add_global_ghost_nodes(x::AbstractArray, dx, origin)
     x1, x2 = extrema(x)
-    xI = round(x1-dx; sigdigits=5)
-    xF = round(x2+dx; sigdigits=5)
+    xI = round(x1 - dx; sigdigits=5)
+    xF = round(x2 + dx; sigdigits=5)
     x1 == origin[1] && (x = vcat(xI, x))
     x2 == origin[2] && (x = vcat(x, xF))
-    x = TA(x)
+    return x = TA(x)
 end
 
 """
@@ -44,9 +51,9 @@ Add ghost nodes to the local coordinates array `x` with spacing `dx` and origin 
 """
 function add_ghost_nodes(x::AbstractArray, dx, origin)
     x1, x2 = extrema(x)
-    xI = round(x1-dx; sigdigits=5)
-    xF = round(x2+dx; sigdigits=5)
-    x = TA(vcat(xI, Array(x), xF))
+    xI = round(x1 - dx; sigdigits=5)
+    xF = round(x2 + dx; sigdigits=5)
+    return x = TA(vcat(xI, Array(x), xF))
 end
 
 """
