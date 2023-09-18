@@ -20,7 +20,7 @@ end
     return ndlinear(t..., v...)
 end
 
-bilinear(tx, ty, v00, v10, v01, v11) = ndlinear(tx, ty, v00, v10, v01, v11)
+@inline bilinear(tx, ty, v00, v10, v01, v11) = ndlinear(tx, ty, v00, v10, v01, v11)
 
 """
     trilinear(tx, ty, tz, v000, v100, v001, v101, v010, v110, v011, v111) 
