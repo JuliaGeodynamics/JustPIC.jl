@@ -89,25 +89,24 @@ function _inject_particles!(
 )
     max_xcell = cellnum(index)
 
-   
     @inbounds if inject[idx_cell...]
         # count current number of particles inside the cell
         particles_num = false
         for i in 1:max_xcell
-            particles_num += index[i, idx_cell...]
+            particles_num += @cell index[i, idx_cell...]
         end
 
         # coordinates of the lower-left center
         xvi = corner_coordinate(grid, idx_cell)
 
         for i in 1:max_xcell
-            if index[i, idx_cell...] === false
+            if @cell(index[i, idx_cell...]) === false
                 particles_num += 1
 
                 # add at cellcenter + small random perturbation
                 p_new = new_particle(xvi, di)
                 fill_particle!(coords, p_new, i, idx_cell)
-                index[i, idx_cell...] = true
+                @cell index[i, idx_cell...] = true
 
                 for (arg_i, field_i) in zip(args, fields)
                     local_field = cell_field(field_i, idx_cell...)
@@ -116,8 +115,7 @@ function _inject_particles!(
                     tmp   = _grid2particle(p_new, grid, di, field_i, idx_cell)
                     tmp < lower && (tmp = lower)
                     tmp > upper && (tmp = upper)
-                    arg_i[i, idx_cell...] = tmp
-                    # arg_i[i, idx_cell...] = clamp(tmp, extrema(field_i)...)
+                    @cell arg_i[i, idx_cell...] = tmp
                 end
             end
 
