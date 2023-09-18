@@ -103,11 +103,12 @@ end
     V::NTuple{3, T},
     index,
     grid,
-    dxi,
     local_limits,
+    dxi,
     dt,
     α,
 ) where T
+
     px, py, pz = p
     nx, ny, nz = size(index)
     for ipart in cellaxes(px)
@@ -146,7 +147,6 @@ function advect_particle_RK(
 ) where {T,N}
     _α   = inv(α)
     ValN = Val(N)
-
     # interpolate velocity to current location
     vp0 = ntuple(ValN) do i
         Base.@_inline_meta
@@ -154,8 +154,8 @@ function advect_particle_RK(
         # local_lims0 = firstlast.(grid_vi[i])
         # local_lims = ntuple(j -> local_lims0[j] .+ (dxi[1] * 0.5, -dxi[2] * 0.5) , Val(N))
         local_lims = local_limits[i]
-       
-        v = if (local_lims[1][1] < p0[1] < local_lims[1][2]) && (local_lims[2][1] < p0[2] < local_lims[2][2])
+        
+        v = if check_local_limits(local_lims, p0)
             interp_velocity_grid2particle(p0, grid_vi[i], dxi, V[i], idx)
         
         else
@@ -274,11 +274,12 @@ firstlast(x::AbstractArray) = first(x), last(x)
 firstlast(x::CuArray) = extrema(x)
 
 function inner_limits(grid::NTuple{N, T})  where {N,T}
-    # ntuple(Val(N)) do i
-    #     x1 = firstlast.(grid[i])
-    #     ntuple(j -> x1[j] .+ (dxi[j] * 0.5, -dxi[j] * 0.5) , Val(N))
-    # end
     ntuple(Val(N)) do i
-        ntuple(j -> JustPIC.firstlast.(grid[i])[j], Val(N))
+        Base.@_inline_meta
+        ntuple(j -> firstlast.(grid[i])[j], Val(N))
     end
+end
+
+@inline function check_local_limits(local_lims::NTuple{N, T1}, p::NTuple{N, T2}) where {N,T1, T2} 
+    return mapreduce(x -> x[1][1] < x[2] < x[1][2], &, zip(local_lims, p))
 end
