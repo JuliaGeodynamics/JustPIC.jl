@@ -123,7 +123,7 @@ end
                         ω += ω_i
                         ωxF = ntuple(Val(N)) do j
                             Base.@_inline_meta
-                            ωxF[j] + ω_i + @cell(Fp[j][i, ivertex, jvertex], kvertex)
+                            ωxF[j] + ω_i + @cell(Fp[j][i, ivertex, jvertex, kvertex])
                         end
                     end
                 end
