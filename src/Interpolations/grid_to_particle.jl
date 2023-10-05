@@ -4,10 +4,7 @@
 
 function grid2particle!(Fp::AbstractArray, xvi, F::AbstractArray, particle_coords)
     di = grid_size(xvi)
-    ni = length.(xvi)
-
-    @parallel (@idx ni .- 1) grid2particle_classic!(Fp, F, xvi, di, particle_coords)
-
+    grid2particle!(Fp, xvi, F, particle_coords, di)
     return nothing
 end
 
@@ -19,17 +16,10 @@ function grid2particle!(Fp::AbstractArray, xvi, F::AbstractArray, particle_coord
     return nothing
 end
 
-@parallel_indices (inode, jnode) function grid2particle_classic!(
-    Fp, F, xvi, di::NTuple{2,Any}, particle_coords
+@parallel_indices (I...) function grid2particle_classic!(
+    Fp, F, xvi, di, particle_coords
 )
-    _grid2particle_classic!(Fp, particle_coords, xvi, di, F, (inode, jnode))
-    return nothing
-end
-
-@parallel_indices (inode, jnode, knode) function grid2particle_classic!(
-    Fp, F, xvi, di::NTuple{3,Any}, particle_coords
-)
-    _grid2particle_classic!(Fp, particle_coords, xvi, di, F, (inode, jnode, knode))
+    _grid2particle_classic!(Fp, particle_coords, xvi, di, F, I)
     return nothing
 end
 
@@ -46,6 +36,23 @@ end
 
         # Interpolate field F onto particle
         @cell Fp[ip, idx...] = _grid2particle(pᵢ, xvi, di, F, idx)
+    end
+end
+
+@inline function _grid2particle_classic!(Fp::NTuple{N1, T1}, p, xvi, di::NTuple{N2,T2}, F::NTuple{N1, T1}, idx) where {N1,T1,N2,T2}
+    # iterate over all the particles within the cells of index `idx` 
+    for ip in cellaxes(Fp)
+        # cache particle coordinates 
+        pᵢ = ntuple(i -> (@cell p[i][ip, idx...]), Val(N2))
+
+        # skip lines below if there is no particle in this pice of memory
+        any(isnan, pᵢ) && continue
+
+        # Interpolate field F onto particle
+        ntuple(Val(N1)) do i
+            Base.@_inline_meta
+            @cell Fp[i][ip, idx...] = _grid2particle(pᵢ, xvi, di, F[i], idx)
+        end
     end
 end
 
@@ -70,9 +77,7 @@ function grid2particle!(
     Fp::AbstractArray, xvi, F::AbstractArray, F0::AbstractArray, particle_coords; α=0.0
 )
     di = grid_size(xvi)
-    ni = length.(xvi)
-
-    @parallel (@idx ni .- 1) grid2particle_full!(Fp, F, F0, xvi, di, particle_coords, α)
+    grid2particle!(Fp, xvi, F, F0, particle_coords, di; α=α)
 
     return nothing
 end
@@ -87,17 +92,10 @@ function grid2particle!(
     return nothing
 end
 
-@parallel_indices (inode, jnode) function grid2particle_full!(
-    Fp, F, F0, xvi, di::NTuple{2,Any}, particle_coords, α
+@parallel_indices (I...) function grid2particle_full!(
+    Fp, F, F0, xvi, di, particle_coords, α
 )
-    _grid2particle_full!(Fp, particle_coords, xvi, di, F, F0, (inode, jnode), α)
-    return nothing
-end
-
-@parallel_indices (inode, jnode, knode) function grid2particle_full!(
-    Fp, F, F0, xvi, di::NTuple{3,Any}, particle_coords, α
-)
-    _grid2particle_full!(Fp, particle_coords, xvi, di, F, F0, (inode, jnode, knode), α)
+    _grid2particle_full!(Fp, particle_coords, xvi, di, F, F0, I, α)
     return nothing
 end
 
@@ -120,5 +118,29 @@ end
         F_flip = Fᵢ + ΔF
         # Interpolate field F onto particle
         @cell Fp[ip, idx...] = F_pic * α + F_flip * (1.0 - α)
+    end
+end
+
+
+@inline function _grid2particle_full!(
+    Fp::NTuple{N1,T1}, p, xvi, di::NTuple{N2,T2}, F::NTuple{N1,T1}, F0::NTuple{N1,T1}, idx, α
+) where {N1,T1,N2,T2}
+    # iterate over all the particles within the cells of index `idx` 
+    for ip in cellaxes(Fp)
+        # cache particle coordinates 
+        pᵢ = ntuple(i -> (@cell p[i][ip, idx...]), Val(N2))
+
+        # skip lines below if there is no particle in this pice of memory
+        any(isnan, pᵢ) && continue
+
+        ntuple(Val(N1)) do i
+            Base.@_inline_meta
+            Fᵢ = @cell Fp[i][ip, idx...]
+            F_pic = _grid2particle(pᵢ, xvi, di, F[i], idx)
+            ΔF = F_pic - _grid2particle(pᵢ, xvi, di, F0[i], idx)
+            F_flip = Fᵢ + ΔF
+            # Interpolate field F onto particle
+            @cell Fp[i][ip, idx...] = F_pic * α + F_flip * (1.0 - α)
+        end
     end
 end
