@@ -12,8 +12,16 @@ CUDA.allowscalar(false)
 
 function set_backend(new_backend::String)
     if !(
-        new_backend ∈
-        ("Threads_Float64_2D", "Threads_Float32_2D", "CUDA_Float64_2D", "CUDA_Float32_2D")
+        new_backend ∈ (
+            "Threads_Float64_2D",
+            "Threads_Float32_2D",
+            "CUDA_Float64_2D",
+            "CUDA_Float32_2D",
+            "Threads_Float64_3D",
+            "Threads_Float32_3D",
+            "CUDA_Float64_3D",
+            "CUDA_Float32_3D",
+        )
     )
         throw(ArgumentError("Invalid backend: \"$(new_backend)\""))
     end
