@@ -64,7 +64,7 @@ include("Interpolations/particle_to_grid.jl")
 export particle2grid!
 
 include("Interpolations/grid_to_particle.jl")
-export grid2particle!
+export grid2particle!, grid2particle_flip!
 
 include("Interpolations/kernels.jl")
 export lerp, bilinear, trilinear
