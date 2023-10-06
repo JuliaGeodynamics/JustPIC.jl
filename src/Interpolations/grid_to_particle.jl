@@ -16,7 +16,7 @@ function grid2particle!(Fp, xvi, F, particle_coords, di::NTuple{N,T}) where {N,T
 end
 
 @parallel_indices (I...) function grid2particle_classic!(Fp, F, xvi, di, particle_coords)
-    _grid2particle_classic!(Fp, particle_coords, xvi, di, F, I)
+    _grid2particle_classic!(Fp, particle_coords, xvi, di, F, tuple(I...))
     return nothing
 end
 
@@ -72,14 +72,16 @@ end
 
 # LAUNCHERS
 
-function grid2particle!(Fp, xvi, F, F0, particle_coords; α=0.0)
+function grid2particle_flip!(Fp, xvi, F, F0, particle_coords; α=0.0)
     di = grid_size(xvi)
-    grid2particle!(Fp, xvi, F, F0, particle_coords, di; α=α)
+    grid2particle_flip!(Fp, xvi, F, F0, particle_coords, di; α=α)
 
     return nothing
 end
 
-function grid2particle!(Fp, xvi, F, F0, particle_coords, di::NTuple{N,T}; α=0.0) where {N,T}
+function grid2particle_flip!(
+    Fp, xvi, F, F0, particle_coords, di::NTuple{N,T}; α=0.0
+) where {N,T}
     ni = length.(xvi)
 
     @parallel (@idx ni .- 1) grid2particle_full!(Fp, F, F0, xvi, di, particle_coords, α)
@@ -100,7 +102,7 @@ end
     Fp, p, xvi, di::NTuple{N,T}, F, F0, idx, α
 ) where {N,T}
     # iterate over all the particles within the cells of index `idx` 
-    for ip in cellaxes(Fp[1])
+    for ip in cellaxes(Fp)
         # cache particle coordinates 
         pᵢ = ntuple(i -> (@cell p[i][ip, idx...]), Val(N))
 
