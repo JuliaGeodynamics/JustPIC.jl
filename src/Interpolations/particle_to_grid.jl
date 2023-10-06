@@ -1,22 +1,20 @@
 ## LAUNCHERS
 
-function particle2grid!(F::AbstractArray, Fp::AbstractArray, xi::NTuple, particle_coords)
+function particle2grid!(F, Fp, xi::NTuple, particle_coords)
     dxi = grid_size(xi)
     particle2grid!(F, Fp, xi, particle_coords, dxi)
     return nothing
 end
 
-function particle2grid!(
-    F::AbstractArray, Fp::AbstractArray, xi::NTuple, particle_coords, dxi
-)
-    @parallel (@idx size(F)) particle2grid!(F, Fp, xi, particle_coords, dxi)
+function particle2grid!(F, Fp, xi::NTuple, particle_coords, dxi)
+    @parallel (@idx size(particle_coords[1])) particle2grid!(
+        F, Fp, xi, particle_coords, dxi
+    )
     return nothing
 end
 
-@parallel_indices (I...) function particle2grid!(
-    F, Fp, xi, particle_coords, di
-) where {T}
-    _particle2grid!(F, Fp, I, xi, particle_coords, di)
+@parallel_indices (I...) function particle2grid!(F, Fp, xi, particle_coords, di)
+    _particle2grid!(F, Fp, I..., xi, particle_coords, di)
     return nothing
 end
 
@@ -52,13 +50,14 @@ end
     return F[inode, jnode] = ωxF / ω
 end
 
-
-@inbounds function _particle2grid!(F::NTuple{N,T1}, Fp::NTuple{N,T1}, inode, jnode, xi::NTuple{2,T2}, p, di) where {N,T1,T2}
+@inbounds function _particle2grid!(
+    F::NTuple{N,T1}, Fp::NTuple{N,T2}, inode, jnode, xi::NTuple{2,T3}, p, di
+) where {N,T1,T2,T3}
     px, py = p # particle coordinates
-    nx, ny = size(F)
+    nx, ny = size(F[1])
     xvertex = xi[1][inode], xi[2][jnode] # cell lower-left coordinates
     ω = 0.0 # init weights
-    ωxF = ntuple(i -> zero(T1), Val(N)) # init weights
+    ωxF = ntuple(i -> 0.0, Val(N)) # init weights
 
     # iterate over cells around i-th node
     for joffset in -1:0
@@ -87,20 +86,20 @@ end
     _ω = inv(ω)
     return ntuple(Val(N)) do i
         Base.@_inline_meta
-        F[i][inode, jnode] = ωxF * _ω
+        F[i][inode, jnode] = ωxF[i] * _ω
     end
 end
 
 ## INTERPOLATION KERNEL 3D
 
 @inbounds function _particle2grid!(
-    F::NTuple{N,T1}, Fp::NTuple{N,T1}, inode, jnode, knode, xi::NTuple{3,T2}, p, di
-) where {N,T1,T2}
+    F::NTuple{N,T1}, Fp::NTuple{N,T2}, inode, jnode, knode, xi::NTuple{3,T3}, p, di
+) where {N,T1,T2,T3}
     px, py, pz = p # particle coordinates
-    nx, ny, nz = size(F)
+    nx, ny, nz = size(F[1])
     xvertex = xi[1][inode], xi[2][jnode], xi[3][knode] # cell lower-left coordinates
     ω = 0.0 # init weights
-    ωxF = ntuple(i -> zero(T1), Val(N)) # init weights
+    ωxF = ntuple(i -> 0.0, Val(N)) # init weights
 
     # iterate over cells around i-th node
     for koffset in -1:0
@@ -134,7 +133,7 @@ end
     _ω = inv(ω)
     return ntuple(Val(N)) do i
         Base.@_inline_meta
-        F[i][inode, jnode, knode] = ωxF * _ω
+        F[i][inode, jnode, knode] = ωxF[i] * _ω
     end
 end
 
