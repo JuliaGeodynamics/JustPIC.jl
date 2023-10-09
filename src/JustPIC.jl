@@ -5,22 +5,27 @@ using MPI: MPI
 using MuladdMacro
 using ParallelStencil
 using CUDA
+using AMDGPU
 using CellArrays
 using Preferences
 
-CUDA.allowscalar(false)
+# CUDA.allowscalar(false)
 
 function set_backend(new_backend::String)
     if !(
         new_backend ∈ (
             "Threads_Float64_2D",
             "Threads_Float32_2D",
-            "CUDA_Float64_2D",
-            "CUDA_Float32_2D",
             "Threads_Float64_3D",
             "Threads_Float32_3D",
+            "CUDA_Float32_2D",
+            "CUDA_Float64_2D",
             "CUDA_Float64_3D",
             "CUDA_Float32_3D",
+            "AMDGPU_Float32_2D",
+            "AMDGPU_Float64_2D",
+            "AMDGPU_Float64_3D",
+            "AMDGPU_Float32_3D",
         )
     )
         throw(ArgumentError("Invalid backend: \"$(new_backend)\""))
@@ -33,7 +38,13 @@ end
 
 const backend = @load_preference("backend", "Threads_Float64_2D")
 
-const TA = occursin("CUDA", backend) ? JustPIC.CUDA.CuArray : Array
+const TA = if occursin("CUDA", backend) 
+    JustPIC.CUDA.CuArray 
+elseif occursin("AMGPU", backend) 
+    JustPIC.ADMGPU.ROCArray
+else
+    Array
+end
 
 export backend, set_backend, TA
 
