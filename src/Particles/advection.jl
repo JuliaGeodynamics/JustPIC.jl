@@ -271,8 +271,11 @@ function inner_limits(grid::NTuple{N,T}) where {N,T}
     end
 end
 
-@inline function check_local_limits(
+@generated function check_local_limits(
     local_lims::NTuple{N,T1}, p::NTuple{N,T2}
 ) where {N,T1,T2}
-    return mapreduce(x -> x[1][1] < x[2] < x[1][2], &, zip(local_lims, p))
+    quote
+        Base.@nexprs $N i -> !(local_lims[i][1] < p[i] < local_lims[i][2]) && return false
+        return true
+    end
 end
