@@ -15,6 +15,7 @@ function check_injection(particles::Particles{N,A}) where {N,A}
 end
 
 @inline check_injection(inject::AbstractArray) = count(inject) > 0
+@inline check_injection(inject::ROCArray) = check_injection(Array(inject))
 
 @parallel_indices (i, j) function check_injection!(inject::AbstractMatrix, index, min_xcell)
     if i ≤ size(index, 1) && j ≤ size(index, 2)
@@ -86,7 +87,7 @@ end
 
 function _inject_particles!(inject, args, fields, coords, index, grid, di, nxcell, idx_cell)
     max_xcell = cellnum(index)
-
+    
     @inbounds if inject[idx_cell...]
         # count current number of particles inside the cell
         particles_num = false
@@ -102,18 +103,20 @@ function _inject_particles!(inject, args, fields, coords, index, grid, di, nxcel
                 particles_num += 1
 
                 # add at cellcenter + small random perturbation
-                p_new = new_particle(xvi, di)
+                # p_new = new_particle(xvi, di)
+                p_new = new_particle(xvi, di, particles_num, max_xcell)
+
                 fill_particle!(coords, p_new, i, idx_cell)
                 @cell index[i, idx_cell...] = true
 
-                for (arg_i, field_i) in zip(args, fields)
-                    local_field = cell_field(field_i, idx_cell...)
+                for i in eachindex(args)
+                    local_field = JustPIC.cell_field(fields[i], idx_cell...)
                     upper = maximum(local_field)
                     lower = minimum(local_field)
-                    tmp = _grid2particle(p_new, grid, di, field_i, idx_cell)
+                    tmp =_grid2particle(p_new, grid, di, fields[i], idx_cell)
                     tmp < lower && (tmp = lower)
                     tmp > upper && (tmp = upper)
-                    @cell arg_i[i, idx_cell...] = tmp
+                    @cell args[i][i, idx_cell...] = tmp
                 end
             end
 
@@ -189,6 +192,8 @@ function _inject_particles_phase!(
     inject, particles_phases, args, fields, coords, index, grid, di, min_xcell, idx_cell
 )
     if inject[idx_cell...]
+        
+        np = prod(cellsize(index))
 
         # count current number of particles inside the cell
         particles_num = false
@@ -204,7 +209,8 @@ function _inject_particles_phase!(
                 particles_num += 1
 
                 # add at cellcenter + small random perturbation
-                p_new = new_particle(xvi, di)
+                # p_new = new_particle(xvi, di)
+                p_new = new_particle(xvi, di, particles_num, np)
 
                 # add phase to new particle
                 particle_idx, min_idx = index_min_distance(
@@ -217,14 +223,14 @@ function _inject_particles_phase!(
                 @cell index[i, idx_cell...] = true
 
                 # interpolate fields into newly injected particle
-                for (arg_i, field_i) in zip(args, fields)
-                    tmp = _grid2particle(p_new, grid, di, field_i, idx_cell)
-                    local_field = cell_field(field_i, idx_cell...)
+                for i in eachindex(args)
+                    tmp = _grid2particle(p_new, grid, di, fields[i], idx_cell)
+                    local_field = cell_field(fields[i], idx_cell...)
                     upper = maximum(local_field)
                     lower = minimum(local_field)
                     tmp < lower && (tmp = lower)
                     tmp > upper && (tmp = upper)
-                    @cell arg_i[i, idx_cell...] = tmp
+                    @cell args[i][i, idx_cell...] = tmp
                 end
             end
 
@@ -317,5 +323,16 @@ function new_particle(xvi::NTuple{N,T}, di::NTuple{N,T}) where {N,T}
     p_new = ntuple(Val(N)) do i
         xvi[i] + di[i] * rand(0.05:1e-5:0.95)
     end
+    return p_new
+end
+
+function new_particle(xvi::NTuple{N,T}, di::NTuple{N,T}, ctr, np) where {N, T}
+    th = (2*pi)/np * (ctr-1)
+    sinth, costh = sincos(th)
+    r = min(di...) * 0.5
+    p_new = (
+        r * cos(th) + xvi[1] + dxi[1] * 0.5, 
+        r * sin(th) + xvi[2] + dxi[2] * 0.5
+    )
     return p_new
 end
