@@ -331,8 +331,8 @@ function new_particle(xvi::NTuple{N,T}, di::NTuple{N,T}, ctr, np) where {N, T}
     sinth, costh = sincos(th)
     r = min(di...) * 0.5
     p_new = (
-        r * cos(th) + xvi[1] + dxi[1] * 0.5, 
-        r * sin(th) + xvi[2] + dxi[2] * 0.5
+        r * costh + xvi[1] + di[1] * 0.5, 
+        r * sinth + xvi[2] + di[2] * 0.5
     )
     return p_new
 end
