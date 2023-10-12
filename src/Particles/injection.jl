@@ -87,7 +87,7 @@ end
 
 function _inject_particles!(inject, args, fields, coords, index, grid, di, nxcell, idx_cell)
     max_xcell = cellnum(index)
-    
+
     @inbounds if inject[idx_cell...]
         # count current number of particles inside the cell
         particles_num = false
@@ -113,7 +113,7 @@ function _inject_particles!(inject, args, fields, coords, index, grid, di, nxcel
                     local_field = JustPIC.cell_field(fields[i], idx_cell...)
                     upper = maximum(local_field)
                     lower = minimum(local_field)
-                    tmp =_grid2particle(p_new, grid, di, fields[i], idx_cell)
+                    tmp = _grid2particle(p_new, grid, di, fields[i], idx_cell)
                     tmp < lower && (tmp = lower)
                     tmp > upper && (tmp = upper)
                     @cell args[i][i, idx_cell...] = tmp
@@ -192,7 +192,6 @@ function _inject_particles_phase!(
     inject, particles_phases, args, fields, coords, index, grid, di, min_xcell, idx_cell
 )
     if inject[idx_cell...]
-        
         np = prod(cellsize(index))
 
         # count current number of particles inside the cell
@@ -326,13 +325,10 @@ function new_particle(xvi::NTuple{N,T}, di::NTuple{N,T}) where {N,T}
     return p_new
 end
 
-function new_particle(xvi::NTuple{N,T}, di::NTuple{N,T}, ctr, np) where {N, T}
-    th = (2*pi)/np * (ctr-1)
+function new_particle(xvi::NTuple{N,T}, di::NTuple{N,T}, ctr, np) where {N,T}
+    th = (2 * pi) / np * (ctr - 1)
     sinth, costh = sincos(th)
     r = min(di...) * 0.5
-    p_new = (
-        r * cos(th) + xvi[1] + dxi[1] * 0.5, 
-        r * sin(th) + xvi[2] + dxi[2] * 0.5
-    )
+    p_new = (r * costh + xvi[1] + di[1] * 0.5, r * sinth + xvi[2] + di[2] * 0.5)
     return p_new
 end

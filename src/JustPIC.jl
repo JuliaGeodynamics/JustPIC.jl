@@ -38,9 +38,9 @@ end
 
 const backend = @load_preference("backend", "Threads_Float64_2D")
 
-const TA = if occursin("CUDA", backend) 
-    CUDA.CuArray 
-elseif occursin("AMDGPU", backend) 
+const TA = if occursin("CUDA", backend)
+    CUDA.CuArray
+elseif occursin("AMDGPU", backend)
     AMDGPU.ROCArray
 else
     Array
