@@ -41,22 +41,21 @@ on the staggered grid `grid` onto the new particle field `args`.
 """
 function inject_particles!(particles::Particles, args, fields, grid::NTuple{2,T}) where {T}
     # unpack
-    (; inject, coords, index, nxcell) = particles
-    # linear to cartesian object
+    (; inject, coords, index, min_xcell) = particles
     icell, jcell = size(inject)
     di = compute_dx(grid)
 
     @parallel (1:icell, 1:jcell) inject_particles!(
-        inject, args, fields, coords, index, grid, di, nxcell
+        inject, args, fields, coords, index, grid, di, min_xcell
     )
 end
 
 @parallel_indices (icell, jcell) function inject_particles!(
-    inject, args, fields, coords, index, grid, di::NTuple{2,T}, nxcell
+    inject, args, fields, coords, index, grid, di::NTuple{2,T}, min_xcell
 ) where {T}
     if (icell ≤ size(inject, 1)) && (jcell ≤ size(inject, 2))
         _inject_particles!(
-            inject, args, fields, coords, index, grid, di, nxcell, (icell, jcell)
+            inject, args, fields, coords, index, grid, di, min_xcell, (icell, jcell)
         )
     end
     return nothing
@@ -64,31 +63,33 @@ end
 
 function inject_particles!(particles::Particles, args, fields, grid::NTuple{3,T}) where {T}
     # unpack
-    (; inject, coords, index, nxcell) = particles
-    # linear to cartesian object
+    (; inject, coords, index, min_xcell) = particles
     icell, jcell, kcell = size(inject)
     di = compute_dx(grid)
 
     @parallel (1:icell, 1:jcell, 1:kcell) inject_particles!(
-        inject, args, fields, coords, index, grid, di, nxcell
+        inject, args, fields, coords, index, grid, di, min_xcell
     )
 end
 
 @parallel_indices (icell, jcell, kcell) function inject_particles!(
-    inject, args, fields, coords, index, grid, di::NTuple{3,T}, nxcell
+    inject, args, fields, coords, index, grid, di::NTuple{3,T}, min_xcell
 ) where {T}
     if (icell ≤ size(inject, 1)) && (jcell ≤ size(inject, 2)) && (kcell ≤ size(inject, 3))
         _inject_particles!(
-            inject, args, fields, coords, index, grid, di, nxcell, (icell, jcell, kcell)
+            inject, args, fields, coords, index, grid, di, min_xcell, (icell, jcell, kcell)
         )
     end
     return nothing
 end
 
-function _inject_particles!(inject, args, fields, coords, index, grid, di, nxcell, idx_cell)
+function _inject_particles!(
+    inject, args, fields, coords, index, grid, di, min_xcell, idx_cell
+)
     max_xcell = cellnum(index)
 
     @inbounds if inject[idx_cell...]
+
         # count current number of particles inside the cell
         particles_num = false
         for i in 1:max_xcell
@@ -109,18 +110,18 @@ function _inject_particles!(inject, args, fields, coords, index, grid, di, nxcel
                 fill_particle!(coords, p_new, i, idx_cell)
                 @cell index[i, idx_cell...] = true
 
-                for i in eachindex(args)
-                    local_field = JustPIC.cell_field(fields[i], idx_cell...)
+                for j in eachindex(args)
+                    local_field = cell_field(fields[j], idx_cell...)
                     upper = maximum(local_field)
                     lower = minimum(local_field)
-                    tmp = _grid2particle(p_new, grid, di, fields[i], idx_cell)
+                    tmp = _grid2particle(p_new, grid, di, fields[j], idx_cell)
                     tmp < lower && (tmp = lower)
                     tmp > upper && (tmp = upper)
-                    @cell args[i][i, idx_cell...] = tmp
+                    @cell args[j][i, idx_cell...] = tmp
                 end
             end
 
-            particles_num == nxcell && break
+            particles_num == min_xcell && break
         end
     end
 
@@ -222,14 +223,14 @@ function _inject_particles_phase!(
                 @cell index[i, idx_cell...] = true
 
                 # interpolate fields into newly injected particle
-                for i in eachindex(args)
-                    tmp = _grid2particle(p_new, grid, di, fields[i], idx_cell)
-                    local_field = cell_field(fields[i], idx_cell...)
+                for j in eachindex(args)
+                    tmp = _grid2particle(p_new, grid, di, fields[j], idx_cell)
+                    local_field = cell_field(fields[j], idx_cell...)
                     upper = maximum(local_field)
                     lower = minimum(local_field)
                     tmp < lower && (tmp = lower)
                     tmp > upper && (tmp = upper)
-                    @cell args[i][i, idx_cell...] = tmp
+                    @cell args[j][i, idx_cell...] = tmp
                 end
             end
 
@@ -318,17 +319,29 @@ end
     field[i + 1, j + 1, k + 1]
 end
 
-function new_particle(xvi::NTuple{N,T}, di::NTuple{N,T}) where {N,T}
+@inline function new_particle(xvi::NTuple{N,T}, di::NTuple{N,T}) where {N,T}
     p_new = ntuple(Val(N)) do i
         xvi[i] + di[i] * rand(0.05:1e-5:0.95)
     end
     return p_new
 end
 
-function new_particle(xvi::NTuple{N,T}, di::NTuple{N,T}, ctr, np) where {N,T}
+@inline function new_particle(xvi::NTuple{N,T}, di::NTuple{N,T}, ctr, np) where {N,T}
     th = (2 * pi) / np * (ctr - 1)
     sinth, costh = sincos(th)
-    r = min(di...) * 0.5
+    r = min(di...) * 0.25
     p_new = (r * costh + xvi[1] + di[1] * 0.5, r * sinth + xvi[2] + di[2] * 0.5)
+    return p_new
+end
+
+@inline function new_particle(xvi::NTuple{3,T}, di::NTuple{3,T}, ctr, np) where {T}
+    th = (2 * pi) / np * (ctr - 1)
+    sinth, costh = sincos(th)
+    r = min(di...) * 0.25
+    p_new = (
+        r * costh + xvi[1] + di[1] * 0.5,
+        xvi[2] + di[2] * 0.5,
+        r * sinth + xvi[3] + di[3] * 0.5,
+    )
     return p_new
 end
