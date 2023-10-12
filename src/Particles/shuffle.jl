@@ -289,8 +289,11 @@ end
 ) where {N1,N2,T1,T2}
     quote
         Base.@_inline_meta
-        Base.Cartesian.@nexprs $N1 i -> (tmp = p[i];
-        (@cell tmp[ip, I...] = field[i]))
+        Base.Cartesian.@nexprs $N1 i -> begin
+            tmp = p[i]
+            @cell tmp[ip, I...] = field[i]
+        end
+        return nothing
     end
 end
 

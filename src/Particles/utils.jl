@@ -102,16 +102,16 @@ end
     # first min_xcell particles
     val = 0
     for i in 1:min_xcell
-        val += @cell(index[i, cell_indices...])
+        val += @inbounds @cell(index[i, cell_indices...])
     end
     # early escape
     val ≥ min_xcell && return false
     # tail
     n = cellnum(index)
     for i in (min_xcell + 1):n
-        val += @cell(index[i, cell_indices...])
+        val += @inbounds @cell(index[i, cell_indices...])
     end
-    return val ≥ min_xcell ? false : true
+    return !(val ≥ min_xcell)
 end
 
 @parallel_indices (i) function copy_vectors!(
@@ -126,7 +126,6 @@ end
 end
 
 @inline function compute_dx(grid::NTuple{N,T}) where {N,T}
-    # return ntuple(i -> grid[i][2] - grid[i][1], Val(N))
     return ntuple(i -> abs(minimum(diff(grid[i]))), Val(N))
 end
 
