@@ -326,23 +326,23 @@ end
     return p_new
 end
 
-@inline function new_particle(xvi::NTuple{2,T}, di::NTuple{2,T}, ctr, np) where {N,T}
+@inline function new_particle(xvi::NTuple{2,T}, di::NTuple{2,T}, ctr, np) where {T}
     th = (2 * pi) / np * (ctr - 1)
-    sinth, costh = sin(th), cos(th)
-    # sinth, costh = sincos(th)
     r = min(di...) * 0.25
-    p_new = (r * costh + xvi[1] + di[1] * 0.5, r * sinth + xvi[2] + di[2] * 0.5)
+    p_new = (
+        muladd(di[1], 0.5, muladd(r, cos(th), xvi[1])),
+        muladd(di[2], 0.5, muladd(r, sin(th), xvi[2])),
+    )
     return p_new
 end
 
 @inline function new_particle(xvi::NTuple{3,T}, di::NTuple{3,T}, ctr, np) where {T}
     th = (2 * pi) / np * (ctr - 1)
-    sinth, costh = sincos(th)
     r = min(di...) * 0.25
     p_new = (
-        r * costh + xvi[1] + di[1] * 0.5,
-        xvi[2] + di[2] * 0.5,
-        r * sinth + xvi[3] + di[3] * 0.5,
+        muladd(di[1], 0.5, muladd(r, cos(th), xvi[1])),
+        muladd(di[2], 0.5, xvi[2]),
+        muladd(di[3], 0.5, muladd(r, cos(th), xvi[3])),
     )
     return p_new
 end
