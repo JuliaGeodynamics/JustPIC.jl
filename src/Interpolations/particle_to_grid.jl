@@ -93,8 +93,8 @@ end
 ## INTERPOLATION KERNEL 3D
 
 @inbounds function _particle2grid!(
-    F::NTuple{N,T1}, Fp::NTuple{N,T2}, inode, jnode, knode, xi::NTuple{3,T3}, p, di
-) where {N,T1,T2,T3}
+    F, Fp, inode, jnode, knode, xi::NTuple{3,T}, p, di
+) where {T}
     px, py, pz = p # particle coordinates
     nx, ny, nz = size(F[1])
     xvertex = xi[1][inode], xi[2][jnode], xi[3][knode] # cell lower-left coordinates
