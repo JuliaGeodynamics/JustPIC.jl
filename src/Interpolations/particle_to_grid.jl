@@ -120,6 +120,44 @@ end
                         any(isnan, p_i) && continue  # ignore lines below for unused allocations
                         ω_i = bilinear_weight(xvertex, p_i, di)
                         ω += ω_i
+                        ωxF += ω_i * @cell(Fp[i, ivertex, jvertex, kvertex])
+                    end
+                end
+            end
+        end
+    end
+
+    return F[inode, jnode, knode] = ωxF / ω
+end
+
+@inbounds function _particle2grid!(
+    F::NTuple{N,T1}, Fp::NTuple{N,T2}, inode, jnode, knode, xi::NTuple{3,T3}, p, di
+) where {N,T1,T2,T3}
+    px, py, pz = p # particle coordinates
+    nx, ny, nz = size(F[1])
+    xvertex = xi[1][inode], xi[2][jnode], xi[3][knode] # cell lower-left coordinates
+    ω = 0.0 # init weights
+    ωxF = ntuple(i -> 0.0, Val(N)) # init weights
+
+    # iterate over cells around i-th node
+    for koffset in -1:0
+        kvertex = koffset + knode
+        for joffset in -1:0
+            jvertex = joffset + jnode
+            for ioffset in -1:0
+                ivertex = ioffset + inode
+                # make sure we operate within the grid
+                if (1 ≤ ivertex < nx) && (1 ≤ jvertex < ny) && (1 ≤ kvertex < nz)
+                    # iterate over cell
+                    @inbounds for ip in cellaxes(px)
+                        p_i = (
+                            @cell(px[ip, ivertex, jvertex, kvertex]),
+                            @cell(py[ip, ivertex, jvertex, kvertex]),
+                            @cell(pz[ip, ivertex, jvertex, kvertex]),
+                        )
+                        any(isnan, p_i) && continue  # ignore lines below for unused allocations
+                        ω_i = bilinear_weight(xvertex, p_i, di)
+                        ω += ω_i
                         ωxF = ntuple(Val(N)) do j
                             Base.@_inline_meta
                             ωxF[j] + ω_i + @cell(Fp[j][i, ivertex, jvertex, kvertex])
