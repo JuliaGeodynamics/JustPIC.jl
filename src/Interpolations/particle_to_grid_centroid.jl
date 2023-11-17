@@ -54,7 +54,7 @@ end
         ω += ω_i
         ωxF = ntuple(Val(N)) do j
             Base.@_inline_meta
-            ωxF[j] + ω_i + @cell(Fp[j][i, inode, jnode])
+            muladd(ω_i, @cell(Fp[j][i, inode, jnode]), ωxF[j])
         end
     end
         
@@ -71,7 +71,7 @@ end
     F, Fp, inode, jnode, knode, xi::NTuple{3,T}, p, di
 ) where {T}
     px, py, pz = p # particle coordinates
-    xvertex = xi[1][inode], xi[2][jnode], xi[3][knode] # cell lower-left coordinates
+    xvertex = xi[1][inode], xi[2][jnode], xi[3][knode] # centroid coordinates
     ω, ωF = 0.0, 0.0 # init weights
 
     # iterate over cell
@@ -81,10 +81,10 @@ end
             @cell(py[ip, inode, jnode, knode]),
             @cell(pz[ip, inode, jnode, knode]),
         )
-        any(isnan, p_i) && continue  # ignore lines below for unused allocations
+        isnan(p_i[1]) && continue  # ignore lines below for unused allocations
         ω_i = bilinear_weight(xvertex, p_i, di)
         ω += ω_i
-        ωF += ω_i * @cell(Fp[ip, inode, jnode, knode])
+        ωF = muladd(ω_i, @cell(Fp[ip, inode, jnode, knode]), ωF)
     end
 
     return F[inode, jnode, knode] = ωF * inv(ω)
@@ -94,8 +94,7 @@ end
     F::NTuple{N,T1}, Fp::NTuple{N,T2}, inode, jnode, knode, xi::NTuple{3,T3}, p, di
 ) where {N,T1,T2,T3}
     px, py, pz = p # particle coordinates
-    nx, ny, nz = size(F[1])
-    xvertex = xi[1][inode], xi[2][jnode], xi[3][knode] # cell lower-left coordinates
+    xvertex = xi[1][inode], xi[2][jnode], xi[3][knode] # centroid coordinates
     ω = 0.0 # init weights
     ωxF = ntuple(i -> 0.0, Val(N)) # init weights
 
@@ -111,7 +110,7 @@ end
         ω += ω_i
         ωxF = ntuple(Val(N)) do j
             Base.@_inline_meta
-            ωxF[j] + ω_i + @cell(Fp[j][i, inode, jnode, knode])
+            muladd(ω_i, @cell(Fp[j][i, inode, jnode, knode]), ωxF[j])
         end
     end
     
