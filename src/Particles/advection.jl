@@ -170,9 +170,9 @@ function advect_particle_RK(
         Base.@_propagate_inbounds_meta
         Base.@_inline_meta
         local_lims = local_limits[i]
+
         v =
-            if (local_lims[1][1] < p1[1] < local_lims[1][2]) &&
-                (local_lims[2][1] < p1[2] < local_lims[2][2])
+            if check_local_limits(local_lims, p1)
                 interp_velocity_grid2particle(p1, grid_vi[i], dxi, V[i], idx)
 
             else

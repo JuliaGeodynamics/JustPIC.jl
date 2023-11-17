@@ -10,6 +10,7 @@ using CellArrays
 using Preferences
 
 # CUDA.allowscalar(false)
+__precompile__(false)
 
 function set_backend(new_backend::String)
     if !(
@@ -54,6 +55,7 @@ let
     precission = s[2]
     dimension = parse(Int, s[3][1])
     @eval begin
+        println("Backend: $backend")
         @init_parallel_stencil($(Symbol(device)), $(Symbol(precission)), $dimension)
     end
 end
@@ -73,6 +75,9 @@ include("Interpolations/utils.jl")
 
 include("Interpolations/particle_to_grid.jl")
 export particle2grid!
+
+include("Interpolations/particle_to_grid_centroid.jl")
+export particle2grid_centroid!
 
 include("Interpolations/grid_to_particle.jl")
 export grid2particle!, grid2particle_flip!
@@ -95,5 +100,8 @@ export check_injection, inject_particles!, inject_particles_phase!, clean_partic
 
 include("Particles/shuffle.jl")
 export shuffle_particles!
+
+include("Particles/shuffle_periodic.jl")
+export shuffle_particles_periodic!
 
 end # module
