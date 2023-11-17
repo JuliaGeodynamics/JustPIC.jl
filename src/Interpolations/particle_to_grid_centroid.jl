@@ -20,7 +20,9 @@ end
 
 ## INTERPOLATION KERNEL 2D
 
-@inbounds function _particle2grid_centroid!(F, Fp, inode, jnode, xi::NTuple{2,T}, p, di) where {T}
+@inbounds function _particle2grid_centroid!(
+    F, Fp, inode, jnode, xi::NTuple{2,T}, p, di
+) where {T}
     px, py = p # particle coordinates
     xvertex = xi[1][inode], xi[2][jnode] # centroid coordinates
     ω, ωxF = 0.0, 0.0 # init weights
@@ -34,7 +36,7 @@ end
         ω += ω_i
         ωxF += ω_i * @cell(Fp[i, inode, jnode])
     end
-            
+
     return F[inode, jnode] = ωxF / ω
 end
 
@@ -57,7 +59,7 @@ end
             muladd(ω_i, @cell(Fp[j][i, inode, jnode]), ωxF[j])
         end
     end
-        
+
     _ω = inv(ω)
     return ntuple(Val(N)) do i
         Base.@_inline_meta
@@ -101,9 +103,9 @@ end
     # iterate over cell
     @inbounds for ip in cellaxes(px)
         p_i = (
-            @cell(px[ip,inode, jnode, knode]),
-            @cell(py[ip,inode, jnode, knode]),
-            @cell(pz[ip,inode, jnode, knode]),
+            @cell(px[ip, inode, jnode, knode]),
+            @cell(py[ip, inode, jnode, knode]),
+            @cell(pz[ip, inode, jnode, knode]),
         )
         any(isnan, p_i) && continue  # ignore lines below for unused allocations
         ω_i = bilinear_weight(xvertex, p_i, di)
@@ -113,7 +115,7 @@ end
             muladd(ω_i, @cell(Fp[j][i, inode, jnode, knode]), ωxF[j])
         end
     end
-    
+
     _ω = inv(ω)
     return ntuple(Val(N)) do i
         Base.@_inline_meta
