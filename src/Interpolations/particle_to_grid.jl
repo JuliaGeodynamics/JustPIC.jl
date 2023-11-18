@@ -41,7 +41,7 @@ end
                     any(isnan, p_i) && continue
                     ω_i = bilinear_weight(xvertex, p_i, di)
                     ω += ω_i
-                    ωxF += ω_i * @cell(Fp[i, ivertex, jvertex])
+                    ωxF = muladd(ω_i, @cell(Fp[ip, ivertex, jvertex]), ωF)
                 end
             end
         end
@@ -75,7 +75,7 @@ end
                     ω += ω_i
                     ωxF = ntuple(Val(N)) do j
                         Base.@_inline_meta
-                        ωxF[j] + ω_i + @cell(Fp[j][i, ivertex, jvertex])
+                        muladd(ω_i, @cell(Fp[j][i, ivertex, jvertex]), ωxF[j])
                     end
                 end
             end
@@ -118,7 +118,7 @@ end
                         any(isnan, p_i) && continue  # ignore lines below for unused allocations
                         ω_i = bilinear_weight(xvertex, p_i, di)
                         ω += ω_i
-                        ωF += ω_i * @cell(Fp[ip, ivertex, jvertex, kvertex])
+                        ωF = muladd(ω_i, @cell(Fp[ip, ivertex, jvertex, kvertex]), ωF)
                     end
                 end
             end
@@ -158,7 +158,7 @@ end
                         ω += ω_i
                         ωxF = ntuple(Val(N)) do j
                             Base.@_inline_meta
-                            ωxF[j] + ω_i + @cell(Fp[j][i, ivertex, jvertex, kvertex])
+                            muladd(ω_i, @cell(Fp[j][i, ivertex, jvertex, kvertex]), ωxF[j])
                         end
                     end
                 end
@@ -184,9 +184,9 @@ end
 ) where {N,T}
     quote
         Base.@_inline_meta
-        val = one(T)
+        one_T = val = one(T)
         Base.Cartesian.@nexprs $N i ->
-            @inbounds val *= muladd(-abs(a[i] - b[i]), inv(di[i]), one(T))
+            @inbounds val *= muladd(-abs(a[i] - b[i]), inv(di[i]), one_T)
         return val
     end
 end
