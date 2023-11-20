@@ -112,7 +112,7 @@ end
         ω += ω_i
         ωxF = ntuple(Val(N)) do j
             Base.@_inline_meta
-            muladd(ω_i, @cell(Fp[j][i, inode, jnode, knode]), ωxF[j])
+            muladd(ω_i, @cell(Fp[j][ip, inode, jnode, knode]), ωxF[j])
         end
     end
 
