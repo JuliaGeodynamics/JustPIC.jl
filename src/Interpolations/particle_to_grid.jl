@@ -41,7 +41,7 @@ end
                     any(isnan, p_i) && continue
                     ω_i = bilinear_weight(xvertex, p_i, di)
                     ω += ω_i
-                    ωxF = muladd(ω_i, @cell(Fp[ip, ivertex, jvertex]), ωF)
+                    ωxF = muladd(ω_i, @cell(Fp[i, ivertex, jvertex]), ωF)
                 end
             end
         end
