@@ -101,7 +101,4 @@ export check_injection, inject_particles!, inject_particles_phase!, clean_partic
 include("Particles/shuffle.jl")
 export shuffle_particles!
 
-include("Particles/shuffle_periodic.jl")
-export shuffle_particles_periodic!
-
 end # module
