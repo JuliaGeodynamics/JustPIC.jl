@@ -5,9 +5,7 @@ using JustPIC
 using CellArrays
 using ParallelStencil
 using GLMakie
-@init_parallel_stencil(CUDA, Float64, 2)
-
-const TA = backend == "CUDA" ? JustPIC.CUDA.CuArray : Array
+@init_parallel_stencil(Threads, Float64, 2)
 
 function init_particle(nxcell, max_xcell, min_xcell, x, y, dx, dy, nx, ny, me)
     ni = nx, ny
