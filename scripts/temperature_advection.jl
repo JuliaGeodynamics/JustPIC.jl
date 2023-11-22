@@ -1,14 +1,11 @@
 using JustPIC
-using AMDGPU
-
-AMDGPU.allowscalar(false)
 
 # set_backend("AMDGPU_Float64_2D") # need to restart session if this changes
 
 using CellArrays
 using ParallelStencil
 using CairoMakie
-@init_parallel_stencil(AMDGPU, Float64, 2)
+@init_parallel_stencil(Threads, Float64, 2)
 
 function init_particles(nxcell, max_xcell, min_xcell, x, y, dx, dy, nx, ny)
     ni = nx, ny

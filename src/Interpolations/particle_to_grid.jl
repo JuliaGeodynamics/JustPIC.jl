@@ -7,7 +7,7 @@ function particle2grid!(F, Fp, xi::NTuple, particle_coords)
 end
 
 function particle2grid!(F, Fp, xi::NTuple, particle_coords, dxi)
-    @parallel (@idx size(particle_coords[1])) particle2grid!(
+    @parallel (@idx size(F)) particle2grid!(
         F, Fp, xi, particle_coords, dxi
     )
     return nothing
@@ -54,7 +54,7 @@ end
     F::NTuple{N,T1}, Fp::NTuple{N,T2}, inode, jnode, xi::NTuple{2,T3}, p, di
 ) where {N,T1,T2,T3}
     px, py = p # particle coordinates
-    nx, ny = size(F)
+    nx, ny = size(F[1])
     xvertex = xi[1][inode], xi[2][jnode] # cell lower-left coordinates
     ω, ωxF = 0.0, 0.0 # init weights
 

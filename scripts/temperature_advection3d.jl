@@ -6,7 +6,7 @@ import JustPIC: @idx, @cell
 using CellArrays
 using ParallelStencil
 using GLMakie
-@init_parallel_stencil(CUDA, Float64, 3)
+@init_parallel_stencil(Threads, Float64, 3)
 
 function init_particles(nxcell, max_xcell, min_xcell, x, y, z, dx, dy, dz, ni)
     ncells     = prod(ni)
