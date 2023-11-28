@@ -57,7 +57,7 @@ end
 
 #  Interpolation from grid corners to particle positions
 
-function _grid2particle(pᵢ::NTuple, xvi::NTuple, di::NTuple, F::AbstractArray, idx)
+@inline function _grid2particle(pᵢ::NTuple, xvi::NTuple, di::NTuple, F::AbstractArray, idx)
     # F at the cell corners
     Fi = field_corners(F, idx)
     # normalize particle coordinates
