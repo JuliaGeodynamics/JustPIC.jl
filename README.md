@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/507905159.svg)](https://zenodo.org/doi/10.5281/zenodo.10212675)
+
 # JustPIC.jl
 
 Particle-in-Cell advection ready to rock the GPU  :rocket:
