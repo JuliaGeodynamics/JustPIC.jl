@@ -68,6 +68,20 @@ end
     return Fp
 end
 
+@inline function _grid2particle(pᵢ::NTuple, xvi::NTuple, di::NTuple, F::NTuple{N, T}, idx) where {N,T}
+    # normalize particle coordinates
+    ti = normalize_coordinates(pᵢ, xvi, di, idx)
+    Fp = ntuple(Val(N)) do i
+        Base.@_inline_meta
+        # F at the cell corners
+        Fi = field_corners(F[i], idx)
+        # Interpolate field F onto particle
+        ndlinear(ti, Fi)
+    end
+
+    return Fp
+end
+
 ## FULL PARTICLE PIC ------------------------------------------------------------------------------------------
 
 # LAUNCHERS
@@ -110,11 +124,11 @@ end
         any(isnan, pᵢ) && continue
 
         Fᵢ = @cell Fp[ip, idx...]
-        F_pic = _grid2particle(pᵢ, xvi, di, F, idx)
-        ΔF = F_pic - _grid2particle(pᵢ, xvi, di, F0, idx)
+        F_pic, F0_pic = _grid2particle(pᵢ, xvi, di, (F, F0), idx)
+        ΔF = F_pic - F0_pic
         F_flip = Fᵢ + ΔF
         # Interpolate field F onto particle
-        @cell Fp[ip, idx...] = F_pic * α + F_flip * (1.0 - α)
+        @cell Fp[ip, idx...] = muladd(F_pic, α, F_flip * (1.0 - α))
     end
 end
 
@@ -139,11 +153,11 @@ end
         ntuple(Val(N1)) do i
             Base.@_inline_meta
             Fᵢ = @cell Fp[i][ip, idx...]
-            F_pic = _grid2particle(pᵢ, xvi, di, F[i], idx)
-            ΔF = F_pic - _grid2particle(pᵢ, xvi, di, F0[i], idx)
+            F_pic, F0_pic = _grid2particle(pᵢ, xvi, di, (F[i], F0[i]), idx)
+            ΔF = F_pic - F0_pic
             F_flip = Fᵢ + ΔF
             # Interpolate field F onto particle
-            @cell Fp[i][ip, idx...] = F_pic * α + F_flip * (1.0 - α)
+            @cell Fp[i][ip, idx...] = muladd(F_pic, α, F_flip * (1.0 - α))
         end
     end
 end
