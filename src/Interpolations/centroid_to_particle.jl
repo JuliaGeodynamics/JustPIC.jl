@@ -8,14 +8,16 @@ function centroid2particle!(Fp, xci, F, particle_coords)
 end
 
 function centroid2particle!(Fp, xci, F, particle_coords, di::NTuple{N,T}) where {N,T}
-    indices = ntuple(i -> 0:length(xci[i])+1, Val(N))
+    indices = ntuple(i -> 0:(length(xci[i]) + 1), Val(N))
 
     @parallel (indices) centroid2particle_classic!(Fp, F, xci, di, particle_coords)
 
     return nothing
 end
 
-@parallel_indices (I...) function centroid2particle_classic!(Fp, F, xci, di, particle_coords)
+@parallel_indices (I...) function centroid2particle_classic!(
+    Fp, F, xci, di, particle_coords
+)
     _centroid2particle_classic!(Fp, particle_coords, xci, di, F, tuple(I...))
     return nothing
 end
@@ -26,11 +28,11 @@ end
     nx, ny = size(F)
     idx_i, idx_j = idx
 
-    for j in idx_j:idx_j + 1
-        !(1 ≤ j < ny) && continue 
+    for j in idx_j:(idx_j + 1)
+        !(1 ≤ j < ny) && continue
 
-        for i in idx_i:idx_i + 1
-            !(1 ≤ i < nx) && continue 
+        for i in idx_i:(idx_i + 1)
+            !(1 ≤ i < nx) && continue
 
             # iterate over all the particles within the cells of index `idx` 
             for ip in cellaxes(Fp)
@@ -46,15 +48,17 @@ end
     return nothing
 end
 
-@inline function _centroid2particle_classic!(Fp::NTuple{N,T}, p, xci, di::NTuple{2,T}, F, idx) where {N,T}
+@inline function _centroid2particle_classic!(
+    Fp::NTuple{N,T}, p, xci, di::NTuple{2,T}, F, idx
+) where {N,T}
     nx, ny = size(F)
     idx_i, idx_j = idx
 
-    for j in idx_j:idx_j + 1
-        !(1 ≤ j < ny) && continue 
+    for j in idx_j:(idx_j + 1)
+        !(1 ≤ j < ny) && continue
 
-        for i in idx_i:idx_i + 1
-            !(1 ≤ i < nx) && continue 
+        for i in idx_i:(idx_i + 1)
+            !(1 ≤ i < nx) && continue
 
             # iterate over all the particles within the cells of index `idx` 
             for ip in cellaxes(Fp)
@@ -77,14 +81,14 @@ end
     nx, ny, nz = size(F)
     idx_i, idx_j, idx_k = idx
 
-    for k in idx_k:idx_k + 1
-        !(1 ≤ k < nz) && continue 
+    for k in idx_k:(idx_k + 1)
+        !(1 ≤ k < nz) && continue
 
-        for j in idx_j:idx_j + 1
-            !(1 ≤ j < ny) && continue 
+        for j in idx_j:(idx_j + 1)
+            !(1 ≤ j < ny) && continue
 
-            for i in idx_i:idx_i + 1
-                !(1 ≤ i < nx) && continue 
+            for i in idx_i:(idx_i + 1)
+                !(1 ≤ i < nx) && continue
 
                 # iterate over all the particles within the cells of index `idx` 
                 for ip in cellaxes(Fp)
@@ -101,18 +105,20 @@ end
     return nothing
 end
 
-@inline function _centroid2particle_classic!(Fp::NTuple{N,T}, p, xci, di::NTuple{3,T}, F, idx) where {N,T}
+@inline function _centroid2particle_classic!(
+    Fp::NTuple{N,T}, p, xci, di::NTuple{3,T}, F, idx
+) where {N,T}
     nx, ny, nz = size(F)
     idx_i, idx_j, idx_k = idx
 
-    for k in idx_k:idx_k + 1
-        !(1 ≤ k < nz) && continue 
+    for k in idx_k:(idx_k + 1)
+        !(1 ≤ k < nz) && continue
 
-        for j in idx_j:idx_j + 1
-            !(1 ≤ j < ny) && continue 
+        for j in idx_j:(idx_j + 1)
+            !(1 ≤ j < ny) && continue
 
-            for i in idx_i:idx_i + 1
-                !(1 ≤ i < nx) && continue 
+            for i in idx_i:(idx_i + 1)
+                !(1 ≤ i < nx) && continue
 
                 # iterate over all the particles within the cells of index `idx` 
                 for ip in cellaxes(Fp)
@@ -123,7 +129,9 @@ end
                     # Interpolate field F onto particle
                     ntuple(Val(N)) do n
                         Base.@_inline_meta
-                        @cell Fp[n][ip, i, j, k] = _centroid2particle(pᵢ, xci, di, F[n], idx)
+                        @cell Fp[n][ip, i, j, k] = _centroid2particle(
+                            pᵢ, xci, di, F[n], idx
+                        )
                     end
                 end
             end
@@ -146,7 +154,7 @@ end
 function centroid2particle_flip!(
     Fp, xci, F, F0, particle_coords, di::NTuple{N,T}; α=0.0
 ) where {N,T}
-    indices = ntuple(i -> 0:length(xci[i])+1, Val(N))
+    indices = ntuple(i -> 0:(length(xci[i]) + 1), Val(N))
 
     @parallel (indices) centroid2particle_full!(Fp, F, F0, xci, di, particle_coords, α)
 
@@ -165,15 +173,14 @@ end
 @inline function _centroid2particle_full!(
     Fp, p, xci, di::NTuple{2,T}, F, F0, idx, α
 ) where {T}
-
     nx, ny = size(F)
     idx_i, idx_j = idx
 
-    for j in idx_j:idx_j + 1
-        !(1 ≤ j < ny) && continue 
+    for j in idx_j:(idx_j + 1)
+        !(1 ≤ j < ny) && continue
 
-        for i in idx_i:idx_i + 1
-            !(1 ≤ i < nx) && continue 
+        for i in idx_i:(idx_i + 1)
+            !(1 ≤ i < nx) && continue
 
             # iterate over all the particles within the cells of index `idx` 
             for ip in cellaxes(Fp)
@@ -187,28 +194,27 @@ end
                 F_flip = Fᵢ + ΔF
                 # Interpolate field F onto particle
                 @cell Fp[ip, i, j] = muladd(F_pic, α, F_flip * (1.0 - α))
-            end            
+            end
         end
     end
-    
+
     return nothing
 end
 
 @inline function _centroid2particle_full!(
     Fp, p, xci, di::NTuple{3,T}, F, F0, idx, α
 ) where {T}
-
     nx, ny, nz = size(F)
     idx_i, idx_j, idx_k = idx
 
-    for k in idx_k:idx_k + 1
-        !(1 ≤ k < nz) && continue 
+    for k in idx_k:(idx_k + 1)
+        !(1 ≤ k < nz) && continue
 
-        for j in idx_j:idx_j + 1
-            !(1 ≤ j < ny) && continue 
+        for j in idx_j:(idx_j + 1)
+            !(1 ≤ j < ny) && continue
 
-            for i in idx_i:idx_i + 1
-                !(1 ≤ i < nx) && continue 
+            for i in idx_i:(idx_i + 1)
+                !(1 ≤ i < nx) && continue
 
                 # iterate over all the particles within the cells of index `idx` 
                 for ip in cellaxes(Fp)
@@ -225,7 +231,6 @@ end
                     # Interpolate field F onto particle
                     @cell Fp[ip, i, j, k] = muladd(F_pic, α, F_flip * (1.0 - α))
                 end
-                
             end
         end
     end
@@ -236,14 +241,13 @@ end
 @inline function _centroid2particle_full!(
     Fp::NTuple{N,T1}, p, xci, di::NTuple{2,T2}, F::NTuple{N,T2}, F0::NTuple{N,T2}, idx, α
 ) where {N,T1,T2}
-
     nx, ny = size(F)
     idx_i, idx_j = idx
 
-    for j in idx_j:idx_j + 1
+    for j in idx_j:(idx_j + 1)
         !(1 ≤ j < ny) && continue
 
-        for i in idx_i:idx_i + 1
+        for i in idx_i:(idx_i + 1)
             !(1 ≤ i < nx) && continue
 
             # iterate over all the particles within the cells of index `idx` 
@@ -262,7 +266,6 @@ end
                     @cell Fp[i][ip, i, j] = muladd(F_pic, α, F_flip * (1.0 - α))
                 end
             end
-            
         end
     end
 
@@ -272,18 +275,17 @@ end
 @inline function _centroid2particle_full!(
     Fp::NTuple{N,T1}, p, xci, di::NTuple{3,T2}, F::NTuple{N,T2}, F0::NTuple{N,T2}, idx, α
 ) where {N,T1,T2}
-
     nx, ny, nz = size(F)
     idx_i, idx_j, idx_k = idx
 
-    for k in idx_k:idx_k + 1
-        !(1 ≤ k < nz) && continue 
+    for k in idx_k:(idx_k + 1)
+        !(1 ≤ k < nz) && continue
 
-        for j in idx_j:idx_j + 1
-            !(1 ≤ j < ny) && continue 
+        for j in idx_j:(idx_j + 1)
+            !(1 ≤ j < ny) && continue
 
-            for i in idx_i:idx_i + 1
-                !(1 ≤ i < nx) && continue 
+            for i in idx_i:(idx_i + 1)
+                !(1 ≤ i < nx) && continue
 
                 # iterate over all the particles within the cells of index `idx` 
                 for ip in cellaxes(Fp)
@@ -303,7 +305,6 @@ end
                         @cell Fp[i][ip, i, j, k] = muladd(F_pic, α, F_flip * (1.0 - α))
                     end
                 end
-                
             end
         end
     end
@@ -344,7 +345,9 @@ end
 ## UTILS ------------------------------------------------------------------------------------------------------
 
 #  Interpolation from grid corners to particle positions
-@inline function _centroid2particle(pᵢ::NTuple, xci::NTuple, di::NTuple, F::AbstractArray, idx)
+@inline function _centroid2particle(
+    pᵢ::NTuple, xci::NTuple, di::NTuple, F::AbstractArray, idx
+)
 
     # F at the cell corners
     Fi = field_corners_clamped(F, idx)
@@ -356,7 +359,9 @@ end
     return Fp
 end
 
-@inline function _centroid2particle(pᵢ::NTuple, xci::NTuple, di::NTuple, F::NTuple{N, T}, idx) where {N,T}
+@inline function _centroid2particle(
+    pᵢ::NTuple, xci::NTuple, di::NTuple, F::NTuple{N,T}, idx
+) where {N,T}
 
     # normalize particle coordinates
     ti = normalize_coordinates_clamped(pᵢ, xci, di, idx)
@@ -367,13 +372,15 @@ end
         # Interpolate field F onto particle
         ndlinear(ti, Fi)
     end
-   
+
     return Fp
 end
 
 # Get field F at the corners of a given cell
-@inline function field_corners_clamped(F::AbstractArray{T,2}, idx::NTuple{2,Integer}) where {T}
-    ni = nx, ny = size(F) 
+@inline function field_corners_clamped(
+    F::AbstractArray{T,2}, idx::NTuple{2,Integer}
+) where {T}
+    ni = nx, ny = size(F)
     idx2 = @inline ntuple(i -> clamp(idx[i], 1, ni[i]), Val(2))
     i, j = idx2
     i1, j1 = clamp(i + 1, 1, nx), clamp(j + 1, 1, ny)
@@ -386,8 +393,10 @@ end
     return F00, F10, F01, F11
 end
 
-@inline function field_corners_clamped(F::AbstractArray{T,3}, idx::NTuple{3,Integer}) where {T}
-    ni = nx, ny, nz = size(F) 
+@inline function field_corners_clamped(
+    F::AbstractArray{T,3}, idx::NTuple{3,Integer}
+) where {T}
+    ni = nx, ny, nz = size(F)
     idx2 = @inline ntuple(i -> clamp(idx[i], 1, ni[i]), Val(3))
     i, j, k = idx2
     i1, j1, k1 = clamp(i + 1, 1, nx), clamp(j + 1, 1, ny), clamp(k + 1, 1, nz)
@@ -411,14 +420,14 @@ end
     return ntuple(Val(N)) do i
         Base.@_inline_meta
         j = idx[i]
-        
+
         x = xi[i]
         n = length(x)
         xc = if 0 < j ≤ n # set cellcenter coordinates outside the domain otherwise
             x[j]
-        elseif j < 1 
+        elseif j < 1
             -di[i] * 0.5
-        elseif j > n 
+        elseif j > n
             muladd(di[i], 0.5, x[j])
         end
         (p[i] - xc) * inv(di[i])

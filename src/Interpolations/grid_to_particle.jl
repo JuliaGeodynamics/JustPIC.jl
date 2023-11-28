@@ -68,7 +68,9 @@ end
     return Fp
 end
 
-@inline function _grid2particle(pᵢ::NTuple, xvi::NTuple, di::NTuple, F::NTuple{N, T}, idx) where {N,T}
+@inline function _grid2particle(
+    pᵢ::NTuple, xvi::NTuple, di::NTuple, F::NTuple{N,T}, idx
+) where {N,T}
     # normalize particle coordinates
     ti = normalize_coordinates(pᵢ, xvi, di, idx)
     Fp = ntuple(Val(N)) do i
