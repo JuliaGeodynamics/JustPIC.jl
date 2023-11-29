@@ -143,20 +143,12 @@ function advect_particle_RK(
     # interpolate velocity to current location
     vp0 = ntuple(ValN) do i
         Base.@_inline_meta
-        Base.@_propagate_inbounds_meta
-        # local_lims0 = firstlast.(grid_vi[i])
-        # local_lims = ntuple(j -> local_lims0[j] .+ (dxi[1] * 0.5, -dxi[2] * 0.5) , Val(N))
         local_lims = local_limits[i]
 
-        v = if check_local_limits(local_lims, p0)
-            interp_velocity_grid2particle(p0, grid_vi[i], dxi, V[i], idx)
-
-        else
-            # if this condition is met, it means that the particle
-            # went outside the local rank domain. It will be removed 
-            # during shuffling
-            0.0
-        end
+        # if this condition is met, it means that the particle
+        # went outside the local rank domain. It will be removed 
+        # during shuffling
+        v = check_local_limits(local_lims, p0) * interp_velocity_grid2particle(p0, grid_vi[i], dxi, V[i], idx)
     end
 
     # advect α*dt
@@ -167,19 +159,12 @@ function advect_particle_RK(
 
     # interpolate velocity to new location
     vp1 = ntuple(ValN) do i
-        Base.@_propagate_inbounds_meta
         Base.@_inline_meta
         local_lims = local_limits[i]
-
-        v = if check_local_limits(local_lims, p1)
-            interp_velocity_grid2particle(p1, grid_vi[i], dxi, V[i], idx)
-
-        else
-            # if this condition is met, it means that the particle
-            # went outside the local rank domain. It will be removed 
-            # during shuffling
-            0.0
-        end
+        # if this condition is met, it means that the particle
+        # went outside the local rank domain. It will be removed 
+        # during shuffling
+        v = check_local_limits(local_lims, p1) * interp_velocity_grid2particle(p1, grid_vi[i], dxi, V[i], idx)
     end
 
     # final advection step
@@ -197,7 +182,7 @@ function advect_particle_RK(
 end
 
 # Interpolate velocity from staggered grid to particle
-function interp_velocity_grid2particle(
+@inline function interp_velocity_grid2particle(
     p_i::NTuple, xi_vx::NTuple, dxi::NTuple, F::AbstractArray, idx
 )
     # F and coordinates at/of the cell corners
@@ -210,11 +195,12 @@ function interp_velocity_grid2particle(
 end
 
 # Get field F and nodal indices of the cell corners where the particle is located
-function corner_field_nodes(
+@inline function corner_field_nodes(
     F::AbstractArray{T,N}, p_i, xi_vx, dxi, idx::NTuple{N,Integer}
 ) where {N,T}
     ValN = Val(N)
     indices = ntuple(ValN) do n
+        Base.@_inline_meta
         # unpack
         idx_n = idx[n]
         # compute offsets and corrections
@@ -225,6 +211,7 @@ function corner_field_nodes(
 
     # coordinates of lower-left corner of the cell
     cells = ntuple(ValN) do n
+        Base.@_inline_meta
         xi_vx[n][indices[n]]
     end
 
@@ -248,22 +235,30 @@ end
 
 @inline Base.@propagate_inbounds function extract_field_corners(F, i, j, k)
     i1, j1, k1 = i + 1, j + 1, k + 1
+    F000 = F[i, j, k]
+    F100 = F[i1, j, k]
+    F001 = F[i, j, k1]
+    F101 = F[i1, j, k1]
+    F010 = F[i, j1, k]
+    F110 = F[i1, j1, k]
+    F011 = F[i, j1, k1]
+    F111 = F[i1, j1, k1]
     return (
-        F[i, j, k], # v000
-        F[i1, j, k], # v100
-        F[i, j, k1], # v001
-        F[i1, j, k1], # v101
-        F[i, j1, k], # v010
-        F[i1, j1, k], # v110
-        F[i, j1, k1], # v011
-        F[i1, j1, k1], # v111
+        F000,
+        F100,
+        F001,
+        F101,
+        F010,
+        F110,
+        F011,
+        F111,
     )
 end
 
-firstlast(x::AbstractArray) = first(x), last(x)
-firstlast(x::CuArray) = extrema(x)
+@inline firstlast(x::AbstractArray) = first(x), last(x)
+@inline firstlast(x::CuArray) = extrema(x)
 
-function inner_limits(grid::NTuple{N,T}) where {N,T}
+@inline function inner_limits(grid::NTuple{N,T}) where {N,T}
     ntuple(Val(N)) do i
         Base.@_inline_meta
         ntuple(j -> firstlast.(grid[i])[j], Val(N))
@@ -274,6 +269,7 @@ end
     local_lims::NTuple{N,T1}, p::NTuple{N,T2}
 ) where {N,T1,T2}
     quote
+        Base.@_inline_meta
         Base.@nexprs $N i -> !(local_lims[i][1] < p[i] < local_lims[i][2]) && return false
         return true
     end
