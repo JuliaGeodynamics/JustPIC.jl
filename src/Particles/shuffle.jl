@@ -3,15 +3,15 @@
 
 Move `particles` and their fields `args` to their new CellArray after advection.
 """
-function shuffle_particles!(particles::Particles, grid, args; origin=(0, 0))
+function shuffle_particles!(particles::Particles, grid, args)
     dxi = compute_dx(grid)
-    shuffle_particles!(particles, grid, dxi, args; origin=origin)
+    shuffle_particles!(particles, grid, dxi, args)
 
     return nothing
 end
 
 function shuffle_particles!(
-    particles::Particles, grid::NTuple{2,T}, dxi, args; origin=(0, 0)
+    particles::Particles, grid::NTuple{2,T}, dxi, args
 ) where {T}
     # unpack
     (; coords, index) = particles
@@ -34,7 +34,7 @@ function shuffle_particles!(
 end
 
 function shuffle_particles!(
-    particles::Particles, grid::NTuple{3,T}, dxi, args; origin=(0, 0, 0)
+    particles::Particles, grid::NTuple{3,T}, dxi, args
 ) where {T}
     # unpack
     (; coords, index) = particles
@@ -72,7 +72,7 @@ end
     i = 2 * (icell - 1) + offset_x
     j = 2 * (jcell - 1) + offset_y
 
-    if (i ≤ nx - 1) && (j ≤ ny - 1)
+    if (i < nx) && (j < ny)
         _shuffle_particles!(
             particle_coords, grid, domain_limits, dxi, nxi, index, (i, j), args
         )
@@ -98,7 +98,7 @@ end
     j = 2 * (jcell - 1) + offset_y
     k = 2 * (kcell - 1) + offset_z
 
-    if (i ≤ nx - 1) && (j ≤ ny - 1) && (k ≤ nz - 1)
+    if (i < nx) && (j < ny) && (k < nz)
         _shuffle_particles!(
             particle_coords, grid, domain_limits, dxi, nxi, index, (i, j, k), args
         )
@@ -288,8 +288,8 @@ end
     p::NTuple{N1,T1}, field::NTuple{N1,T2}, ip, I::NTuple{N2,Int64}
 ) where {N1,N2,T1,T2}
     quote
-        Base.@_inline_meta
         Base.Cartesian.@nexprs $N1 i -> begin
+            Base.@_inline_meta
             tmp = p[i]
             @cell tmp[ip, I...] = field[i]
         end
@@ -343,6 +343,7 @@ function global_domain_limits(origin::NTuple{N,Any}, dxi::NTuple{N,Any}) where {
     fn = nx_g, ny_g, nz_g
 
     lims = ntuple(Val(N)) do i
+        Base.@_inline_meta
         origin[i], (fn[i]() - 1) * dxi[i]
     end
 
