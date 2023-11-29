@@ -82,6 +82,9 @@ export particle2grid_centroid!
 include("Interpolations/grid_to_particle.jl")
 export grid2particle!, grid2particle_flip!
 
+include("Interpolations/centroid_to_particle.jl")
+export centroid2particle!, centroid2particle_flip!
+
 include("Interpolations/kernels.jl")
 export lerp, bilinear, trilinear
 
