@@ -20,10 +20,13 @@ function runtests()
     
     txt3D = "[JustPIC]
     backend = \"Threads_Float64_3D\""
-    
+
+    preferences = "LocalPreferences.toml"
+
     # 2D tests --------------------------------------------------
     printstyled("Running 2D tests\n"; bold=true, color=:white)
-    open(joinpath(pwd(), "LocalPreferences.toml"), "w") do file
+    isfile(preferences) && rm(preferences)
+    open(preferences, "w") do file
         write(file, txt2D)
     end
 
@@ -40,7 +43,8 @@ function runtests()
 
     # 3D tests --------------------------------------------------
     printstyled("Running 3D tests\n"; bold=true, color=:white)
-    open(joinpath(pwd(), "LocalPreferences.toml"), "w") do file
+    isfile(preferences) && rm(preferences)
+    open(preferences, "w") do file
         write(file, txt3D)
     end
 
