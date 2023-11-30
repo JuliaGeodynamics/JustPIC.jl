@@ -21,7 +21,9 @@ function runtests()
     txt3D = "[JustPIC]
     backend = \"Threads_Float64_3D\""
 
-    preferences = "LocalPreferences.toml"
+    preferences = joinpath(@__DIR__, "LocalPreferences.toml")
+
+    print("Current folder $(pwd())")
 
     # 2D tests --------------------------------------------------
     printstyled("Running 2D tests\n"; bold=true, color=:white)
