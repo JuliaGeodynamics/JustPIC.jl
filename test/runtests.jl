@@ -15,13 +15,12 @@ function runtests()
     printstyled("Testing package JustPIC.jl\n"; bold=true, color=:white)
 
     # text to modofy LocalPreferences.toml
-    txt3D = "[JustPIC]
-    backend = \"Threads_Float64_3D\""
+    txt2D = "[JustPIC]
+    backend = \"Threads_Float64_2D\""
     
     txt3D = "[JustPIC]
     backend = \"Threads_Float64_3D\""
     
-
     # 2D tests --------------------------------------------------
     printstyled("Running 2D tests\n"; bold=true, color=:white)
     open(joinpath(pwd(), "LocalPreferences.toml"), "w") do file
