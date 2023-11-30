@@ -148,7 +148,11 @@ function advect_particle_RK(
         # if this condition is met, it means that the particle
         # went outside the local rank domain. It will be removed 
         # during shuffling
-        v = check_local_limits(local_lims, p0) * interp_velocity_grid2particle(p0, grid_vi[i], dxi, V[i], idx)
+        v = if check_local_limits(local_lims, p0) 
+            interp_velocity_grid2particle(p0, grid_vi[i], dxi, V[i], idx)
+        else
+            zero(T)
+        end
     end
 
     # advect α*dt
@@ -164,7 +168,11 @@ function advect_particle_RK(
         # if this condition is met, it means that the particle
         # went outside the local rank domain. It will be removed 
         # during shuffling
-        v = check_local_limits(local_lims, p1) * interp_velocity_grid2particle(p1, grid_vi[i], dxi, V[i], idx)
+        v = if check_local_limits(local_lims, p1)
+            interp_velocity_grid2particle(p1, grid_vi[i], dxi, V[i], idx)
+        else
+            zero(T)
+        end
     end
 
     # final advection step
