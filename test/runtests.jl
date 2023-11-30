@@ -21,7 +21,7 @@ function runtests()
     txt3D = "[JustPIC]
     backend = \"Threads_Float64_3D\""
 
-    preferences = joinpath(@__DIR__, "LocalPreferences.toml")
+    preferences = "../LocalPreferences.toml"
 
     print("Current folder $(pwd())")
 
