@@ -1,7 +1,7 @@
 using JustPIC
 import JustPIC: @idx, @cell
 
-using CellArrays, ParallelStencil, Test
+using CellArrays, ParallelStencil, LinearAlgebra, Test
 
 function init_particles(nxcell, max_xcell, min_xcell, x, y, z, dx, dy, dz, ni)
     ncells     = prod(ni)
@@ -43,11 +43,6 @@ end
 vx_stream(x, z) =  250 * sin(π*x) * cos(π*z)
 vy_stream(x, z) =  0.0
 vz_stream(x, z) = -250 * cos(π*x) * sin(π*z)
-g(x) = Point2f(
-    vx_stream(x[1], x[3]),
-    vy_stream(x[1], x[3]),
-    vz_stream(x[1], x[3]),
-)
 
 function test_advection_3D()
     n   = 32
@@ -119,4 +114,46 @@ end
 
 @testset begin
     @test test_advection()
+end
+
+@testset "Interpolations 3D" begin
+    nxcell, max_xcell, min_xcell = 24, 24, 1
+    n   = 5 # number of vertices
+    nx  = ny = nz = n-1
+    ni  = nx, ny, nz
+    Lx  = Ly = Lz = 1.0
+    Li  = Lx, Ly, Lz
+    # nodal vertices
+    xvi = xv, yv, zv = ntuple(i -> range(0, Li[i], length=n), Val(3))
+    # grid spacing
+    dxi = dx, dy, dz = ntuple(i -> xvi[i][2] - xvi[i][1], Val(3))
+    # nodal centers
+    xci = xc, yc, zc = ntuple(i -> range(0+dxi[i]/2, Li[i]-dxi[i]/2, length=ni[i]), Val(3))
+
+    # Initialize particles -------------------------------
+    nxcell, max_xcell, min_xcell = 24, 24, 1
+    particles = init_particles(
+        nxcell, max_xcell, min_xcell, xvi..., dxi..., ni
+    )
+    pT, = init_cell_arrays(particles, Val(1))
+
+    # Linear field at the vertices
+    T  = TA([z for x in xv, y in yv, z in zv])
+    T0 = TA([z for x in xv, y in yv, z in zv])
+
+    # Grid to particle test
+    grid2particle!(pT, xvi, T, particles.coords)
+
+    @test pT == particles.coords[3]
+
+    # Grid to particle test
+    grid2particle_flip!(pT, xvi, T, T0, particles.coords)
+
+    @test pT == particles.coords[3]
+
+    # Particle to grid test
+    T2 = similar(T)
+    particle2grid!(T2, pT, xvi, particles.coords)
+
+    @test norm(T2 .- T) / length(T) < 1e-2
 end

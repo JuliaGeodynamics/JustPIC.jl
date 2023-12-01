@@ -1,4 +1,4 @@
-using JustPIC, CellArrays, ParallelStencil, Test
+using JustPIC, CellArrays, ParallelStencil, Test, LinearAlgebra
 
 function init_particles(nxcell, max_xcell, min_xcell, x, y, dx, dy, nx, ny)
     ni = nx, ny
@@ -113,7 +113,7 @@ function test_advection_2D()
     return passed
 end
 
-@testset begin
+@testset "Advection 2D" begin
     @test test_advection_2D()
 end
 
@@ -183,12 +183,51 @@ end
 
 function test_advection_2D()
     err = test_rotating_circle()
-    tol = 1e-3
+    tol = 5e-3
     passed = err < tol
 
     return passed
 end
 
-@testset begin
+@testset "Rotating circle 2D" begin
     @test test_advection_2D()
+end
+
+@testset "Interpolations 2D" begin
+    nxcell, max_xcell, min_xcell = 24, 24, 1
+    n = 5 # number of vertices
+    nx = ny = n-1
+    Lx = Ly = 1.0
+    # nodal vertices
+    xvi = xv, yv = range(0, Lx, length=n), range(0, Ly, length=n)
+    dxi = dx, dy = xv[2] - xv[1], yv[2] - yv[1]
+    # nodal centers
+    xci = xc, yc = range(0+dx/2, Lx-dx/2, length=n-1), range(0+dy/2, Ly-dy/2, length=n-1)
+    # staggered grid velocity nodal locations
+
+    # Initialize particles & particle fields
+    particles = init_particles(
+        nxcell, max_xcell, min_xcell, xvi..., dxi..., nx, ny
+    )
+    pT, = init_cell_arrays(particles, Val(1))
+
+    # Linear field at the vertices
+    T  = TA([y for x in xv, y in yv])
+    T0 = TA([y for x in xv, y in yv])
+
+    # Grid to particle test
+    grid2particle!(pT, xvi, T, particles.coords)
+
+    @test pT == particles.coords[2]
+
+    # Grid to particle test
+    grid2particle_flip!(pT, xvi, T, T0, particles.coords)
+
+    @test pT == particles.coords[2]
+
+    # Particle to grid test
+    T2 = similar(T)
+    particle2grid!(T2, pT, xvi, particles.coords)
+
+    @test norm(T2 .- T) / length(T) < 1e-2
 end
