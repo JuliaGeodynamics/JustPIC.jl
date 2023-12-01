@@ -37,7 +37,8 @@ end
                     p_i = @cell(px[i, ivertex, jvertex]), @cell(py[i, ivertex, jvertex])
                     # ignore lines below for unused allocations
                     any(isnan, p_i) && continue
-                    ω_i = bilinear_weight(xvertex, p_i, di)
+                    ω_i = distance_weight(xvertex, p_i; order=4)
+                    # ω_i = bilinear_weight(xvertex, p_i, di)
                     ω += ω_i
                     ωxF = muladd(ω_i, @cell(Fp[i, ivertex, jvertex]), ωxF)
                 end
@@ -69,7 +70,8 @@ end
                     p_i = @cell(px[i, ivertex, jvertex]), @cell(py[i, ivertex, jvertex])
                     # ignore lines below for unused allocations
                     any(isnan, p_i) && continue
-                    ω_i = bilinear_weight(xvertex, p_i, di)
+                    ω_i = distance_weight(xvertex, p_i; order=4)
+                    # ω_i = bilinear_weight(xvertex, p_i, di)
                     ω += ω_i
                     ωxF = ntuple(Val(N)) do j
                         Base.@_inline_meta
@@ -114,7 +116,8 @@ end
                             @cell(pz[ip, ivertex, jvertex, kvertex]),
                         )
                         any(isnan, p_i) && continue  # ignore lines below for unused allocations
-                        ω_i = bilinear_weight(xvertex, p_i, di)
+                        ω_i = distance_weight(xvertex, p_i; order=4)
+                        # ω_i = bilinear_weight(xvertex, p_i, di)
                         ω += ω_i
                         ωF = muladd(ω_i, @cell(Fp[ip, ivertex, jvertex, kvertex]), ωF)
                     end
@@ -152,7 +155,8 @@ end
                             @cell(pz[ip, ivertex, jvertex, kvertex]),
                         )
                         any(isnan, p_i) && continue  # ignore lines below for unused allocations
-                        ω_i = bilinear_weight(xvertex, p_i, di)
+                        ω_i = distance_weight(xvertex, p_i; order=4)
+                        # ω_i = bilinear_weight(xvertex, p_i, di)
                         ω += ω_i
                         ωxF = ntuple(Val(N)) do j
                             Base.@_inline_meta
@@ -173,7 +177,7 @@ end
 
 ## OTHERS
 
-@inline function distance_weight(a::NTuple{N,T}, b::NTuple{N,T}; order=2) where {N,T}
+@inline function distance_weight(a::NTuple{N,T}, b::NTuple{N,T}; order::Int64=4) where {N,T}
     return inv(distance(a, b)^order)
 end
 
