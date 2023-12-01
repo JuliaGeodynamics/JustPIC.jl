@@ -1,3 +1,5 @@
+using JustPIC
+
 push!(LOAD_PATH, "..")
 
 istest(f) = endswith(f, ".jl") && startswith(basename(f), "test_")
@@ -14,23 +16,11 @@ function runtests()
     nfail = 0
     printstyled("Testing package JustPIC.jl\n"; bold=true, color=:white)
 
-    # text to modofy LocalPreferences.toml
-    txt2D = "[JustPIC]
-    backend = \"Threads_Float64_2D\""
-    
-    txt3D = "[JustPIC]
-    backend = \"Threads_Float64_3D\""
-
-    preferences = "../LocalPreferences.toml"
-
-    print("Current folder $(pwd())")
+  
 
     # 2D tests --------------------------------------------------
     printstyled("Running 2D tests\n"; bold=true, color=:white)
-    isfile(preferences) && rm(preferences)
-    open(preferences, "w") do file
-        write(file, txt2D)
-    end
+    set_backend("Threads_Float64_2D") # need to restart session if this changes
 
     for f in testfiles
         if occursin("2D", f) 
@@ -45,10 +35,7 @@ function runtests()
 
     # 3D tests --------------------------------------------------
     printstyled("Running 3D tests\n"; bold=true, color=:white)
-    isfile(preferences) && rm(preferences)
-    open(preferences, "w") do file
-        write(file, txt3D)
-    end
+    set_backend("Threads_Float64_3D") # need to restart session if this changes
 
     for f in testfiles
         if occursin("3D", f) 
@@ -60,7 +47,6 @@ function runtests()
             end
         end
     end
-    
 
     return nfail
 end

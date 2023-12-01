@@ -1,10 +1,7 @@
 using JustPIC
 import JustPIC: @idx, @cell
 
-# set_backend("Threads_Float64_3D") # need to restart session if this changes
-
 using CellArrays, ParallelStencil, Test
-@init_parallel_stencil(Threads, Float64, 3)
 
 function init_particles(nxcell, max_xcell, min_xcell, x, y, z, dx, dy, dz, ni)
     ncells     = prod(ni)
