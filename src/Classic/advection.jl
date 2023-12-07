@@ -17,8 +17,7 @@ function advection_RK!(
     particles::ClassicParticles, V, grid_vx::NTuple{2,T}, grid_vy::NTuple{2,T}, dt, α
 ) where {T}
     # unpack 
-    (; coords, grid_step) = particles
-    px, py = coords
+    (; coords, parent_cell, grid_step) = particles
     np = nparticles(particles)
 
     # Need to transpose grid_vy and Vy to reuse interpolation kernels
@@ -26,22 +25,24 @@ function advection_RK!(
     local_limits = inner_limits(grid_vi)
 
     # launch parallel advection kernel
-    @parallel (1:np) _advection_RK!(
-        coords, V, grid_vi, local_limits, grid_step, dt, α
+    @parallel (1:np) _advection_classic_RK!(
+        coords, V, parent_cell, grid_vi, local_limits, grid_step, dt, α
     )
 
     return nothing
 end
 
 # ParallelStencil fuction Runge-Kutta advection for 2D staggered grids
-@parallel_indices (ipart) function _advection_RK!(
-    p, V::NTuple{N,T}, grid, local_limits, dxi, dt, α
-) where {T}
+@parallel_indices (ipart) function _advection_classic_RK!(
+    p, V::NTuple{N,T}, parent_cell, grid, local_limits, dxi, dt, α
+) where {N, T}
     pᵢ = p[ipart]
     p_new = advect_classic_particle_RK(
-        pᵢ, V, grid, local_limits, dxi, dt, α
+        pᵢ, V, parent_cell[ipart], grid, local_limits, dxi, dt, α
     )
-    p[ipart] = SVector{N, T}(p_new)
+    p_SA = SVector{N, eltype(T)}(p_new...)
+    p[ipart] = p_SA
+    parent_cell[ipart] = get_cell(p_SA, dxi)
 
     return nothing
 end
@@ -49,8 +50,9 @@ end
 # DIMENSION AGNOSTIC KERNELS
 
 function advect_classic_particle_RK(
-    p0::NTuple{N,T},
+    p0::SVector{N,T},
     V::NTuple{N,AbstractArray{T,N}},
+    idx,
     grid_vi,
     local_limits,
     dxi,
@@ -62,7 +64,6 @@ function advect_classic_particle_RK(
     ValN = Val(N)
 
     # interpolate velocity to current location
-    idx = get_cell(p0, dxi)
     vp0 = ntuple(ValN) do i
         Base.@_inline_meta
         local_lims = local_limits[i]
@@ -84,7 +85,7 @@ function advect_classic_particle_RK(
     end
 
     # interpolate velocity to new location
-    idx = get_cell(p1, dxi)
+    idx2 = get_cell(p1, dxi)
     vp1 = ntuple(ValN) do i
         Base.@_inline_meta
         local_lims = local_limits[i]
@@ -92,7 +93,7 @@ function advect_classic_particle_RK(
         # went outside the local rank domain. It will be removed 
         # during shuffling
         v = if check_local_limits(local_lims, p1)
-            interp_velocity_grid2particle(p1, grid_vi[i], dxi, V[i], idx)
+            interp_velocity_grid2particle(p1, grid_vi[i], dxi, V[i], idx2)
         else
             zero(T)
         end
