@@ -191,7 +191,7 @@ end
 
 # Interpolate velocity from staggered grid to particle
 @inline function interp_velocity_grid2particle(
-    p_i::NTuple, xi_vx::NTuple, dxi::NTuple, F::AbstractArray, idx
+    p_i::Union{SVector, NTuple}, xi_vx::NTuple, dxi::NTuple, F::AbstractArray, idx
 )
     # F and coordinates at/of the cell corners
     Fi, xci = corner_field_nodes(F, p_i, xi_vx, dxi, idx)
@@ -204,7 +204,7 @@ end
 
 # Get field F and nodal indices of the cell corners where the particle is located
 @inline function corner_field_nodes(
-    F::AbstractArray{T,N}, p_i, xi_vx, dxi, idx::NTuple{N,Integer}
+    F::AbstractArray{T,N}, p_i, xi_vx, dxi, idx::Union{SVector{N, Integer}, NTuple{N,Integer}}
 ) where {N,T}
     ValN = Val(N)
     indices = ntuple(ValN) do n
@@ -274,7 +274,7 @@ end
 end
 
 @generated function check_local_limits(
-    local_lims::NTuple{N,T1}, p::NTuple{N,T2}
+    local_lims::NTuple{N,T1}, p::Union{SVector{N,T2}, NTuple{N,T2}}
 ) where {N,T1,T2}
     quote
         Base.@_inline_meta

@@ -41,16 +41,22 @@ end
 
 # normalize coordinates
 @inline function normalize_coordinates(
-    p::NTuple{N,A}, xi::NTuple{N,B}, di::NTuple{N,C}, idx::NTuple{N,D}
+    p::Union{SVector{N,A}, NTuple{N,A}}, xi::NTuple{N,B}, di::NTuple{N,C}, idx::NTuple{N,D}
 ) where {N,A,B,C,D}
-    return ntuple(i -> (p[i] - xi[i][idx[i]]) * inv(di[i]), Val(N))
+    return ntuple(Val(N)) do i
+        Base.@_inline_meta
+        @inbounds (p[i] - xi[i][idx[i]]) * inv(di[i])
+    end
 end
 
 # normalize coordinates
 @inline function normalize_coordinates(
-    p::NTuple{N,A}, xci::NTuple{N,B}, di::NTuple{N,C}
+    p::Union{SVector{N,A}, NTuple{N,A}}, xci::NTuple{N,B}, di::NTuple{N,C}
 ) where {N,A,B,C}
-    return ntuple(i -> (p[i] - xci[i]) * inv(di[i]), Val(N))
+    return ntuple(Val(N)) do i
+        Base.@_inline_meta
+        @inbounds (p[i] - xci[i]) * inv(di[i])
+    end
 end
 
 # compute grid size
@@ -61,14 +67,14 @@ end
 # Get field F at the corners of a given cell
 @inline function field_corners(F::AbstractArray{T,2}, idx::NTuple{2,Integer}) where {T}
     idx_x, idx_y = idx
-    return (
+    return @inbounds (
         F[idx_x, idx_y], F[idx_x + 1, idx_y], F[idx_x, idx_y + 1], F[idx_x + 1, idx_y + 1]
     )
 end
 
 @inline function field_corners(F::AbstractArray{T,3}, idx::NTuple{3,Integer}) where {T}
     idx_x, idx_y, idx_z = idx
-    return (
+    return @inbounds (
         F[idx_x, idx_y, idx_z],   # v000
         F[idx_x + 1, idx_y, idx_z],   # v100
         F[idx_x, idx_y, idx_z + 1], # v001

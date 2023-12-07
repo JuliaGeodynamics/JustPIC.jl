@@ -57,14 +57,16 @@ Base.@propagate_inbounds @inline function setelement!(
 ) where {Nc,Ni,Nj,N_array,T,N,T_elem,D}
     idx_element = cart2ind((Ni, Nj), i, j)
     idx_cell = cart2ind(A.dims, icell...)
-    return _setelement!(A.data, x, idx_element, idx_cell)
+    _setelement!(A.data, x, idx_element, idx_cell)
+    return nothing
 end
 
 Base.@propagate_inbounds @inline function setelement!(
     A::CellArray{SVector{Ni,T},N,D,T_elem}, x::T, i, icell::Vararg{Int,Nc}
 ) where {Nc,Ni,T,N,T_elem,D}
     idx_cell = cart2ind(A.dims, icell...)
-    return _setelement!(A.data, x, i, idx_cell)
+    _setelement!(A.data, x, i, idx_cell)
+    return nothing
 end
 
 Base.@propagate_inbounds @inline function _setelement!(A::Array, x, idx::Int, icell::Int)
@@ -82,7 +84,7 @@ end
 # Return the linear index of a `n`-dimensional array corresponding to the cartesian indices `I`
 # """
 @inline function cart2ind(n::NTuple{N1,Int}, I::Vararg{Int,N2}) where {N1,N2}
-    return LinearIndices(n)[CartesianIndex(I...)]
+    return @inbounds LinearIndices(n)[CartesianIndex(I...)]
 end
 @inline cart2ind(ni::T, nj::T, i::T, j::T) where {T<:Int} = cart2ind((ni, nj), i, j)
 @inline function cart2ind(ni::T, nj::T, nk::T, i::T, j::T, k::T) where {T<:Int}
@@ -94,7 +96,8 @@ import Base: getindex, setindex!
 
 @inline element(A::TA, I::Vararg{Int,N}) where {N} = getindex(A, I...)
 @inline function setelement!(A::TA, x::Number, I::Vararg{Int,N}) where {N}
-    return setindex!(A, x, I...)
+    setindex!(A, x, I...)
+    return nothing
 end
 
 ## Convinience macros

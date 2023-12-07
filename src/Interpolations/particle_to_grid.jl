@@ -1,24 +1,24 @@
 ## LAUNCHERS
 
-function particle2grid!(F, Fp, xi::NTuple, particle_coords)
+function particle2grid!(F, Fp, xi::NTuple, particle_coords, index)
     dxi = grid_size(xi)
-    particle2grid!(F, Fp, xi, particle_coords, dxi)
+    particle2grid!(F, Fp, xi, particle_coords, index, dxi)
     return nothing
 end
 
-function particle2grid!(F, Fp, xi::NTuple, particle_coords, dxi)
-    @parallel (@idx size(F)) particle2grid!(F, Fp, xi, particle_coords, dxi)
+function particle2grid!(F, Fp, xi::NTuple, particle_coords, index, dxi)
+    @parallel (@idx size(F)) particle2grid!(F, Fp, xi, particle_coords, index, dxi)
     return nothing
 end
 
-@parallel_indices (I...) function particle2grid!(F, Fp, xi, particle_coords, di)
-    _particle2grid!(F, Fp, I..., xi, particle_coords, di)
+@parallel_indices (I...) function particle2grid!(F, Fp, xi, particle_coords, index, di)
+    _particle2grid!(F, Fp, I..., xi, particle_coords, index, di)
     return nothing
 end
 
 ## INTERPOLATION KERNEL 2D
 
-@inbounds function _particle2grid!(F, Fp, inode, jnode, xi::NTuple{2,T}, p, di) where {T}
+@inbounds function _particle2grid!(F, Fp, inode, jnode, xi::NTuple{2,T}, p, index, di) where {T}
     px, py = p # particle coordinates
     nx, ny = size(F)
     xvertex = xi[1][inode], xi[2][jnode] # cell lower-left coordinates
@@ -27,22 +27,32 @@ end
     # iterate over cells around i-th node
     for joffset in -1:0
         jvertex = joffset + jnode
+
+        !(1 ≤ jvertex < ny) && continue
+
         # make sure we stay within the grid
         for ioffset in -1:0
             ivertex = ioffset + inode
+    
+            !(1 ≤ ivertex < nx) && continue
+
             # make sure we stay within the grid
-            if (1 ≤ ivertex < nx) && (1 ≤ jvertex < ny)
+            # if (1 ≤ ivertex < nx) && (1 ≤ jvertex < ny)
                 # iterate over cell
-                for i in cellaxes(px)
+                @inbounds for i in cellaxes(px)
+                    # early exit if particle is not in the cell
+                    !(@cell(index[i, ivertex, jvertex])) && continue
+
                     p_i = @cell(px[i, ivertex, jvertex]), @cell(py[i, ivertex, jvertex])
-                    # ignore lines below for unused allocations
-                    any(isnan, p_i) && continue
+                    # # ignore lines below for unused allocations
+                    # any(isnan, p_i) && continue
                     ω_i = distance_weight(xvertex, p_i; order=4)
                     # ω_i = bilinear_weight(xvertex, p_i, di)
                     ω += ω_i
-                    ωxF = muladd(ω_i, @cell(Fp[i, ivertex, jvertex]), ωxF)
+                    # ωxF = muladd(ω_i, @cell(Fp[i, ivertex, jvertex]), ωxF)
+                    ωxF += ω_i * @cell(Fp[i, ivertex, jvertex])
                 end
-            end
+            # end
         end
     end
 
@@ -179,6 +189,10 @@ end
 
 @inline function distance_weight(a::NTuple{N,T}, b::NTuple{N,T}; order::Int64=4) where {N,T}
     return inv(distance(a, b)^order)
+end
+
+@inline function distance_weight(x, y, b::NTuple{N,T}; order::Int64=4) where {N,T}
+    return inv(distance((x,y), b)^order)
 end
 
 @generated function bilinear_weight(

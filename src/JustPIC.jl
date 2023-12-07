@@ -8,6 +8,7 @@ using CUDA
 using AMDGPU
 using CellArrays
 using Preferences
+using StaticArrays
 
 # CUDA.allowscalar(false)
 __precompile__(false)
@@ -91,7 +92,7 @@ export lerp, bilinear, trilinear
 # PARTICLES RELATED FILES
 
 include("Particles/particles.jl")
-export Particles
+export Particles, ClassicParticles, get_cell, nparticles
 
 include("Particles/utils.jl")
 
@@ -103,5 +104,17 @@ export check_injection, inject_particles!, inject_particles_phase!, clean_partic
 
 include("Particles/shuffle.jl")
 export shuffle_particles!
+
+# CLASSIC PIC LAYOUT
+
+include("Classic/advection.jl")
+export advection_RK!
+
+include("Classic/grid_to_particle.jl")
+export grid2particle_naive! #, grid2particle_flip!
+
+
+include("Classic/particle_to_grid.jl")
+export particle2grid_naive!
 
 end # module

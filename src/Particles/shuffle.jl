@@ -71,7 +71,6 @@ end
     nx, ny = nxi
     i = 2 * (icell - 1) + offset_x
     j = 2 * (jcell - 1) + offset_y
-
     if (i < nx) && (j < ny)
         _shuffle_particles!(
             particle_coords, grid, domain_limits, dxi, nxi, index, (i, j), args
@@ -188,10 +187,12 @@ function shuffle_kernel!(
 ) where {N1,N2,T}
     idx_child = child_index(parent_cell, idx_loop)
 
-    @inbounds if indomain(idx_child, nxi)
+    if indomain(idx_child, nxi)
 
         # iterate over particles in child cell 
         for ip in cellaxes(index)
+            @inbounds !@cell(index[ip, idx_child...]) && continue
+
             p_child = cache_particle(particle_coords, ip, idx_child)
 
             # particle went of of the domain, get rid of it
@@ -201,15 +202,15 @@ function shuffle_kernel!(
                 empty_particle!(args, ip, idx_child)
             end
 
-            if @cell index[ip, idx_child...] # true if memory allocation is filled with a particle
+            if @inbounds @cell index[ip, idx_child...] # true if memory allocation is filled with a particle
                 # check whether the incoming particle is inside the cell and move it
-                if isincell(p_child, corner_xi, dxi) && !isparticleempty(p_child)
+                if isincell(p_child, corner_xi, dxi) #&& !isparticleempty(p_child)
                     # hold particle variables
                     current_p = p_child
-                    current_args = cache_args(args, ip, idx_child)
+                    current_args = @inbounds cache_args(args, ip, idx_child)
 
                     # remove particle from child cell
-                    @cell index[ip, idx_child...] = false
+                    @inbounds @cell index[ip, idx_child...] = false
                     empty_particle!(particle_coords, ip, idx_child)
                     empty_particle!(args, ip, idx_child)
 
@@ -218,7 +219,7 @@ function shuffle_kernel!(
                     free_idx == 0 && continue
 
                     # move particle and its fields to the first free memory location
-                    @cell index[free_idx, parent_cell...] = true
+                    @inbounds @cell index[free_idx, parent_cell...] = true
 
                     fill_particle!(particle_coords, current_p, free_idx, parent_cell)
                     fill_particle!(args, current_args, free_idx, parent_cell)
@@ -230,8 +231,8 @@ end
 
 ## Utility functions
 
-function find_free_memory(index, I::Vararg{Int,N}) where {N}
-    for i in cellaxes(index)
+@inline function find_free_memory(index, I::Vararg{Int,N}) where {N}
+    @inbounds for i in cellaxes(index)
         !(@cell(index[i, I...])) && return i
     end
     return 0
@@ -250,7 +251,7 @@ end
     quote
         Base.@_inline_meta
         Base.Cartesian.@nexprs $N i ->
-            @inbounds (1 ≤ idx_child[i] ≤ nxi[i] - 1) == false && return false
+            @inbounds !(1 ≤ idx_child[i] ≤ nxi[i] - 1) && return false
         return true
     end
 end
@@ -263,16 +264,22 @@ end
     end
 end
 
-@inline function cache_args(args::NTuple{N1,T}, ip, I::NTuple{N2,Int64}) where {T,N1,N2}
-    return ntuple(i -> @cell(args[i][ip, I...]), Val(N1))
+Base.@propagate_inbounds @inline function cache_args(args::NTuple{N1,T}, ip, I::NTuple{N2,Int64}) where {T,N1,N2}
+    return ntuple(Val(N1)) do i 
+        Base.@_inline_meta
+        @inbounds @cell(args[i][ip, I...])
+    end
 end
 
-@inline function cache_particle(p::NTuple{N1,T}, ip, I::NTuple{N2,Int64}) where {T,N1,N2}
+Base.@propagate_inbounds @inline function cache_particle(p::NTuple{N1,T}, ip, I::NTuple{N2,Int64}) where {T,N1,N2}
     return cache_args(p, ip, I)
 end
 
-@inline function child_index(parent_cell::NTuple{N,Int64}, I::NTuple{N,Int64}) where {N}
-    return ntuple(i -> parent_cell[i] + I[i], Val(N))
+Base.@propagate_inbounds @inline function child_index(parent_cell::NTuple{N,Int64}, I::NTuple{N,Int64}) where {N}
+    return ntuple(Val(N)) do i 
+        Base.@_inline_meta
+        @inbounds parent_cell[i] + I[i]
+    end
 end
 
 @generated function empty_particle!(
@@ -280,7 +287,7 @@ end
 ) where {N1,N2,T}
     quote
         Base.@_inline_meta
-        Base.Cartesian.@nexprs $N1 i -> @cell p[i][ip, I...] = NaN
+        Base.Cartesian.@nexprs $N1 i -> @inbounds @cell p[i][ip, I...] = NaN
     end
 end
 
@@ -291,7 +298,7 @@ end
         Base.Cartesian.@nexprs $N1 i -> begin
             Base.@_inline_meta
             tmp = p[i]
-            @cell tmp[ip, I...] = field[i]
+            @inbounds @cell tmp[ip, I...] = field[i]
         end
         return nothing
     end
