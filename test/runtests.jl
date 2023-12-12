@@ -1,5 +1,7 @@
 using JustPIC
 
+using Pkg
+
 push!(LOAD_PATH, "..")
 
 istest(f) = endswith(f, ".jl") && startswith(basename(f), "test_")
