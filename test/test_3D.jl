@@ -1,5 +1,4 @@
-include("common3D.jl")
-
+using JustPIC, CellArrays, ParallelStencil, Test, LinearAlgebra
 import JustPIC: @idx, @cell
 
 function init_particles(nxcell, max_xcell, min_xcell, x, y, z, dx, dy, dz, ni)

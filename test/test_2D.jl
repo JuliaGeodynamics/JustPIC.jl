@@ -1,4 +1,4 @@
-include("common2D.jl")
+using JustPIC, CellArrays, ParallelStencil, Test, LinearAlgebra
 
 function init_particles(nxcell, max_xcell, min_xcell, x, y, dx, dy, nx, ny)
     ni = nx, ny
