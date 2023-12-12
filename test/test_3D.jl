@@ -1,6 +1,10 @@
 using JustPIC, CellArrays, ParallelStencil, Test, LinearAlgebra
 import JustPIC: @idx, @cell
 
+if occursin("AMDGPU", JustPIC.backend)
+    @init_parallel_stencil(AMDGPU, Float64, 3)
+end
+
 function init_particles(nxcell, max_xcell, min_xcell, x, y, z, dx, dy, dz, ni)
     ncells     = prod(ni)
     np         = max_xcell * ncells
