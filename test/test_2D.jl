@@ -2,10 +2,10 @@ using JustPIC, CellArrays, ParallelStencil, Test, LinearAlgebra
 
 @static if occursin("AMDGPU", JustPIC.backend)
     @init_parallel_stencil(AMDGPU, Float64, 2)
-    # JustPIC.AMDGPU.allowscalar(true)
+    JustPIC.AMDGPU.allowscalar(true)
 elseif occursin("CUDA", JustPIC.backend)
     @init_parallel_stencil(CUDA, Float64, 2)
-    # JustPIC.CUDA.allowscalar(true)
+    JustPIC.CUDA.allowscalar(true)
 end
 
 function init_particles(nxcell, max_xcell, min_xcell, x, y, dx, dy, nx, ny)
@@ -226,12 +226,12 @@ end
     # Grid to particle test
     grid2particle!(pT, xvi, T, particles.coords)
 
-    @test all(pT .== particles.coords[2])
+    @test pT == particles.coords[2]
 
     # Grid to particle test
     grid2particle_flip!(pT, xvi, T, T0, particles.coords)
 
-    @test all(pT .== particles.coords[2])
+    @test pT == particles.coords[2]
 
     # Particle to grid test
     T2 = similar(T)
