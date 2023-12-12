@@ -16,8 +16,8 @@ StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 
 [compat]
 julia = "1.9"
-AMDGPU = "0.5.4"
-CUDA = "4.4.1"
+AMDGPU = "0.6, 0.7, 0.8"
+CUDA = "4.4.1, 0.5"
 CellArrays = "0.1.3"
 ImplicitGlobalGrid = "0.13.0"
 MPI = "0.20.14"
