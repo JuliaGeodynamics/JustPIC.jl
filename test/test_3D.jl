@@ -51,7 +51,7 @@ vy_stream(x, z) =  0.0
 vz_stream(x, z) = -250 * cos(π*x) * sin(π*z)
 
 function test_advection_3D()
-    n   = 128
+    n   = 64
     nx  = ny = nz = n-1
     Lx  = Ly = Lz = 1.0
     ni  = nx, ny, nz
