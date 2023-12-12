@@ -41,7 +41,7 @@ end
                 # iterate over cell
                 @inbounds for i in cellaxes(px)
                     # early exit if particle is not in the cell
-                    !(@cell(index[i, ivertex, jvertex])) && continue
+                    doskip(index, i, ivertex, jvertex) && continue
 
                     p_i = @cell(px[i, ivertex, jvertex]), @cell(py[i, ivertex, jvertex])
                     # # ignore lines below for unused allocations
@@ -60,7 +60,7 @@ end
 end
 
 @inbounds function _particle2grid!(
-    F::NTuple{N,T1}, Fp::NTuple{N,T2}, inode, jnode, xi::NTuple{2,T3}, p, di
+    F::NTuple{N,T1}, Fp::NTuple{N,T2}, inode, jnode, xi::NTuple{2,T3}, p, index, di
 ) where {N,T1,T2,T3}
     px, py = p # particle coordinates
     nx, ny = size(F[1])
@@ -77,9 +77,10 @@ end
             if (1 ≤ ivertex < nx) && (1 ≤ jvertex < ny)
                 # iterate over cell
                 for i in cellaxes(px)
-                    p_i = @cell(px[i, ivertex, jvertex]), @cell(py[i, ivertex, jvertex])
                     # ignore lines below for unused allocations
-                    any(isnan, p_i) && continue
+                    doskip(index, i, ivertex, jvertex) && continue
+
+                    p_i = @cell(px[i, ivertex, jvertex]), @cell(py[i, ivertex, jvertex])
                     ω_i = distance_weight(xvertex, p_i; order=4)
                     # ω_i = bilinear_weight(xvertex, p_i, di)
                     ω += ω_i
@@ -102,7 +103,7 @@ end
 ## INTERPOLATION KERNEL 3D
 
 @inbounds function _particle2grid!(
-    F, Fp, inode, jnode, knode, xi::NTuple{3,T}, p, di
+    F, Fp, inode, jnode, knode, xi::NTuple{3,T}, p, index, di
 ) where {T}
     px, py, pz = p # particle coordinates
     nx, ny, nz = size(F)
@@ -120,12 +121,14 @@ end
                 if (1 ≤ ivertex < nx) && (1 ≤ jvertex < ny) && (1 ≤ kvertex < nz)
                     # iterate over cell
                     @inbounds for ip in cellaxes(px)
+                        # ignore lines below for unused allocations
+                        doskip(index, ip, ivertex, jvertex) && continue
+                    
                         p_i = (
                             @cell(px[ip, ivertex, jvertex, kvertex]),
                             @cell(py[ip, ivertex, jvertex, kvertex]),
                             @cell(pz[ip, ivertex, jvertex, kvertex]),
                         )
-                        any(isnan, p_i) && continue  # ignore lines below for unused allocations
                         ω_i = distance_weight(xvertex, p_i; order=4)
                         # ω_i = bilinear_weight(xvertex, p_i, di)
                         ω += ω_i
@@ -140,7 +143,7 @@ end
 end
 
 @inbounds function _particle2grid!(
-    F::NTuple{N,T1}, Fp::NTuple{N,T2}, inode, jnode, knode, xi::NTuple{3,T3}, p, di
+    F::NTuple{N,T1}, Fp::NTuple{N,T2}, inode, jnode, knode, xi::NTuple{3,T3}, p, index, di
 ) where {N,T1,T2,T3}
     px, py, pz = p # particle coordinates
     nx, ny, nz = size(F[1])
@@ -159,12 +162,14 @@ end
                 if (1 ≤ ivertex < nx) && (1 ≤ jvertex < ny) && (1 ≤ kvertex < nz)
                     # iterate over cell
                     @inbounds for ip in cellaxes(px)
+                        # ignore lines below for unused allocations
+                        doskip(index, ip, ivertex, jvertex) && continue
+                    
                         p_i = (
                             @cell(px[ip, ivertex, jvertex, kvertex]),
                             @cell(py[ip, ivertex, jvertex, kvertex]),
                             @cell(pz[ip, ivertex, jvertex, kvertex]),
                         )
-                        any(isnan, p_i) && continue  # ignore lines below for unused allocations
                         ω_i = distance_weight(xvertex, p_i; order=4)
                         # ω_i = bilinear_weight(xvertex, p_i, di)
                         ω += ω_i
@@ -181,7 +186,7 @@ end
     _ω = inv(ω)
     return ntuple(Val(N)) do i
         Base.@_inline_meta
-        F[i][inode, jnode, knode] = ωxF[i] * _ω
+        @inbounds F[i][inode, jnode, knode] = ωxF[i] * _ω
     end
 end
 

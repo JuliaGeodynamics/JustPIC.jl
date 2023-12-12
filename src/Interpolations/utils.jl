@@ -67,8 +67,9 @@ end
 # Get field F at the corners of a given cell
 @inline function field_corners(F::AbstractArray{T,2}, idx::NTuple{2,Integer}) where {T}
     idx_x, idx_y = idx
+    idx_x1, idx_y1 = (idx_x, idx_y) .+ 1
     return @inbounds (
-        F[idx_x, idx_y], F[idx_x + 1, idx_y], F[idx_x, idx_y + 1], F[idx_x + 1, idx_y + 1]
+        F[idx_x, idx_y], F[idx_x1, idx_y], F[idx_x, idx_y1], F[idx_x1, idx_y1]
     )
 end
 

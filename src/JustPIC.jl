@@ -64,7 +64,7 @@ end
 include("CellArrays/CellArrays.jl")
 export @cell, cellnum, cellaxes
 
-include("Utils.jl")
+include("utils.jl")
 export @range, init_cell_arrays, cell_array, add_ghost_nodes, add_global_ghost_nodes
 
 include("CellArrays/ImplicitGlobalGrid.jl")
@@ -104,6 +104,9 @@ export check_injection, inject_particles!, inject_particles_phase!, clean_partic
 
 include("Particles/shuffle.jl")
 export shuffle_particles!
+
+include("Particles/move.jl")
+export move_particles!
 
 # CLASSIC PIC LAYOUT
 

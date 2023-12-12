@@ -20,6 +20,7 @@ function shuffle_particles!(
 
     # compute local grid limits
     domain_limits = extrema.(grid)
+    clean_particles!(particles, grid, args)
 
     n_i = ceil(Int, nx * 0.5)
     n_j = ceil(Int, ny * 0.5)
@@ -195,35 +196,29 @@ function shuffle_kernel!(
 
             p_child = cache_particle(particle_coords, ip, idx_child)
 
-            # particle went of of the domain, get rid of it
-            if !(indomain(p_child, domain_limits))
-                @cell index[ip, idx_child...] = false
+            # # particle went of of the domain, get rid of it
+            # if !(indomain(p_child, domain_limits))
+            #     @cell index[ip, idx_child...] = false
+            #     empty_particle!(particle_coords, ip, idx_child)
+            #     empty_particle!(args, ip, idx_child)
+            # end
+
+            # check whether the incoming particle is inside the cell and move it
+            if isincell(p_child, corner_xi, dxi) #&& !isparticleempty(p_child)
+                # hold particle variables
+                current_p = p_child
+                current_args = @inbounds cache_args(args, ip, idx_child)
+                # remove particle from child cell
+                @inbounds @cell index[ip, idx_child...] = false
                 empty_particle!(particle_coords, ip, idx_child)
                 empty_particle!(args, ip, idx_child)
-            end
-
-            if @inbounds @cell index[ip, idx_child...] # true if memory allocation is filled with a particle
-                # check whether the incoming particle is inside the cell and move it
-                if isincell(p_child, corner_xi, dxi) #&& !isparticleempty(p_child)
-                    # hold particle variables
-                    current_p = p_child
-                    current_args = @inbounds cache_args(args, ip, idx_child)
-
-                    # remove particle from child cell
-                    @inbounds @cell index[ip, idx_child...] = false
-                    empty_particle!(particle_coords, ip, idx_child)
-                    empty_particle!(args, ip, idx_child)
-
-                    # check whether there's empty space in parent cell
-                    free_idx = find_free_memory(index, parent_cell...)
-                    free_idx == 0 && continue
-
-                    # move particle and its fields to the first free memory location
-                    @inbounds @cell index[free_idx, parent_cell...] = true
-
-                    fill_particle!(particle_coords, current_p, free_idx, parent_cell)
-                    fill_particle!(args, current_args, free_idx, parent_cell)
-                end
+                # check whether there's empty space in parent cell
+                free_idx = find_free_memory(index, parent_cell...)
+                free_idx == 0 && continue
+                # move particle and its fields to the first free memory location
+                @inbounds @cell index[free_idx, parent_cell...] = true
+                fill_particle!(particle_coords, current_p, free_idx, parent_cell)
+                fill_particle!(args, current_args, free_idx, parent_cell)
             end
         end
     end
@@ -315,14 +310,21 @@ end
 @parallel_indices (i, j) function _clean!(
     particle_coords::NTuple{2,Any}, grid::NTuple{2,Any}, dxi::NTuple{2,Any}, index, args
 )
-    clean_kernel!(particle_coords, grid, dxi, index, args, i, j)
+    nx, ny = size(index)
+    if i == 1 || j == 1 || i == nx || j == ny
+        clean_kernel!(particle_coords, grid, dxi, index, args, i, j)
+    end
+    
     return nothing
 end
 
 @parallel_indices (i, j, k) function _clean!(
     particle_coords::NTuple{3,Any}, grid::NTuple{3,Any}, dxi::NTuple{3,Any}, index, args
 )
-    clean_kernel!(particle_coords, grid, dxi, index, args, i, j, k)
+    nx, ny = size(index)
+    if i == 1 || j == 1 || i == nx || j == ny || k == 1 || k == nz
+        clean_kernel!(particle_coords, grid, dxi, index, args, i, j, k)
+    end
     return nothing
 end
 

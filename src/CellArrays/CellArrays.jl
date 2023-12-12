@@ -18,6 +18,7 @@ Base.@propagate_inbounds @inline function element(
 ) where {T_elem,N,Nc,D}
     return viewelement(A, i, icell...)
 end
+
 Base.@propagate_inbounds @inline function element(
     A::CellArray, i::T, j::T, icell::Vararg{Int,Nc}
 ) where {Nc,T<:Int}
@@ -70,19 +71,21 @@ Base.@propagate_inbounds @inline function setelement!(
 end
 
 Base.@propagate_inbounds @inline function _setelement!(A::Array, x, idx::Int, icell::Int)
-    return (A[1, idx, icell] = x)
+    (A[1, idx, icell] = x)
+    return nothing
 end
 Base.@propagate_inbounds @inline function _setelement!(A, x, idx::Int, icell::Int)
-    return (A[icell, idx, 1] = x)
+    (A[icell, idx, 1] = x)
+    return nothing
 end
 
 ## Helper functions
 
-# """
-#     cart2ind(A)
-#
-# Return the linear index of a `n`-dimensional array corresponding to the cartesian indices `I`
-# """
+"""
+    cart2ind(A)
+
+Return the linear index of a `n`-dimensional array corresponding to the cartesian indices `I`
+"""
 @inline function cart2ind(n::NTuple{N1,Int}, I::Vararg{Int,N2}) where {N1,N2}
     return @inbounds LinearIndices(n)[CartesianIndex(I...)]
 end
@@ -92,7 +95,6 @@ end
 end
 
 ## Fallbacks
-import Base: getindex, setindex!
 
 @inline element(A::TA, I::Vararg{Int,N}) where {N} = getindex(A, I...)
 @inline function setelement!(A::TA, x::Number, I::Vararg{Int,N}) where {N}

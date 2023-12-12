@@ -50,7 +50,7 @@ end
 ) where {T}
     px, py = p
 
-    if icell ≤ size(px, 1) && jcell ≤ size(px, 2) && @cell index[ipart, icell, jcell]
+    if icell ≤ size(px, 1) && jcell ≤ size(px, 2) && !doskip(index, ipart, icell, jcell)
         pᵢ = (@cell(px[ipart, icell, jcell]), @cell(py[ipart, icell, jcell]))
         if !any(isnan, pᵢ)
             px_new, py_new = advect_particle_RK(
@@ -105,7 +105,7 @@ end
         if icell ≤ nx &&
             jcell ≤ ny &&
             kcell ≤ nz &&
-            @cell(index[ipart, icell, jcell, kcell])
+            !doskip(index, ipart, icell, jcell, kcell)
             pᵢ = (
                 @cell(px[ipart, icell, jcell, kcell]),
                 @cell(py[ipart, icell, jcell, kcell]),
