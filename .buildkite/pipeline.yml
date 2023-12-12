@@ -37,8 +37,6 @@ steps:
 
       julia -e 'println("+++ :julia: Running tests")
                 using Pkg
-                Pkg.rm("ImplicitGlobalGrid")
-                Pkg.update()
                 Pkg.test("JustPIC"; test_args=["--backend=AMDGPU"])'
     agents:
       queue: "juliagpu"
