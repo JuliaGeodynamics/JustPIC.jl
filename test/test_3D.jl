@@ -3,10 +3,10 @@ import JustPIC: @idx, @cell
 
 @static if occursin("AMDGPU", JustPIC.backend)
     @init_parallel_stencil(AMDGPU, Float64, 3)
-    JustPIC.AMDGPU.allowscalar(true)
+    # JustPIC.AMDGPU.allowscalar(true)
 elseif occursin("CUDA", JustPIC.backend)
     @init_parallel_stencil(CUDA, Float64, 3)
-    JustPIC.CUDA.allowscalar(true)
+    # JustPIC.CUDA.allowscalar(true)
 end
 
 function init_particles(nxcell, max_xcell, min_xcell, x, y, z, dx, dy, dz, ni)
@@ -150,12 +150,12 @@ end
     # Grid to particle test
     grid2particle!(pT, xvi, T, particles.coords)
 
-    @test pT == particles.coords[3]
+    @test all(pT .== particles.coords[3])
 
     # Grid to particle test
     grid2particle_flip!(pT, xvi, T, T0, particles.coords)
 
-    @test pT == particles.coords[3]
+    @test all(pT .== particles.coords[3])
 
     # Particle to grid test
     T2 = similar(T)

@@ -27,7 +27,6 @@ steps:
       setup:
         version:
           - "1.9"
-          # - "1.10"
     plugins:
       - JuliaCI/julia#v1:
           version: "{{matrix.version}}"
@@ -38,6 +37,8 @@ steps:
 
       julia -e 'println("+++ :julia: Running tests")
                 using Pkg
+                Pkg.remove("ImplicitGlobalGrid")
+                Pkg.update()
                 Pkg.test("JustPIC"; test_args=["--backend=AMDGPU"])'
     agents:
       queue: "juliagpu"
