@@ -3,6 +3,8 @@ import JustPIC: @idx, @cell
 
 @static if occursin("AMDGPU", JustPIC.backend)
     @init_parallel_stencil(AMDGPU, Float64, 3)
+elseif occursin("CUDA", JustPIC.backend)
+    @init_parallel_stencil(CUDA, Float64, 3)
 end
 
 function init_particles(nxcell, max_xcell, min_xcell, x, y, z, dx, dy, dz, ni)

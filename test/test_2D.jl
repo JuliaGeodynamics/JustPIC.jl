@@ -2,6 +2,8 @@ using JustPIC, CellArrays, ParallelStencil, Test, LinearAlgebra
 
 @static if occursin("AMDGPU", JustPIC.backend)
     @init_parallel_stencil(AMDGPU, Float64, 2)
+elseif occursin("CUDA", JustPIC.backend)
+    @init_parallel_stencil(CUDA, Float64, 2)
 end
 
 function init_particles(nxcell, max_xcell, min_xcell, x, y, dx, dy, nx, ny)
