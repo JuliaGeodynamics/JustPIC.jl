@@ -28,6 +28,13 @@ function get_cell(xi, p::ClassicParticles{N}) where N
     end
 end
 
+function get_cell(xi, dxi::NTuple{N,T}) where {N,T}
+    ntuple(Val(N)) do i 
+        Base.@_inline_meta
+        Int64(@inbounds xi[i] ÷ dxi[i] + 1) 
+    end
+end
+
 # Others
 
 @inline nparticles(::ClassicParticles{N, NP}) where {N, NP} = NP
