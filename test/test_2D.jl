@@ -1,4 +1,4 @@
-using JustPIC, CellArrays, ParallelStencil, Test, LinearAlgebra
+include("common2D.jl")
 
 function init_particles(nxcell, max_xcell, min_xcell, x, y, dx, dy, nx, ny)
     ni = nx, ny
@@ -7,8 +7,8 @@ function init_particles(nxcell, max_xcell, min_xcell, x, y, dx, dy, nx, ny)
     px, py = ntuple(_ -> @rand(ni..., celldims=(max_xcell,)) , Val(2))
 
     inject = @fill(false, nx, ny, eltype=Bool)
-    index = @fill(false, ni..., celldims=(max_xcell,), eltype=Bool) 
-    
+    index = @fill(false, ni..., celldims=(max_xcell,), eltype=Bool)
+
     @parallel_indices (i, j) function fill_coords_index(px, py, index, x, y, dx, dy, nxcell, max_xcell)
         # lower-left corner of the cell
         x0, y0 = x[i], y[j]
@@ -18,17 +18,17 @@ function init_particles(nxcell, max_xcell, min_xcell, x, y, dx, dy, nx, ny)
                 @cell px[l, i, j] = x0 + dx * (@cell(px[l, i, j]) * 0.9 + 0.05)
                 @cell py[l, i, j] = y0 + dy * (@cell(py[l, i, j]) * 0.9 + 0.05)
                 @cell index[l, i, j] = true
-            
+
             else
                 @cell px[l, i, j] = NaN
                 @cell py[l, i, j] = NaN
-                
+
             end
         end
         return nothing
     end
 
-    @parallel (1:nx, 1:ny) fill_coords_index(px, py, index, x, y, dx, dy, nxcell, max_xcell) 
+    @parallel (1:nx, 1:ny) fill_coords_index(px, py, index, x, y, dx, dy, nxcell, max_xcell)
 
     return Particles(
         (px, py), index, inject, nxcell, max_xcell, min_xcell, np, (nx, ny)
@@ -83,7 +83,7 @@ function advection_test_2D()
     # Advection test
     particle_args = pT, = init_cell_arrays(particles, Val(1));
     grid2particle!(pT, xvi, T, particles.coords);
-    
+
     sumT = sum(T)
 
     niter = 150
@@ -92,7 +92,7 @@ function advection_test_2D()
         copyto!(T0, T)
         advection_RK!(particles, V, grid_vx, grid_vy, dt, 2 / 3)
         shuffle_particles!(particles, xvi, particle_args)
-        
+
         inject = check_injection(particles)
         inject && inject_particles!(particles, (pT, ), (T,), xvi)
 
@@ -156,7 +156,7 @@ function test_rotating_circle()
 
     particle_args = pT, = init_cell_arrays(particles, Val(1));
     grid2particle!(pT, xvi, T, particles.coords);
-    
+
     t = 0
     it = 0
     sumT = sum(T)
@@ -165,7 +165,7 @@ function test_rotating_circle()
         copyto!(T0, T)
         advection_RK!(particles, V, grid_vx, grid_vy, dt, 2 / 3)
         shuffle_particles!(particles, xvi, particle_args)
-        
+
         inject = check_injection(particles)
         inject && inject_particles!(particles, (pT, ), (T,), xvi)
 
@@ -173,7 +173,7 @@ function test_rotating_circle()
 
         t += dt
         it += 1
-      
+
     end
 
     sumT_final = sum(T)

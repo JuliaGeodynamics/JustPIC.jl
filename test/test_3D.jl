@@ -1,16 +1,15 @@
-using JustPIC
-import JustPIC: @idx, @cell
+include("common3D.jl")
 
-using CellArrays, ParallelStencil, LinearAlgebra, Test
+import JustPIC: @idx, @cell
 
 function init_particles(nxcell, max_xcell, min_xcell, x, y, z, dx, dy, dz, ni)
     ncells     = prod(ni)
     np         = max_xcell * ncells
     px, py, pz = ntuple(_ -> @fill(NaN, ni..., celldims=(max_xcell,)) , Val(3))
     inject     = @fill(false, ni..., eltype=Bool)
-    index      = @fill(false, ni..., celldims=(max_xcell,), eltype=Bool) 
-    
-    @parallel_indices (i, j, k) function fill_coords_index(px, py, pz, index)    
+    index      = @fill(false, ni..., celldims=(max_xcell,), eltype=Bool)
+
+    @parallel_indices (i, j, k) function fill_coords_index(px, py, pz, index)
         # lower-left corner of the cell
         x0, y0, z0 = x[i], y[j], z[k]
         # fill index array
@@ -23,7 +22,7 @@ function init_particles(nxcell, max_xcell, min_xcell, x, y, z, dx, dy, dz, ni)
         return nothing
     end
 
-    @parallel (@idx ni) fill_coords_index(px, py, pz, index)    
+    @parallel (@idx ni) fill_coords_index(px, py, pz, index)
 
     return Particles(
         (px, py, pz), index, inject, nxcell, max_xcell, min_xcell, np, ni
@@ -81,7 +80,7 @@ function test_advection_3D()
     # Advection test
     particle_args = pT, = init_cell_arrays(particles, Val(1))
     grid2particle!(pT, xvi, T, particles.coords)
-    
+
     sumT = sum(T)
 
     niter = 100
@@ -90,7 +89,7 @@ function test_advection_3D()
         copyto!(T0, T)
         advection_RK!(particles, V, grid_vx, grid_vy, grid_vz, dt, 2 / 3)
         shuffle_particles!(particles, xvi, particle_args)
-        
+
         # reseed
         inject = check_injection(particles)
         inject && inject_particles!(particles, (pT, ), (T,), xvi)
@@ -101,7 +100,7 @@ function test_advection_3D()
     sumT_final = sum(T)
 
     return abs(sumT - sumT_final) / sumT
-    
+
 end
 
 function test_advection()
