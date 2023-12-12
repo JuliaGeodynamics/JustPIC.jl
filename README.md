@@ -1,10 +1,11 @@
 [![DOI](https://zenodo.org/badge/507905159.svg)](https://zenodo.org/doi/10.5281/zenodo.10212675)
+[![CPU CI](https://github.com/JuliaGeodynamics/JustPIC.jl/actions/workflows/UnitTests.yml/badge.svg)](https://github.com/JuliaGeodynamics/JustPIC.jl/actions/workflows/UnitTests.yml)
 
 # JustPIC.jl
 
 Particle-in-Cell advection ready to rock the GPU  :rocket:
 
-:warning:**Warning**:warning: This package is still under development and the API is not stable yet. 
+:warning:**Warning**:warning: This package is still under development and the API is not stable yet.
 
 # Example:
 ```julia
@@ -35,12 +36,12 @@ using ParallelStencil
 Define domain and grids of the domain:
 
 ```julia
-# number of grid points 
-n = 257 
+# number of grid points
+n = 257
 # number of cells
-nx = ny = n-1 
+nx = ny = n-1
 # domain size
-Lx = Ly = 1.0 
+Lx = Ly = 1.0
 # nodal vertices
 xvi = xv, yv = range(0, Lx, length=n), range(0, Ly, length=n)
 # grid spacing
@@ -72,7 +73,7 @@ function init_particle(nxcell, max_xcell, min_xcell, x, y, dx, dy, nx, ny)
     px, py = ntuple(_ -> @fill(NaN, ni..., celldims=(max_xcell,)) , Val(2))
 
     inject = @fill(false, nx, ny, eltype=Bool)
-    index = @fill(false, ni..., celldims=(max_xcell,), eltype=Bool) 
+    index = @fill(false, ni..., celldims=(max_xcell,), eltype=Bool)
 
     i  ,j  = Int(nx÷3), Int(ny÷3)
     x0, y0 = x[i], y[j]
@@ -109,14 +110,14 @@ V   = Vx, Vy
 dt = min(dx / maximum(abs.(Vx)),  dy / maximum(abs.(Vy))) # time step
 ```
 
-where 
+where
 ```julia
 const TA = ENV["PS_PACKAGE"] == "CUDA" ? JustPIC.CUDA.CuArray : Array
 ```
-is a type alias for either `Array` or `CuArray`. 
+is a type alias for either `Array` or `CuArray`.
 
 We save the initial particle positions:
-```julia 
+```julia
 pxv = particles.coords[1].data;
 pyv = particles.coords[2].data;
 idxv = particles.index.data;
