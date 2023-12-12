@@ -1,6 +1,6 @@
 using JustPIC, CellArrays, ParallelStencil, Test, LinearAlgebra
 
-if occursin("AMDGPU", JustPIC.backend)
+@static if occursin("AMDGPU", JustPIC.backend)
     @init_parallel_stencil(AMDGPU, Float64, 2)
 end
 
