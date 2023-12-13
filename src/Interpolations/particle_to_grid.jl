@@ -37,22 +37,19 @@ end
             !(1 ≤ ivertex < nx) && continue
 
             # make sure we stay within the grid
-            # if (1 ≤ ivertex < nx) && (1 ≤ jvertex < ny)
-                # iterate over cell
-                @inbounds for i in cellaxes(px)
-                    # early exit if particle is not in the cell
-                    doskip(index, i, ivertex, jvertex) && continue
+            # iterate over cell
+            @inbounds for i in cellaxes(px)
+            # Base.@nexprs 24 i -> begin
+                # early exit if particle is not in the cell
+                doskip(index, i, ivertex, jvertex) && continue
 
-                    p_i = @cell(px[i, ivertex, jvertex]), @cell(py[i, ivertex, jvertex])
-                    # # ignore lines below for unused allocations
-                    # any(isnan, p_i) && continue
-                    ω_i = distance_weight(xvertex, p_i; order=4)
-                    # ω_i = bilinear_weight(xvertex, p_i, di)
-                    ω += ω_i
-                    # ωxF = muladd(ω_i, @cell(Fp[i, ivertex, jvertex]), ωxF)
-                    ωxF += ω_i * @cell(Fp[i, ivertex, jvertex])
-                end
-            # end
+                p_i = @cell(px[i, ivertex, jvertex]), @cell(py[i, ivertex, jvertex])
+                ω_i = distance_weight(xvertex, p_i; order=4)
+                # # ω_i = bilinear_weight(xvertex, p_i, di)
+                ω += ω_i
+                ωxF = muladd(ω_i, @cell(Fp[i, ivertex, jvertex]), ωxF)
+                # ωxF += ω_i * @cell(Fp[i, ivertex, jvertex])
+            end
         end
     end
 

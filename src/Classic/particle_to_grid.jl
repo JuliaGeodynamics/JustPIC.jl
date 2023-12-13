@@ -36,6 +36,8 @@ end
             # F acting as buffer here
             Atomix.@atomic F[ivertex, jvertex] += ω_i = distance_weight(xvertex, p_i; order=4)
             Atomix.@atomic buffer[ivertex, jvertex] += Fp[ipart] * ω_i 
+            # CUDA.@atomic F[ivertex, jvertex] += ω_i = distance_weight(xvertex, p_i; order=4)
+            # CUDA.@atomic buffer[ivertex, jvertex] += Fp[ipart] * ω_i 
         end
     end
 

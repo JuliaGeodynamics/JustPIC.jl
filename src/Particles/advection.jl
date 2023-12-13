@@ -26,47 +26,22 @@ function advection_RK!(
     particles::Particles, V, grid_vx::NTuple{2,T}, grid_vy::NTuple{2,T}, dt, dxi, α
 ) where {T}
     # unpack 
-    (; coords, index, max_xcell) = particles
+    (; coords, index) = particles
     px, = coords
 
     # compute some basic stuff   
-    nx, ny = size(px)
+    ni = size(px)
     # Need to transpose grid_vy and Vy to reuse interpolation kernels
     grid_vi = grid_vx, grid_vy
 
     local_limits = inner_limits(grid_vi)
 
     # launch parallel advection kernel
-    @parallel (1:max_xcell, 1:nx, 1:ny) _advection_RK!(
+    @parallel (@idx ni) _advection_RK!(
         coords, V, index, grid_vi, local_limits, dxi, dt, α
     )
-
     return nothing
 end
-
-# ParallelStencil fuction Runge-Kutta advection for 2D staggered grids
-@parallel_indices (ipart, icell, jcell) function _advection_RK!(
-    p, V::NTuple{2,T}, index::AbstractArray, grid, local_limits, dxi, dt, α
-) where {T}
-    px, py = p
-
-    if icell ≤ size(px, 1) && jcell ≤ size(px, 2) && !doskip(index, ipart, icell, jcell)
-        pᵢ = (@cell(px[ipart, icell, jcell]), @cell(py[ipart, icell, jcell]))
-        if !any(isnan, pᵢ)
-            px_new, py_new = advect_particle_RK(
-                pᵢ, V, grid, local_limits, dxi, dt, (icell, jcell), α
-            )
-            @cell px[ipart, icell, jcell] = px_new
-            @cell py[ipart, icell, jcell] = py_new
-        end
-    end
-
-    return nothing
-end
-
-## 3D SPECIFIC FUNCTIONS 
-
-# Main Runge-Kutta advection function for 3D staggered grids
 
 function advection_RK!(
     particles::Particles,
@@ -81,52 +56,44 @@ function advection_RK!(
     (; coords, index) = particles
     # compute some basic stuff
     dxi = compute_dx(grid_vx)
-    nx, ny, nz = size(index)
+    ni = size(index)
 
     # Need to transpose grid_vy and Vy to reuse interpolation kernels
     grid_vi = grid_vx, grid_vy, grid_vz
     local_limits = inner_limits(grid_vi)
 
     # launch parallel advection kernel
-    @parallel (1:nx, 1:ny, 1:nz) _advection_RK!(
+    @parallel (@idx ni) _advection_RK!(
         coords, V, index, grid_vi, local_limits, dxi, dt, α
     )
 
     return nothing
 end
 
-# ParallelStencil fuction Runge-Kuttaadvection function for 3D staggered grids
-@parallel_indices (icell, jcell, kcell) function _advection_RK!(
-    p, V::NTuple{3,T}, index, grid, local_limits, dxi, dt, α
-) where {T}
-    px, py, pz = p
-    nx, ny, nz = size(index)
-    for ipart in cellaxes(px)
-        if icell ≤ nx &&
-            jcell ≤ ny &&
-            kcell ≤ nz &&
-            !doskip(index, ipart, icell, jcell, kcell)
-            pᵢ = (
-                @cell(px[ipart, icell, jcell, kcell]),
-                @cell(py[ipart, icell, jcell, kcell]),
-                @cell(pz[ipart, icell, jcell, kcell]),
-            )
+# DIMENSION AGNOSTIC KERNELS
 
-            if !any(isnan, pᵢ)
-                px_new, py_new, pz_new = advect_particle_RK(
-                    pᵢ, V, grid, local_limits, dxi, dt, (icell, jcell, kcell), α
-                )
-                @cell px[ipart, icell, jcell, kcell] = px_new
-                @cell py[ipart, icell, jcell, kcell] = py_new
-                @cell pz[ipart, icell, jcell, kcell] = pz_new
-            end
+# ParallelStencil fuction Runge-Kuttaadvection function for 3D staggered grids
+@parallel_indices (I...) function _advection_RK!(
+    p, V::NTuple{N,T}, index, grid, local_limits, dxi, dt, α
+) where {N, T}
+
+    for ipart in cellaxes(index)
+        doskip(index, ipart, I...) && continue
+
+        # cache particle coordinates 
+        pᵢ = get_particle_coords(p, ipart, I...)
+
+        p_new = advect_particle_RK(
+            pᵢ, V, grid, local_limits, dxi, dt, I, α
+        )
+
+        ntuple(Val(N)) do i 
+            @inbounds @cell p[i][ipart, I...] = p_new[i]
         end
     end
 
     return nothing
 end
-
-# DIMENSION AGNOSTIC KERNELS
 
 function advect_particle_RK(
     p0::NTuple{N,T},

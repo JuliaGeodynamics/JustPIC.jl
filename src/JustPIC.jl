@@ -5,7 +5,7 @@ using MPI: MPI
 using MuladdMacro
 using ParallelStencil
 using CUDA
-using AMDGPU
+# using AMDGPU
 using CellArrays
 using Preferences
 using StaticArrays
@@ -41,9 +41,13 @@ end
 const backend = @load_preference("backend", "Threads_Float64_2D")
 
 const TA = @static if occursin("CUDA", backend)
+    # using CUDA
     CUDA.CuArray
+
 elseif occursin("AMDGPU", backend)
+    using AMDGPU
     AMDGPU.ROCArray
+
 else
     Array
 end

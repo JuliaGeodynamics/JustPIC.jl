@@ -8,33 +8,30 @@ function grid2particle!(Fp, xvi, F, particle_coords, index)
 end
 
 function grid2particle!(Fp, xvi, F, particle_coords, index, di::NTuple{N,T}) where {N,T}
-    ni = length.(xvi)
-    @parallel (@idx ni .- 1) grid2particle_classic!(Fp, F, xvi, index, di, particle_coords)
+    nx, ny = size(index)
+
+    @parallel (1:nx, 1:ny) grid2particle_classic!(Fp, F, xvi, index, di, particle_coords)
 
     return nothing
 end
 
 @parallel_indices (I...) function grid2particle_classic!(Fp, F, xvi, index, di, particle_coords)
     _grid2particle_classic!(Fp, particle_coords, xvi, di, F, index, tuple(I...), Val(cellnum(index)))
-    # _grid2particle_classic!(Fp, particle_coords, xvi, di, F, index, tuple(I...))
     return nothing
 end
 
 # INNERMOST INTERPOLATION KERNEL
 
-@inline function _grid2particle_classic!(Fp, p, xvi, di::NTuple, F, index, idx)
-    Fi = field_corners(F, idx)
-
+@inline function _grid2particle_classic!(Fp, p, xvi, di::NTuple{2, T}, F, index, idx) where T
+    i, j, ip = idx
     # iterate over all the particles within the cells of index `idx` 
-    @inbounds for ip in cellaxes(Fp)
-        # skip lines below if there is no particle in this pice of memory
-        doskip(index, ip, idx...) && continue
-
+    # skip lines below if there is no particle in this pice of memory
+    if !doskip(index, ip, i, j) 
+        Fi = field_corners(F, (i, j))
         # cache particle coordinates 
-        pᵢ = get_particle_coords(p, ip, idx...)
-
+        pᵢ = get_particle_coords(p, ip, i, j)
         # Interpolate field F onto particle
-        @cell Fp[ip, idx...] = _grid2particle(pᵢ, xvi, di, Fi, idx)
+        @cell Fp[ip, i, j] = _grid2particle(pᵢ, xvi, di, Fi, (i, j))
     end
 end
 
@@ -42,6 +39,7 @@ end
     quote
         Base.@_inline_meta
         Fi = field_corners(F, idx)
+        xi_corner = corner_coordinate(xvi, idx)
         # iterate over all the particles within the cells of index `idx` 
         Base.@nexprs $N ip -> begin
             # skip lines below if there is no particle in this pice of memory
@@ -49,7 +47,7 @@ end
                 # cache particle coordinates 
                 pᵢ = get_particle_coords(p, ip, idx...)
                 # Interpolate field F onto particle
-                @cell Fp[ip, idx...] = _grid2particle(pᵢ, xvi, di, Fi, idx)
+                @cell Fp[ip, idx...] = _grid2particle(pᵢ, xi_corner, di, Fi)
             end
         end
     end
@@ -126,7 +124,7 @@ end
         # any(isnan, pᵢ) && continue
 
         Fᵢ = @cell Fp[ip, idx...]
-        F_pic, F0_pic = _grid2particle(pᵢ, xvi, di, (F, F0), idx)
+        F_pic, F0_pic = _grid2particle(pᵢ, xvi, di, (Fi, F0i), idx)
         ΔF = F_pic - F0_pic
         F_flip = Fᵢ + ΔF
         # Interpolate field F onto particle
@@ -187,6 +185,14 @@ end
     # Interpolate field F onto particle
     Fp = ndlinear(ti, Fi)
 
+    return Fp
+end
+
+@inline function _grid2particle(pᵢ::Union{SVector, NTuple}, xvi::NTuple{N1, T}, di::NTuple, Fi::NTuple{N2, T}) where {N1, N2, T<:Real} 
+    # normalize particle coordinates
+    ti = normalize_coordinates(pᵢ, xvi, di)
+    # Interpolate field F onto particle
+    Fp = ndlinear(ti, Fi)
     return Fp
 end
 

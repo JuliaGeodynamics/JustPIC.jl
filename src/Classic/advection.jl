@@ -60,7 +60,6 @@ function advect_classic_particle_RK(
     α,
 ) where {T,N}
 
-    _α = inv(α)
     ValN = Val(N)
 
     # interpolate velocity to current location
@@ -85,7 +84,7 @@ function advect_classic_particle_RK(
     end
 
     # interpolate velocity to new location
-    idx2 = get_cell(p1, dxi)
+    # idx2 = get_cell(p1, dxi)
     vp1 = ntuple(ValN) do i
         Base.@_inline_meta
         local_lims = local_limits[i]
@@ -93,7 +92,7 @@ function advect_classic_particle_RK(
         # went outside the local rank domain. It will be removed 
         # during shuffling
         v = if check_local_limits(local_lims, p1)
-            interp_velocity_grid2particle(p1, grid_vi[i], dxi, V[i], idx2)
+            interp_velocity_grid2particle(p1, grid_vi[i], dxi, V[i], idx)
         else
             zero(T)
         end
@@ -103,9 +102,11 @@ function advect_classic_particle_RK(
     pf = ntuple(ValN) do i
         Base.@_propagate_inbounds_meta
         Base.@_inline_meta
-        if α == 0.5
-            @muladd p0[i] + dt * vp1[i]
+        if α === 0.5
+            # @muladd p0[i] + dt * vp1[i]
+            muladd(dt, vp1[i], p0[i])
         else
+            _α = inv(α)
             @muladd p0[i] + dt * ((1.0 - 0.5 * _α) * vp0[i] + 0.5 * _α * vp1[i])
         end
     end
