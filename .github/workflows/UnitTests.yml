@@ -40,4 +40,14 @@ jobs:
             ${{ runner.os }}-test-
             ${{ runner.os }}-
       - uses: julia-actions/julia-buildpkg@latest
-      - uses: julia-actions/julia-runtest@latest
+      # - uses: julia-actions/julia-runtest@latest
+      - name: run tests
+        run: |
+          julia -e 'println("--- :julia: Instantiating project")
+                    using Pkg
+                    Pkg.add(name="ImplicitGlobalGrid", rev="lr/bump-amdgpu")
+                    Pkg.develop(; path=pwd())' || exit 3
+
+          julia -e 'println("+++ :julia: Running tests")
+                    using Pkg
+                    Pkg.test("JustPIC")'
