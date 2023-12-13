@@ -263,8 +263,8 @@ end
     )
 end
 
-@inline firstlast(x::AbstractArray) = first(x), last(x)
-@inline firstlast(x::CuArray) = extrema(x)
+@inline firstlast(x::Array) = first(x), last(x)
+@inline firstlast(x) = extrema(x)
 
 @inline function inner_limits(grid::NTuple{N,T}) where {N,T}
     ntuple(Val(N)) do i
