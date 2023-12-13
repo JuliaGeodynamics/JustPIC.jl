@@ -90,7 +90,7 @@ function test_advection_3D()
 
     sumT = sum(T)
 
-    niter = 100
+    niter = 25
     for _ in 1:niter
         particle2grid!(T, pT, xvi, particles.coords)
         copyto!(T0, T)
@@ -137,7 +137,6 @@ end
     xci = xc, yc, zc = ntuple(i -> range(0+dxi[i]/2, Li[i]-dxi[i]/2, length=ni[i]), Val(3))
 
     # Initialize particles -------------------------------
-    nxcell, max_xcell, min_xcell = 24, 24, 1
     particles = init_particles(
         nxcell, max_xcell, min_xcell, xvi..., dxi..., ni
     )

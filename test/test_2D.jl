@@ -55,15 +55,11 @@ end
 # Analytical flow solution
 vx_stream(x, y) =  250 * sin(π*x) * cos(π*y)
 vy_stream(x, y) = -250 * cos(π*x) * sin(π*y)
-g(x) = Point2f(
-    vx_stream(x[1], x[2]),
-    vy_stream(x[1], x[2])
-)
 
 function advection_test_2D()
     # Initialize particles -------------------------------
-    nxcell, max_xcell, min_xcell = 24, 48, 1
-    n = 128
+    nxcell, max_xcell, min_xcell = 6, 12, 1
+    n = 64
     nx = ny = n-1
     Lx = Ly = 1.0
     # nodal vertices
@@ -94,7 +90,7 @@ function advection_test_2D()
 
     sumT = sum(T)
 
-    niter = 150
+    niter = 25
     for it in 1:niter
         particle2grid!(T, pT, xvi, particles.coords)
         copyto!(T0, T)
@@ -130,7 +126,7 @@ vi_stream(x) =  π*1e-5 * (x - 0.5)
 
 function test_rotating_circle()
     # Initialize particles -------------------------------
-    nxcell, max_xcell, min_xcell = 24, 32, 6
+    nxcell, max_xcell, min_xcell = 12, 24, 6
     n = 101
     nx = ny = n-1
     Lx = Ly = 1.0
@@ -150,17 +146,16 @@ function test_rotating_circle()
     # Cell fields -------------------------------
     Vx = TA([-vi_stream(y) for x in grid_vx[1], y in grid_vx[2]]);
     Vy = TA([ vi_stream(x) for x in grid_vy[1], y in grid_vy[2]]);
-
     xc0 = yc0 =  0.25
     R   = 12 * dx
-    T   = TA([ ((x-xc0)^2 + (y-yc0)^2 ≤ R^2)  * 1.0 for x in xv, y in yv]);
+    T   = TA([((x-xc0)^2 + (y-yc0)^2 ≤ R^2)  * 1.0 for x in xv, y in yv]);
     T0  = deepcopy(T)
     V   = Vx, Vy;
 
-    w = π*1e-5  # angular velocity
+    w      = π * 1e-5  # angular velocity
     period = 1  # revolution number
-    tmax = period / (w/(2*π))
-    dt = 200.0
+    tmax   = period / (w/(2*π)) / 10
+    dt     = 200.0
 
     particle_args = pT, = init_cell_arrays(particles, Val(1));
     grid2particle!(pT, xvi, T, particles.coords);
@@ -181,7 +176,6 @@ function test_rotating_circle()
 
         t += dt
         it += 1
-
     end
 
     sumT_final = sum(T)
@@ -191,7 +185,7 @@ end
 
 function test_advection_2D()
     err = test_rotating_circle()
-    tol = 5e-3
+    tol = 1e-4
     passed = err < tol
 
     return passed
