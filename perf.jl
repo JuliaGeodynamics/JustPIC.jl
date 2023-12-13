@@ -1,5 +1,8 @@
 using JustPIC, ParallelStencil, StaticArrays, LinearAlgebra, ParallelStencil, TimerOutputs
-using GLMakie, CSV, DataFrames, LinearRegression
+using CSV, DataFrames, LinearRegression
+using GLMakie
+
+@init_parallel_stencil(CUDA, Float64, 2)
 
 function init_particles(nxcell, max_xcell, min_xcell, x, y, dx, dy, nx, ny)
     ni = nx, ny
@@ -43,9 +46,10 @@ function init_particles_classic(nxcell, x, y, dx, dy, nx, ny)
     pcoords = TA([SA[(rand()*0.9 + 0.05)*dx, (rand()*0.9 + 0.05)*dy] for _ in 1:np])
     parent_cell = TA([(0, 0) for _ in 1:np])
     
-    @parallel_indices (i, j) function fill_coords_index(pcoords, parent_cell, x, y, nxcell)
-        nx, ny = length(x)-1, length(y)-1
-        k = LinearIndices((1:nx, 1:ny))[i, j]
+    nx2, ny2 = length(x)-1, length(y)-1
+    LinInd = LinearIndices((1:nx2, 1:ny2))
+    @parallel_indices (i, j) function fill_coords_index(pcoords, parent_cell, x, y, nxcell, LinInd)
+        k = LinInd[i, j]
         # lower-left corner of the cell
         x0, y0 = x[i], y[j]
         # fill index array
@@ -59,7 +63,7 @@ function init_particles_classic(nxcell, x, y, dx, dy, nx, ny)
         return nothing
     end
 
-    @parallel (1:nx, 1:ny) fill_coords_index(pcoords, parent_cell, x, y, nxcell)
+    @parallel (1:nx, 1:ny) fill_coords_index(pcoords, parent_cell, x, y, nxcell, LinInd)
 
     return ClassicParticles(
         pcoords, parent_cell, np, (dx, dy)
@@ -81,7 +85,7 @@ vy_stream(x, y) = -250 * cos(π*x) * sin(π*y)
 
 function advection_test_2D(n, np)
     # Initialize particles -------------------------------
-    nxcell, max_xcell, min_xcell = np, np * 2, 1
+    nxcell, max_xcell, min_xcell = np, np*2, 1
     # n = 64
     n += 1
     nx = ny = n-1
@@ -111,7 +115,7 @@ function advection_test_2D(n, np)
 
     dt = min(dx / maximum(abs.(Array(Vx))),  dy / maximum(abs.(Array(Vy)))) / 2;
     particle_args = pT0, = init_cell_arrays(particles0, Val(1));
-    pT = zeros(length(particles.coords))
+    pT = @zeros(length(particles.coords))
     # x_copy = copy(particles.coords)
 
     niter = 50
@@ -128,7 +132,7 @@ function advection_test_2D(n, np)
     time_p2g_classic = Float64[]
 
     it = 0 
-    while t < 0.01
+    while t < 0.04
         it += 1
         push!(time_opt, @elapsed begin
             push!(time_adv_opt, @elapsed advection_RK!(particles0, V, grid_vx, grid_vy, dt, 2 / 3))
@@ -188,22 +192,37 @@ function advection_test_2D(n, np)
     # to 
 end
 
-function run()
-    n = 32, 64, 128, 256
+function run_cuda()
+    n = 64, 128, 256#, 512# 1024
+    # n = 512, 1024
     np = 6, 12, 18, 24
-    nt = Threads.nthreads()
-    fldr = "timings/nt$(nt)"
-    !isdir(fldr) &&  mkdir(fldr)
+    fldr = "timings_CUDA"
+    !isdir(fldr) && mkdir(fldr)
     for ni in n, npi in np
         println("Running n = $ni, np = $npi")
         timings = advection_test_2D(ni, npi)
         dt = DataFrame(timings)
-        CSV.write("timings/nt$(nt)/timings_n$(ni)_np$(npi).csv", dt)
+        CSV.write("timings_CUDA/timings_n$(ni)_np$(npi).csv", dt)
     end
 end
 
-run()
+function run_cpu()
+    n = 32, 64, 128, 256
+    np = 6, 12, 18, 24
+    nt = Threads.nthreads()
+    fldr = "timings_cpu/nt$(nt)"
+    !isdir(fldr) && mkpath(fldr)
+    !isdir(fldr) && mkdir(fldr)
+    for ni in n, npi in np
+        println("Running n = $ni, np = $npi")
+        timings = advection_test_2D(ni, npi)
+        dt = DataFrame(timings)
+        CSV.write(fldr*"/timings_n$(ni)_np$(npi).csv", dt)
+    end
+end
 
+run_cuda()
+# run_cpu()
 
 # timings_move = advection_test_2D()
 
@@ -249,4 +268,34 @@ run()
 # end
 # ProfileCanvas.@profview for i in 1:100
 #     grid2particle_naive!(pT, xvi, T, particles)
+# end
+
+
+# # normalize coordinates
+# @inline function f1(
+#     p::Union{SVector{N,A}, NTuple{N,A}}, xi::NTuple{N,B}, di::NTuple{N,C}, idx::NTuple{N,D}
+# ) where {N,A,B,C,D}
+#     return ntuple(Val(N)) do i
+#         Base.@_inline_meta
+#         @inbounds (p[i] - xi[i][idx[i]]) 
+#         # @inbounds (p[i] - xi[i][idx[i]]) * inv(di[i])
+#     end
+# end
+
+# @generated function f2(
+#     p::NTuple{N,A}, xi::NTuple{N,B}, di::NTuple{N,C}, idx::NTuple{N,D}
+# ) where {N,A,B,C,D}
+#     quote 
+#         Base.@_inline_meta
+#         Base.@nexprs $N i -> x_i = @inbounds (p[i] - xi[i][idx[i]]) * inv(di[i])
+#         Base.@ncall $N tuple x
+#     end
+# end
+
+# @btime f2($(p, xi, di, idx)...)
+# @code_warntype f2(p, xi, di, idx)
+
+# ProfileCanvas.@profview for i in 1:1000000
+#     f2(p, xi, di, idx)
+#     # f1(p, xi, di, idx)
 # end
