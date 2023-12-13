@@ -1,10 +1,12 @@
 [![DOI](https://zenodo.org/badge/507905159.svg)](https://zenodo.org/doi/10.5281/zenodo.10212675)
+[![CPU UnitTests](https://github.com/JuliaGeodynamics/JustPIC.jl/actions/workflows/UnitTests.yml/badge.svg)](https://github.com/JuliaGeodynamics/JustPIC.jl/actions/workflows/UnitTests.yml)
+[![GPU UnitTests](https://badge.buildkite.com/bb05ed7ef3b43f843a5ba4a976c27a724064d67955193accea.svg)](https://buildkite.com/julialang/justpic-dot-jl)
 
 # JustPIC.jl
 
 Particle-in-Cell advection ready to rock the GPU  :rocket:
 
-:warning:**Warning**:warning: This package is still under development and the API is not stable yet. 
+> :warning: **Warning**: This package is still under development and the API is not stable yet.
 
 # Example:
 ```julia
@@ -17,7 +19,7 @@ using ParallelStencil
 @init_parallel_stencil(CUDA, Float64, 2)
 ```
 
-The first step is to chose whether we want to run our simulation on the CPU or GPU. This is done by setting the environment variable `PS_PACKAGE` to either `"CUDA"` or `"Threads"`. In the following we will assume that we are running on the GPU.
+The first step is to chose whether we want to run our simulation on the CPU or Nvidia or AMD GPUs. This is done by setting the environment variable `PS_PACKAGE` to either `"CUDA"`, `"AMDGPU"` or `"Threads"`. In the following we will assume that we are running on a Nvidia GPU.
 
 ```julia
 ENV["PS_PACKAGE"] = "CUDA"
@@ -35,12 +37,12 @@ using ParallelStencil
 Define domain and grids of the domain:
 
 ```julia
-# number of grid points 
-n = 257 
+# number of grid points
+n = 257
 # number of cells
-nx = ny = n-1 
+nx = ny = n-1
 # domain size
-Lx = Ly = 1.0 
+Lx = Ly = 1.0
 # nodal vertices
 xvi = xv, yv = range(0, Lx, length=n), range(0, Ly, length=n)
 # grid spacing
@@ -72,7 +74,7 @@ function init_particle(nxcell, max_xcell, min_xcell, x, y, dx, dy, nx, ny)
     px, py = ntuple(_ -> @fill(NaN, ni..., celldims=(max_xcell,)) , Val(2))
 
     inject = @fill(false, nx, ny, eltype=Bool)
-    index = @fill(false, ni..., celldims=(max_xcell,), eltype=Bool) 
+    index = @fill(false, ni..., celldims=(max_xcell,), eltype=Bool)
 
     i  ,j  = Int(nx÷3), Int(ny÷3)
     x0, y0 = x[i], y[j]
@@ -94,7 +96,7 @@ particles = init_particles(
 )
 ```
 
-Note that in this example nxcell = max_xcell = min_xcell because we do not care about particle injection since we only have one particle.
+Note that in this example `nxcell = max_xcell = min_xcell` because we do not care about particle injection since we only have one particle.
 
 The velocity field is defined by the stream function $\psi=\frac{250}{\pi}\sin(\pi x)\cos(\pi y)$, so that the analytical velocity field at the particle $p=p(x,y)$ is given by
 ```julia
@@ -109,14 +111,14 @@ V   = Vx, Vy
 dt = min(dx / maximum(abs.(Vx)),  dy / maximum(abs.(Vy))) # time step
 ```
 
-where 
+where
 ```julia
 const TA = ENV["PS_PACKAGE"] == "CUDA" ? JustPIC.CUDA.CuArray : Array
 ```
-is a type alias for either `Array` or `CuArray`. 
+is a type alias for either `Array`, `CuArray` or `ROCArray`.
 
 We save the initial particle positions:
-```julia 
+```julia
 pxv = particles.coords[1].data;
 pyv = particles.coords[2].data;
 idxv = particles.index.data;

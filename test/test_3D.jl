@@ -1,16 +1,22 @@
-using JustPIC
+using JustPIC, CellArrays, ParallelStencil, Test, LinearAlgebra
 import JustPIC: @idx, @cell
 
-using CellArrays, ParallelStencil, LinearAlgebra, Test
+@static if occursin("AMDGPU", JustPIC.backend)
+    @init_parallel_stencil(AMDGPU, Float64, 3)
+    JustPIC.AMDGPU.allowscalar(true)
+elseif occursin("CUDA", JustPIC.backend)
+    @init_parallel_stencil(CUDA, Float64, 3)
+    JustPIC.CUDA.allowscalar(true)
+end
 
 function init_particles(nxcell, max_xcell, min_xcell, x, y, z, dx, dy, dz, ni)
     ncells     = prod(ni)
     np         = max_xcell * ncells
     px, py, pz = ntuple(_ -> @fill(NaN, ni..., celldims=(max_xcell,)) , Val(3))
     inject     = @fill(false, ni..., eltype=Bool)
-    index      = @fill(false, ni..., celldims=(max_xcell,), eltype=Bool) 
-    
-    @parallel_indices (i, j, k) function fill_coords_index(px, py, pz, index)    
+    index      = @fill(false, ni..., celldims=(max_xcell,), eltype=Bool)
+
+    @parallel_indices (i, j, k) function fill_coords_index(px, py, pz, index)
         # lower-left corner of the cell
         x0, y0, z0 = x[i], y[j], z[k]
         # fill index array
@@ -23,7 +29,7 @@ function init_particles(nxcell, max_xcell, min_xcell, x, y, z, dx, dy, dz, ni)
         return nothing
     end
 
-    @parallel (@idx ni) fill_coords_index(px, py, pz, index)    
+    @parallel (@idx ni) fill_coords_index(px, py, pz, index)
 
     return Particles(
         (px, py, pz), index, inject, nxcell, max_xcell, min_xcell, np, ni
@@ -45,7 +51,7 @@ vy_stream(x, z) =  0.0
 vz_stream(x, z) = -250 * cos(π*x) * sin(π*z)
 
 function test_advection_3D()
-    n   = 32
+    n   = 64
     nx  = ny = nz = n-1
     Lx  = Ly = Lz = 1.0
     ni  = nx, ny, nz
@@ -81,16 +87,16 @@ function test_advection_3D()
     # Advection test
     particle_args = pT, = init_cell_arrays(particles, Val(1))
     grid2particle!(pT, xvi, T, particles.coords)
-    
+
     sumT = sum(T)
 
-    niter = 100
+    niter = 25
     for _ in 1:niter
         particle2grid!(T, pT, xvi, particles.coords)
         copyto!(T0, T)
         advection_RK!(particles, V, grid_vx, grid_vy, grid_vz, dt, 2 / 3)
         shuffle_particles!(particles, xvi, particle_args)
-        
+
         # reseed
         inject = check_injection(particles)
         inject && inject_particles!(particles, (pT, ), (T,), xvi)
@@ -101,7 +107,7 @@ function test_advection_3D()
     sumT_final = sum(T)
 
     return abs(sumT - sumT_final) / sumT
-    
+
 end
 
 function test_advection()
@@ -131,7 +137,6 @@ end
     xci = xc, yc, zc = ntuple(i -> range(0+dxi[i]/2, Li[i]-dxi[i]/2, length=ni[i]), Val(3))
 
     # Initialize particles -------------------------------
-    nxcell, max_xcell, min_xcell = 24, 24, 1
     particles = init_particles(
         nxcell, max_xcell, min_xcell, xvi..., dxi..., ni
     )

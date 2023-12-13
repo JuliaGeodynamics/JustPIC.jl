@@ -1,0 +1,75 @@
+steps:
+  - label: "CUDA Julia {{matrix.version}}"
+    matrix:
+      setup:
+        version:
+          - "1.9"
+    plugins:
+      - JuliaCI/julia#v1:
+          version: "{{matrix.version}}"
+    command: |
+      julia -e 'println("--- :julia: Instantiating project")
+                using Pkg
+                Pkg.develop(; path=pwd())' || exit 3
+
+      julia -e 'println("+++ :julia: Running tests")
+                using Pkg
+                Pkg.test("JustPIC"; test_args=["--backend=CUDA"])'
+    agents:
+      queue: "juliagpu"
+      cuda: "*"
+    timeout_in_minutes: 120
+    soft_fail:
+      - exit_status: 3
+
+  - label: "AMDGPU Julia {{matrix.version}}"
+    matrix:
+      setup:
+        version:
+          - "1.9"
+    plugins:
+      - JuliaCI/julia#v1:
+          version: "{{matrix.version}}"
+    command: |
+      julia -e 'println("--- :julia: Instantiating project")
+                using Pkg
+                Pkg.develop(; path=pwd())' || exit 3
+
+      julia -e 'println("+++ :julia: Running tests")
+                using Pkg
+                Pkg.test("JustPIC"; test_args=["--backend=AMDGPU"])'
+    agents:
+      queue: "juliagpu"
+      rocm: "*"
+      rocmgpu: "gfx1030"
+    timeout_in_minutes: 120
+    soft_fail:
+      - exit_status: 3
+    env:
+      JULIA_NUM_THREADS: 4
+
+  # - label: "AMDGPU Julia {{matrix.version}}"
+  #   matrix:
+  #     setup:
+  #       version:
+  #         - "1.10"
+  #   plugins:
+  #     - JuliaCI/julia#v1:
+  #         version: "{{matrix.version}}"
+  #   command: |
+  #     julia -e 'println("--- :julia: Instantiating project")
+  #               using Pkg
+  #               Pkg.develop(; path=pwd())' || exit 3
+
+  #     julia -e 'println("+++ :julia: Running tests")
+  #               using Pkg
+  #               Pkg.test("JustPIC"; test_args=["--backend=AMDGPU"])'
+  #   agents:
+  #     queue: "juliagpu"
+  #     rocm: "*"
+  #     rocmgpu: "gfx1101"
+  #   timeout_in_minutes: 120
+  #   soft_fail:
+  #     - exit_status: 3
+  #   env:
+  #     JULIA_NUM_THREADS: 4
