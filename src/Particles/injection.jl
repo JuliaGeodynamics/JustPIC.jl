@@ -14,8 +14,8 @@ function check_injection(particles::Particles{N,A}) where {N,A}
     return check_injection(particles.inject)
 end
 
-@inline check_injection(inject::Union{Array, CuArray}) = count(inject) > 0
-@inline check_injection(inject) = check_injection(Array(inject))
+@inline check_injection(inject::Array) = count(inject) > 0
+@inline check_injection(inject::AbstractArray) = check_injection(Array(inject))
 
 @parallel_indices (i, j) function check_injection!(inject::AbstractMatrix, index, min_xcell)
     if i ≤ size(index, 1) && j ≤ size(index, 2)

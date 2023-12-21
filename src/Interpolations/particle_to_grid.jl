@@ -18,7 +18,9 @@ end
 
 ## INTERPOLATION KERNEL 2D
 
-@inbounds function _particle2grid!(F, Fp, inode, jnode, xi::NTuple{2,T}, p, index, di) where {T}
+@inbounds function _particle2grid!(
+    F, Fp, inode, jnode, xi::NTuple{2,T}, p, index, di
+) where {T}
     px, py = p # particle coordinates
     nx, ny = size(F)
     xvertex = xi[1][inode], xi[2][jnode] # cell lower-left coordinates
@@ -33,13 +35,13 @@ end
         # make sure we stay within the grid
         for ioffset in -1:0
             ivertex = ioffset + inode
-    
+
             !(1 ≤ ivertex < nx) && continue
 
             # make sure we stay within the grid
             # iterate over cell
             @inbounds for i in cellaxes(px)
-            # Base.@nexprs 24 i -> begin
+                # Base.@nexprs 24 i -> begin
                 # early exit if particle is not in the cell
                 doskip(index, i, ivertex, jvertex) && continue
 
@@ -120,7 +122,7 @@ end
                     @inbounds for ip in cellaxes(px)
                         # ignore lines below for unused allocations
                         doskip(index, ip, ivertex, jvertex) && continue
-                    
+
                         p_i = (
                             @cell(px[ip, ivertex, jvertex, kvertex]),
                             @cell(py[ip, ivertex, jvertex, kvertex]),
@@ -161,7 +163,7 @@ end
                     @inbounds for ip in cellaxes(px)
                         # ignore lines below for unused allocations
                         doskip(index, ip, ivertex, jvertex) && continue
-                    
+
                         p_i = (
                             @cell(px[ip, ivertex, jvertex, kvertex]),
                             @cell(py[ip, ivertex, jvertex, kvertex]),
@@ -194,7 +196,7 @@ end
 end
 
 @inline function distance_weight(x, y, b::NTuple{N,T}; order::Int64=4) where {N,T}
-    return inv(distance((x,y), b)^order)
+    return inv(distance((x, y), b)^order)
 end
 
 @generated function bilinear_weight(

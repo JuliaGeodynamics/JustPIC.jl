@@ -9,9 +9,7 @@ function move_particles!(particles::Particles, grid, args)
     return nothing
 end
 
-function move_particles!(
-    particles::Particles, grid, dxi, args
-)
+function move_particles!(particles::Particles, grid, dxi, args)
     # unpack
     (; coords, index, move) = particles
     nxi = size(move)
@@ -20,57 +18,31 @@ function move_particles!(
     domain_limits = extrema.(grid)
 
     @parallel (@idx nxi) move_particles_ps!(
-        move, coords, grid, domain_limits, dxi, index,args
+        move, coords, grid, domain_limits, dxi, index, args
     )
 
     return nothing
 end
 
 @parallel_indices (I...) function move_particles_ps!(
-    move,
-    particle_coords,
-    grid,
-    domain_limits,
-    dxi,
-    index,
-    args,
-)   
-    _move_particles!(
-        move, particle_coords, grid, domain_limits, dxi, index, I, args
-    )
-    
+    move, particle_coords, grid, domain_limits, dxi, index, args
+)
+    _move_particles!(move, particle_coords, grid, domain_limits, dxi, index, I, args)
+
     return nothing
 end
 
-function _move_particles!(
-    move, 
-    particle_coords,
-    grid,
-    domain_limits,
-    dxi,
-    index,
-    idx,
-    args,
-)
+function _move_particles!(move, particle_coords, grid, domain_limits, dxi, index, idx, args)
     # coordinate of the lower-most-left coordinate of the parent cell 
     corner_xi = corner_coordinate(grid, idx)
     # iterate over neighbouring (child) cells
-    move_kernel!(
-        move, 
-        particle_coords,
-        domain_limits,
-        corner_xi,
-        dxi,
-        index,
-        args,
-        idx,
-    )
+    move_kernel!(move, particle_coords, domain_limits, corner_xi, dxi, index, args, idx)
 
     return nothing
 end
 
 function move_kernel!(
-    move, 
+    move,
     particle_coords,
     domain_limits,
     corner_xi,
@@ -88,7 +60,7 @@ function move_kernel!(
         # check whether the particle is 
         # within the same cell and skip it
         isincell(pᵢ, corner_xi, dxi) && continue
-           
+
         # # particle went of of the domain, get rid of it
         # domain_check = !(indomain(pᵢ, domain_limits))
         # if domain_check
@@ -98,9 +70,9 @@ function move_kernel!(
         #     # @inbounds @cell move[ip, idx...] = false
         # end
         # domain_check && continue
-        
+
         # new cell indices
-        new_cell = get_cell(pᵢ, dxi) 
+        new_cell = get_cell(pᵢ, dxi)
 
         # hold particle variables
         current_args = @inbounds cache_args(args, ip, idx)
@@ -118,7 +90,6 @@ function move_kernel!(
     end
 end
 
-
 # function move_kernel!(
 #     move, 
 #     particle_coords,
@@ -129,7 +100,7 @@ end
 #     args::NTuple{N2,T},
 #     idx::NTuple{N1,Int64},
 # ) where {N1,N2,T}
-    
+
 #     # iterate over particles in child cell 
 #     for ip in cellaxes(index)
 #         doskip(index, ip, idx...) && continue

@@ -41,7 +41,7 @@ end
 
 # normalize coordinates
 @inline function normalize_coordinates(
-    p::Union{SVector{N,A}, NTuple{N,A}}, xi::NTuple{N,B}, di::NTuple{N,C}, idx::NTuple{N,D}
+    p::Union{SVector{N,A},NTuple{N,A}}, xi::NTuple{N,B}, di::NTuple{N,C}, idx::NTuple{N,D}
 ) where {N,A,B,C,D}
     return ntuple(Val(N)) do i
         Base.@_inline_meta
@@ -51,7 +51,7 @@ end
 
 # normalize coordinates
 @inline function normalize_coordinates(
-    p::Union{SVector{N,A}, NTuple{N,A}}, xci::NTuple{N,B}, di::NTuple{N,C}
+    p::Union{SVector{N,A},NTuple{N,A}}, xci::NTuple{N,B}, di::NTuple{N,C}
 ) where {N,A,B,C}
     return ntuple(Val(N)) do i
         Base.@_inline_meta

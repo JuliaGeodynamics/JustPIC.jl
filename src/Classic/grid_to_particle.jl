@@ -4,16 +4,20 @@
 function grid2particle_naive!(Fp, xvi, F, particles::ClassicParticles)
     (; coords, parent_cell, grid_step) = particles
     np = nparticles(particles)
-    
-    @parallel (@idx np) grid2particle_classic_naive!(Fp, F, parent_cell, xvi, grid_step, coords)
+
+    @parallel (@idx np) grid2particle_classic_naive!(
+        Fp, F, parent_cell, xvi, grid_step, coords
+    )
 
     return nothing
 end
 
-@parallel_indices (ipart) function grid2particle_classic_naive!(Fp, F, parent_cell, xvi, di, coords)
+@parallel_indices (ipart) function grid2particle_classic_naive!(
+    Fp, F, parent_cell, xvi, di, coords
+)
     @inbounds begin
-        pᵢ        = coords[ipart]
-        icell     = parent_cell[ipart]
+        pᵢ = coords[ipart]
+        icell = parent_cell[ipart]
         # Interpolate field F onto particle
         Fp[ipart] = _grid2particle(pᵢ, xvi, di, F, icell)
     end

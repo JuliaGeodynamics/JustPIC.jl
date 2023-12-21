@@ -37,9 +37,7 @@ function advection_RK!(
     local_limits = inner_limits(grid_vi)
 
     # launch parallel advection kernel
-    @parallel (@idx ni) _advection_RK!(
-        coords, V, index, grid_vi, local_limits, dxi, dt, α
-    )
+    @parallel (@idx ni) _advection_RK!(coords, V, index, grid_vi, local_limits, dxi, dt, α)
     return nothing
 end
 
@@ -63,9 +61,7 @@ function advection_RK!(
     local_limits = inner_limits(grid_vi)
 
     # launch parallel advection kernel
-    @parallel (@idx ni) _advection_RK!(
-        coords, V, index, grid_vi, local_limits, dxi, dt, α
-    )
+    @parallel (@idx ni) _advection_RK!(coords, V, index, grid_vi, local_limits, dxi, dt, α)
 
     return nothing
 end
@@ -75,19 +71,16 @@ end
 # ParallelStencil fuction Runge-Kuttaadvection function for 3D staggered grids
 @parallel_indices (I...) function _advection_RK!(
     p, V::NTuple{N,T}, index, grid, local_limits, dxi, dt, α
-) where {N, T}
-
+) where {N,T}
     for ipart in cellaxes(index)
         doskip(index, ipart, I...) && continue
 
         # cache particle coordinates 
         pᵢ = get_particle_coords(p, ipart, I...)
 
-        p_new = advect_particle_RK(
-            pᵢ, V, grid, local_limits, dxi, dt, I, α
-        )
+        p_new = advect_particle_RK(pᵢ, V, grid, local_limits, dxi, dt, I, α)
 
-        ntuple(Val(N)) do i 
+        ntuple(Val(N)) do i
             @inbounds @cell p[i][ipart, I...] = p_new[i]
         end
     end
@@ -115,7 +108,7 @@ function advect_particle_RK(
         # if this condition is met, it means that the particle
         # went outside the local rank domain. It will be removed 
         # during shuffling
-        v = if check_local_limits(local_lims, p0) 
+        v = if check_local_limits(local_lims, p0)
             interp_velocity_grid2particle(p0, grid_vi[i], dxi, V[i], idx)
         else
             zero(T)
@@ -158,7 +151,7 @@ end
 
 # Interpolate velocity from staggered grid to particle
 @inline function interp_velocity_grid2particle(
-    p_i::Union{SVector, NTuple}, xi_vx::NTuple, dxi::NTuple, F::AbstractArray, idx
+    p_i::Union{SVector,NTuple}, xi_vx::NTuple, dxi::NTuple, F::AbstractArray, idx
 )
     # F and coordinates at/of the cell corners
     Fi, xci = corner_field_nodes(F, p_i, xi_vx, dxi, idx)
@@ -171,7 +164,7 @@ end
 
 # Get field F and nodal indices of the cell corners where the particle is located
 @inline function corner_field_nodes(
-    F::AbstractArray{T,N}, p_i, xi_vx, dxi, idx::Union{SVector{N, Integer}, NTuple{N,Integer}}
+    F::AbstractArray{T,N}, p_i, xi_vx, dxi, idx::Union{SVector{N,Integer},NTuple{N,Integer}}
 ) where {N,T}
     ValN = Val(N)
     indices = ntuple(ValN) do n
@@ -218,20 +211,11 @@ end
     F110 = F[i1, j1, k]
     F011 = F[i, j1, k1]
     F111 = F[i1, j1, k1]
-    return (
-        F000,
-        F100,
-        F001,
-        F101,
-        F010,
-        F110,
-        F011,
-        F111,
-    )
+    return (F000, F100, F001, F101, F010, F110, F011, F111)
 end
 
-@inline firstlast(x::AbstractArray) = first(x), last(x)
-@inline firstlast(x::CuArray) = extrema(x)
+@inline firstlast(x::Array) = first(x), last(x)
+@inline firstlast(x::AbstractArray) = extrema(x)
 
 @inline function inner_limits(grid::NTuple{N,T}) where {N,T}
     ntuple(Val(N)) do i
@@ -241,7 +225,7 @@ end
 end
 
 @generated function check_local_limits(
-    local_lims::NTuple{N,T1}, p::Union{SVector{N,T2}, NTuple{N,T2}}
+    local_lims::NTuple{N,T1}, p::Union{SVector{N,T2},NTuple{N,T2}}
 ) where {N,T1,T2}
     quote
         Base.@_inline_meta

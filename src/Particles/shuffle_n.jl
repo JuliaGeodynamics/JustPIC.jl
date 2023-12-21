@@ -12,20 +12,21 @@ end
 
 function shuffle_particles!(particles::Particles, grid::NTuple{2,T}, dxi, args) where {T}
     # unpack
-    (; coords, index) = particles
+    (; coords, index, move) = particles
     nxi = length.(grid)
     nx, ny = nxi
 
     # compute local grid limits
     domain_limits = extrema.(grid)
-    clean_particles!(particles, grid, args)
+
+    move_particles!(particles, grid, args)
 
     n_i = ceil(Int, nx * 0.5)
     n_j = ceil(Int, ny * 0.5)
 
     for offset_x in 1:2, offset_y in 1:2
         @parallel (1:n_i, 1:n_j) shuffle_particles_ps!(
-            coords, grid, domain_limits, dxi, nxi, index, offset_x, offset_y, args
+            coords, grid, domain_limits, dxi, nxi, index, move, offset_x, offset_y, args
         )
     end
 
@@ -47,7 +48,17 @@ function shuffle_particles!(particles::Particles, grid::NTuple{3,T}, dxi, args) 
 
     for offset_x in 1:2, offset_y in 1:2, offset_z in 1:2
         @parallel (1:n_i, 1:n_j, 1:n_k) shuffle_particles_ps!(
-            coords, grid, domain_limits, dxi, nxi, index, offset_x, offset_y, offset_z, args
+            coords,
+            grid,
+            domain_limits,
+            dxi,
+            nxi,
+            index,
+            move,
+            offset_x,
+            offset_y,
+            offset_z,
+            args,
         )
     end
 
@@ -61,6 +72,7 @@ end
     dxi::NTuple{2,T},
     nxi,
     index,
+    move,
     offset_x,
     offset_y,
     args,
@@ -70,7 +82,7 @@ end
     j = 2 * (jcell - 1) + offset_y
     if (i < nx) && (j < ny)
         _shuffle_particles!(
-            particle_coords, grid, domain_limits, dxi, nxi, index, (i, j), args
+            particle_coords, grid, domain_limits, dxi, nxi, index, move, (i, j), args
         )
     end
 
@@ -84,6 +96,7 @@ end
     dxi::NTuple{3,T},
     nxi,
     index,
+    move,
     offset_x,
     offset_y,
     offset_z,
@@ -96,7 +109,7 @@ end
 
     if (i < nx) && (j < ny) && (k < nz)
         _shuffle_particles!(
-            particle_coords, grid, domain_limits, dxi, nxi, index, (i, j, k), args
+            particle_coords, grid, domain_limits, dxi, nxi, index, move, (i, j, k), args
         )
     end
 
@@ -110,6 +123,7 @@ function _shuffle_particles!(
     dxi,
     nxi,
     index,
+    move,
     parent_cell::NTuple{2,Integer},
     args,
 )
@@ -127,6 +141,7 @@ function _shuffle_particles!(
                 dxi,
                 nxi,
                 index,
+                move,
                 parent_cell,
                 args,
                 idx_loop,
@@ -144,6 +159,7 @@ function _shuffle_particles!(
     dxi,
     nxi,
     index,
+    move,
     parent_cell::NTuple{3,Integer},
     args,
 )
@@ -161,6 +177,7 @@ function _shuffle_particles!(
                 dxi,
                 nxi,
                 index,
+                move,
                 parent_cell,
                 args,
                 idx_loop,
@@ -178,6 +195,7 @@ function shuffle_kernel!(
     dxi,
     nxi,
     index,
+    move,
     parent_cell::NTuple{N1,Int64},
     args::NTuple{N2,T},
     idx_loop::NTuple{N1,Int64},
@@ -188,7 +206,13 @@ function shuffle_kernel!(
 
         # iterate over particles in child cell 
         for ip in cellaxes(index)
-            @inbounds !@cell(index[ip, idx_child...]) && continue
+            # @inbounds (
+            #     !@cell(index[ip, idx_child...]) ||
+            #     !@cell(move[ip, idx_child...])
+            # ) && continue
+
+            !@cell(index[ip, idx_child...]) && continue
+            !@cell(move[ip, idx_child...]) && continue
 
             p_child = cache_particle(particle_coords, ip, idx_child)
 
