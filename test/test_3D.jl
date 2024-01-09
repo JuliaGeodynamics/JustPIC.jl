@@ -4,13 +4,13 @@ import JustPIC: @idx, @cell
 @static if occursin("AMDGPU", JustPIC.backend)
     @init_parallel_stencil(AMDGPU, Float64, 3)
     JustPIC.AMDGPU.allowscalar(true)
-    
+
 elseif occursin("CUDA", JustPIC.backend)
     @init_parallel_stencil(CUDA, Float64, 3)
     JustPIC.CUDA.allowscalar(true)
 
 else
-    @init_parallel_stencil(CUDA, Float64, 3)
+    @init_parallel_stencil(Threads, Float64, 3)
 
 end
 

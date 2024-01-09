@@ -9,7 +9,7 @@ elseif occursin("CUDA", JustPIC.backend)
     JustPIC.CUDA.allowscalar(true)
 
 else
-    @init_parallel_stencil(CUDA, Float64, 2)
+    @init_parallel_stencil(Threads, Float64, 2)
 
 end
 
