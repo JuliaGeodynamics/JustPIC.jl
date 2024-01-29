@@ -1,9 +1,10 @@
 @static if ENV["JULIA_JUSTPIC_BACKEND"] === "AMDGPU"
     using AMDGPU
+    AMDGPU.allowscalar(true)
 elseif ENV["JULIA_JUSTPIC_BACKEND"] === "CUDA"
     using CUDA
+    CUDA.allowscalar(true)
 end
-
 using JustPIC, JustPIC._2D, CellArrays, ParallelStencil, Test, LinearAlgebra
 
 const backend = @static if ENV["JULIA_JUSTPIC_BACKEND"] === "AMDGPU"
