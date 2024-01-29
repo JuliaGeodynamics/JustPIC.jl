@@ -1,7 +1,7 @@
-const backend = @static if occursin("AMDGPU", JustPIC.backend)
+const backend = @static if ENV["JULIA_JUSTPIC_BACKEND"] === "AMDGPU"
     using AMDGPU
     AMDGPUBackend
-elseif occursin("CUDA", JustPIC.backend)
+elseif ENV["JULIA_JUSTPIC_BACKEND"] === "CUDA"
     using CUDA
     CUDABackend
 else
