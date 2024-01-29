@@ -1,7 +1,7 @@
 name = "JustPIC"
 uuid = "10dc771f-8528-4cd9-9d3b-b21b2e693339"
 authors = ["Albert De Montserrat <albertdemontserratnavarro@erdw.ethz.ch>, Ivan Utkin <iutkin@ethz.ch>"]
-version = "0.1.0"
+version = "0.1.1"
 
 [deps]
 AMDGPU = "21141c5a-9bdb-4563-92ae-f87d6854732e"
