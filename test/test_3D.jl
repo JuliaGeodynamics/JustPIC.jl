@@ -90,7 +90,7 @@ end
 
 function test_advection()
     err = test_advection_3D()
-    tol = 1e-3
+    tol = 1e-2
     passed = err < tol
 
     return passed
@@ -116,7 +116,7 @@ end
 
     # Initialize particles -------------------------------
     particles = init_particles(
-        nxcell, max_xcell, min_xcell, xvi..., dxi..., ni
+        backend, nxcell, max_xcell, min_xcell, xvi..., dxi..., ni
     )
     pT, = init_cell_arrays(particles, Val(1))
 

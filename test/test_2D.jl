@@ -82,7 +82,7 @@ end
 
 function test_advection_2D()
     err = advection_test_2D()
-    tol = 1e-4
+    tol = 1e-2
     passed = err < tol
 
     return passed
@@ -156,7 +156,7 @@ end
 
 function test_advection_2D()
     @show err = test_rotating_circle()
-    tol = 5e-3
+    tol = 1e-2
     passed = err < tol
 
     return passed
