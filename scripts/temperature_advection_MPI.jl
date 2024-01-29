@@ -1,40 +1,12 @@
+# Threads is the default backend, 
+# to run on a CUDA GPU load CUDA.jl (i.e. "using CUDA"), 
+# and to run on an AMD GPU load AMDGPU.jl (i.e. "using AMDGPU")
+const backend = CPUBackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
+
 using JustPIC
-
-# set_backend("Threads") # need to restart session if this changes
-
-using CellArrays
-using ParallelStencil
+using JustPIC._2D
 using GLMakie
 using ImplicitGlobalGrid
-@init_parallel_stencil(Threads, Float64, 2)
-
-function init_particles(nxcell, max_xcell, min_xcell, x, y, dx, dy, nx, ny)
-    ni = nx, ny
-    ncells = nx * ny
-    np = max_xcell * ncells
-    px, py = ntuple(_ -> @fill(NaN, ni..., celldims=(max_xcell,)) , Val(2))
-
-    inject = @fill(false, nx, ny, eltype=Bool)
-    index = @fill(false, ni..., celldims=(max_xcell,), eltype=Bool) 
-    
-    @parallel_indices (i, j) function fill_coords_index(px, py, index)    
-        # lower-left corner of the cell
-        x0, y0 = x[i], y[j]
-        # fill index array
-        for l in 1:nxcell
-            @cell px[l, i, j] = x0 + dx * rand(0.05:1e-5:0.95)
-            @cell py[l, i, j] = y0 + dy * rand(0.05:1e-5:0.95)
-            @cell index[l, i, j] = true
-        end
-        return nothing
-    end
-
-    @parallel (1:nx, 1:ny) fill_coords_index(px, py, index)    
-
-    return Particles(
-        (px, py), index, inject, nxcell, max_xcell, min_xcell, np, (nx, ny)
-    )
-end
 
 # Analytical flow solution
 vx_stream(x, y) =  250 * sin(π*x) * cos(π*y)
