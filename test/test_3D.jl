@@ -1,45 +1,14 @@
-using JustPIC, CellArrays, ParallelStencil, Test, LinearAlgebra
-import JustPIC: @idx, @cell
-
-@static if occursin("AMDGPU", JustPIC.backend)
-    @init_parallel_stencil(AMDGPU, Float64, 3)
-    JustPIC.AMDGPU.allowscalar(true)
-
+const backend = @static if occursin("AMDGPU", JustPIC.backend)
+    using AMDGPU
+    AMDGPUBackend
 elseif occursin("CUDA", JustPIC.backend)
-    @init_parallel_stencil(CUDA, Float64, 3)
-    JustPIC.CUDA.allowscalar(true)
-
+    using CUDA
+    CUDABackend
 else
-    @init_parallel_stencil(Threads, Float64, 3)
-
+    CPUBackend
 end
 
-function init_particles(nxcell, max_xcell, min_xcell, x, y, z, dx, dy, dz, ni)
-    ncells     = prod(ni)
-    np         = max_xcell * ncells
-    px, py, pz = ntuple(_ -> @fill(NaN, ni..., celldims=(max_xcell,)) , Val(3))
-    inject     = @fill(false, ni..., eltype=Bool)
-    index      = @fill(false, ni..., celldims=(max_xcell,), eltype=Bool)
-
-    @parallel_indices (i, j, k) function fill_coords_index(px, py, pz, index)
-        # lower-left corner of the cell
-        x0, y0, z0 = x[i], y[j], z[k]
-        # fill index array
-        for l in 1:nxcell
-            @cell px[l, i, j, k]    = x0 + dx * rand(0.05:1e-5:0.95)
-            @cell py[l, i, j, k]    = y0 + dy * rand(0.05:1e-5:0.95)
-            @cell pz[l, i, j, k]    = z0 + dz * rand(0.05:1e-5:0.95)
-            @cell index[l, i, j, k] = true
-        end
-        return nothing
-    end
-
-    @parallel (@idx ni) fill_coords_index(px, py, pz, index)
-
-    return Particles(
-        (px, py, pz), index, inject, nxcell, max_xcell, min_xcell, np, ni
-    )
-end
+using JustPIC, JustPIC._3D, CellArrays, ParallelStencil, Test, LinearAlgebra
 
 function expand_range(x::AbstractRange)
     dx = x[2] - x[1]
@@ -76,14 +45,14 @@ function test_advection_3D()
     # Initialize particles -------------------------------
     nxcell, max_xcell, min_xcell = 24, 24, 3
     particles = init_particles(
-        nxcell, max_xcell, min_xcell, xvi..., dxi..., ni
+        backend, nxcell, max_xcell, min_xcell, xvi..., dxi..., ni
     )
 
     # Cell fields -------------------------------
-    Vx = TA([vx_stream(x, z) for x in grid_vx[1], y in grid_vx[2], z in grid_vx[3]])
-    Vy = TA([vy_stream(x, z) for x in grid_vy[1], y in grid_vy[2], z in grid_vy[3]])
-    Vz = TA([vz_stream(x, z) for x in grid_vz[1], y in grid_vz[2], z in grid_vz[3]])
-    T  = TA([z for x in xv, y in yv, z in zv])
+    Vx = TA(backend)([vx_stream(x, z) for x in grid_vx[1], y in grid_vx[2], z in grid_vx[3]])
+    Vy = TA(backend)([vy_stream(x, z) for x in grid_vy[1], y in grid_vy[2], z in grid_vy[3]])
+    Vz = TA(backend)([vz_stream(x, z) for x in grid_vz[1], y in grid_vz[2], z in grid_vz[3]])
+    T  = TA(backend)([z for x in xv, y in yv, z in zv])
     T0 = deepcopy(T)
     V  = Vx, Vy, Vz
 
@@ -148,8 +117,8 @@ end
     pT, = init_cell_arrays(particles, Val(1))
 
     # Linear field at the vertices
-    T  = TA([z for x in xv, y in yv, z in zv])
-    T0 = TA([z for x in xv, y in yv, z in zv])
+    T  = TA(backend)([z for x in xv, y in yv, z in zv])
+    T0 = TA(backend)([z for x in xv, y in yv, z in zv])
 
     # Grid to particle test
     grid2particle!(pT, xvi, T, particles.coords)

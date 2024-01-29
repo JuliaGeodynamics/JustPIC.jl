@@ -41,13 +41,15 @@ function runtests()
     # 2D tests --------------------------------------------------
     printstyled("Running 2D tests\n"; bold=true, color=:white)
 
-    if get(ENV, "JULIA_JUSTPIC_BACKEND", "") == "AMDGPU"
-        set_backend("AMDGPU_Float64_2D")
-    elseif get(ENV, "JULIA_JUSTPIC_BACKEND", "") == "CUDA"
-        set_backend("CUDA_Float64_2D")
-    elseif get(ENV, "JULIA_JUSTPIC_BACKEND", "") == "CPU"
-        set_backend("Threads_Float64_2D")
-    end
+    # if get(ENV, "JULIA_JUSTPIC_BACKEND", "") == "AMDGPU"
+    #     # set_backend("AMDGPU_Float64_2D")
+    #     using AMDGPU
+    # elseif get(ENV, "JULIA_JUSTPIC_BACKEND", "") == "CUDA"
+    #     # set_backend("CUDA_Float64_2D")
+    #     using CUDA
+    # # elseif get(ENV, "JULIA_JUSTPIC_BACKEND", "") == "CPU"
+    # #     set_backend("Threads_Float64_2D")
+    # end
 
     for f in testfiles
         if occursin("2D", f)
@@ -63,13 +65,17 @@ function runtests()
     # 3D tests --------------------------------------------------
     printstyled("Running 3D tests\n"; bold=true, color=:white)
 
-    if get(ENV, "JULIA_JUSTPIC_BACKEND", "") == "AMDGPU"
-        set_backend("AMDGPU_Float64_3D")
-    elseif get(ENV, "JULIA_JUSTPIC_BACKEND", "") == "CUDA"
-        set_backend("CUDA_Float64_3D")
-    elseif get(ENV, "JULIA_JUSTPIC_BACKEND", "") == "CPU"
-        set_backend("Threads_Float64_3D")
-    end
+    # if get(ENV, "JULIA_JUSTPIC_BACKEND", "") == "AMDGPU"
+    #     # set_backend("AMDGPU_Float64_3D")
+    #     using AMDGPU
+
+    # elseif get(ENV, "JULIA_JUSTPIC_BACKEND", "") == "CUDA"
+    #     # set_backend("CUDA_Float64_3D")
+    #     using CUDA
+
+    # # elseif get(ENV, "JULIA_JUSTPIC_BACKEND", "") == "CPU"
+    # #     set_backend("Threads_Float64_3D")
+    # end
 
     for f in testfiles
         if occursin("3D", f)
