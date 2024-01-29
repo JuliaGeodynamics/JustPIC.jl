@@ -111,7 +111,7 @@ function test_rotating_circle()
     grid_vy = expand_range(xc), yv
 
     particles = init_particles(
-        nxcell, max_xcell, min_xcell, xvi..., dxi..., nx, ny
+        backend, nxcell, max_xcell, min_xcell, xvi..., dxi..., nx, ny
     )
 
     # Cell fields -------------------------------
