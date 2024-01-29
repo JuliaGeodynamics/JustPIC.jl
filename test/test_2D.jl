@@ -1,14 +1,18 @@
-const backend = @static if ENV["JULIA_JUSTPIC_BACKEND"] === "AMDGPU"
+@static if ENV["JULIA_JUSTPIC_BACKEND"] === "AMDGPU"
     using AMDGPU
-    AMDGPUBackend
 elseif ENV["JULIA_JUSTPIC_BACKEND"] === "CUDA"
     using CUDA
+end
+
+using JustPIC, JustPIC._2D, CellArrays, ParallelStencil, Test, LinearAlgebra
+
+const backend = @static if ENV["JULIA_JUSTPIC_BACKEND"] === "AMDGPU"
+    AMDGPUBackend
+elseif ENV["JULIA_JUSTPIC_BACKEND"] === "CUDA"
     CUDABackend
 else
     CPUBackend
 end
-
-using JustPIC, JustPIC._2D, CellArrays, ParallelStencil, Test, LinearAlgebra
 
 function expand_range(x::AbstractRange)
     dx = x[2] - x[1]
