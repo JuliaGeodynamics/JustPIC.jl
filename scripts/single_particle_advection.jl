@@ -40,7 +40,7 @@ function main()
     grid_vy = expand_range(xc), yv
 
     particles = init_particle(
-        nxcell, max_xcell, min_xcell, xvi..., dxi..., nx, ny
+        backend, nxcell, max_xcell, min_xcell, xvi..., dxi..., nx, ny
     )
 
     # allocate particle field
