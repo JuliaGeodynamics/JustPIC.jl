@@ -5,7 +5,7 @@
 
 Returns `true` if there is it at least one cell where injection of new particle(s) is needed.
 """
-function check_injection(particles::Particles{N,A}) where {N,A}
+function check_injection(particles::Particles{B,N,A}) where {B,N,A}
     (; inject, index, min_xcell) = particles
     nxi = size(index)
 
@@ -39,7 +39,7 @@ end
 Injects new particles in the struct `particles` and interpolates the nodal fields `fields` defined
 on the staggered grid `grid` onto the new particle field `args`.
 """
-function inject_particles!(particles::Particles, args, fields, grid::NTuple{2,T}) where {T}
+function inject_particles!(particles::Particles, args, fields, grid)
     # unpack
     (; inject, coords, index, min_xcell) = particles
     icell, jcell = size(inject)
