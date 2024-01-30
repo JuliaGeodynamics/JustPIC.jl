@@ -92,8 +92,8 @@ end
 ## Fallbacks
 import Base: getindex, setindex!
 
-@inline element(A::TA, I::Vararg{Int,N}) where {N} = getindex(A, I...)
-@inline function setelement!(A::TA, x::Number, I::Vararg{Int,N}) where {N}
+@inline element(A::Array, I::Vararg{Int,N}) where {N} = getindex(A, I...)
+@inline function setelement!(A::Array, x::Number, I::Vararg{Int,N}) where {N}
     return setindex!(A, x, I...)
 end
 

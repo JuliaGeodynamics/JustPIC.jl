@@ -1,39 +1,11 @@
+# Threads is the default backend, 
+# to run on a CUDA GPU load CUDA.jl (i.e. "using CUDA"), 
+# and to run on an AMD GPU load AMDGPU.jl (i.e. "using AMDGPU")
+const backend = CPUBackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
+
 using JustPIC
-import JustPIC: @idx, @cell
-
-# set_backend("CUDA_Float64_2D") # need to restart session if this changes
-
-using CellArrays
-using ParallelStencil
+using JustPIC._3D
 using GLMakie
-@init_parallel_stencil(Threads, Float64, 3)
-
-function init_particles(nxcell, max_xcell, min_xcell, x, y, z, dx, dy, dz, ni)
-    ncells     = prod(ni)
-    np         = max_xcell * ncells
-    px, py, pz = ntuple(_ -> @fill(NaN, ni..., celldims=(max_xcell,)) , Val(3))
-    inject     = @fill(false, ni..., eltype=Bool)
-    index      = @fill(false, ni..., celldims=(max_xcell,), eltype=Bool) 
-    
-    @parallel_indices (i, j, k) function fill_coords_index(px, py, pz, index)    
-        # lower-left corner of the cell
-        x0, y0, z0 = x[i], y[j], z[k]
-        # fill index array
-        for l in 1:nxcell
-            @cell px[l, i, j, k]    = x0 + dx * rand(0.05:1e-5:0.95)
-            @cell py[l, i, j, k]    = y0 + dy * rand(0.05:1e-5:0.95)
-            @cell pz[l, i, j, k]    = z0 + dz * rand(0.05:1e-5:0.95)
-            @cell index[l, i, j, k] = true
-        end
-        return nothing
-    end
-
-    @parallel (@idx ni) fill_coords_index(px, py, pz, index)    
-
-    return Particles(
-        (px, py, pz), index, inject, nxcell, max_xcell, min_xcell, np, ni
-    )
-end
 
 function expand_range(x::AbstractRange)
     dx = x[2] - x[1]
@@ -75,7 +47,7 @@ function main()
     # Initialize particles -------------------------------
     nxcell, max_xcell, min_xcell = 24, 24, 3
     particles = init_particles(
-        nxcell, max_xcell, min_xcell, xvi..., dxi..., ni
+        backend, nxcell, max_xcell, min_xcell, xvi..., dxi..., ni
     )
 
     # Cell fields -------------------------------

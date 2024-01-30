@@ -1,4 +1,4 @@
-struct Particles{N,M,I,T1,T2,T3}
+struct Particles{Backend,N,M,I,T1,T2,T3}
     coords::NTuple{N,T1}
     index::T2
     inject::T3
@@ -8,6 +8,7 @@ struct Particles{N,M,I,T1,T2,T3}
     np::I
 
     function Particles(
+        backend,
         coords::NTuple{N,T1},
         index,
         inject,
@@ -15,14 +16,13 @@ struct Particles{N,M,I,T1,T2,T3}
         max_xcell::I,
         min_xcell::I,
         np::I,
-        nxi,
     ) where {N,I,T1}
 
         # types
         T2 = typeof(index)
         T3 = typeof(inject)
 
-        return new{N,max_xcell,I,T1,T2,T3}(
+        return new{backend,N,max_xcell,I,T1,T2,T3}(
             coords, index, inject, nxcell, max_xcell, min_xcell, np
         )
     end
