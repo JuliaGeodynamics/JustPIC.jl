@@ -17,7 +17,7 @@ function advection_RK!(
     particles, V, grid_vx::NTuple{2,T}, grid_vy::NTuple{2,T}, dt, α
 ) where {T}
     dxi = compute_dx(grid_vx)
-    
+
     # unpack 
     (; coords, index, max_xcell) = particles
     px, = coords
@@ -141,7 +141,7 @@ function advect_particle_RK(
         # if this condition is met, it means that the particle
         # went outside the local rank domain. It will be removed 
         # during shuffling
-        v = if check_local_limits(local_lims, p0) 
+        v = if check_local_limits(local_lims, p0)
             interp_velocity_grid2particle(p0, grid_vi[i], dxi, V[i], idx)
         else
             zero(T)
@@ -244,16 +244,7 @@ end
     F110 = F[i1, j1, k]
     F011 = F[i, j1, k1]
     F111 = F[i1, j1, k1]
-    return (
-        F000,
-        F100,
-        F001,
-        F101,
-        F010,
-        F110,
-        F011,
-        F111,
-    )
+    return (F000, F100, F001, F101, F010, F110, F011, F111)
 end
 
 @inline firstlast(x::Array) = first(x), last(x)

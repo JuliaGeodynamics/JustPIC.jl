@@ -10,9 +10,7 @@ function shuffle_particles!(particles::Particles, grid, args)
     return nothing
 end
 
-function shuffle_particles!(
-    particles::Particles, grid::NTuple{2,T}, dxi, args
-) where {T}
+function shuffle_particles!(particles::Particles, grid::NTuple{2,T}, dxi, args) where {T}
     # unpack
     (; coords, index) = particles
     nxi = length.(grid)
@@ -33,9 +31,7 @@ function shuffle_particles!(
     return nothing
 end
 
-function shuffle_particles!(
-    particles::Particles, grid::NTuple{3,T}, dxi, args
-) where {T}
+function shuffle_particles!(particles::Particles, grid::NTuple{3,T}, dxi, args) where {T}
     # unpack
     (; coords, index) = particles
     nxi = length.(grid)
