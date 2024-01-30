@@ -1,11 +1,9 @@
+using AMDGPU
+const backend = AMDGPUBackend
+
 using JustPIC
-
-# set_backend("AMDGPU_Float64_2D") # need to restart session if this changes
-
-using CellArrays
-using ParallelStencil
+using JustPIC._2D
 using CairoMakie
-@init_parallel_stencil(AMDGPU, Float64, 2)
 
 function init_particles(nxcell, max_xcell, min_xcell, x, y, dx, dy, nx, ny)
     ni = nx, ny
@@ -68,7 +66,7 @@ function main()
     grid_vy = expand_range(xc), yv
 
     particles = init_particles(
-        nxcell, max_xcell, min_xcell, xvi..., dxi..., nx, ny
+        backend, nxcell, max_xcell, min_xcell, xvi..., dxi..., nx, ny
     )
 
     # Cell fields -------------------------------

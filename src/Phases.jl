@@ -42,6 +42,9 @@ Return the number of phases in `x::PhaseRatio`.
 end
 
 # ParallelStencil launch kernel for 2D
+
+# phase_ratios_center(x, phases) = @parallel (@idx size(phases)) phase_ratios_center_kernel(x, phases)
+
 @parallel_indices (i, j) function phase_ratios_center(x, phases)
     phase_ratios_center(x, phases, i, j)
     return nothing

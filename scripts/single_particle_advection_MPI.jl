@@ -1,33 +1,11 @@
+# Threads is the default backend, 
+# to run on a CUDA GPU load CUDA.jl (i.e. "using CUDA"), 
+# and to run on an AMD GPU load AMDGPU.jl (i.e. "using AMDGPU")
+const backend = CPUBackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
+
 using JustPIC
-
-# set_backend("CUDA") # need to restart session if this changes
-
-using CellArrays
-using ParallelStencil
+using JustPIC._2D
 using GLMakie
-@init_parallel_stencil(Threads, Float64, 2)
-
-function init_particle(nxcell, max_xcell, min_xcell, x, y, dx, dy, nx, ny, me)
-    ni = nx, ny
-    ncells = nx * ny
-    np = max_xcell * ncells
-    px, py = ntuple(_ -> @fill(NaN, ni..., celldims=(max_xcell,)) , Val(2))
-
-    inject = @fill(false, nx, ny, eltype=Bool)
-    index = @fill(false, ni..., celldims=(max_xcell,), eltype=Bool) 
-
-    if me == 0
-        i  ,j  = Int(nx_g()÷3), Int(nx_g()÷3)
-        x0, y0 = x[i], y[j]
-
-        @cell    px[1, i, j] = x0 + dx * rand(0.05:1e-5: 0.95)
-        @cell    py[1, i, j] = y0 + dy * rand(0.05:1e-5: 0.95)
-        @cell index[1, i, j] = true
-    end
-    return Particles(
-        (px, py), index, inject, nxcell, max_xcell, min_xcell, np, (nx, ny)
-    )
-end
 
 @inline init_particle_fields_cellarrays(particles, ::Val{N}) where N = ntuple(_ -> @fill(0.0, size(particles.coords[1])..., celldims=(cellsize(particles.index))), Val(N))
 
@@ -88,7 +66,7 @@ function main()
     grid_vy = expand_range(xc, dx), yv
 
     particles = init_particle(
-        nxcell, max_xcell, min_xcell, xv, yv, dxi..., nx, ny, me
+        backend, nxcell, max_xcell, min_xcell, xv, yv, dxi..., nx, ny, me
     )
 
     # allocate particle field

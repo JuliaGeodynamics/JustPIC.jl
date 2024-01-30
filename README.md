@@ -155,3 +155,8 @@ f, ax, = streamplot(g, xvi...)
 lines!(ax, p, color=:red)
 f
 ```
+
+
+## Funding
+The development of this package is supported by the [GPU4GEO](https://ptsolvers.github.io/GPU4GEO/) [PASC](https://www.pasc-ch.org) project.
+
