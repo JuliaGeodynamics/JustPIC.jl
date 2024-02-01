@@ -9,7 +9,7 @@ using ..JustPIC
 __precompile__(false)
 
 @init_parallel_stencil(Threads, Float64, 2)
-include("Includes.jl")
+include("common.jl")
 end
 
 module _3D
@@ -23,5 +23,5 @@ using ..JustPIC
 __precompile__(false)
 
 @init_parallel_stencil(Threads, Float64, 3)
-include("Includes.jl")
+include("common.jl")
 end
