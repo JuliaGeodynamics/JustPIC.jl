@@ -1,13 +1,13 @@
-@inline _interp1D(xq, x0, x1, y0, y1) = fma((xq-x0), (y1-y0)*inv(x1-x0), y0)
+@inline _interp1D(xq, x0, x1, y0, y1) = fma((xq - x0), (y1 - y0) * inv(x1 - x0), y0)
 
 function interp1D_extremas(xq, x, y)
     x_lo, x_hi = x[1], x[end]
-    @inbounds for j in eachindex(x)[1:end-1]
-        x0, x1 = x[j], x[j+1]
+    @inbounds for j in eachindex(x)[1:(end - 1)]
+        x0, x1 = x[j], x[j + 1]
 
         # interpolation
         if x0 < xq < x1
-            y0, y1 = y[j], y[j+1]
+            y0, y1 = y[j], y[j + 1]
             _interp1D(xq, x0, x1, y0, y1)
         end
 
@@ -19,8 +19,8 @@ function interp1D_extremas(xq, x, y)
         end
 
         if xq > x_hi
-            x0, x1 = x[end], x[end-1]
-            y0, y1 = y[end], y[end-1]
+            x0, x1 = x[end], x[end - 1]
+            y0, y1 = y[end], y[end - 1]
             _interp1D(xq, x0, x1, y0, y1)
         end
     end
@@ -28,12 +28,12 @@ end
 
 function interp1D_inner(xq, x, y, cell_coords, I::Integer)
     x_lo, x_hi = x[1], x[end]
-    @inbounds for j in eachindex(x)[1:end-1]
-        x0, x1 = x[j], x[j+1]
+    @inbounds for j in eachindex(x)[1:(end - 1)]
+        x0, x1 = x[j], x[j + 1]
 
         # interpolation
         if x0 < xq < x1
-            y0, y1 = y[j], y[j+1]
+            y0, y1 = y[j], y[j + 1]
             _interp1D(xq, x0, x1, y0, y1)
         end
 

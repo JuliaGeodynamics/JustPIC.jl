@@ -1,5 +1,4 @@
 function init_markerchain(backend, nxcell, min_xcell, max_xcell, x, initial_elevation, dx)
-    
     @parallel_indices (i) function fill_coords_index!(
         px, py, index, x, initial_elevation, dx_chain, nxcell, max_xcell
     )
@@ -15,11 +14,13 @@ function init_markerchain(backend, nxcell, min_xcell, max_xcell, x, initial_elev
     end
 
     nx = length(x) - 1
-    dx_chain = dx/(nxcell-1)
+    dx_chain = dx / (nxcell - 1)
     px, py = ntuple(_ -> @fill(NaN, (nx,), celldims = (max_xcell,)), Val(2))
-    index = @fill(false, (nx, ), celldims = (max_xcell,), eltype = Bool)
+    index = @fill(false, (nx,), celldims = (max_xcell,), eltype = Bool)
 
-    @parallel (1:nx) fill_coords_index!(px, py, index, x, initial_elevation, dx_chain, nxcell, max_xcell)
+    @parallel (1:nx) fill_coords_index!(
+        px, py, index, x, initial_elevation, dx_chain, nxcell, max_xcell
+    )
 
     return MarkerChain(backend, (px, py), index, x, max_xcell, min_xcell)
 end

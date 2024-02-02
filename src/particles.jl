@@ -57,11 +57,13 @@ unwrap_abstractarray(x::AbstractArray) = typeof(x).name.wrapper
 @inline count_particles(p::AbstractParticles, icell::Vararg{Int,N}) where {N} =
     count(p.index[icell...])
 
-@inline cell_length(p::MarkerChain{B, 2})   where B = p.cell_vertices[2] - p.cell_vertices[1]
-@inline cell_length_x(p::MarkerChain{B, 3}) where B = p.cell_vertices[1][2] - p.cell_vertices[1][1]
-@inline cell_length_y(p::MarkerChain{B, 3}) where B = p.cell_vertices[2][2] - p.cell_vertices[2][1]
+@inline cell_length(p::MarkerChain{B,2}) where {B} = p.cell_vertices[2] - p.cell_vertices[1]
+@inline cell_length_x(p::MarkerChain{B,3}) where {B} =
+    p.cell_vertices[1][2] - p.cell_vertices[1][1]
+@inline cell_length_y(p::MarkerChain{B,3}) where {B} =
+    p.cell_vertices[2][2] - p.cell_vertices[2][1]
 
-@inline cell_x(p::AbstractParticles, icell::Vararg{Int,N})       where {N}    = p.coords[1][icell...]
-@inline cell_y(p::AbstractParticles, icell::Vararg{Int,N})       where {N}    = p.coords[2][icell...]
-@inline cell_z(p::AbstractParticles{B, 3}, icell::Vararg{Int,N}) where {B, N} = p.coords[3][icell...]
-
+@inline cell_x(p::AbstractParticles, icell::Vararg{Int,N}) where {N} = p.coords[1][icell...]
+@inline cell_y(p::AbstractParticles, icell::Vararg{Int,N}) where {N} = p.coords[2][icell...]
+@inline cell_z(p::AbstractParticles{B,3}, icell::Vararg{Int,N}) where {B,N} =
+    p.coords[3][icell...]

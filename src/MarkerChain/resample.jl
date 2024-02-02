@@ -1,9 +1,8 @@
 function resample!(p::MarkerChain)
-    
     @parallel_indices (i) function resample!(
         coords, cell_vertices, index, min_xcell, max_xcell, dx_cells
     )
-    
+
         # cell particles coordinates
         x_cell, y_cell = coords[1][i], coords[2][i]
         # number of particles in the cell
@@ -22,10 +21,10 @@ function resample!(p::MarkerChain)
                 # x query point
                 @cell px[ip, i] = xq = x0 + dx_chain * ip
                 # interpolated y coordinated
-                yq = if 1 < i < length(x_cell) 
+                yq = if 1 < i < length(x_cell)
                     # inner cells; this is true (ncells-2) consecutive times
                     interp1D_inner(xq, coords, i)
-                else 
+                else
                     # first and last cells
                     interp1D_extremas(xq, x_cell, y_cell)
                 end
@@ -33,7 +32,7 @@ function resample!(p::MarkerChain)
                 @cell index[ip, i] = true
             end
             # fill empty memory locations
-            for ip in nxcell+1:max_xcell
+            for ip in (nxcell + 1):max_xcell
                 @cell px[ip, i] = NaN
                 @cell py[ip, i] = NaN
                 @cell index[ip, i] = false
@@ -44,22 +43,22 @@ function resample!(p::MarkerChain)
 
     (; coords, cell_vertices, min_xcell, max_xcell) = p
     nx = length(x) - 1
-    dx_cells = cell_length(chain) 
-    
+    dx_cells = cell_length(chain)
+
     # call kernel
     @parallel (1:nx) resample!(coords, cell_vertices, index, min_xcell, max_xcell, dx_cells)
     return nothing
 end
 
 function isdistorded(x_cell, dx_ideal)
-    for ip in eachindex(x_cell)[1:end-1]
+    for ip in eachindex(x_cell)[1:(end - 1)]
         # current particle
         current_x = x_cell[ip]
         # if there is no particle in this memory location,
         # we do nothing
         isnan(current_x) && continue
         # next particle
-        next_x = x_cell[ip+1]
+        next_x = x_cell[ip + 1]
         # check wether next memory location holds a particle;
         # if thats the case, find the next particle
         if isnan(next_x)
