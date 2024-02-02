@@ -15,7 +15,7 @@ TA() = Array
 TA(::Type{CPUBackend}) = Array
 
 include("particles.jl")
-export Particles, AbstractParticles
+export AbstractParticles, Particles, MarkerChain
 
 include("JustPIC_CPU.jl")
 

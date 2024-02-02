@@ -42,3 +42,16 @@ export check_injection, inject_particles!, inject_particles_phase!, clean_partic
 
 include("Particles/shuffle.jl")
 export shuffle_particles!
+
+## MARKER CHAIN RELATED FILES
+
+include("MarkerChain/init.jl")
+export init_markerchain
+
+include("MarkerChain/interp1.jl")
+
+include("MarkerChain/sort.jl")
+export sort!
+
+include("MarkerChain/resample.jl")
+export resample!
