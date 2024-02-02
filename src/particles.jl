@@ -38,7 +38,7 @@ struct MarkerChain{Backend,N,M,I,T1,T2,TV} <: AbstractParticles
     min_xcell::I
 
     function MarkerChain(
-        backend, coords::NTuple{N,T1}, index::T2, cell_vertices::TV, min_xcell::T, max_xcell::I,
+        backend, coords::NTuple{N,T1}, index::T2, cell_vertices::TV, min_xcell::I, max_xcell::I,
     ) where {N,I,T1,T2,TV}
         return new{backend,N,max_xcell,I,T1,T2,TV}(
             coords, index, cell_vertices, max_xcell, min_xcell

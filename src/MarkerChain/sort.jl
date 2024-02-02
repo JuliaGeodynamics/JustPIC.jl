@@ -17,14 +17,14 @@ end
     permutations = sortperm(first(particle_xᵢ))
 
     # if cell is already sorted, do nothing
-    issorted(permutations) && continue
-
-    # otherwise, sort the cell
-    for ip in eachindex(permutations)
-        permutationᵢ = permutations[ip]
-        @assert permutationᵢ ≤ length(permutations)
-        ntuple(Val(2)) do i
-            @cell coords[i][ip, I...] = particle_xᵢ[i][permutationᵢ]
+    if !issorted(permutations)
+        # otherwise, sort the cell
+        for ip in eachindex(permutations)
+            permutationᵢ = permutations[ip]
+            @assert permutationᵢ ≤ length(permutations)
+            ntuple(Val(2)) do i
+                @cell coords[i][ip, I...] = particle_xᵢ[i][permutationᵢ]
+            end
         end
     end
 
