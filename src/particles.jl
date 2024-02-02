@@ -68,4 +68,4 @@ unwrap_abstractarray(x::AbstractArray) = typeof(x).name.wrapper
 @inline cell_z(p::AbstractParticles, icell::Vararg{Int,N}) where {N} = p.coords[3][icell...]
 
 @inline cell_index(xᵢ::T, dxᵢ::T) where T= Int(xᵢ ÷ dxᵢ) + 1
-@inline cell_index(xᵢ::T, xvᵢ::LinRange{T, Int64}) = cell_index(xᵢ, xvᵢ[2] - xvᵢ[1])
+@inline cell_index(xᵢ::T, xvᵢ::LinRange{T, Int64}) where T = cell_index(xᵢ, xvᵢ[2] - xvᵢ[1])
