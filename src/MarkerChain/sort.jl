@@ -24,7 +24,7 @@ end
         permutationᵢ = permutations[ip]
         @assert permutationᵢ ≤ length(permutations)
         ntuple(Val(2)) do i
-            @cell coords[i][perm, I...] = particle_xᵢ[i][ip]
+            @cell coords[i][ip, I...] = particle_xᵢ[i][permutationᵢ]
         end
     end
 
