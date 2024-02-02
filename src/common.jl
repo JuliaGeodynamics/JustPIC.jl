@@ -51,7 +51,7 @@ export init_markerchain
 include("MarkerChain/interp1.jl")
 
 include("MarkerChain/sort.jl")
-export sort!
+export sort_chain!
 
 include("MarkerChain/resample.jl")
 export resample!

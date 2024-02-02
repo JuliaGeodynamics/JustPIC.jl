@@ -65,5 +65,4 @@ unwrap_abstractarray(x::AbstractArray) = typeof(x).name.wrapper
 
 @inline cell_x(p::AbstractParticles, icell::Vararg{Int,N}) where {N} = p.coords[1][icell...]
 @inline cell_y(p::AbstractParticles, icell::Vararg{Int,N}) where {N} = p.coords[2][icell...]
-@inline cell_z(p::AbstractParticles{B,3}, icell::Vararg{Int,N}) where {B,N} =
-    p.coords[3][icell...]
+@inline cell_z(p::AbstractParticles, icell::Vararg{Int,N}) where {N} = p.coords[3][icell...]

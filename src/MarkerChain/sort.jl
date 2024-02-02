@@ -1,4 +1,4 @@
-function sort!(p::MarkerChain{B,N}) where {B,N}
+function sort_chain!(p::MarkerChain{B,N}) where {B,N}
     (; coords) = p
     # sort permutations of each cell
     ni = size(first(coords))
