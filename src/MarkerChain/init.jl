@@ -22,5 +22,5 @@ function init_markerchain(backend, nxcell, min_xcell, max_xcell, x, initial_elev
         px, py, index, x, initial_elevation, dx_chain, nxcell, max_xcell
     )
 
-    return MarkerChain(backend, (px, py), index, x, max_xcell, min_xcell)
+    return MarkerChain(backend, (px, py), index, x, min_xcell, max_xcell)
 end
