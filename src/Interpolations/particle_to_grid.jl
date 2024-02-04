@@ -3,7 +3,7 @@
 function particle2grid!(F, Fp, xi::NTuple, particles)
     (; coords, index) = particles
     dxi = grid_size(xi)
-    @parallel (@idx size(F)) particle2grid!(F, Fp, xi, particle_coords, index, dxi)
+    @parallel (@idx size(F)) particle2grid!(F, Fp, xi, coords, index, dxi)
     return nothing
 end
 

@@ -5,7 +5,7 @@ function grid2particle!(Fp, xvi, F, particles)
     (; coords, index) = particles
     di = grid_size(xvi)
     nx, ny = size(index)
-    @parallel (1:nx, 1:ny) grid2particle_classic!(Fp, F, xvi, index, di, particle_coords)
+    @parallel (1:nx, 1:ny) grid2particle_classic!(Fp, F, xvi, index, di, coords)
 
     return nothing
 end
