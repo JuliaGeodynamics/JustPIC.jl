@@ -87,7 +87,7 @@ function grid2particle_flip!(Fp, xvi, F, F0, particles; α=0.0)
     (; coords, index) = particles
     ni = length.(xvi)
     @parallel (@idx ni .- 1) grid2particle_full!(
-        Fp, F, F0, xvi, di, particle_coords, index, α
+        Fp, F, F0, xvi, di, coords, index, α
     )
 
     return nothing

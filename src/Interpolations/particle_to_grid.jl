@@ -117,7 +117,7 @@ end
                     # iterate over cell
                     @inbounds for ip in cellaxes(px)
                         # ignore lines below for unused allocations
-                        doskip(index, ip, ivertex, jvertex) && continue
+                        doskip(index, ip, ivertex, jvertex, kvertex) && continue
 
                         p_i = (
                             @cell(px[ip, ivertex, jvertex, kvertex]),
@@ -158,7 +158,7 @@ end
                     # iterate over cell
                     @inbounds for ip in cellaxes(px)
                         # ignore lines below for unused allocations
-                        doskip(index, ip, ivertex, jvertex) && continue
+                        doskip(index, ip, ivertex, jvertex, kvertex) && continue
 
                         p_i = (
                             @cell(px[ip, ivertex, jvertex, kvertex]),
