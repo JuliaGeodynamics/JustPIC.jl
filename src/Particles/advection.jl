@@ -188,8 +188,12 @@ end
 @inline normalised_distance(x, p, dx) = (p - x) * inv(dx)
 
 @inline Base.@propagate_inbounds function extract_field_corners(F, i, j)
-    i1, j1 = i + 1, j + 1
-    return F[i, j], F[i1, j], F[i, j1], F[i1, j1]
+    i1, j1 = i + 1, j + 1   
+    b = F[i1,  j]
+    c = F[i,  j1]
+    d = F[i1, j1]
+    a = F[i,   j]
+    return a, b, c, d # F[i, j], F[i1, j], F[i, j1], F[i1, j1]
 end
 
 @inline Base.@propagate_inbounds function extract_field_corners(F, i, j, k)
