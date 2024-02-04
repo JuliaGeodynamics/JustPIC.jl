@@ -1,10 +1,11 @@
+using JustPIC
+using JustPIC._3D
+
 # Threads is the default backend, 
 # to run on a CUDA GPU load CUDA.jl (i.e. "using CUDA"), 
 # and to run on an AMD GPU load AMDGPU.jl (i.e. "using AMDGPU")
 const backend = CPUBackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
 
-using JustPIC
-using JustPIC._3D
 using GLMakie
 
 function expand_range(x::AbstractRange)
@@ -51,10 +52,10 @@ function main()
     )
 
     # Cell fields -------------------------------
-    Vx = TA([vx_stream(x, z) for x in grid_vx[1], y in grid_vx[2], z in grid_vx[3]])
-    Vy = TA([vy_stream(x, z) for x in grid_vy[1], y in grid_vy[2], z in grid_vy[3]])
-    Vz = TA([vz_stream(x, z) for x in grid_vz[1], y in grid_vz[2], z in grid_vz[3]])
-    T  = TA([z for x in xv, y in yv, z in zv])
+    Vx = TA(backend)([vx_stream(x, z) for x in grid_vx[1], y in grid_vx[2], z in grid_vx[3]])
+    Vy = TA(backend)([vy_stream(x, z) for x in grid_vy[1], y in grid_vy[2], z in grid_vy[3]])
+    Vz = TA(backend)([vz_stream(x, z) for x in grid_vz[1], y in grid_vz[2], z in grid_vz[3]])
+    T  = TA(backend)([z for x in xv, y in yv, z in zv])
     T0 = deepcopy(T)
     V  = Vx, Vy, Vz
 
@@ -62,14 +63,13 @@ function main()
 
     # Advection test
     particle_args = pT, = init_cell_arrays(particles, Val(1))
-    grid2particle!(pT, xvi, T, particles.coords)
     
     niter = 100
     for _ in 1:niter
-        particle2grid!(T, pT, xvi, particles.coords)
+        particle2grid!(T, pT, xvi, particles)
         copyto!(T0, T)
         advection_RK!(particles, V, grid_vx, grid_vy, grid_vz, dt, 2 / 3)
-        shuffle_particles!(particles, xvi, particle_args)
+        move_particles!(particles, xvi, particle_args)
         
         # reseed
         inject = check_injection(particles)

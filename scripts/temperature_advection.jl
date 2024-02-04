@@ -1,10 +1,11 @@
+using JustPIC
+using JustPIC._2D
+
 # Threads is the default backend, 
 # to run on a CUDA GPU load CUDA.jl (i.e. "using CUDA"), 
 # and to run on an AMD GPU load AMDGPU.jl (i.e. "using AMDGPU")
 const backend = CPUBackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
 
-using JustPIC
-using JustPIC._2D
 using GLMakie
 
 function expand_range(x::AbstractRange)
@@ -54,19 +55,18 @@ function main()
 
     # Advection test
     particle_args = pT, = init_cell_arrays(particles, Val(1));
-    grid2particle!(pT, xvi, T, particles.coords);
+    grid2particle!(pT, xvi, T, particles);
     
     !isdir("figs") && mkdir("figs")
 
-    niter = 10
+    niter = 1000
     for it in 1:niter
         advection_RK!(particles, V, grid_vx, grid_vy, dt, 2 / 3)
-        shuffle_particles!(particles, xvi, particle_args)
-        
+        move_particles!(particles, xvi, particle_args)
         inject = check_injection(particles)
         inject && inject_particles!(particles, (pT, ), (T,), xvi)
 
-        particle2grid!(T, pT, xvi, particles.coords)
+        particle2grid!(T, pT, xvi, particles)
 
         if rem(it, 10) == 0
             f, ax, = heatmap(xvi..., Array(T), colormap=:batlow)
