@@ -51,3 +51,14 @@ end
 
 @inline _idx(args::Vararg{Int,N}) where {N} = ntuple(i -> 1:args[i], Val(N))
 @inline _idx(args::NTuple{N,Int}) where {N} = _idx(args...)
+
+@inline doskip(index, ip, I::Vararg{Int64,N}) where {N} =
+    iszero(@inbounds @cell index[ip, I...])
+
+function get_particle_coords(p::NTuple{N,T}, ip, idx::Vararg{Int64,N}) where {N,T}
+    ntuple(Val(N)) do i
+        Base.@_inline_meta
+        @inbounds @cell p[i][ip, idx...]
+    end
+end
+    

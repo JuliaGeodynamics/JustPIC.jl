@@ -18,7 +18,7 @@ module _CUDA
 
         JustPIC._2D.TA(::Type{CUDABackend}) = CuArray
 
-        include(joinpath(@__DIR__, "../src/Includes.jl"))
+        include(joinpath(@__DIR__, "../src/common.jl"))
 
         include(joinpath(@__DIR__, "../src/CUDAExt/CellArrays.jl"))
 
@@ -58,7 +58,7 @@ module _CUDA
 
         JustPIC._3D.TA(::Type{CUDABackend}) = CuArray
         
-        include(joinpath(@__DIR__, "../src/Includes.jl"))
+        include(joinpath(@__DIR__, "../src/common.jl"))
 
         include(joinpath(@__DIR__, "../src/CUDAExt/CellArrays.jl"))
 

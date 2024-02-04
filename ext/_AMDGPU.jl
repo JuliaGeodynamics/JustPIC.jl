@@ -18,7 +18,7 @@ module _AMDGPU
 
         JustPIC._2D.TA(::Type{AMDGPUBackend}) = ROCArray
 
-        include(joinpath(@__DIR__, "../src/Includes.jl"))
+        include(joinpath(@__DIR__, "../src/common.jl"))
 
         include(joinpath(@__DIR__, "../src/AMDGPUExt/CellArrays.jl"))
 
@@ -58,7 +58,7 @@ module _AMDGPU
 
         JustPIC._3D.TA(::Type{AMDGPUBackend}) = ROCArray
         
-        include(joinpath(@__DIR__, "../src/Includes.jl"))
+        include(joinpath(@__DIR__, "../src/common.jl"))
 
         include(joinpath(@__DIR__, "../src/AMDGPUExt/CellArrays.jl"))
 
