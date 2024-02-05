@@ -19,7 +19,7 @@ Base.@propagate_inbounds @inline function element(
     return viewelement(A, i, icell...)
 end
 Base.@propagate_inbounds @inline function element(
-    A::CellArray, i::T, j::T, icell::Vararg{Int,Nc}
+    A::CellArray, i::T, j::T, icell::Vararg{T,Nc}
 ) where {Nc,T<:Int}
     return viewelement(A, i, j, icell...)
 end
@@ -82,7 +82,7 @@ end
 # Return the linear index of a `n`-dimensional array corresponding to the cartesian indices `I`
 # """
 @inline function cart2ind(n::NTuple{N1,Int}, I::Vararg{Int,N2}) where {N1,N2}
-    return LinearIndices(n)[CartesianIndex(I...)]
+    return @inbounds LinearIndices(n)[CartesianIndex(I...)]
 end
 @inline cart2ind(ni::T, nj::T, i::T, j::T) where {T<:Int} = cart2ind((ni, nj), i, j)
 @inline function cart2ind(ni::T, nj::T, nk::T, i::T, j::T, k::T) where {T<:Int}

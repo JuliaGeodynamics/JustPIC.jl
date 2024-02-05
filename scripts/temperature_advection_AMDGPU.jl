@@ -1,8 +1,8 @@
 using AMDGPU
-const backend = AMDGPUBackend
-
 using JustPIC
 using JustPIC._2D
+
+const backend = AMDGPUBackend
 using CairoMakie
 
 function init_particles(nxcell, max_xcell, min_xcell, x, y, dx, dy, nx, ny)
@@ -70,22 +70,22 @@ function main()
     )
 
     # Cell fields -------------------------------
-    Vx = TA([vx_stream(x, y) for x in grid_vx[1], y in grid_vx[2]])
-    Vy = TA([vy_stream(x, y) for x in grid_vy[1], y in grid_vy[2]])
-    T  = TA([y for x in xv, y in yv])
+    Vx = TA(backend)([vx_stream(x, y) for x in grid_vx[1], y in grid_vx[2]])
+    Vy = TA(backend)([vy_stream(x, y) for x in grid_vy[1], y in grid_vy[2]])
+    T  = TA(backend)([y for x in xv, y in yv])
     V  = Vx, Vy
 
     dt = min(dx / maximum(abs.(Vx)),  dy / maximum(abs.(Vy)))
 
     # Advection test
     particle_args = pT, = init_cell_arrays(particles, Val(1))
-    grid2particle!(pT, xvi, T, particles.coords)
+    grid2particle!(pT, xvi, T, particles)
     
     niter = 150
     for _ in 1:niter
         advection_RK!(particles, V, grid_vx, grid_vy, dt, 2 / 3)
-        shuffle_particles!(particles, xvi, particle_args)
-        particle2grid!(T, pT, xvi, particles.coords)
+        move_particles!(particles, xvi, particle_args)
+        particle2grid!(T, pT, xvi, particles)
     end
 
     f, ax, = heatmap(xvi..., Array(T), colormap=:batlow)

@@ -5,6 +5,7 @@ elseif ENV["JULIA_JUSTPIC_BACKEND"] === "CUDA"
     using CUDA
     CUDA.allowscalar(true)
 end
+
 using JustPIC, JustPIC._2D, CellArrays, ParallelStencil, Test, LinearAlgebra
 
 const backend = @static if ENV["JULIA_JUSTPIC_BACKEND"] === "AMDGPU"
@@ -58,21 +59,21 @@ function advection_test_2D()
 
     # Advection test
     particle_args = pT, = init_cell_arrays(particles, Val(1));
-    grid2particle!(pT, xvi, T, particles.coords);
+    grid2particle!(pT, xvi, T, particles);
 
     sumT = sum(T)
 
     niter = 25
     for it in 1:niter
-        particle2grid!(T, pT, xvi, particles.coords)
+        particle2grid!(T, pT, xvi, particles)
         copyto!(T0, T)
         advection_RK!(particles, V, grid_vx, grid_vy, dt, 2 / 3)
-        shuffle_particles!(particles, xvi, particle_args)
+        move_particles!(particles, xvi, particle_args)
 
         inject = check_injection(particles)
         inject && inject_particles!(particles, (pT, ), (T,), xvi)
 
-        grid2particle_flip!(pT, xvi, T, T0, particles.coords)
+        grid2particle_flip!(pT, xvi, T, T0, particles)
     end
 
     sumT_final = sum(T)
@@ -130,13 +131,13 @@ function test_rotating_circle()
     dt     = 200.0
 
     particle_args = pT, = init_cell_arrays(particles, Val(1));
-    grid2particle!(pT, xvi, T, particles.coords);
+    grid2particle!(pT, xvi, T, particles);
 
     t = 0
     it = 0
     sumT = sum(T)
     while t ≤ tmax
-        particle2grid!(T, pT, xvi, particles.coords)
+        particle2grid!(T, pT, xvi, particles)
         copyto!(T0, T)
         advection_RK!(particles, V, grid_vx, grid_vy, dt, 2 / 3)
         shuffle_particles!(particles, xvi, particle_args)
@@ -144,7 +145,7 @@ function test_rotating_circle()
         inject = check_injection(particles)
         inject && inject_particles!(particles, (pT, ), (T,), xvi)
 
-        grid2particle_flip!(pT, xvi, T, T0, particles.coords)
+        grid2particle_flip!(pT, xvi, T, T0, particles)
 
         t += dt
         it += 1
@@ -190,18 +191,18 @@ end
     T0 = TA(backend)([y for x in xv, y in yv])
 
     # Grid to particle test
-    grid2particle!(pT, xvi, T, particles.coords)
+    grid2particle!(pT, xvi, T, particles)
 
     @test pT == particles.coords[2]
 
     # Grid to particle test
-    grid2particle_flip!(pT, xvi, T, T0, particles.coords)
+    grid2particle_flip!(pT, xvi, T, T0, particles)
 
     @test pT == particles.coords[2]
 
     # Particle to grid test
     T2 = similar(T)
-    particle2grid!(T2, pT, xvi, particles.coords)
+    particle2grid!(T2, pT, xvi, particles)
 
     @test norm(T2 .- T) / length(T) < 1e-2
 end

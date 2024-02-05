@@ -76,3 +76,10 @@ function init_particles(backend, nxcell, max_xcell, min_xcell, x, y, z, dx, dy, 
 
     return Particles(backend, (px, py, pz), index, inject, nxcell, max_xcell, min_xcell, np)
 end
+
+function get_cell(xi::Union{SVector{N,T},NTuple{N,T}}, dxi::NTuple{N,T}) where {N,T<:Real}
+    ntuple(Val(N)) do i
+        Base.@_inline_meta
+        Int64(xi[i] ÷ dxi[i]) + 1
+    end
+end

@@ -59,14 +59,14 @@ function grid_size(x::NTuple{N,T}) where {T,N}
 end
 
 # Get field F at the corners of a given cell
-@inline function field_corners(F::AbstractArray{T,2}, idx::NTuple{2,Integer}) where {T}
+@inline function field_corners(F::AbstractArray{T,2}, idx::NTuple{2,Int64}) where {T}
     idx_x, idx_y = idx
     return (
         F[idx_x, idx_y], F[idx_x + 1, idx_y], F[idx_x, idx_y + 1], F[idx_x + 1, idx_y + 1]
     )
 end
 
-@inline function field_corners(F::AbstractArray{T,3}, idx::NTuple{3,Integer}) where {T}
+@inline function field_corners(F::AbstractArray{T,3}, idx::NTuple{3,Int64}) where {T}
     idx_x, idx_y, idx_z = idx
     return (
         F[idx_x, idx_y, idx_z],   # v000
@@ -88,6 +88,29 @@ end
     else
         return @inbounds x_i[idx_i - 1]
     end
+end
+
+# Get field F at the corners of a given cell
+@inline function field_corners(F::AbstractArray{T,2}, idx::NTuple{2,Integer}) where {T}
+    idx_x, idx_y = idx
+    idx_x1, idx_y1 = (idx_x, idx_y) .+ 1
+    return @inbounds (
+        F[idx_x, idx_y], F[idx_x1, idx_y], F[idx_x, idx_y1], F[idx_x1, idx_y1]
+    )
+end
+
+@inline function field_corners(F::AbstractArray{T,3}, idx::NTuple{3,Integer}) where {T}
+    idx_x, idx_y, idx_z = idx
+    return @inbounds (
+        F[idx_x, idx_y, idx_z],   # v000
+        F[idx_x + 1, idx_y, idx_z],   # v100
+        F[idx_x, idx_y, idx_z + 1], # v001
+        F[idx_x + 1, idx_y, idx_z + 1], # v101
+        F[idx_x, idx_y + 1, idx_z],   # v010
+        F[idx_x + 1, idx_y + 1, idx_z],   # v110
+        F[idx_x, idx_y + 1, idx_z + 1], # v011
+        F[idx_x + 1, idx_y + 1, idx_z + 1], # v111
+    )
 end
 
 # Get field F at the centers of a given cell
