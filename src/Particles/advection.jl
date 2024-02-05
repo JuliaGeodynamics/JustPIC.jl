@@ -14,7 +14,7 @@ with `α` and time step `dt`.
 # Main Runge-Kutta advection function for 2D staggered grids
 
 function advection_RK!(
-    particles, V, grid_vx::NTuple{2,T}, grid_vy::NTuple{2,T}, dt, α
+    particles::Particles, V, grid_vx::NTuple{2,T}, grid_vy::NTuple{2,T}, dt, α
 ) where {T}
     dxi = compute_dx(grid_vx)
     (; coords, index) = particles
@@ -33,7 +33,7 @@ function advection_RK!(
 end
 
 function advection_RK!(
-    particles,
+    particles::Particles,
     V,
     grid_vx::NTuple{3,T},
     grid_vy::NTuple{3,T},

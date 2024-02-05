@@ -114,8 +114,8 @@ module _3D
     function JustPIC._3D.advection_RK!(
         particles::ParticlesExt{AMDGPUBackend},
         V,
-        grid_vx::NTuple{2,T},
-        grid_vy::NTuple{2,T},
+        grid_vx::NTuple{3,T},
+        grid_vy::NTuple{3,T},
         grid_vz::NTuple{3,T},
         dt,
         α,
