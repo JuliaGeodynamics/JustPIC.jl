@@ -14,14 +14,14 @@ with `α` and time step `dt`.
 # Main Runge-Kutta advection function for 2D staggered grids
 
 function advection_RK!(
-    particles::Particles, V, grid_vx::NTuple{2,T}, grid_vy::NTuple{2,T}, dt, α
+    particles::MarkerChain, V, grid_vx::NTuple{2,T}, grid_vy::NTuple{2,T}, dt, α
 ) where {T}
-    dxi = compute_dx(grid_vx)
+
     (; coords, index) = particles
-    px, = coords
 
     # compute some basic stuff   
-    ni = size(px)
+    ni = size(index)
+    dxi = compute_dx(grid_vx)
     # Need to transpose grid_vy and Vy to reuse interpolation kernels
     grid_vi = grid_vx, grid_vy
 
@@ -33,7 +33,7 @@ function advection_RK!(
 end
 
 function advection_RK!(
-    particles::Particles,
+    particles::MarkerChain,
     V,
     grid_vx::NTuple{3,T},
     grid_vy::NTuple{3,T},
@@ -68,7 +68,6 @@ end
 
         # cache particle coordinates 
         pᵢ = get_particle_coords(p, ipart, I...)
-
         p_new = advect_particle_RK(pᵢ, V, grid, local_limits, dxi, dt, I, α)
 
         ntuple(Val(N)) do i
@@ -100,7 +99,7 @@ function advect_particle_RK(
         # went outside the local rank domain. It will be removed 
         # during shuffling
         v = if check_local_limits(local_lims, p0)
-            interp_velocity_grid2particle(p0, grid_vi[i], dxi, V[i], idx)
+            interp_velocity_grid2particle(p0, grid_vi[i], dxi, V[i])
         else
             zero(T)
         end
@@ -120,7 +119,7 @@ function advect_particle_RK(
         # went outside the local rank domain. It will be removed 
         # during shuffling
         v = if check_local_limits(local_lims, p1)
-            interp_velocity_grid2particle(p1, grid_vi[i], dxi, V[i], idx)
+            interp_velocity_grid2particle(p1, grid_vi[i], dxi, V[i])
         else
             zero(T)
         end
@@ -142,12 +141,12 @@ end
 
 # Interpolate velocity from staggered grid to particle
 @inline function interp_velocity_grid2particle(
-    p_i::Union{SVector,NTuple}, xi_vx::NTuple, dxi::NTuple, F::AbstractArray, idx
+    pᵢ::Union{SVector,NTuple}, xi_vx::NTuple, dxi::NTuple, F::AbstractArray
 )
     # F and coordinates at/of the cell corners
-    Fi, xci = corner_field_nodes(F, p_i, xi_vx, dxi, idx)
+    Fi, x_vertex_cell = corner_field_nodes(F, pᵢ, xi_vx, dxi)
     # normalize particle coordinates
-    ti = normalize_coordinates(p_i, xci, dxi)
+    ti = normalize_coordinates(pᵢ, x_vertex_cell, dxi)
     # Interpolate field F onto particle
     Fp = ndlinear(ti, Fi)
     return Fp
@@ -155,76 +154,47 @@ end
 
 # Get field F and nodal indices of the cell corners where the particle is located
 @inline function corner_field_nodes(
-    F::AbstractArray{T,N}, p_i, xi_vx, dxi, idx::Union{SVector{N,Integer},NTuple{N,Integer}}
-) where {N,T}
-    ValN = Val(N)
-    indices = ntuple(ValN) do n
-        Base.@_inline_meta
-        # unpack
-        idx_n = idx[n]
-        # compute offsets and corrections
-        offset = vertex_offset(xi_vx[n][idx_n], p_i[n], dxi[n])
-        # cell indices
-        idx_n += offset
-    end
-
+    F::AbstractArray{T,N}, pᵢ, xi_vx, dxi
+) where {T,N}
     # coordinates of lower-left corner of the cell
-    cells = ntuple(ValN) do n
+    x_vertex_cell = ntuple(Val(N)) do i
         Base.@_inline_meta
-        xi_vx[n][indices[n]]
+        I = cell_index(pᵢ, dxi[i])
+        xi_vx[i][I]
     end
 
     # F at the four centers
     Fi = extract_field_corners(F, indices...)
 
-    return Fi, cells
+    return Fi, x_vertex_cell
 end
 
-@inline function vertex_offset(xi, pxi, di)
-    dist = normalised_distance(xi, pxi, di)
-    return (dist > 2) * 2 + (2 > dist > 1) * 1 + (-1 < dist < 0) * -1 + (dist < -1) * -2
-end
 
-@inline normalised_distance(x, p, dx) = (p - x) * inv(dx)
-
-@inline Base.@propagate_inbounds function extract_field_corners(F, i, j)
-    i1, j1 = i + 1, j + 1
-    b = F[i1, j]
-    c = F[i, j1]
-    d = F[i1, j1]
-    a = F[i, j]
-    return a, b, c, d # F[i, j], F[i1, j], F[i, j1], F[i1, j1]
-end
-
-@inline Base.@propagate_inbounds function extract_field_corners(F, i, j, k)
-    i1, j1, k1 = i + 1, j + 1, k + 1
-    F000 = F[i, j, k]
-    F100 = F[i1, j, k]
-    F010 = F[i, j1, k]
-    F110 = F[i1, j1, k]
-    F001 = F[i, j, k1]
-    F101 = F[i1, j, k1]
-    F011 = F[i, j1, k1]
-    F111 = F[i1, j1, k1]
-    return (F000, F100, F001, F101, F010, F110, F011, F111)
-end
-
-@inline firstlast(x::Array) = first(x), last(x)
-@inline firstlast(x) = extrema(x)
-
-@inline function inner_limits(grid::NTuple{N,T}) where {N,T}
-    ntuple(Val(N)) do i
-        Base.@_inline_meta
-        ntuple(j -> firstlast.(grid[i])[j], Val(N))
+@inline cell_index(xᵢ::T, dxᵢ::T) where T = Int(xᵢ ÷ dxᵢ) + 1
+@inline function cell_index(xᵢ::T, xvᵢ::LinRange{T, Int64}, dxᵢ::T) 
+    xv₀ = first(xvᵢ)
+    if iszero(xv₀) 
+        return cell_index(xᵢ, dxᵢ)
+    
+    else
+        first_index = cell_index(xv₀, dxᵢ)
+        return cell_index(xᵢ, dxᵢ) - first_index
     end
 end
 
-@generated function check_local_limits(
-    local_lims::NTuple{N,T1}, p::Union{SVector{N,T2},NTuple{N,T2}}
-) where {N,T1,T2}
-    quote
-        Base.@_inline_meta
-        Base.@nexprs $N i -> !(local_lims[i][1] < p[i] < local_lims[i][2]) && return false
-        return true
+@inline cell_index(xᵢ::T, dxᵢ::T) where T = Int(xᵢ ÷ dxᵢ) + 1
+@inline function cell_index(xᵢ::T, xvᵢ::LinRange{T, Int64}, dxᵢ::T)  where T
+    xv₀ = first(xvᵢ)
+    if iszero(xv₀) 
+        return cell_index(xᵢ, dxᵢ)
+    
+    else
+        first_index = cell_index(xv₀, dxᵢ)
+        return cell_index(xᵢ, dxᵢ) - first_index + 1
     end
 end
+
+cell_index(0.26, xv, dx)
+
+xv = LinRange(0.25, 1, 4)
+dx = 0.25
