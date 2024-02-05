@@ -1,20 +1,20 @@
-# @static if ENV["JULIA_JUSTPIC_BACKEND"] === "AMDGPU"
-#     using AMDGPU
-#     AMDGPU.allowscalar(true)
-# elseif ENV["JULIA_JUSTPIC_BACKEND"] === "CUDA"
-#     using CUDA
-#     CUDA.allowscalar(true)
-# end
+@static if ENV["JULIA_JUSTPIC_BACKEND"] === "AMDGPU"
+    using AMDGPU
+    AMDGPU.allowscalar(true)
+elseif ENV["JULIA_JUSTPIC_BACKEND"] === "CUDA"
+    using CUDA
+    CUDA.allowscalar(true)
+end
 
 using JustPIC, JustPIC._3D, CellArrays, ParallelStencil, Test, LinearAlgebra
-const backend = CPUBackend
-# const backend = @static if ENV["JULIA_JUSTPIC_BACKEND"] === "AMDGPU"
-#     AMDGPUBackend
-# elseif ENV["JULIA_JUSTPIC_BACKEND"] === "CUDA"
-#     CUDABackend
-# else
-#     CPUBackend
-# end
+
+const backend = @static if ENV["JULIA_JUSTPIC_BACKEND"] === "AMDGPU"
+    AMDGPUBackend
+elseif ENV["JULIA_JUSTPIC_BACKEND"] === "CUDA"
+    CUDABackend
+else
+    CPUBackend
+end
 
 function expand_range(x::AbstractRange)
     dx = x[2] - x[1]
@@ -142,5 +142,3 @@ end
 
     @test norm(T2 .- T) / length(T) < 1e-2
 end
-
-@edit particle2grid!(T2, pT, xvi, particles)
