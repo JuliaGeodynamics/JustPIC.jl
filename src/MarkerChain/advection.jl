@@ -11,8 +11,8 @@ with `α` and time step `dt`.
         α = 1   ==> Heun
         α = 2/3 ==> Ralston
 """
-# Main Runge-Kutta advection function for 2D staggered grids
 
+# Two-step Runge-Kutta advection scheme for marker chains
 function advection_RK!(
     particles::MarkerChain, V, grid_vx::NTuple{2,T}, grid_vy::NTuple{2,T}, dt, α
 ) where {T}
@@ -52,7 +52,7 @@ function advection_RK!(
     local_limits = inner_limits(grid_vi)
 
     # launch parallel advection kernel
-    @parallel (@idx ni) _advection_RK!(coords, V, index, grid_vi, local_limits, dxi, dt, α)
+    @parallel (@idx ni) _advection_markerchain_RK!(coords, V, index, grid_vi, local_limits, dxi, dt, α)
 
     return nothing
 end
@@ -60,7 +60,7 @@ end
 # DIMENSION AGNOSTIC KERNELS
 
 # ParallelStencil fuction Runge-Kuttaadvection function for 3D staggered grids
-@parallel_indices (I...) function _advection_RK!(
+@parallel_indices (I...) function _advection_markerchain_RK!(
     p, V::NTuple{N,T}, index, grid, local_limits, dxi, dt, α
 ) where {N,T}
     for ipart in cellaxes(index)
@@ -68,7 +68,7 @@ end
 
         # cache particle coordinates 
         pᵢ = get_particle_coords(p, ipart, I...)
-        p_new = advect_particle_RK(pᵢ, V, grid, local_limits, dxi, dt, I, α)
+        p_new = advect_particle_RK(pᵢ, V, grid, local_limits, dxi, dt, α)
 
         ntuple(Val(N)) do i
             @inbounds @cell p[i][ipart, I...] = p_new[i]
@@ -85,10 +85,8 @@ function advect_particle_RK(
     local_limits,
     dxi,
     dt,
-    idx::NTuple,
     α,
 ) where {T,N}
-    _α = inv(α)
     ValN = Val(N)
     # interpolate velocity to current location
     vp0 = ntuple(ValN) do i
@@ -126,8 +124,8 @@ function advect_particle_RK(
     end
 
     # final advection step
+    _α = inv(α)
     pf = ntuple(ValN) do i
-        Base.@_propagate_inbounds_meta
         Base.@_inline_meta
         if α == 0.5
             @muladd p0[i] + dt * vp1[i]
@@ -168,33 +166,3 @@ end
 
     return Fi, x_vertex_cell
 end
-
-
-@inline cell_index(xᵢ::T, dxᵢ::T) where T = Int(xᵢ ÷ dxᵢ) + 1
-@inline function cell_index(xᵢ::T, xvᵢ::LinRange{T, Int64}, dxᵢ::T) 
-    xv₀ = first(xvᵢ)
-    if iszero(xv₀) 
-        return cell_index(xᵢ, dxᵢ)
-    
-    else
-        first_index = cell_index(xv₀, dxᵢ)
-        return cell_index(xᵢ, dxᵢ) - first_index
-    end
-end
-
-@inline cell_index(xᵢ::T, dxᵢ::T) where T = Int(xᵢ ÷ dxᵢ) + 1
-@inline function cell_index(xᵢ::T, xvᵢ::LinRange{T, Int64}, dxᵢ::T)  where T
-    xv₀ = first(xvᵢ)
-    if iszero(xv₀) 
-        return cell_index(xᵢ, dxᵢ)
-    
-    else
-        first_index = cell_index(xv₀, dxᵢ)
-        return cell_index(xᵢ, dxᵢ) - first_index + 1
-    end
-end
-
-cell_index(0.26, xv, dx)
-
-xv = LinRange(0.25, 1, 4)
-dx = 0.25

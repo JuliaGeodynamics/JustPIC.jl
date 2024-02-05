@@ -51,6 +51,9 @@ export shuffle_particles!
 include("MarkerChain/init.jl")
 export init_markerchain
 
+include("MarkerChain/move.jl")
+export move_particles!
+
 include("MarkerChain/interp1.jl")
 
 include("MarkerChain/sort.jl")

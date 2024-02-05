@@ -33,7 +33,7 @@ end
 struct MarkerChain{Backend,N,M,I,T1,T2,TV} <: AbstractParticles
     coords::NTuple{N,T1}
     index::T2
-    cell_vertices::TV # x-coord in 1D, (x,y)-coords in 2D
+    cell_vertices::TV # x-coord in 2D, (x,y)-coords in 3D
     max_xcell::I
     min_xcell::I
 
