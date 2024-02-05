@@ -86,9 +86,7 @@ function grid2particle_flip!(Fp, xvi, F, F0, particles; α=0.0)
     di = grid_size(xvi)
     (; coords, index) = particles
     ni = size(index)
-    @parallel (@idx ni) grid2particle_full!(
-        Fp, F, F0, xvi, di, coords, index, α
-    )
+    @parallel (@idx ni) grid2particle_full!(Fp, F, F0, xvi, di, coords, index, α)
 
     return nothing
 end

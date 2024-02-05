@@ -10,9 +10,7 @@ function move_particles!(particles::Particles, grid, args)
     # compute local grid limits
     domain_limits = extrema.(grid)
 
-    @parallel (@idx nxi) move_particles_ps!(
-        coords, grid, domain_limits, dxi, index, args
-    )
+    @parallel (@idx nxi) move_particles_ps!(coords, grid, domain_limits, dxi, index, args)
 
     return nothing
 end
