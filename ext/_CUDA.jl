@@ -48,8 +48,8 @@ module _2D
     function JustPIC._2D.particle2grid_centroid!(F::CuArray, args::Vararg{Any,N}) where {N}
         return particle2grid_centroid!(F, args...)
     end
-    function JustPIC._2D.particle2grid!(F::CuArray, args::Vararg{Any,N}) where {N}
-        return particle2grid!(F, args...)
+    function JustPIC._2D.particle2grid!(F::CuArray, Fp, xi, particles)
+        return particle2grid!(F, Fp, xi, particles)
     end
     function JustPIC._2D.grid2particle_flip!(
         Fp, xvi, F::CuArray, F0, particle_coords; α=0.0

@@ -54,9 +54,9 @@ module _2D
         return particle2grid!(F, args...)
     end
     function JustPIC._2D.grid2particle_flip!(
-        Fp, xvi, F::ROCArray, F0, particle_coords; α=0.0
+        Fp, xvi, F::ROCArray, F0, particles; α=0.0
     )
-        return grid2particle_flip!(Fp, xvi, F, F0, particle_coords; α=α)
+        return grid2particle_flip!(Fp, xvi, F, F0, particles; α=α)
     end
     function JustPIC._2D.check_injection(particles::ParticlesExt{AMDGPUBackend})
         return check_injection(particles)
@@ -70,6 +70,11 @@ module _2D
         particles::ParticlesExt{AMDGPUBackend}, args::Vararg{Any,N}
     ) where {N}
         return shuffle_particles!(particles, args...)
+    end
+    function JustPIC._2D.move_particles!(
+        particles::ParticlesExt{AMDGPUBackend}, args::Vararg{Any,N}
+    ) where {N}
+        return move_particles!(particles, args...)
     end
     function JustPIC._2D.init_cell_arrays(
         particles::ParticlesExt{AMDGPUBackend}, V::Val{N}
@@ -133,9 +138,9 @@ module _3D
         return particle2grid!(F, args...)
     end
     function JustPIC._3D.grid2particle_flip!(
-        Fp, xvi, F::ROCArray, F0, particle_coords; α=0.0
+        Fp, xvi, F::ROCArray, F0, particles; α=0.0
     )
-        return grid2particle_flip!(Fp, xvi, F, F0, particle_coords; α=α)
+        return grid2particle_flip!(Fp, xvi, F, F0, particles; α=α)
     end
     function JustPIC._3D.check_injection(particles::ParticlesExt{AMDGPUBackend})
         return check_injection(particles)
@@ -149,6 +154,11 @@ module _3D
         particles::ParticlesExt{AMDGPUBackend}, args::Vararg{Any,N}
     ) where {N}
         return shuffle_particles!(particles, args...)
+    end
+    function JustPIC._3D.move_particles!(
+        particles::ParticlesExt{AMDGPUBackend}, args::Vararg{Any,N}
+    ) where {N}
+        return move_particles!(particles, args...)
     end
     function JustPIC._3D.init_cell_arrays(
         particles::ParticlesExt{AMDGPUBackend}, V::Val{N}

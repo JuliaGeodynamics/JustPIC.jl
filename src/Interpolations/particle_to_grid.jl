@@ -1,6 +1,6 @@
 ## LAUNCHERS
 
-function particle2grid!(F, Fp, xi::NTuple, particles)
+function particle2grid!(F, Fp, xi, particles)
     (; coords, index) = particles
     dxi = grid_size(xi)
     @parallel (@idx size(F)) particle2grid!(F, Fp, xi, coords, index, dxi)
