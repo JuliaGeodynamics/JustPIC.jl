@@ -9,7 +9,7 @@ function resample!(chain::MarkerChain)
     end
 
     (; coords, index, cell_vertices, min_xcell, max_xcell) = chain
-    nx = length(cell_vertices) - 1
+    nx = length(index)
     dx_cells = cell_length(chain) 
     
     # call kernel
@@ -24,7 +24,8 @@ function resample_cell!(
     # cell particles coordinates
     x_cell, y_cell = coords[1][I], coords[2][I]
     px, py = coords[1], coords[2]
-
+    
+    # lower-left corner of the cell
     cell_vertex = cell_vertices[I]
     # number of particles in the cell
     np = count(index[I])
@@ -32,28 +33,32 @@ function resample_cell!(
     dx_chain = dx_cells / (np + 1)
     # resample the cell if the number of particles is  
     # less than min_xcell or it is too distorted
-    do_resampling = (np < min_xcell) * isdistorded(x_cell, dx_chain)
-
+    do_resampling = (np < min_xcell) ||  isdistorded(x_cell, dx_chain)
+    
+    np_new = max(min_xcell, np)
+    dx_chain = dx_cells / (np_new + 1)
     if do_resampling
-        # lower-left corner of the cell
-        x0 = cell_vertex
+        # @show I
         # fill index array
-        for ip in 1:min_xcell
+        for ip in 1:np_new
             # x query point
-            @cell px[ip, I] = xq = x0 + dx_chain * ip
+            @cell px[ip, I] = xq = cell_vertex + dx_chain * ip
             # interpolated y coordinated
-            yq = if 1 < I < length(x_cell) 
+            yq = if 1 < I < length(index)
                 # inner cells; this is true (ncells-2) consecutive times
                 interp1D_inner(xq, x_cell, y_cell, coords, I)
             else 
                 # first and last cells
                 interp1D_extremas(xq, x_cell, y_cell)
             end
+            if isnan(yq)
+                @show I, y_cell
+            end
             @cell py[ip, I] = yq
             @cell index[ip, I] = true
         end
         # fill empty memory locations
-        for ip in (min_xcell+1):max_xcell
+        for ip in (np_new+1):max_xcell
             @cell px[ip, I] = NaN
             @cell py[ip, I] = NaN
             @cell index[ip, I] = false

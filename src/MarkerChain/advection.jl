@@ -1,4 +1,9 @@
-## 2D SPECIFIC FUNCTIONS 
+function advect_markerchain!(chain::MarkerChain, V, grid_vx, grid_vy, dt; α::Float64 = 2 / 3)
+    advection_RK!(chain, V, grid_vx, grid_vy, dt, α)
+    move_particles!(chain)
+    resample!(chain)
+end
+
 """
     advection_RK!(particles, V, grid_vx, grid_vy, dt, α)
 

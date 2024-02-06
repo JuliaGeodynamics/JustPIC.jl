@@ -1,18 +1,19 @@
-function sort_chain!(p::MarkerChain{B,N}) where {B,N}
-    (; coords) = p
+function sort_chain!(p::MarkerChain)
+    (; coords, index) = p
     # sort permutations of each cell
     ni = size(first(coords))
-    @parallel (@idx ni) _sort!(coords)
+    @parallel (@idx ni) _sort!(coords, index)
 end
 
 # 1D MarkerChain 
-@parallel_indices (I...) function _sort!(coords::NTuple{2,T}) where {T}
+@parallel_indices (I...) function _sort!(coords::NTuple{2,T}, index) where {T}
 
     # extract and save cell particles coordinates
     particle_xᵢ = ntuple(Val(2)) do i
         coords[i][I...]
     end
-
+    indexᵢ = index[I...]
+    
     # sort permutations of each cell
     permutations = sortperm(first(particle_xᵢ))
 
@@ -22,9 +23,11 @@ end
         for ip in eachindex(permutations)
             permutationᵢ = permutations[ip]
             @assert permutationᵢ ≤ length(permutations)
-            ntuple(Val(2)) do i
-                @cell coords[i][ip, I...] = particle_xᵢ[i][permutationᵢ]
-            end
+            
+            @cell coords[1][ip, I...] = particle_xᵢ[1][permutationᵢ]
+            @cell coords[2][ip, I...] = particle_xᵢ[2][permutationᵢ]
+            @cell index[ip, I...]     = indexᵢ[permutationᵢ]
+
         end
     end
 

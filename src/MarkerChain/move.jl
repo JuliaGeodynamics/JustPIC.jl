@@ -36,19 +36,20 @@ function _move_particles!(coords, grid, dxi, index, idx)
         # within the same cell and skip it
         isincell(chop(pᵢ), corner_xi, dxi) && continue
 
-        # new cell indices
+        # new cell index
         new_cell = cell_index(chop(pᵢ), grid, dxi)
-        
-        if !(any(<(1), new_cell) || any(new_cell .> length.(grid))) 
+
+        if !(any(<(1), new_cell) || any(new_cell .> length(grid))) 
             ## THE PARTICLE DID NOT ESCAPE THE DOMAIN
             # remove particle from child cell
-            @inbounds @cell index[ip, idx...] = false
-            empty_particle!(coords, ip, idx)
+            @inbounds @cell index[ip, chop(idx)] = false
+            @inbounds @cell coords[1][ip, chop(idx)] = NaN
+            @inbounds @cell coords[2][ip, chop(idx)] = NaN
             # check whether there's empty space in parent cell
             free_idx = find_free_memory(index, new_cell...)
             free_idx == 0 && continue
             # move particle and its fields to the first free memory location
-            @inbounds @cell index[free_idx, new_cell...] = true
+            @inbounds @cell index[free_idx, new_cell] = true
             fill_particle!(coords, pᵢ, free_idx, new_cell)
 
         else
@@ -60,7 +61,3 @@ function _move_particles!(coords, grid, dxi, index, idx)
     end
 
 end
-
-a = 1,-1
-
-any(<(1), a)
