@@ -66,13 +66,13 @@ function test_advection_3D()
 
     # Advection test
     particle_args = pT, = init_cell_arrays(particles, Val(1))
-    grid2particle!(pT, xvi, T, particles.coords)
+    grid2particle!(pT, xvi, T, particles)
 
     sumT = sum(T)
 
     niter = 25
     for _ in 1:niter
-        particle2grid!(T, pT, xvi, particles.coords)
+        particle2grid!(T, pT, xvi, particles)
         copyto!(T0, T)
         advection_RK!(particles, V, grid_vx, grid_vy, grid_vz, dt, 2 / 3)
         shuffle_particles!(particles, xvi, particle_args)
@@ -81,7 +81,7 @@ function test_advection_3D()
         inject = check_injection(particles)
         inject && inject_particles!(particles, (pT, ), (T,), xvi)
 
-        grid2particle_flip!(pT, xvi, T, T0, particles.coords)
+        grid2particle_flip!(pT, xvi, T, T0, particles)
     end
 
     sumT_final = sum(T)
@@ -127,18 +127,18 @@ end
     T0 = TA(backend)([z for x in xv, y in yv, z in zv])
 
     # Grid to particle test
-    grid2particle!(pT, xvi, T, particles.coords)
+    grid2particle!(pT, xvi, T, particles)
 
     @test pT == particles.coords[3]
 
     # Grid to particle test
-    grid2particle_flip!(pT, xvi, T, T0, particles.coords)
+    grid2particle_flip!(pT, xvi, T, T0, particles)
 
     @test pT == particles.coords[3]
 
     # Particle to grid test
     T2 = similar(T)
-    particle2grid!(T2, pT, xvi, particles.coords)
+    particle2grid!(T2, pT, xvi, particles)
 
     @test norm(T2 .- T) / length(T) < 1e-2
 end

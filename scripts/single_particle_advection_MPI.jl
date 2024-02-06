@@ -1,10 +1,11 @@
+using JustPIC
+using JustPIC._2D
+
 # Threads is the default backend, 
 # to run on a CUDA GPU load CUDA.jl (i.e. "using CUDA"), 
 # and to run on an AMD GPU load AMDGPU.jl (i.e. "using AMDGPU")
 const backend = CPUBackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
 
-using JustPIC
-using JustPIC._2D
 using GLMakie
 
 @inline init_particle_fields_cellarrays(particles, ::Val{N}) where N = ntuple(_ -> @fill(0.0, size(particles.coords[1])..., celldims=(cellsize(particles.index))), Val(N))

@@ -1,10 +1,11 @@
+using JustPIC
+using JustPIC._2D
+
 # Threads is the default backend, 
 # to run on a CUDA GPU load CUDA.jl (i.e. "using CUDA"), 
 # and to run on an AMD GPU load AMDGPU.jl (i.e. "using AMDGPU")
 const backend = CPUBackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
 
-using JustPIC
-using JustPIC._2D
 using GLMakie
 
 function expand_range(x::AbstractRange)
@@ -62,7 +63,7 @@ function main()
     niter = 250
     for _ in 1:niter
         advection_RK!(particles, V, grid_vx, grid_vy, dt, 2 / 3)
-        shuffle_particles!(particles, xvi, particle_args)
+        move_particles!(particles, xvi, particle_args)
 
         pxv = particles.coords[1].data;
         pyv = particles.coords[2].data;

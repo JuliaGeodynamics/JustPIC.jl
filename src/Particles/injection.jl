@@ -42,10 +42,10 @@ on the staggered grid `grid` onto the new particle field `args`.
 function inject_particles!(particles::Particles, args, fields, grid)
     # unpack
     (; inject, coords, index, min_xcell) = particles
-    icell, jcell = size(inject)
+    ni = size(inject)
     di = compute_dx(grid)
 
-    @parallel (1:icell, 1:jcell) inject_particles!(
+    @parallel (@idx ni) inject_particles!(
         inject, args, fields, coords, index, grid, di, min_xcell
     )
 end
@@ -59,17 +59,6 @@ end
         )
     end
     return nothing
-end
-
-function inject_particles!(particles::Particles, args, fields, grid::NTuple{3,T}) where {T}
-    # unpack
-    (; inject, coords, index, min_xcell) = particles
-    icell, jcell, kcell = size(inject)
-    di = compute_dx(grid)
-
-    @parallel (1:icell, 1:jcell, 1:kcell) inject_particles!(
-        inject, args, fields, coords, index, grid, di, min_xcell
-    )
 end
 
 @parallel_indices (icell, jcell, kcell) function inject_particles!(

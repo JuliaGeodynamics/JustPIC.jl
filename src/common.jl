@@ -3,7 +3,7 @@ include("CellArrays/CellArrays.jl")
 export @cell, cellnum, cellaxes
 
 include("Utils.jl")
-export @range, cell_array, add_ghost_nodes, add_global_ghost_nodes
+export @range, cell_array, add_ghost_nodes, add_global_ghost_nodes, doskip
 
 include("CellArrays/ImplicitGlobalGrid.jl")
 export update_cell_halo!
@@ -33,6 +33,9 @@ include("Particles/particles_utils.jl")
 export init_particles, init_cell_arrays
 
 include("Particles/utils.jl")
+
+include("Particles/move.jl")
+export move_particles!
 
 include("Particles/advection.jl")
 export advection_RK!

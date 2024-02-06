@@ -17,6 +17,7 @@ CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 
 [extensions]
 _CUDA = "CUDA"
+_AMDGPU = "AMDGPU"
 
 [compat]
 AMDGPU = "0.8"

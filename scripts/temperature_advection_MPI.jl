@@ -1,10 +1,11 @@
+using JustPIC
+using JustPIC._2D
+
 # Threads is the default backend, 
 # to run on a CUDA GPU load CUDA.jl (i.e. "using CUDA"), 
 # and to run on an AMD GPU load AMDGPU.jl (i.e. "using AMDGPU")
 const backend = CPUBackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
 
-using JustPIC
-using JustPIC._2D
 using GLMakie
 using ImplicitGlobalGrid
 
@@ -49,9 +50,9 @@ function main()
     )
 
     # Cell fields -------------------------------
-    Vx = TA([vx_stream(x, y) for x in grid_vx[1], y in grid_vx[2]])
-    Vy = TA([vy_stream(x, y) for x in grid_vy[1], y in grid_vy[2]])
-    T  = TA([y for x in xv, y in yv])
+    Vx = TA(backend)([vx_stream(x, y) for x in grid_vx[1], y in grid_vx[2]])
+    Vy = TA(backend)([vy_stream(x, y) for x in grid_vy[1], y in grid_vy[2]])
+    T  = TA(backend)([y for x in xv, y in yv])
     T0 = deepcopy(T) 
     V  = Vx, Vy
 
@@ -64,13 +65,13 @@ function main()
 
     # Advection test
     particle_args = pT, = init_cell_arrays(particles, Val(1))
-    grid2particle!(pT, xvi, T, particles.coords)
+    grid2particle!(pT, xvi, T, particles)
     
     niter = 250
     for iter in 1:niter
         me == 0 && @show iter
         
-        # grid2particle!(pT, xvi, T, T0, particles.coords)
+        # grid2particle!(pT, xvi, T, T0, particles)
 
         # advect particles
         advection_RK!(particles, V, grid_vx, grid_vy, dt, 2 / 3)
@@ -79,9 +80,9 @@ function main()
         update_cell_halo!(particles.coords..., particle_args...);
         update_cell_halo!(particles.index)
         # shuffle particles
-        shuffle_particles!(particles, xvi, particle_args)
+        move_particles!(particles, xvi, particle_args)
         # interpolate T from particle to grid
-        particle2grid!(T, pT, xvi, particles.coords)
+        particle2grid!(T, pT, xvi, particles)
         # T0 .= deepcopy(T) 
 
         @views T_nohalo .= T[2:end-1, 2:end-1]
