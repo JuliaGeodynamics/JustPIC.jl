@@ -62,9 +62,9 @@ module _2D
         return check_injection(particles)
     end
     function JustPIC._2D.inject_particles!(
-        particles::ParticlesExt{AMDGPUBackend}, args::Vararg{Any,N}
-    ) where {N}
-        return inject_particles!(particles, args...)
+        particles::ParticlesExt{AMDGPUBackend}, args, fields, grid
+    )
+        return inject_particles!(particles, args, fields, grid)
     end
     function JustPIC._2D.shuffle_particles!(
         particles::ParticlesExt{AMDGPUBackend}, args::Vararg{Any,N}
@@ -147,7 +147,7 @@ module _3D
     end
     function JustPIC._3D.inject_particles!(
         particles::ParticlesExt{AMDGPUBackend}, args, fields, grid
-    ) where {N}
+    )
         return inject_particles!(particles, args, fields, grid)
     end
     function JustPIC._3D.shuffle_particles!(
