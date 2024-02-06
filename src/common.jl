@@ -54,9 +54,6 @@ export init_markerchain
 include("MarkerChain/move.jl")
 export move_particles!
 
-include("MarkerChain/advection.jl")
-export advection_RK!
-
 include("MarkerChain/interp1.jl")
 
 include("MarkerChain/sort.jl")
@@ -64,3 +61,6 @@ export sort_chain!
 
 include("MarkerChain/resample.jl")
 export resample!
+
+include("MarkerChain/advection.jl")
+export advect_markerchain!, advection_RK!

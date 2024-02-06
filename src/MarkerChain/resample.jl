@@ -1,4 +1,4 @@
-function resample!(p::MarkerChain)
+function resample!(chain::MarkerChain)
 
     # resampling launch kernel
     @parallel_indices (i) function resample!(
@@ -8,7 +8,7 @@ function resample!(p::MarkerChain)
         return nothing
     end
 
-    (; coords, index, cell_vertices, min_xcell, max_xcell) = p
+    (; coords, index, cell_vertices, min_xcell, max_xcell) = chain
     nx = length(cell_vertices) - 1
     dx_cells = cell_length(chain) 
     
