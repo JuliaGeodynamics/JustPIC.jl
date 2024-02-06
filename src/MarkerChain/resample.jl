@@ -44,7 +44,7 @@ function resample_cell!(
             # interpolated y coordinated
             yq = if 1 < I < length(x_cell) 
                 # inner cells; this is true (ncells-2) consecutive times
-                interp1D_inner(xq, coords, I)
+                interp1D_inner(xq, x_cell, y_cell, coords, I)
             else 
                 # first and last cells
                 interp1D_extremas(xq, x_cell, y_cell)
@@ -61,7 +61,6 @@ function resample_cell!(
     end
     return nothing
 end
-
 
 function isdistorded(x_cell, dx_ideal)
     for ip in eachindex(x_cell)[1:end-1]
