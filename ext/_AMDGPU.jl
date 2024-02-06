@@ -114,8 +114,8 @@ module _3D
     function JustPIC._3D.advection_RK!(
         particles::ParticlesExt{AMDGPUBackend},
         V,
-        grid_vx::NTuple{2,T},
-        grid_vy::NTuple{2,T},
+        grid_vx::NTuple{3,T},
+        grid_vy::NTuple{3,T},
         grid_vz::NTuple{3,T},
         dt,
         α,
@@ -146,9 +146,9 @@ module _3D
         return check_injection(particles)
     end
     function JustPIC._3D.inject_particles!(
-        particles::ParticlesExt{AMDGPUBackend}, args::Vararg{Any,N}
+        particles::ParticlesExt{AMDGPUBackend}, args, fields, grid
     ) where {N}
-        return inject_particles!(particles, args...)
+        return inject_particles!(particles, args, fields, grid)
     end
     function JustPIC._3D.shuffle_particles!(
         particles::ParticlesExt{AMDGPUBackend}, args::Vararg{Any,N}
