@@ -143,7 +143,7 @@ module _3D
     end
     function JustPIC._3D.inject_particles!(
         particles::ParticlesExt{CUDABackend}, args, fields, grid
-    ) where {N}
+    )
         return inject_particles!(particles, args, fields, grid)
     end
     function JustPIC._3D.shuffle_particles!(
