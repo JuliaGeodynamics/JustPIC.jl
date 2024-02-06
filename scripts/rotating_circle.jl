@@ -43,12 +43,12 @@ function main()
     )
 
     # Cell fields -------------------------------
-    Vx = TA([-vi_stream(y) for x in grid_vx[1], y in grid_vx[2]]);
-    Vy = TA([ vi_stream(x) for x in grid_vy[1], y in grid_vy[2]]);
+    Vx = TA(backend)([-vi_stream(y) for x in grid_vx[1], y in grid_vx[2]]);
+    Vy = TA(backend)([ vi_stream(x) for x in grid_vy[1], y in grid_vy[2]]);
 
     xc0 = yc0 =  0.25
     R   = 24 * dx
-    T   = TA([ ((x-xc0)^2 + (y-yc0)^2 ≤ R^2)  * 1.0 for x in xv, y in yv]);
+    T   = TA(backend)([ ((x-xc0)^2 + (y-yc0)^2 ≤ R^2)  * 1.0 for x in xv, y in yv]);
     V   = Vx, Vy;
 
     w = π*1e-5  # angular velocity
