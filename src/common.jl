@@ -72,3 +72,6 @@ export init_passive_markers
 
 include("PassiveMarkers/advection.jl")
 export advect_passive_markers!
+
+include("PassiveMarkers/grid_to_particle.jl")
+export grid2particle!
