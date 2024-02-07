@@ -6,29 +6,30 @@ function move_particles!(particles::AbstractParticles, grid, args)
     dxi = compute_dx(grid)
     (; coords, index) = particles
     nxi = size(index)
+    domain_limits = extrema.(grid)
 
-    @parallel (@idx nxi) move_particles_ps!(coords, grid, dxi, index, args)
-
-    return nothing
-end
-
-@parallel_indices (I...) function move_particles_ps!(coords, grid, dxi, index, args)
-    _move_particles!(coords, grid, dxi, index, I, args)
+    @parallel (@idx nxi) move_particles_ps!(coords, grid, dxi, index, domain_limits, args)
 
     return nothing
 end
 
-function _move_particles!(coords, grid, dxi, index, idx, args)
+@parallel_indices (I...) function move_particles_ps!(coords, grid, dxi, index, domain_limits, args)
+    _move_particles!(coords, grid, dxi, index, domain_limits, I, args)
+
+    return nothing
+end
+
+function _move_particles!(coords, grid, dxi, index, domain_limits, idx, args)
     # coordinate of the lower-most-left coordinate of the parent cell 
     corner_xi = corner_coordinate(grid, idx)
     # iterate over neighbouring (child) cells
-    move_kernel!(coords, corner_xi, dxi, index, args, idx)
+    move_kernel!(coords, corner_xi, dxi, index, domain_limits, args, idx)
 
     return nothing
 end
 
 function move_kernel!(
-    coords, corner_xi, dxi, index, args::NTuple{N2,T}, idx::NTuple{N1,Int64}
+    coords, corner_xi, dxi, index, domain_limits, args::NTuple{N2,T}, idx::NTuple{N1,Int64}
 ) where {N1,N2,T}
 
     # iterate over particles in child cell 
