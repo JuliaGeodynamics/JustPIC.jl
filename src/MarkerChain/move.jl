@@ -13,15 +13,13 @@ function move_particles!(chain::MarkerChain)
     return nothing
 end
 
-@parallel_indices (I...) function move_particles_launcher!(
-    coords, grid, dxi, index
-)
+@parallel_indices (I...) function move_particles_launcher!(coords, grid, dxi, index)
     _move_particles!(coords, grid, dxi, index, I)
     return nothing
 end
 
-chop(I::NTuple{2, T}) where T = I[1]
-chop(I::NTuple{3, T}) where T = I[1], I[2]
+chop(I::NTuple{2,T}) where {T} = I[1]
+chop(I::NTuple{3,T}) where {T} = I[1], I[2]
 
 function _move_particles!(coords, grid, dxi, index, idx)
     # coordinate of the lower-most-left coordinate of the parent cell 
@@ -39,7 +37,7 @@ function _move_particles!(coords, grid, dxi, index, idx)
         # new cell index
         new_cell = cell_index(chop(pᵢ), grid, dxi)
 
-        if !(any(<(1), new_cell) || any(new_cell .> length(grid))) 
+        if !(any(<(1), new_cell) || any(new_cell .> length(grid)))
             ## THE PARTICLE DID NOT ESCAPE THE DOMAIN
             # remove particle from child cell
             @inbounds @cell index[ip, chop(idx)] = false
@@ -59,5 +57,4 @@ function _move_particles!(coords, grid, dxi, index, idx)
             empty_particle!(coords, ip, idx)
         end
     end
-
 end

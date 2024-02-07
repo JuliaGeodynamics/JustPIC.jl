@@ -13,7 +13,7 @@ end
         coords[i][I...]
     end
     indexᵢ = index[I...]
-    
+
     # sort permutations of each cell
     permutations = sortperm(first(particle_xᵢ))
 
@@ -23,11 +23,10 @@ end
         for ip in eachindex(permutations)
             permutationᵢ = permutations[ip]
             @assert permutationᵢ ≤ length(permutations)
-            
+
             @cell coords[1][ip, I...] = particle_xᵢ[1][permutationᵢ]
             @cell coords[2][ip, I...] = particle_xᵢ[2][permutationᵢ]
-            @cell index[ip, I...]     = indexᵢ[permutationᵢ]
-
+            @cell index[ip, I...] = indexᵢ[permutationᵢ]
         end
     end
 

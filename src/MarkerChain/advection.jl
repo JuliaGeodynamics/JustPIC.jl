@@ -1,7 +1,7 @@
-function advect_markerchain!(chain::MarkerChain, V, grid_vx, grid_vy, dt; α::Float64 = 2 / 3)
+function advect_markerchain!(chain::MarkerChain, V, grid_vx, grid_vy, dt; α::Float64=2 / 3)
     advection_RK!(chain, V, grid_vx, grid_vy, dt, α)
     move_particles!(chain)
-    resample!(chain)
+    return resample!(chain)
 end
 
 """
@@ -21,7 +21,6 @@ with `α` and time step `dt`.
 function advection_RK!(
     particles::MarkerChain, V, grid_vx::NTuple{2,T}, grid_vy::NTuple{2,T}, dt, α
 ) where {T}
-
     (; coords, index) = particles
 
     # compute some basic stuff   
@@ -57,7 +56,9 @@ function advection_RK!(
     local_limits = inner_limits(grid_vi)
 
     # launch parallel advection kernel
-    @parallel (@idx ni) _advection_markerchain_RK!(coords, V, index, grid_vi, local_limits, dxi, dt, α)
+    @parallel (@idx ni) _advection_markerchain_RK!(
+        coords, V, index, grid_vi, local_limits, dxi, dt, α
+    )
 
     return nothing
 end
@@ -84,13 +85,7 @@ end
 end
 
 function advect_particle_RK(
-    p0::NTuple{N,T},
-    V::NTuple{N,AbstractArray{T,N}},
-    grid_vi,
-    local_limits,
-    dxi,
-    dt,
-    α,
+    p0::NTuple{N,T}, V::NTuple{N,AbstractArray{T,N}}, grid_vi, local_limits, dxi, dt, α
 ) where {T,N}
     ValN = Val(N)
     # interpolate velocity to current location
@@ -156,9 +151,7 @@ end
 end
 
 # Get field F and nodal indices of the cell corners where the particle is located
-@inline function corner_field_nodes(
-    F::AbstractArray{T,N}, pᵢ, xi_vx, dxi
-) where {T,N}
+@inline function corner_field_nodes(F::AbstractArray{T,N}, pᵢ, xi_vx, dxi) where {T,N}
     # coordinates of lower-left corner of the cell
     x_vertex_cell = ntuple(Val(N)) do i
         Base.@_inline_meta

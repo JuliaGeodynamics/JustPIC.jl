@@ -280,8 +280,10 @@ end
     end
 end
 
-@inline function fill_particle!(p::NTuple{N,T1}, field::NTuple{N,T2}, ip, I::Int64) where {N,T1,T2} 
-    fill_particle!(p, field, ip, (I,))
+@inline function fill_particle!(
+    p::NTuple{N,T1}, field::NTuple{N,T2}, ip, I::Int64
+) where {N,T1,T2}
+    return fill_particle!(p, field, ip, (I,))
 end
 
 @generated function fill_particle!(
