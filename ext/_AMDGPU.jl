@@ -224,7 +224,7 @@ module _3D
         return nothing
     end
 
-    function JustPIC._3D.grid2particle!(Fp::NTuple{N, CuArray}, xvi, F::NTuple{N, CuArray}, particles::ParticlesExt{AMDGPUBackend}) where N
+    function JustPIC._3D.grid2particle!(Fp::NTuple{N, ROCArray}, xvi, F::NTuple{N, ROCArray}, particles::ParticlesExt{AMDGPUBackend}) where N
         grid2particle!(Fp, xvi, F, particles)
         return nothing
     end
