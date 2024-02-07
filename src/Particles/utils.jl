@@ -59,13 +59,15 @@ end
 @inline cart2lin(i, j, nx) = i + (j - 1) * nx
 @inline cart2lin(i, j, k, nx, ny) = cart2lin(i, j, nx) + (k - 1) * nx * ny
 
-@inline function corner_coordinate(grid::NTuple{N,T1}, I::NTuple{N,T2}) where {T1,T2,N}
-    return ntuple(i -> grid[i][I[i]], Val(N))
-end
+@inline corner_coordinate(grid, I::Integer) = grid[I]
+@inline corner_coordinate(grid::NTuple{N,T1}, I::NTuple{N,T2}) where {T1,T2,N} =
+    corner_coordinate(grid, I...)
 
 @inline function corner_coordinate(grid::NTuple{N,T1}, I::Vararg{T2,N}) where {T1,T2,N}
     return ntuple(i -> grid[i][I[i]], Val(N))
 end
+
+@inline isincell(px::T, xv::T, dx::T) where {T<:Real} = xv < px < xv + dx
 
 @inline function isincell(p::NTuple{2,T}, xci::NTuple{2,T}, dxi::NTuple{2,T}) where {T}
     px, py = p # particle coordinate
@@ -123,6 +125,12 @@ end
         end
     end
     return nothing
+end
+
+compute_dx(grid::LinRange{T,Int64}) where {T} = grid[2] - grid[1]
+
+@inline function compute_dx(grid::NTuple{N,LinRange{T,Int64}}) where {N,T}
+    return ntuple(i -> grid[i][2] - grid[i][1], Val(N))
 end
 
 @inline function compute_dx(grid::NTuple{N,T}) where {N,T}
