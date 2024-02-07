@@ -47,6 +47,15 @@ function move_kernel!(
         # within the same cell and skip it
         isincell(pᵢ, corner_xi, dxi) && continue
 
+        # particle went of of the domain, get rid of it
+        domain_check = !(indomain(pᵢ, domain_limits))
+        if domain_check
+            @cell index[ip, idx...] = false
+            empty_particle!(particle_coords, ip, idx)
+            empty_particle!(args, ip, idx)
+        end
+        domain_check && continue
+        
         # new cell indices
         new_cell = get_cell(pᵢ, dxi)
         # hold particle variables
