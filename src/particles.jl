@@ -51,6 +51,19 @@ struct MarkerChain{Backend,N,M,I,T1,T2,TV} <: AbstractParticles
     end
 end
 
+struct PassiveMarkers{Backend,N,T} <: AbstractParticles
+    coords::NTuple{N,T}
+    np::Int64
+
+    function PassiveMarkers(backend, coords::NTuple{N,T}) where {N,T}
+        np = length(coords[1].data)
+        return new{backend,N,T}(coords, np)
+    end
+end
+
+
+# useful functions
+
 unwrap_abstractarray(x::AbstractArray) = typeof(x).name.wrapper
 
 @inline count_particles(p::AbstractParticles, icell::Vararg{Int,N}) where {N} =

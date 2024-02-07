@@ -32,7 +32,7 @@ function advection_RK!(
     local_limits = inner_limits(grid_vi)
 
     # launch parallel advection kernel
-    @parallel (@idx ni) _advection_RK!(coords, V, index, grid_vi, local_limits, dxi, dt, α)
+    @parallel (@idx ni) _advection_markerchain_RK!(coords, V, index, grid_vi, local_limits, dxi, dt, α)
     return nothing
 end
 
@@ -152,15 +152,18 @@ end
 
 # Get field F and nodal indices of the cell corners where the particle is located
 @inline function corner_field_nodes(F::AbstractArray{T,N}, pᵢ, xi_vx, dxi) where {T,N}
+    I = ntuple(Val(N)) do i
+        Base.@_inline_meta
+        cell_index(pᵢ[i], xi_vx[i], dxi[i])
+    end
+
     # coordinates of lower-left corner of the cell
     x_vertex_cell = ntuple(Val(N)) do i
         Base.@_inline_meta
-        I = cell_index(pᵢ, dxi[i])
-        xi_vx[i][I]
+        xi_vx[i][I[i]]
     end
-
     # F at the four centers
-    Fi = extract_field_corners(F, indices...)
+    Fi = extract_field_corners(F, I...)
 
     return Fi, x_vertex_cell
 end

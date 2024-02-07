@@ -61,3 +61,11 @@ function get_particle_coords(p::NTuple{N,T}, ip, idx::Vararg{Int64,N}) where {N,
         @inbounds @cell p[i][ip, idx...]
     end
 end
+
+function get_particle_coords(p::NTuple{N,T}, ip, idx::Int64) where {N,T}
+    ntuple(Val(N)) do i
+        Base.@_inline_meta
+        @inbounds @cell p[i][ip, idx]
+    end
+end
+
