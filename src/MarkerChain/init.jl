@@ -13,7 +13,7 @@ function init_markerchain(backend, nxcell, min_xcell, max_xcell, xv, initial_ele
         return nothing
     end
 
-    nx = length(x) - 1
+    nx = length(xv) - 1
     dx = xv[2] - xv[1]
     dx_chain = dx / (nxcell + 1)
     px, py = ntuple(_ -> @fill(NaN, (nx,), celldims = (max_xcell,)), Val(2))
