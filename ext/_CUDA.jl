@@ -67,7 +67,7 @@ module _2D
 
     function JustPIC._2D.inject_particles!(
         particles::ParticlesExt{CUDABackend}, args, fields, grid
-    ) where {N}
+    )
         return inject_particles!(particles, args, fields, grid)
     end
 
