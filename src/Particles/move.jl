@@ -51,16 +51,15 @@ function move_kernel!(
         # within the same cell and skip it
         isincell(pᵢ, corner_xi, dxi) && continue
 
-        # # particle went of of the domain, get rid of it
-        # domain_check = !(indomain(pᵢ, domain_limits))
-        # if domain_check
-        #     @cell index[ip, idx...] = false
-        #     empty_particle!(particle_coords, ip, idx)
-        #     empty_particle!(args, ip, idx)
-        #     # @inbounds @cell move[ip, idx...] = false
-        # end
-        # domain_check && continue
-
+        # particle went of of the domain, get rid of it
+        domain_check = !(indomain(pᵢ, domain_limits))
+        if domain_check
+            @cell index[ip, idx...] = false
+            empty_particle!(particle_coords, ip, idx)
+            empty_particle!(args, ip, idx)
+        end
+        domain_check && continue
+        
         # new cell indices
         new_cell = get_cell(pᵢ, dxi)
 
@@ -79,36 +78,3 @@ function move_kernel!(
         fill_particle!(args, current_args, free_idx, new_cell)
     end
 end
-
-# function move_kernel!(
-#     move, 
-#     particle_coords,
-#     domain_limits,
-#     corner_xi,
-#     dxi,
-#     index,
-#     args::NTuple{N2,T},
-#     idx::NTuple{N1,Int64},
-# ) where {N1,N2,T}
-
-#     # iterate over particles in child cell 
-#     for ip in cellaxes(index)
-#         doskip(index, ip, idx...) && continue
-#         pᵢ = cache_particle(particle_coords, ip, idx)
-#         # particle went of of the domain, get rid of it
-#         if !(indomain(pᵢ, domain_limits))
-#             @cell index[ip, idx...] = false
-#             empty_particle!(particle_coords, ip, idx)
-#             empty_particle!(args, ip, idx)
-#             @inbounds @cell move[ip, idx...] = false
-#             break
-#         end
-#         # check whether the incoming particle is 
-#         # outside his old cell and flag it as movable 
-#         @inbounds @cell move[ip, idx...] = if isincell(pᵢ, corner_xi, dxi)
-#             false
-#         else 
-#             true
-#         end
-#     end
-# end
