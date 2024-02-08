@@ -142,3 +142,60 @@ end
 
     @test norm(T2 .- T) / length(T) < 1e-2
 end
+
+@testset "Passive markers 3D" begin
+    n   = 64
+    nx  = ny = nz = n-1
+    Lx  = Ly = Lz = 1.0
+    ni  = nx, ny, nz
+    Li  = Lx, Ly, Lz
+    # nodal vertices
+    xvi = xv, yv, zv = ntuple(i -> range(0, Li[i], length=n), Val(3))
+    # grid spacing
+    dxi = dx, dy, dz = ntuple(i -> xvi[i][2] - xvi[i][1], Val(3))
+    # nodal centers
+    xci = xc, yc, zc = ntuple(i -> range(0+dxi[i]/2, Li[i]-dxi[i]/2, length=ni[i]), Val(3))
+
+    # staggered grid velocity nodal locations
+    grid_vx = xv              , expand_range(yc), expand_range(zc)
+    grid_vy = expand_range(xc), yv              , expand_range(zc)
+    grid_vz = expand_range(xc), expand_range(yc), zv
+
+    # Initialize particles -------------------------------
+    nxcell, max_xcell, min_xcell = 24, 24, 3
+    particles = init_particles(
+        backend, nxcell, max_xcell, min_xcell, xvi..., dxi..., ni
+    )
+
+    # Cell fields -------------------------------
+    Vx = TA(backend)([vx_stream(x, z) for x in grid_vx[1], y in grid_vx[2], z in grid_vx[3]])
+    Vy = TA(backend)([vy_stream(x, z) for x in grid_vy[1], y in grid_vy[2], z in grid_vy[3]])
+    Vz = TA(backend)([vz_stream(x, z) for x in grid_vz[1], y in grid_vz[2], z in grid_vz[3]])
+    T  = TA(backend)([z for x in xv, y in yv, z in zv])
+    P  = TA(backend)([x for x in xv, y in yv, z in zv])
+    V  = Vx, Vy, Vz
+
+    dt = min(dx / maximum(abs.(Vx)), dy / maximum(abs.(Vy)), dz / maximum(abs.(Vz))) / 2
+
+    np = 256 # number of passive markers
+    passive_coords = ntuple(Val(3)) do i
+        (rand(np) .+ 1) .* Lx/4
+    end
+
+    passive_markers = init_passive_markers(backend, passive_coords);
+    T_marker = zeros(np)
+    P_marker = zeros(np)
+
+    for _ in 1:75
+        advect_passive_markers!(passive_markers, V, grid_vx, grid_vy, grid_vz, dt)
+    end
+
+    # interpolate grid fields T and P onto the marker locations
+    grid2particle!((T_marker, P_marker), xvi, (T, P), passive_markers)
+
+    x_marker = passive_markers.coords[1].data[:]
+    z_marker = passive_markers.coords[3].data[:]
+
+    @test x_marker ≈ P_marker
+    @test z_marker ≈ T_marker
+end
