@@ -1,4 +1,4 @@
-module _AMDGPU
+module JustPICAMDGPUExt
 
 module _2D
     using ImplicitGlobalGrid

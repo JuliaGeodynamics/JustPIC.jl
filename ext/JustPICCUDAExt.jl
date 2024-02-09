@@ -1,4 +1,4 @@
-module _CUDA
+module JustPICCUDAExt
 
 module _2D
     using ImplicitGlobalGrid
@@ -45,7 +45,7 @@ module _2D
         return grid2particle!(Fp, xvi, F, particles)
     end
 
-    function JustPIC._2D.particle2grid_centroid!(F::CuCArray, Fp, xi, particles::ParticlesExt{CUDABackend})
+    function JustPIC._2D.particle2grid_centroid!(F::CuArray, Fp, xi, particles::ParticlesExt{CUDABackend})
         return particle2grid_centroid!(F, Fp, xi, particles)
     end
 
@@ -159,7 +159,7 @@ module _3D
         return grid2particle!(Fp, xvi, F, particles)
     end
 
-    function JustPIC._2D.particle2grid_centroid!(F::CuCArray, Fp, xi, particles::ParticlesExt{CUDABackend})
+    function JustPIC._2D.particle2grid_centroid!(F::CuArray, Fp, xi, particles::ParticlesExt{CUDABackend})
         return particle2grid_centroid!(F, Fp, xi, particles)
     end
 
