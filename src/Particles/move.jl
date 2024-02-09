@@ -13,7 +13,9 @@ function move_particles!(particles::AbstractParticles, grid, args)
     return nothing
 end
 
-@parallel_indices (I...) function move_particles_ps!(coords, grid, dxi, index, domain_limits, args)
+@parallel_indices (I...) function move_particles_ps!(
+    coords, grid, dxi, index, domain_limits, args
+)
     _move_particles!(coords, grid, dxi, index, domain_limits, I, args)
 
     return nothing

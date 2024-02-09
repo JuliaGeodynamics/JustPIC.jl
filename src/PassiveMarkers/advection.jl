@@ -1,9 +1,13 @@
-function advect_passive_markers!(particles::PassiveMarkers, V, grid_vx, grid_vy, dt; α::Float64=2 / 3)
+function advect_passive_markers!(
+    particles::PassiveMarkers, V, grid_vx, grid_vy, dt; α::Float64=2 / 3
+)
     advection_RK!(particles, V, grid_vx, grid_vy, dt, α)
     return nothing
 end
 
-function advect_passive_markers!(particles::PassiveMarkers, V, grid_vx, grid_vy, grid_vz, dt; α::Float64=2 / 3)
+function advect_passive_markers!(
+    particles::PassiveMarkers, V, grid_vx, grid_vy, grid_vz, dt; α::Float64=2 / 3
+)
     advection_RK!(particles, V, grid_vx, grid_vy, grid_vz, dt, α)
     return nothing
 end
@@ -22,7 +26,9 @@ function advection_RK!(
     local_limits = inner_limits(grid_vi)
 
     # launch parallel advection kernel
-    @parallel (1:np) _advection_passive_markers_RK!(coords, V, grid_vi, local_limits, dxi, dt, α)
+    @parallel (1:np) _advection_passive_markers_RK!(
+        coords, V, grid_vi, local_limits, dxi, dt, α
+    )
     return nothing
 end
 
@@ -39,7 +45,7 @@ function advection_RK!(
     (; coords, np) = particles
     # compute some basic stuff
     dxi = compute_dx(grid_vx)
-   
+
     # Need to transpose grid_vy and Vy to reuse interpolation kernels
     grid_vi = grid_vx, grid_vy, grid_vz
     local_limits = inner_limits(grid_vi)
@@ -60,7 +66,7 @@ end
 ) where {N,T}
     # cache particle coordinates 
     pᵢ = get_particle_coords(p, ipart, 1)
-    
+
     p_new = advect_particle_RK(pᵢ, V, grid, local_limits, dxi, dt, α)
 
     ntuple(Val(N)) do i

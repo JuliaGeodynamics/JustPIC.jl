@@ -61,7 +61,6 @@ struct PassiveMarkers{Backend,N,T} <: AbstractParticles
     end
 end
 
-
 # useful functions
 
 unwrap_abstractarray(x::AbstractArray) = typeof(x).name.wrapper

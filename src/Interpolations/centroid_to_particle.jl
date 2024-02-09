@@ -2,7 +2,7 @@
 
 # LAUNCHERS
 function centroid2particle!(Fp, xci, F, particles)
-    (;coords) = particles
+    (; coords) = particles
     di = grid_size(xci)
     centroid2particle!(Fp, xci, F, coords, di)
     return nothing
@@ -16,9 +16,7 @@ function centroid2particle!(Fp, xci, F, coords, di::NTuple{N,T}) where {N,T}
     return nothing
 end
 
-@parallel_indices (I...) function centroid2particle_classic!(
-    Fp, F, xci, di, coords
-)
+@parallel_indices (I...) function centroid2particle_classic!(Fp, F, xci, di, coords)
     _centroid2particle_classic!(Fp, coords, xci, di, F, tuple(I...))
     return nothing
 end
@@ -152,9 +150,7 @@ function centroid2particle_flip!(Fp, xci, F, F0, coords; α=0.0)
     return nothing
 end
 
-function centroid2particle_flip!(
-    Fp, xci, F, F0, coords, di::NTuple{N,T}; α=0.0
-) where {N,T}
+function centroid2particle_flip!(Fp, xci, F, F0, coords, di::NTuple{N,T}; α=0.0) where {N,T}
     indices = ntuple(i -> 0:(length(xci[i]) + 1), Val(N))
 
     @parallel (indices) centroid2particle_full!(Fp, F, F0, xci, di, coords, α)
@@ -162,9 +158,7 @@ function centroid2particle_flip!(
     return nothing
 end
 
-@parallel_indices (I...) function centroid2particle_full!(
-    Fp, F, F0, xci, di, coords, α
-)
+@parallel_indices (I...) function centroid2particle_full!(Fp, F, F0, xci, di, coords, α)
     _centroid2particle_full!(Fp, coords, xci, di, F, F0, I, α)
     return nothing
 end

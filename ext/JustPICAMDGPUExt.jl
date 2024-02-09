@@ -28,27 +28,39 @@ module _2D
         return init_particles(AMDGPUBackend, args...)
     end
 
-    function JustPIC._2D.advection_RK!(particles::ParticlesExt{AMDGPUBackend}, V, grid_vx, grid_vy, dt, α)
+    function JustPIC._2D.advection_RK!(
+        particles::ParticlesExt{AMDGPUBackend}, V, grid_vx, grid_vy, dt, α
+    )
         return advection_RK!(particles, V, grid_vx, grid_vy, dt, α)
     end
 
-    function JustPIC._2D.centroid2particle!(Fp, xci, F::ROCArray, particles::ParticlesExt{AMDGPUBackend})
+    function JustPIC._2D.centroid2particle!(
+        Fp, xci, F::ROCArray, particles::ParticlesExt{AMDGPUBackend}
+    )
         return centroid2particle!(Fp, xci, F, particles)
     end
 
-    function JustPIC._2D.grid2particle!(Fp, xvi, F::ROCArray, particles::ParticlesExt{AMDGPUBackend})
+    function JustPIC._2D.grid2particle!(
+        Fp, xvi, F::ROCArray, particles::ParticlesExt{AMDGPUBackend}
+    )
         return grid2particle!(Fp, xvi, F, particles)
     end
 
-    function JustPIC._2D.particle2grid_centroid!(F::ROCArray, Fp, xi, particles::ParticlesExt{AMDGPUBackend})
+    function JustPIC._2D.particle2grid_centroid!(
+        F::ROCArray, Fp, xi, particles::ParticlesExt{AMDGPUBackend}
+    )
         return particle2grid_centroid!(F, Fp, xi, particles)
     end
 
-    function JustPIC._2D.particle2grid!(F::ROCArray, Fp, xi, particles::ParticlesExt{AMDGPUBackend})
+    function JustPIC._2D.particle2grid!(
+        F::ROCArray, Fp, xi, particles::ParticlesExt{AMDGPUBackend}
+    )
         return particle2grid!(F, Fp, xi, particles)
     end
 
-    function JustPIC._2D.grid2particle_flip!(Fp, xvi, F::ROCArray, F0, particles::ParticlesExt{AMDGPUBackend}; α=0.0)
+    function JustPIC._2D.grid2particle_flip!(
+        Fp, xvi, F::ROCArray, F0, particles::ParticlesExt{AMDGPUBackend}; α=0.0
+    )
         return grid2particle_flip!(Fp, xvi, F, F0, particles; α=α)
     end
 
@@ -80,6 +92,14 @@ module _2D
 
     ## MakerChain
 
+    function JustPIC._2D.init_markerchain(
+        ::Type{CUDABackend}, nxcell, min_xcell, max_xcell, xv, initial_elevation
+    )
+        return init_markerchain(
+            backend, nxcell, min_xcell, max_xcell, xv, initial_elevation
+        )
+    end
+
     function JustPIC._2D.advect_markerchain!(
         chain::ParticlesExt{AMDGPUBackend}, V, grid_vx, grid_vy, dt
     )
@@ -88,20 +108,27 @@ module _2D
 
     ## PassiveMarkers
 
-    JustPIC._2D.init_passive_markers(::Type{AMDGPUBackend}, coords)= init_passive_markers(AMDGPUBackend, coords)
+    function JustPIC._2D.init_passive_markers(::Type{AMDGPUBackend}, coords)
+        return init_passive_markers(AMDGPUBackend, coords)
+    end
 
     function JustPIC._2D.advect_passive_markers!(
-        particles::ParticlesExt{AMDGPUBackend}, V, grid_vx, grid_vy, dt, α,
+        particles::ParticlesExt{AMDGPUBackend}, V, grid_vx, grid_vy, dt, α
     )
         return advect_passive_markers!(particles, V, grid_vx, grid_vy, dt, α)
     end
 
-    function JustPIC._2D.grid2particle!(Fp, xvi, F, particles::ParticlesExt{AMDGPUBackend}) 
+    function JustPIC._2D.grid2particle!(Fp, xvi, F, particles::ParticlesExt{AMDGPUBackend})
         grid2particle!(Fp, xvi, F, particles)
         return nothing
     end
 
-    function JustPIC._2D.grid2particle!(Fp::NTuple{N, ROCArray}, xvi, F::NTuple{N, ROCArray}, particles::ParticlesExt{AMDGPUBackend}) where N
+    function JustPIC._2D.grid2particle!(
+        Fp::NTuple{N,ROCArray},
+        xvi,
+        F::NTuple{N,ROCArray},
+        particles::ParticlesExt{AMDGPUBackend},
+    ) where {N}
         grid2particle!(Fp, xvi, F, particles)
         return nothing
     end
@@ -148,19 +175,27 @@ module _3D
         return advection_RK!(particles, V, grid_vx, grid_vy, grid_vz, dt, α)
     end
 
-    function JustPIC._3D.centroid2particle!(Fp, xci, F::ROCArray, particles::ParticlesExt{AMDGPUBackend})
+    function JustPIC._3D.centroid2particle!(
+        Fp, xci, F::ROCArray, particles::ParticlesExt{AMDGPUBackend}
+    )
         return centroid2particle!(Fp, xci, F, particles)
     end
 
-    function JustPIC._3D.grid2particle!(Fp, xvi, F::ROCArray, particles::ParticlesExt{AMDGPUBackend})
+    function JustPIC._3D.grid2particle!(
+        Fp, xvi, F::ROCArray, particles::ParticlesExt{AMDGPUBackend}
+    )
         return grid2particle!(Fp, xvi, F, particles)
     end
 
-    function JustPIC._3D.particle2grid_centroid!(F::ROCArray, Fp, xi, particles::ParticlesExt{AMDGPUBackend})
+    function JustPIC._3D.particle2grid_centroid!(
+        F::ROCArray, Fp, xi, particles::ParticlesExt{AMDGPUBackend}
+    )
         return particle2grid_centroid!(F, Fp, xi, particles)
     end
 
-    function JustPIC._3D.particle2grid!(F::ROCArray, Fp, xi, particles::ParticlesExt{AMDGPUBackend})
+    function JustPIC._3D.particle2grid!(
+        F::ROCArray, Fp, xi, particles::ParticlesExt{AMDGPUBackend}
+    )
         return particle2grid!(F, Fp, xi, particles)
     end
 
@@ -193,23 +228,30 @@ module _3D
     ) where {N}
         return init_cell_arrays(particles, V)
     end
-    
+
     ## PassiveMarkers
 
-    JustPIC._3D.init_passive_markers(::Type{AMDGPUBackend}, coords)= init_passive_markers(AMDGPUBackend, coords)
+    function JustPIC._3D.init_passive_markers(::Type{AMDGPUBackend}, coords)
+        return init_passive_markers(AMDGPUBackend, coords)
+    end
 
     function JustPIC._3D.advect_passive_markers!(
-        particles::ParticlesExt{AMDGPUBackend}, V, grid_vx, grid_vy, grid_vz, dt, α,
+        particles::ParticlesExt{AMDGPUBackend}, V, grid_vx, grid_vy, grid_vz, dt, α
     )
         return advect_passive_markers!(particles, V, grid_vx, grid_vy, grid_vz, dt, α)
     end
 
-    function JustPIC._3D.grid2particle!(Fp, xvi, F, particles::ParticlesExt{AMDGPUBackend}) 
+    function JustPIC._3D.grid2particle!(Fp, xvi, F, particles::ParticlesExt{AMDGPUBackend})
         grid2particle!(Fp, xvi, F, particles)
         return nothing
     end
 
-    function JustPIC._3D.grid2particle!(Fp::NTuple{N, ROCArray}, xvi, F::NTuple{N, ROCArray}, particles::ParticlesExt{AMDGPUBackend}) where N
+    function JustPIC._3D.grid2particle!(
+        Fp::NTuple{N,ROCArray},
+        xvi,
+        F::NTuple{N,ROCArray},
+        particles::ParticlesExt{AMDGPUBackend},
+    ) where {N}
         grid2particle!(Fp, xvi, F, particles)
         return nothing
     end

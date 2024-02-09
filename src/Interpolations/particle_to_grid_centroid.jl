@@ -3,9 +3,7 @@
 function particle2grid_centroid!(F, Fp, xi::NTuple, particles)
     (; coords) = particles
     dxi = grid_size(xi)
-    @parallel (@idx size(coords[1])) particle2grid_centroid!(
-        F, Fp, xi, coords, dxi
-    )
+    @parallel (@idx size(coords[1])) particle2grid_centroid!(F, Fp, xi, coords, dxi)
     return nothing
 end
 

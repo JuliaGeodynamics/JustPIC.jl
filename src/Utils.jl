@@ -68,4 +68,3 @@ function get_particle_coords(p::NTuple{N,T}, ip, idx::Int64) where {N,T}
         @inbounds @cell p[i][ip, idx]
     end
 end
-
