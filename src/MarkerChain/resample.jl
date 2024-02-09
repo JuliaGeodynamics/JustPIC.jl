@@ -38,7 +38,6 @@ function resample_cell!(
     np_new = max(min_xcell, np)
     dx_chain = dx_cells / (np_new + 1)
     if do_resampling
-        # @show I
         # fill index array
         for ip in 1:np_new
             # x query point
@@ -50,9 +49,6 @@ function resample_cell!(
             else
                 # first and last cells
                 interp1D_extremas(xq, x_cell, y_cell)
-            end
-            if isnan(yq)
-                @show I, y_cell
             end
             @cell py[ip, I] = yq
             @cell index[ip, I] = true
