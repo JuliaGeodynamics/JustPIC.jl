@@ -95,12 +95,12 @@ module _2D
         ::Type{CUDABackend}, nxcell, min_xcell, max_xcell, xv, initial_elevation
     )
         return init_markerchain(
-            backend, nxcell, min_xcell, max_xcell, xv, initial_elevation
+            CUDABackend, nxcell, min_xcell, max_xcell, xv, initial_elevation
         )
     end
 
     function JustPIC._2D.advect_markerchain!(
-        chain::ParticlesExt{CUDABackend}, V, grid_vx, grid_vy, dt
+        chain::MarkerChain{CUDABackend}, V, grid_vx, grid_vy, dt
     )
         return advect_markerchain!(chain, V, grid_vx, grid_vy, dt)
     end
@@ -112,12 +112,12 @@ module _2D
     end
 
     function JustPIC._2D.advect_passive_markers!(
-        particles::ParticlesExt{CUDABackend}, V, grid_vx, grid_vy, dt, α
+        particles::PassiveMarkers{CUDABackend}, V, grid_vx, grid_vy, dt, α
     )
         return advect_passive_markers!(particles, V, grid_vx, grid_vy, dt, α)
     end
 
-    function JustPIC._2D.grid2particle!(Fp, xvi, F, particles::ParticlesExt{CUDABackend})
+    function JustPIC._2D.grid2particle!(Fp, xvi, F, particles::PassiveMarkers{CUDABackend})
         grid2particle!(Fp, xvi, F, particles)
         return nothing
     end
@@ -126,7 +126,7 @@ module _2D
         Fp::NTuple{N,CuArray},
         xvi,
         F::NTuple{N,CuArray},
-        particles::ParticlesExt{CUDABackend},
+        particles::PassiveMarkers{CUDABackend},
     ) where {N}
         grid2particle!(Fp, xvi, F, particles)
         return nothing
@@ -233,12 +233,12 @@ module _3D
     end
 
     function JustPIC._3D.advect_passive_markers!(
-        particles::ParticlesExt{CUDABackend}, V, grid_vx, grid_vy, grid_vz, dt, α
+        particles::PassiveMarkers{CUDABackend}, V, grid_vx, grid_vy, grid_vz, dt, α
     )
         return advect_passive_markers!(particles, V, grid_vx, grid_vy, grid_vz, dt, α)
     end
 
-    function JustPIC._3D.grid2particle!(Fp, xvi, F, particles::ParticlesExt{CUDABackend})
+    function JustPIC._3D.grid2particle!(Fp, xvi, F, particles::PassiveMarkers{CUDABackend})
         grid2particle!(Fp, xvi, F, particles)
         return nothing
     end
@@ -247,7 +247,7 @@ module _3D
         Fp::NTuple{N,CuArray},
         xvi,
         F::NTuple{N,CuArray},
-        particles::ParticlesExt{CUDABackend},
+        particles::PassiveMarkers{CUDABackend},
     ) where {N}
         grid2particle!(Fp, xvi, F, particles)
         return nothing
