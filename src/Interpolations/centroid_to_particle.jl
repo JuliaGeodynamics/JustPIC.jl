@@ -1,24 +1,25 @@
 ## CLASSIC PIC ------------------------------------------------------------------------------------------------
 
 # LAUNCHERS
-function centroid2particle!(Fp, xci, F, particle_coords)
+function centroid2particle!(Fp, xci, F, particles)
+    (;coords) = particles
     di = grid_size(xci)
-    centroid2particle!(Fp, xci, F, particle_coords, di)
+    centroid2particle!(Fp, xci, F, coords, di)
     return nothing
 end
 
-function centroid2particle!(Fp, xci, F, particle_coords, di::NTuple{N,T}) where {N,T}
+function centroid2particle!(Fp, xci, F, coords, di::NTuple{N,T}) where {N,T}
     indices = ntuple(i -> 0:(length(xci[i]) + 1), Val(N))
 
-    @parallel (indices) centroid2particle_classic!(Fp, F, xci, di, particle_coords)
+    @parallel (indices) centroid2particle_classic!(Fp, F, xci, di, coords)
 
     return nothing
 end
 
 @parallel_indices (I...) function centroid2particle_classic!(
-    Fp, F, xci, di, particle_coords
+    Fp, F, xci, di, coords
 )
-    _centroid2particle_classic!(Fp, particle_coords, xci, di, F, tuple(I...))
+    _centroid2particle_classic!(Fp, coords, xci, di, F, tuple(I...))
     return nothing
 end
 
@@ -144,27 +145,27 @@ end
 
 # LAUNCHERS
 
-function centroid2particle_flip!(Fp, xci, F, F0, particle_coords; α=0.0)
+function centroid2particle_flip!(Fp, xci, F, F0, coords; α=0.0)
     di = grid_size(xci)
-    centroid2particle_flip!(Fp, xci, F, F0, particle_coords, di; α=α)
+    centroid2particle_flip!(Fp, xci, F, F0, coords, di; α=α)
 
     return nothing
 end
 
 function centroid2particle_flip!(
-    Fp, xci, F, F0, particle_coords, di::NTuple{N,T}; α=0.0
+    Fp, xci, F, F0, coords, di::NTuple{N,T}; α=0.0
 ) where {N,T}
     indices = ntuple(i -> 0:(length(xci[i]) + 1), Val(N))
 
-    @parallel (indices) centroid2particle_full!(Fp, F, F0, xci, di, particle_coords, α)
+    @parallel (indices) centroid2particle_full!(Fp, F, F0, xci, di, coords, α)
 
     return nothing
 end
 
 @parallel_indices (I...) function centroid2particle_full!(
-    Fp, F, F0, xci, di, particle_coords, α
+    Fp, F, F0, xci, di, coords, α
 )
-    _centroid2particle_full!(Fp, particle_coords, xci, di, F, F0, I, α)
+    _centroid2particle_full!(Fp, coords, xci, di, F, F0, I, α)
     return nothing
 end
 

@@ -1,4 +1,4 @@
-module _AMDGPU
+module JustPICAMDGPUExt
 
 module _2D
     using ImplicitGlobalGrid
@@ -28,36 +28,27 @@ module _2D
         return init_particles(AMDGPUBackend, args...)
     end
 
-    function JustPIC._2D.advection_RK!(
-        particles::ParticlesExt{AMDGPUBackend},
-        V,
-        grid_vx::NTuple{2,T},
-        grid_vy::NTuple{2,T},
-        dt,
-        α,
-    ) where {T}
+    function JustPIC._2D.advection_RK!(particles::ParticlesExt{AMDGPUBackend}, V, grid_vx, grid_vy, dt, α)
         return advection_RK!(particles, V, grid_vx, grid_vy, dt, α)
     end
 
-    function JustPIC._2D.centroid2particle!(
-        Fp, xci, F::ROCArray, args::Vararg{Any,N}
-    ) where {N}
-        return centroid2particle!(Fp, xci, F, args...)
+    function JustPIC._2D.centroid2particle!(Fp, xci, F::ROCArray, particles::ParticlesExt{AMDGPUBackend})
+        return centroid2particle!(Fp, xci, F, particles)
     end
 
-    function JustPIC._2D.grid2particle!(Fp, xvi, F::ROCArray, args::Vararg{Any,N}) where {N}
-        return grid2particle!(Fp, xvi, F, args...)
+    function JustPIC._2D.grid2particle!(Fp, xvi, F::ROCArray, particles::ParticlesExt{AMDGPUBackend})
+        return grid2particle!(Fp, xvi, F, particles)
     end
 
-    function JustPIC._2D.particle2grid_centroid!(F::ROCArray, args::Vararg{Any,N}) where {N}
-        return particle2grid_centroid!(F, args...)
+    function JustPIC._2D.particle2grid_centroid!(F::ROCArray, Fp, xi, particles::ParticlesExt{AMDGPUBackend})
+        return particle2grid_centroid!(F, Fp, xi, particles)
     end
 
-    function JustPIC._2D.particle2grid!(F::ROCArray, args::Vararg{Any,N}) where {N}
-        return particle2grid!(F, args...)
+    function JustPIC._2D.particle2grid!(F::ROCArray, Fp, xi, particles::ParticlesExt{AMDGPUBackend})
+        return particle2grid!(F, Fp, xi, particles)
     end
 
-    function JustPIC._2D.grid2particle_flip!(Fp, xvi, F::ROCArray, F0, particles; α=0.0)
+    function JustPIC._2D.grid2particle_flip!(Fp, xvi, F::ROCArray, F0, particles::ParticlesExt{AMDGPUBackend}; α=0.0)
         return grid2particle_flip!(Fp, xvi, F, F0, particles; α=α)
     end
 
@@ -77,10 +68,8 @@ module _2D
         return shuffle_particles!(particles, args...)
     end
 
-    function JustPIC._2D.move_particles!(
-        particles::ParticlesExt{AMDGPUBackend}, args::Vararg{Any,N}
-    ) where {N}
-        return move_particles!(particles, args...)
+    function JustPIC._2D.move_particles!(particles::ParticlesExt{AMDGPUBackend}, grid, args)
+        return shuffle_particles!(particles, grid, args)
     end
 
     function JustPIC._2D.init_cell_arrays(
@@ -159,22 +148,20 @@ module _3D
         return advection_RK!(particles, V, grid_vx, grid_vy, grid_vz, dt, α)
     end
 
-    function JustPIC._3D.centroid2particle!(
-        Fp, xci, F::ROCArray, args::Vararg{Any,N}
-    ) where {N}
-        return centroid2particle!(Fp, xci, F, args...)
+    function JustPIC._3D.centroid2particle!(Fp, xci, F::ROCArray, particles::ParticlesExt{AMDGPUBackend})
+        return centroid2particle!(Fp, xci, F, particles)
     end
 
-    function JustPIC._3D.grid2particle!(Fp, xvi, F::ROCArray, args::Vararg{Any,N}) where {N}
-        return grid2particle!(Fp, xvi, F, args...)
+    function JustPIC._3D.grid2particle!(Fp, xvi, F::ROCArray, particles::ParticlesExt{AMDGPUBackend})
+        return grid2particle!(Fp, xvi, F, particles)
     end
 
-    function JustPIC._3D.particle2grid_centroid!(F::ROCArray, args::Vararg{Any,N}) where {N}
-        return particle2grid_centroid!(F, args...)
+    function JustPIC._3D.particle2grid_centroid!(F::ROCArray, Fp, xi, particles::ParticlesExt{AMDGPUBackend})
+        return particle2grid_centroid!(F, Fp, xi, particles)
     end
 
-    function JustPIC._3D.particle2grid!(F::ROCArray, args::Vararg{Any,N}) where {N}
-        return particle2grid!(F, args...)
+    function JustPIC._3D.particle2grid!(F::ROCArray, Fp, xi, particles::ParticlesExt{AMDGPUBackend})
+        return particle2grid!(F, Fp, xi, particles)
     end
 
     function JustPIC._3D.grid2particle_flip!(Fp, xvi, F::ROCArray, F0, particles; α=0.0)
@@ -197,10 +184,8 @@ module _3D
         return shuffle_particles!(particles, args...)
     end
 
-    function JustPIC._3D.move_particles!(
-        particles::ParticlesExt{AMDGPUBackend}, args::Vararg{Any,N}
-    ) where {N}
-        return move_particles!(particles, args...)
+    function JustPIC._3D.move_particles!(particles::ParticlesExt{AMDGPUBackend}, grid, args)
+        return shuffle_particles!(particles, grid, args)
     end
 
     function JustPIC._3D.init_cell_arrays(
