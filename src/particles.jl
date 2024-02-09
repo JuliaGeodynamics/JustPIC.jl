@@ -80,11 +80,11 @@ unwrap_abstractarray(x::AbstractArray) = typeof(x).name.wrapper
 @inline cell_z(p::AbstractParticles, icell::Vararg{Int,N}) where {N} = p.coords[3][icell...]
 
 @inline cell_index(xᵢ::T, dxᵢ::T) where {T} = abs(Int(xᵢ ÷ dxᵢ)) + 1
-@inline cell_index(xᵢ::T, xvᵢ::LinRange{T,Int64}) where {T} =
+@inline cell_index(xᵢ::T, xvᵢ::AbstractRange{T}) where {T} =
     cell_index(xᵢ, xvᵢ, xvᵢ[2] - xvᵢ[1])
 
 # generic one that works for any grid
-@inline function cell_index(xᵢ::T, xvᵢ::LinRange{T,Int64}, dxᵢ::T) where {T}
+@inline function cell_index(xᵢ::T, xvᵢ::AbstractRange{T}, dxᵢ::T) where {T}
     xv₀ = first(xvᵢ)
     if iszero(xv₀)
         return cell_index(xᵢ, dxᵢ)
@@ -95,7 +95,7 @@ unwrap_abstractarray(x::AbstractArray) = typeof(x).name.wrapper
     end
 end
 
-@inline function cell_index(x::NTuple{N,T}, xv::NTuple{N,LinRange{T,Int64}}) where {N,T}
+@inline function cell_index(x::NTuple{N,T}, xv::NTuple{N,AbstractRange{T}}) where {N,T}
     ntuple(Val(N)) do i
         Base.@_inline_meta
         cell_index(x[i], xv[i])

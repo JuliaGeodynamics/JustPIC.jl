@@ -3,6 +3,11 @@ function advect_passive_markers!(particles::PassiveMarkers, V, grid_vx, grid_vy,
     return nothing
 end
 
+function advect_passive_markers!(particles::PassiveMarkers, V, grid_vx, grid_vy, grid_vz, dt; α::Float64=2 / 3)
+    advection_RK!(particles, V, grid_vx, grid_vy, grid_vz, dt, α)
+    return nothing
+end
+
 # Two-step Runge-Kutta advection scheme for marker chains
 function advection_RK!(
     particles::PassiveMarkers, V, grid_vx::NTuple{2,T}, grid_vy::NTuple{2,T}, dt, α
@@ -40,7 +45,7 @@ function advection_RK!(
     local_limits = inner_limits(grid_vi)
 
     # launch parallel advection kernel
-    @parallel (@idx ni) _advection_passive_markers_RK!(
+    @parallel (@idx np) _advection_passive_markers_RK!(
         coords, V, grid_vi, local_limits, dxi, dt, α
     )
 
