@@ -1,7 +1,8 @@
 function advect_markerchain!(chain::MarkerChain, V, grid_vx, grid_vy, dt; α::Float64=2 / 3)
     advection_RK!(chain, V, grid_vx, grid_vy, dt, α)
     move_particles!(chain)
-    return resample!(chain)
+    resample!(chain)
+    return nothing
 end
 
 """
@@ -77,7 +78,6 @@ end
         # cache particle coordinates 
         pᵢ = get_particle_coords(p, ipart, I...)
         p_new = advect_particle_RK(pᵢ, V, grid, local_limits, dxi, dt, α)
-
         ntuple(Val(N)) do i
             @inbounds @cell p[i][ipart, I...] = p_new[i]
         end
