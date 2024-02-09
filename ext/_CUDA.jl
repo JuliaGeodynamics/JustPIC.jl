@@ -37,28 +37,24 @@ module _2D
         return advection_RK!(particles, V, grid_vx, grid_vy, dt, α)
     end
 
-    function JustPIC._2D.centroid2particle!(
-        Fp, xci, F::CuArray, args::Vararg{Any,N}
-    ) where {N}
-        return centroid2particle!(Fp, xci, F, args...)
+    function JustPIC._2D.centroid2particle!(Fp, xci, F::CuArray, particles::ParticlesExt{CUDABackend})
+        return centroid2particle!(Fp, xci, F, particles)
     end
 
-    function JustPIC._2D.grid2particle!(Fp, xvi, F::CuArray, args::Vararg{Any,N}) where {N}
-        return grid2particle!(Fp, xvi, F, args...)
+    function JustPIC._2D.grid2particle!(Fp, xvi, F::CuArray, particles::ParticlesExt{CUDABackend})
+        return grid2particle!(Fp, xvi, F, particles)
     end
 
-    function JustPIC._2D.particle2grid_centroid!(F::CuArray, args::Vararg{Any,N}) where {N}
-        return particle2grid_centroid!(F, args...)
+    function JustPIC._2D.particle2grid_centroid!(F::CuCArray, Fp, xi, particles::ParticlesExt{CUDABackend})
+        return particle2grid_centroid!(F, Fp, xi, particles)
     end
 
     function JustPIC._2D.particle2grid!(F::CuArray, Fp, xi, particles)
         return particle2grid!(F, Fp, xi, particles)
     end
 
-    function JustPIC._2D.grid2particle_flip!(
-        Fp, xvi, F::CuArray, F0, particle_coords; α=0.0
-    )
-        return grid2particle_flip!(Fp, xvi, F, F0, particle_coords; α=α)
+    function JustPIC._2D.grid2particle_flip!(Fp, xvi, F::CuArray, F0, particles; α=0.0)
+        return grid2particle_flip!(Fp, xvi, F, F0, particles; α=α)
     end
 
     function JustPIC._2D.check_injection(particles::ParticlesExt{CUDABackend})
@@ -155,28 +151,24 @@ module _3D
         return advection_RK!(particles, V, grid_vx, grid_vy, grid_vz, dt, α)
     end
 
-    function JustPIC._3D.centroid2particle!(
-        Fp, xci, F::CuArray, args::Vararg{Any,N}
-    ) where {N}
-        return centroid2particle!(Fp, xci, F, args...)
+    function JustPIC._3D.centroid2particle!(Fp, xci, F::CuArray, particles::ParticlesExt{CUDABackend})
+        return centroid2particle!(Fp, xci, F, particles)
     end
 
-    function JustPIC._3D.grid2particle!(Fp, xvi, F::CuArray, args::Vararg{Any,N}) where {N}
-        return grid2particle!(Fp, xvi, F, args...)
+    function JustPIC._3D.grid2particle!(Fp, xvi, F::CuArray, particles::ParticlesExt{CUDABackend})
+        return grid2particle!(Fp, xvi, F, particles)
     end
 
-    function JustPIC._3D.particle2grid_centroid!(F::CuArray, args::Vararg{Any,N}) where {N}
-        return particle2grid_centroid!(F, args...)
+    function JustPIC._2D.particle2grid_centroid!(F::CuCArray, Fp, xi, particles::ParticlesExt{CUDABackend})
+        return particle2grid_centroid!(F, Fp, xi, particles)
     end
 
-    function JustPIC._3D.particle2grid!(F::CuArray, args::Vararg{Any,N}) where {N}
-        return particle2grid!(F, args...)
+    function JustPIC._3D.particle2grid!(F::CuArray, Fp, xi, particles::ParticlesExt{CUDABackend})
+        return particle2grid!(F, Fp, xi, particles)
     end
 
-    function JustPIC._3D.grid2particle_flip!(
-        Fp, xvi, F::CuArray, F0, particle_coords; α=0.0
-    )
-        return grid2particle_flip!(Fp, xvi, F, F0, particle_coords; α=α)
+    function JustPIC._3D.grid2particle_flip!(Fp, xvi, F::CuArray, F0, particles; α=0.0)
+        return grid2particle_flip!(Fp, xvi, F, F0, particles; α=α)
     end
 
     function JustPIC._3D.check_injection(particles::ParticlesExt{CUDABackend})
