@@ -22,7 +22,7 @@ function expand_range(x::AbstractRange)
     x1, x2 = extrema(x)
     xI = round(x1-dx; sigdigits=5)
     xF = round(x2+dx; sigdigits=5)
-    range(xI, xF, length=n+2)
+    LinRange(xI, xF, n+2)
 end
 
 # Analytical flow solution
@@ -37,11 +37,11 @@ function test_advection_3D()
     ni  = nx, ny, nz
     Li  = Lx, Ly, Lz
     # nodal vertices
-    xvi = xv, yv, zv = ntuple(i -> range(0, Li[i], length=n), Val(3))
+    xvi = xv, yv, zv = ntuple(i -> LinRange(0, Li[i], n), Val(3))
     # grid spacing
     dxi = dx, dy, dz = ntuple(i -> xvi[i][2] - xvi[i][1], Val(3))
     # nodal centers
-    xci = xc, yc, zc = ntuple(i -> range(0+dxi[i]/2, Li[i]-dxi[i]/2, length=ni[i]), Val(3))
+    xci = xc, yc, zc = ntuple(i -> LinRange(0+dxi[i]/2, Li[i]-dxi[i]/2, ni[i]), Val(3))
 
     # staggered grid velocity nodal locations
     grid_vx = xv              , expand_range(yc), expand_range(zc)
@@ -110,11 +110,11 @@ end
     Lx  = Ly = Lz = 1.0
     Li  = Lx, Ly, Lz
     # nodal vertices
-    xvi = xv, yv, zv = ntuple(i -> range(0, Li[i], length=n), Val(3))
+    xvi = xv, yv, zv = ntuple(i -> LinRange(0, Li[i], n), Val(3))
     # grid spacing
     dxi = dx, dy, dz = ntuple(i -> xvi[i][2] - xvi[i][1], Val(3))
     # nodal centers
-    xci = xc, yc, zc = ntuple(i -> range(0+dxi[i]/2, Li[i]-dxi[i]/2, length=ni[i]), Val(3))
+    xci = xc, yc, zc = ntuple(i -> LinRange(0+dxi[i]/2, Li[i]-dxi[i]/2, ni[i]), Val(3))
 
     # Initialize particles -------------------------------
     particles = init_particles(
@@ -150,11 +150,11 @@ end
     ni  = nx, ny, nz
     Li  = Lx, Ly, Lz
     # nodal vertices
-    xvi = xv, yv, zv = ntuple(i -> range(0, Li[i], length=n), Val(3))
+    xvi = xv, yv, zv = ntuple(i -> LinRange(0, Li[i], n), Val(3))
     # grid spacing
     dxi = dx, dy, dz = ntuple(i -> xvi[i][2] - xvi[i][1], Val(3))
     # nodal centers
-    xci = xc, yc, zc = ntuple(i -> range(0+dxi[i]/2, Li[i]-dxi[i]/2, length=ni[i]), Val(3))
+    xci = xc, yc, zc = ntuple(i -> LinRange(0+dxi[i]/2, Li[i]-dxi[i]/2, ni[i]), Val(3))
 
     # staggered grid velocity nodal locations
     grid_vx = xv              , expand_range(yc), expand_range(zc)

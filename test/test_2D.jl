@@ -22,7 +22,7 @@ function expand_range(x::AbstractRange)
     x1, x2 = extrema(x)
     xI = round(x1-dx; sigdigits=5)
     xF = round(x2+dx; sigdigits=5)
-    range(xI, xF, length=n+2)
+    LinRange(xI, xF, n+2)
 end
 
 # Analytical flow solution
@@ -36,10 +36,10 @@ function advection_test_2D()
     nx = ny = n-1
     Lx = Ly = 1.0
     # nodal vertices
-    xvi = xv, yv = range(0, Lx, length=n), range(0, Ly, length=n)
+    xvi = xv, yv = LinRange(0, Lx, n), LinRange(0, Ly, n)
     dxi = dx, dy = xv[2] - xv[1], yv[2] - yv[1]
     # nodal centers
-    xci = xc, yc = range(0+dx/2, Lx-dx/2, length=n-1), range(0+dy/2, Ly-dy/2, length=n-1)
+    xci = xc, yc = LinRange(0+dx/2, Lx-dx/2, n-1), LinRange(0+dy/2, Ly-dy/2, n-1)
     # staggered grid velocity nodal locations
     grid_vx = xv, expand_range(yc)
     grid_vy = expand_range(xc), yv
@@ -104,10 +104,10 @@ function test_rotating_circle()
     nx = ny = n-1
     Lx = Ly = 1.0
     # nodal vertices
-    xvi = xv, yv = range(0, Lx, length=n), range(0, Ly, length=n)
+    xvi = xv, yv = LinRange(0, Lx, n), LinRange(0, Ly, n)
     dxi = dx, dy = xv[2] - xv[1], yv[2] - yv[1]
     # nodal centers
-    xc, yc = range(0+dx/2, Lx-dx/2, length=n-1), range(0+dy/2, Ly-dy/2, length=n-1)
+    xc, yc = LinRange(0+dx/2, Lx-dx/2, n-1), LinRange(0+dy/2, Ly-dy/2, n-1)
     # staggered grid velocity nodal locations
     grid_vx = xv, expand_range(yc)
     grid_vy = expand_range(xc), yv
@@ -174,10 +174,10 @@ end
     nx = ny = n - 1
     Lx = Ly = 1.0
     # nodal vertices
-    xvi = xv, yv = range(0, Lx, length=n), range(0, Ly, length=n)
+    xvi = xv, yv = LinRange(0, Lx, n), LinRange(0, Ly, n)
     dxi = dx, dy = xv[2] - xv[1], yv[2] - yv[1]
     # nodal centers
-    xci = xc, yc = range(0+dx/2, Lx-dx/2, length=n-1), range(0+dy/2, Ly-dy/2, length=n-1)
+    xci = xc, yc = LinRange(0+dx/2, Lx-dx/2, n-1), LinRange(0+dy/2, Ly-dy/2, n-1)
     # staggered grid velocity nodal locations
 
     # Initialize particles & particle fields
