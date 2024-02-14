@@ -18,6 +18,14 @@ module _2D
 
     JustPIC._2D.TA(::Type{CUDABackend}) = CuArray
 
+    macro myatomic(expr)
+        return esc(
+            quote
+                CUDA.@atomic $expr
+            end
+        )
+    end
+
     include(joinpath(@__DIR__, "../src/common.jl"))
 
     include(joinpath(@__DIR__, "../src/CUDAExt/CellArrays.jl"))
@@ -86,7 +94,7 @@ module _2D
     ## MakerChain
 
     function JustPIC._2D.advect_markerchain!(
-        chain::ParticlesExt{CUDABackend}, V, grid_vx, grid_vy, dt
+        chain::MarkerChain{CUDABackend}, V, grid_vx, grid_vy, dt
     )
         return advect_markerchain!(chain, V, grid_vx, grid_vy, dt)
     end
@@ -96,21 +104,25 @@ module _2D
     JustPIC._2D.init_passive_markers(::Type{CUDABackend}, coords)= init_passive_markers(CUDABackend, coords)
 
     function JustPIC._2D.advect_passive_markers!(
-        particles::ParticlesExt{CUDABackend}, V, grid_vx, grid_vy, dt, α,
+        particles::PassiveMarkers{CUDABackend}, V, grid_vx, grid_vy, dt, α,
     )
         return advect_passive_markers!(particles, V, grid_vx, grid_vy, dt, α)
     end
 
-    function JustPIC._2D.grid2particle!(Fp, xvi, F, particles::ParticlesExt{CUDABackend}) 
+    function JustPIC._2D.grid2particle!(Fp, xvi, F, particles::PassiveMarkers{CUDABackend}) 
         grid2particle!(Fp, xvi, F, particles)
         return nothing
     end
 
-    function JustPIC._2D.grid2particle!(Fp::NTuple{N, CuArray}, xvi, F::NTuple{N, CuArray}, particles::ParticlesExt{CUDABackend}) where N
+    function JustPIC._2D.grid2particle!(Fp::NTuple{N, CuArray}, xvi, F::NTuple{N, CuArray}, particles::PassiveMarkers{CUDABackend}) where N
         grid2particle!(Fp, xvi, F, particles)
         return nothing
     end
 
+    function JustPIC._2D.particle2grid!(F, Fp, buffer, xi, particles::PassiveMarkers{CUDABackend})
+        particle2grid!(F, Fp, buffer, xi, particles)
+        return nothing
+    end
 end
 
 module _3D
