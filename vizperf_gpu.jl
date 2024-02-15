@@ -2,17 +2,15 @@ using CSV, DataFrames
 using GLMakie
 # using CairoMakie
 
-getname(d, n, np; pth="timings_cpu") = joinpath(pth, (d[n])[np])
-# save_path = "C:\\Users\\albert\\Desktop\\Manuscripts\\ParticlesGMD\\figs\\"
+getname(d, n, np; pth="timings_CUDA") = joinpath(pth, (d[n])[np])
+
 let 
-    for nt in  (6,)
 
-        save_path = (@__DIR__) * "/nt$(nt)_"
-
-        fldr = joinpath(@__DIR__, "timings_cpu/nt$(nt)")
+        save_path = (@__DIR__)
+        fldr = joinpath(@__DIR__, "timings_CUDA")
         n = [
-            16 64
-            32 128 
+            64  256
+            128 256
         ]
         np = 6, 12, 18, 24
         # organise files
@@ -44,7 +42,7 @@ let
             nt = length(t_opt[1])
             x = LinRange(0, 0.04, nt-1)
 
-            for i in 1:4
+            for i in 1:3
                 # scatter!(ax[j], x, t_opt[i][2:end], color=c[i], label = "$(np[i])")
                 # scatter!(ax[j], x, t_classic[i][2:end], color=c[i], marker=:diamond)
                 scatter!(ax[j], x, t_opt[i][2:end] ./t_classic[i][2:end] , color=c[i], markersize= 4, label=l[i])
@@ -77,7 +75,7 @@ let
             grid = false, minorgrid = false, minorticks = false
         )
         fig
-        save(save_path*"timings_cpu.png", fig)
+        save("timings_CUDA.png", fig)
 
         ############
 
@@ -99,7 +97,7 @@ let
             nt = length(t_opt[1])
             x = LinRange(0, 0.04, nt-1)
 
-            for i in 1:4
+            for i in 1:3
                 scatter!(ax[j], x, t_opt[i][2:end]./t_classic[i][2:end], color=c[i], markersize= 4, label = "$(np[i])")
                 hlines!(ax[j], 1.0, color=:black)
             end
@@ -128,7 +126,7 @@ let
             grid = false, minorgrid = false, minorticks = false
         )
         fig
-        save(save_path*"timings_cpu_advection.png", fig)
+        save("timings_CUDA_advection.png", fig)
 
         ############
 
@@ -150,7 +148,7 @@ let
             nt = length(t_opt[1])
             x = LinRange(0, 0.04, nt-1)
 
-            for i in 1:4
+            for i in 1:3
                 scatter!(ax[j], x, t_opt[i][2:end]./t_classic[i][2:end], color=c[i], markersize= 4, label = "$(np[i])")
                 hlines!(ax[j], 1.0, color=:black)
             end
@@ -178,7 +176,7 @@ let
             grid = false, minorgrid = false, minorticks = false
         )
         fig
-        save(save_path*"timings_cpu_g2p.png", fig)
+        save("timings_CUDA_g2p.png", fig)
 
         ############
 
@@ -200,7 +198,7 @@ let
             nt = length(t_opt[1])
             x = LinRange(0, 0.04, nt-1)
 
-            for i in 1:4
+            for i in 1:3
                 scatter!(ax[j], x, t_opt[i][2:end]./t_classic[i][2:end], color=c[i], markersize= 4, label = "$(np[i])")
                 hlines!(ax[j], 1.0, color=:black)
             end
@@ -228,6 +226,5 @@ let
             grid = false, minorgrid = false, minorticks = false
         )
         fig
-        save(save_path*"timings_cpu_p2g.png", fig)
-    end
+        save("timings_CUDA_p2g.png", fig)
 end

@@ -1,6 +1,6 @@
 ## LAUNCHERS
 
-function particle2grid!(F, Fp, buffer, xi::NTuple, particles::PassiveMarkers)
+function particle2grid!(F, Fp, buffer, xi, particles::PassiveMarkers)
     (; coords, np) = particles
     ni = size(F)
     dxi = grid_size(xi)
@@ -28,13 +28,14 @@ end
 ) where {T}
     
     pᵢ = get_particle_coords(coords, ipart)
-    # pᵢ = get_particle_coords(coords, ipart, 1)
     
     inode, jnode = ntuple(Val(2)) do i
         Base.@_inline_meta
         cell_index(pᵢ[i], xi[i], dxi[i])
     end
     # iterate over cells around i-th node
+    Fp_ipart = Fp[ipart]
+
     for joffset in 0:1
         jvertex = joffset + jnode
         # make sure we stay within the grid
@@ -43,7 +44,7 @@ end
             xvertex = xi[1][ivertex], xi[2][jvertex] # cell lower-left coordinates
             # F acting as buffer here
             @myatomic F[ivertex, jvertex] += ω_i = distance_weight(xvertex, pᵢ; order=4)
-            @myatomic buffer[ivertex, jvertex] += Fp[ipart] * ω_i
+            @myatomic buffer[ivertex, jvertex] += Fp_ipart * ω_i
         end
     end
 

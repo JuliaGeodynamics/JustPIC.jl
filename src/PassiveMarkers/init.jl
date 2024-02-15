@@ -2,10 +2,8 @@ function init_passive_markers(backend, coords::NTuple{N, AbstractArray}) where N
     
     @parallel_indices (i) function fill_coords_index!(pxᵢ::NTuple{N, AbstractArray}, coords::NTuple{N, AbstractArray}) where N
         # fill index array
-        for i in eachindex(pxᵢ[1])
-            ntuple(Val(N)) do dim
-                pxᵢ[dim][i] = coords[dim][i]
-            end
+        ntuple(Val(N)) do dim
+            pxᵢ[dim][i] = coords[dim][i]
         end
         return nothing
     end

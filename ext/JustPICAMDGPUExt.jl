@@ -15,6 +15,7 @@ module _2D
     __precompile__(false)
 
     const ParticlesExt = JustPIC.Particles
+    const PassiveMarkersExt{AMDGPUBackend} = JustPIC.PassiveMarkers
 
     macro myatomic(expr)
         esc(quote
@@ -23,7 +24,7 @@ module _2D
     end
 
     JustPIC.TA(::Type{AMDGPUBackend}) = ROCArray
-    JustPIC.CA(::Type{AMDGPUBackend}, dims; eltype=Float64) = ROCCellArray{eltype}(undef, dims)
+    JustPIC._2D.CA(::Type{AMDGPUBackend}, dims; eltype=Float64) = ROCCellArray{eltype}(undef, dims)
 
     include(joinpath(@__DIR__, "../src/common.jl"))
 
@@ -95,12 +96,12 @@ module _2D
 
     ## PassiveMarkers
 
-    JustPIC._2D.init_passive_markers(::Type{AMDGPUBackend}, coords)= init_passive_markers(AMDGPUBackend, coords)
+    JustPIC._2D.init_passive_markers(::Type{AMDGPUBackend}, coords::NTuple{N, ROCArray}) where N = init_passive_markers(AMDGPUBackend, coords)
 
     function JustPIC._2D.advect_passive_markers!(
-        particles::PassiveMarkers{AMDGPUBackend}, V, grid_vx, grid_vy, dt, α,
-    )
-        return advect_passive_markers!(particles, V, grid_vx, grid_vy, dt, α)
+        particles::PassiveMarkersExt{AMDGPUBackend}, V::NTuple{N, ROCArray}, grid_vx, grid_vy, dt; α::Float64=2 / 3,
+    ) where N
+        return advect_passive_markers!(particles, V, grid_vx, grid_vy, dt; α=α)
     end
 
     function JustPIC._2D.grid2particle!(Fp, xvi, F, particles::PassiveMarkers{AMDGPUBackend}) 
@@ -141,9 +142,10 @@ module _3D
     end
 
     const ParticlesExt = JustPIC.Particles
+    const PassiveMarkersExt{AMDGPUBackend} = JustPIC.PassiveMarkers
 
     JustPIC.TA(::Type{AMDGPUBackend}) = ROCArray
-    JustPIC.CA(::Type{AMDGPUBackend}, dims; eltype=Float64) = ROCCellArray{eltype}(undef, dims)
+    JustPIC._3D.CA(::Type{AMDGPUBackend}, dims; eltype=Float64) = ROCCellArray{eltype}(undef, dims)
 
     include(joinpath(@__DIR__, "../src/common.jl"))
 
@@ -215,12 +217,12 @@ module _3D
     
     ## PassiveMarkers
 
-    JustPIC._3D.init_passive_markers(::Type{AMDGPUBackend}, coords)= init_passive_markers(AMDGPUBackend, coords)
+    JustPIC._3D.init_passive_markers(::Type{AMDGPUBackend}, coords::NTuple{N, ROCArray}) where N = init_passive_markers(AMDGPUBackend, coords)
 
     function JustPIC._3D.advect_passive_markers!(
-        particles::ParticlesExt{AMDGPUBackend}, V, grid_vx, grid_vy, grid_vz, dt, α,
-    )
-        return advect_passive_markers!(particles, V, grid_vx, grid_vy, grid_vz, dt, α)
+        particles::PassiveMarkersExt{AMDGPUBackend}, V::NTuple{N, ROCArray}, grid_vx, grid_vy, grid_vz, dt; α::Float64=2 / 3,
+    ) where N
+        return advect_passive_markers!(particles, V, grid_vx, grid_vy, grid_vz, dt; α=α)
     end
 
     function JustPIC._3D.grid2particle!(Fp, xvi, F, particles::ParticlesExt{AMDGPUBackend}) 
