@@ -18,7 +18,7 @@ end
 @inline function _grid2particle_passive_marker!(Fp::AbstractArray, F::AbstractArray, xvi, dxi::NTuple{N,T}, p, ip) where {N,T}
     
     # particle coordinates 
-    pᵢ = get_particle_coords(p, ip, 1)
+    pᵢ = get_particle_coords(p, ip)
 
     I = ntuple(Val(N)) do i
         Base.@_inline_meta
@@ -38,7 +38,7 @@ end
 ) where {N1,N2,T}
     
     # particle coordinates 
-    pᵢ = get_particle_coords(p, ip, 1)
+    pᵢ = get_particle_coords(p, ip)
 
     I = ntuple(Val(N2)) do i
         Base.@_inline_meta

@@ -16,14 +16,13 @@ module _2D
 
     const ParticlesExt = JustPIC.Particles
 
-    JustPIC._2D.TA(::Type{CUDABackend}) = CuArray
+    JustPIC.TA(::Type{CUDABackend}) = CuArray
+    JustPIC.CA(::Type{CUDABackend}, dims; eltype=Float64) = CuCellArray{eltype}(undef, dims)
 
     macro myatomic(expr)
-        return esc(
-            quote
-                CUDA.@atomic $expr
-            end
-        )
+        esc(quote
+            CUDA.@atomic $expr
+        end)
     end
 
     include(joinpath(@__DIR__, "../src/common.jl"))
@@ -139,9 +138,16 @@ module _3D
 
     __precompile__(false)
 
+    macro myatomic(expr)
+        esc(quote
+            CUDA.@atomic $expr
+        end)
+    end
+
     const ParticlesExt = JustPIC.Particles
 
-    JustPIC._3D.TA(::Type{CUDABackend}) = CuArray
+    JustPIC.TA(::Type{CUDABackend}) = CuArray
+    JustPIC.CA(::Type{CUDABackend}, dims; eltype=Float64) = CuCellArray{eltype}(undef, dims)
 
     include(joinpath(@__DIR__, "../src/common.jl"))
 

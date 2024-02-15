@@ -7,27 +7,28 @@ function particle2grid!(F, Fp, buffer, xi::NTuple, particles::PassiveMarkers)
 
     @parallel (@idx ni) reset_arrays!(F, buffer)
     # accumulate weights on F and buffer arrays
-    @parallel (@idx np) particle2grid!(F, Fp, buffer, xi, coords, dxi)
+    @parallel (@idx np) passivemarker2grid!(F, Fp, buffer, xi, coords, dxi)
     # finish interpolation process
     @parallel (@idx ni) resolve_particle2grid!(F, buffer)
 
     return nothing
 end
 
-@parallel_indices (ipart) function particle2grid!(
+@parallel_indices (ipart) function passivemarker2grid!(
     F, Fp, buffer, xi, coords, dxi
 )
-    _particle2grid!(F, Fp, buffer, ipart, xi, coords, dxi)
+    _passivemarker2grid!(F, Fp, buffer, ipart, xi, coords, dxi)
     return nothing
 end
 
 ## INTERPOLATION KERNEL 2D
 
-@inbounds function _particle2grid!(
+@inbounds function _passivemarker2grid!(
     F, Fp, buffer, ipart, xi::NTuple{2,T}, coords, dxi
 ) where {T}
     
-    pᵢ = get_particle_coords(coords, ipart, 1)
+    pᵢ = get_particle_coords(coords, ipart)
+    # pᵢ = get_particle_coords(coords, ipart, 1)
     
     inode, jnode = ntuple(Val(2)) do i
         Base.@_inline_meta

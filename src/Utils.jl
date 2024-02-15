@@ -55,17 +55,17 @@ end
 @inline doskip(index, ip, I::Vararg{Int64,N}) where {N} =
     iszero(@inbounds @cell index[ip, I...])
 
-function get_particle_coords(p::NTuple{N,T}, ip, idx::Vararg{Int64,N}) where {N,T}
+function get_particle_coords(p::NTuple{N,CellArray}, ip, idx::Vararg{Int64,N}) where {N}
     ntuple(Val(N)) do i
         Base.@_inline_meta
         @inbounds @cell p[i][ip, idx...]
     end
 end
 
-function get_particle_coords(p::NTuple{N,T}, ip, idx::Int64) where {N,T}
+function get_particle_coords(p::NTuple{N,T}, ip) where {N,T}
     ntuple(Val(N)) do i
         Base.@_inline_meta
-        @inbounds @cell p[i][ip, idx]
+        p[i][ip]
     end
 end
 

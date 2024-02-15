@@ -11,6 +11,8 @@ module _2D
 
     @init_parallel_stencil(Threads, Float64, 2)
     
+    CA(::Type{CPUBackend}, dims; eltype=Float64) = CPUCellArray{eltype}(undef, dims)
+
     macro myatomic(expr)
         esc(quote
             Atomix.@atomic $expr
@@ -32,6 +34,8 @@ module _3D
     __precompile__(false)
 
     @init_parallel_stencil(Threads, Float64, 3)
+
+    CA(::Type{CPUBackend}, dims; eltype=Float64) = CPUCellArray{eltype}(undef, dims)
 
     macro myatomic(expr)
         esc(quote

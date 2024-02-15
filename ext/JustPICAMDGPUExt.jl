@@ -17,14 +17,13 @@ module _2D
     const ParticlesExt = JustPIC.Particles
 
     macro myatomic(expr)
-        return esc(
-            quote
-                AMDGPU.@atomic $expr
-            end
-        )
+        esc(quote
+            AMDGPU.@atomic $expr
+        end)
     end
 
-    JustPIC._2D.TA(::Type{AMDGPUBackend}) = ROCArray
+    JustPIC.TA(::Type{AMDGPUBackend}) = ROCArray
+    JustPIC.CA(::Type{AMDGPUBackend}, dims; eltype=Float64) = ROCCellArray{eltype}(undef, dims)
 
     include(joinpath(@__DIR__, "../src/common.jl"))
 
@@ -135,9 +134,16 @@ module _3D
 
     __precompile__(false)
 
+    macro myatomic(expr)
+        esc(quote
+            AMDGPU.@atomic $expr
+        end)
+    end
+
     const ParticlesExt = JustPIC.Particles
 
-    JustPIC._3D.TA(::Type{AMDGPUBackend}) = ROCArray
+    JustPIC.TA(::Type{AMDGPUBackend}) = ROCArray
+    JustPIC.CA(::Type{AMDGPUBackend}, dims; eltype=Float64) = ROCCellArray{eltype}(undef, dims)
 
     include(joinpath(@__DIR__, "../src/common.jl"))
 
