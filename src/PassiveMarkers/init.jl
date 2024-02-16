@@ -8,10 +8,11 @@ function init_passive_markers(backend, coords::NTuple{N, AbstractArray}) where N
         return nothing
     end
 
-    np = length(coords[1])
-    pxᵢ = ntuple(_ -> CA(backend, (np,)), Val(N))
+    # np = length(coords[1])
+    # pxᵢ = ntuple(_ -> CA(backend, (np,)), Val(N))
 
-    @parallel (1:np) fill_coords_index!(pxᵢ, coords)
+    # @parallel (1:np) fill_coords_index!(pxᵢ, coords)
 
-    return PassiveMarkers(backend, pxᵢ)
+    return PassiveMarkers(backend, coords)
+    # return PassiveMarkers(backend, pxᵢ)
 end

@@ -187,16 +187,16 @@ end
 
 ## OTHERS
 
-@inline function distance_weight(a::NTuple{N,T}, b::NTuple{N,T}; order::Int64=4) where {N,T}
+@inline function distance_weight(a, b; order::Int64=4)
     return inv(distance(a, b)^order)
 end
 
-@inline function distance_weight(x, y, b::NTuple{N,T}; order::Int64=4) where {N,T}
+@inline function distance_weight(x, y, b; order::Int64=4)
     return inv(distance((x, y), b)^order)
 end
 
 @generated function bilinear_weight(
-    a::NTuple{N,T}, b::NTuple{N,T}, di::NTuple{N,T}
+    a::Union{NTuple{N,T}, SVector{N,T}}, b::Union{NTuple{N,T}, SVector{N,T}}, di::Union{NTuple{N,T}, SVector{N,T}}
 ) where {N,T}
     quote
         Base.@_inline_meta

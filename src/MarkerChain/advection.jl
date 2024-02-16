@@ -85,7 +85,7 @@ end
 end
 
 function advect_particle_RK(
-    p0::NTuple{N,T}, V::NTuple{N,AbstractArray{T,N}}, grid_vi, local_limits, dxi, dt, α
+    p0, V::NTuple{N,AbstractArray{T,N}}, grid_vi, local_limits, dxi, dt, α
 ) where {T,N}
     ValN = Val(N)
     # interpolate velocity to current location
