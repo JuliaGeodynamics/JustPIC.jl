@@ -50,7 +50,7 @@ function move_kernel!(
         domain_check && continue
 
         # new cell indices
-        new_cell = ntuple(Val(N1)) do I
+        new_cell = ntuple(Val(N1)) do i
             cell_index(pᵢ[i], grid[i], dxi[i])
         end
         # hold particle variables
