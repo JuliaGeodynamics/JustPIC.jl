@@ -102,7 +102,7 @@ unwrap_abstractarray(x::AbstractArray) = typeof(x).name.wrapper
     end
 end
 
-@inline function cell_index(x::Union{SVector{N,T},NTuple{N,T}}, xv::NTuple{N,AbstractRange{T}}) where {N,T}
+@inline function cell_index(x::NTuple{N,T}, xv::NTuple{N,AbstractRange{T}}) where {N,T}
     ntuple(Val(N)) do i
         Base.@_inline_meta
         cell_index(x[i], xv[i])
