@@ -45,7 +45,7 @@ function move_kernel!(
         domain_check = !(indomain(pᵢ, domain_limits))
         if domain_check
             @cell index[ip, idx...] = false
-            empty_particle!(particle_coords, ip, idx)
+            empty_particle!(coords, ip, idx)
             empty_particle!(args, ip, idx)
         end
         domain_check && continue
