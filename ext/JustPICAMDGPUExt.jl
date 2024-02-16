@@ -19,7 +19,7 @@ module _2D
 
     macro myatomic(expr)
         esc(quote
-            AMDGPU.@atomic $expr
+            AMDGPU.@atomic :monotonic $expr
         end)
     end
 
@@ -137,7 +137,7 @@ module _3D
 
     macro myatomic(expr)
         esc(quote
-            AMDGPU.@atomic $expr
+            AMDGPU.@atomic :monotonic $expr
         end)
     end
 

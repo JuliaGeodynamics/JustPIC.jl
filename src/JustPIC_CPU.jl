@@ -17,7 +17,7 @@ module _2D
 
     macro myatomic(expr)
         esc(quote
-            Atomix.@atomic $expr
+            Atomix.@atomic :monotonic $expr
         end)
     end
     
@@ -43,7 +43,7 @@ module _3D
 
     macro myatomic(expr)
         esc(quote
-            Atomix.@atomic $expr
+            Atomix.@atomic :monotonic $expr
         end)
     end
 
