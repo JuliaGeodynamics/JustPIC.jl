@@ -29,6 +29,9 @@ end
 vx_stream(x, y) =  250 * sin(π*x) * cos(π*y)
 vy_stream(x, y) = -250 * cos(π*x) * sin(π*y)
 
+# Analytical flow solution
+vi_stream(x) =  π*1e-5 * (x - 0.5)
+
 @testset "Interpolations 2D" begin
     nxcell, max_xcell, min_xcell = 24, 24, 1
     n = 5 # number of vertices
@@ -231,9 +234,6 @@ function test_advection_2D()
 
     return passed
 end
-
-# Analytical flow solution
-vi_stream(x) =  π*1e-5 * (x - 0.5)
 
 function test_rotating_circle()
     # Initialize particles -------------------------------
