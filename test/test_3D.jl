@@ -32,7 +32,7 @@ end
 
     # Initialize particles -------------------------------
     particles = init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi..., dxi..., ni
+        backend, nxcell, max_xcell, min_xcell, xvi, dxi, ni
     )
     pT, = init_cell_arrays(particles, Val(1))
 
@@ -134,7 +134,7 @@ end
     # Initialize particles -------------------------------
     nxcell, max_xcell, min_xcell = 24, 24, 3
     particles = init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi..., dxi..., ni
+        backend, nxcell, max_xcell, min_xcell, xvi, dxi, ni
     )
 
     # Cell fields -------------------------------
@@ -205,7 +205,7 @@ function test_advection_3D()
     # Initialize particles -------------------------------
     nxcell, max_xcell, min_xcell = 24, 24, 3
     particles = init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi..., dxi..., ni
+        backend, nxcell, max_xcell, min_xcell, xvi, dxi, ni
     )
 
     # Cell fields -------------------------------
