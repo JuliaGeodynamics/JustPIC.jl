@@ -16,6 +16,20 @@ else
     CPUBackend
 end
 
+function expand_range(x::AbstractRange)
+    dx = x[2] - x[1]
+    n = length(x)
+    x1, x2 = extrema(x)
+    xI = round(x1-dx; sigdigits=5)
+    xF = round(x2+dx; sigdigits=5)
+    LinRange(xI, xF, n+2)
+end
+
+# Analytical flow solution
+vx_stream(x, z) =  250 * sin(π*x) * cos(π*z)
+vy_stream(x, z) =  0.0
+vz_stream(x, z) = -250 * cos(π*x) * sin(π*z)
+
 @testset "Interpolations 3D" begin
     nxcell, max_xcell, min_xcell = 24, 24, 1
     n   = 5 # number of vertices
@@ -169,20 +183,6 @@ end
     @test x_marker ≈ P_marker
     @test z_marker ≈ T_marker
 end
-
-function expand_range(x::AbstractRange)
-    dx = x[2] - x[1]
-    n = length(x)
-    x1, x2 = extrema(x)
-    xI = round(x1-dx; sigdigits=5)
-    xF = round(x2+dx; sigdigits=5)
-    LinRange(xI, xF, n+2)
-end
-
-# Analytical flow solution
-vx_stream(x, z) =  250 * sin(π*x) * cos(π*z)
-vy_stream(x, z) =  0.0
-vz_stream(x, z) = -250 * cos(π*x) * sin(π*z)
 
 function test_advection_3D()
     n   = 64

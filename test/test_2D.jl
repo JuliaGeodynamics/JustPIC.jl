@@ -16,6 +16,19 @@ else
     CPUBackend
 end
 
+function expand_range(x::AbstractRange)
+    dx = x[2] - x[1]
+    n = length(x)
+    x1, x2 = extrema(x)
+    xI = round(x1-dx; sigdigits=5)
+    xF = round(x2+dx; sigdigits=5)
+    LinRange(xI, xF, n+2)
+end
+
+# Analytical flow solution
+vx_stream(x, y) =  250 * sin(π*x) * cos(π*y)
+vy_stream(x, y) = -250 * cos(π*x) * sin(π*y)
+
 @testset "Interpolations 2D" begin
     nxcell, max_xcell, min_xcell = 24, 24, 1
     n = 5 # number of vertices
@@ -72,7 +85,7 @@ end
     grid_vy = expand_range(xc), yv
 
     particles1 = init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi..., dxi..., nx, ny
+        backend, nxcell, max_xcell, min_xcell, xvi..., dxi..., ni...
     )
 
     particles2 = init_particles(
@@ -157,21 +170,6 @@ end
     @test y_marker ≈ T_marker
     @test x_marker ≈ P_marker
 end
-
-#####
-
-function expand_range(x::AbstractRange)
-    dx = x[2] - x[1]
-    n = length(x)
-    x1, x2 = extrema(x)
-    xI = round(x1-dx; sigdigits=5)
-    xF = round(x2+dx; sigdigits=5)
-    LinRange(xI, xF, n+2)
-end
-
-# Analytical flow solution
-vx_stream(x, y) =  250 * sin(π*x) * cos(π*y)
-vy_stream(x, y) = -250 * cos(π*x) * sin(π*y)
 
 function advection_test_2D()
     # Initialize particles -------------------------------
