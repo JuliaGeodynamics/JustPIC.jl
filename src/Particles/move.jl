@@ -51,7 +51,7 @@ function move_kernel!(
         domain_check && continue
 
         # new cell indices
-        new_cell = get_index(pᵢ, grid)
+        new_cell = cell_index(pᵢ, grid)
         # hold particle variables
         current_args = @inbounds cache_args(args, ip, idx)
         # remove particle from child cell
