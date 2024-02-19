@@ -18,8 +18,9 @@ end
 @inline function _grid2particle_passive_marker!(Fp::AbstractArray, F::AbstractArray, xvi, dxi::NTuple{N,T}, p, ip) where {N,T}
     
     # particle coordinates 
-    pᵢ = get_particle_coords(p, ip)
-
+    # pᵢ = get_particle_coords(p, ip)
+    pᵢ = p[ip].data
+    
     I = ntuple(Val(N)) do i
         Base.@_inline_meta
         cell_index(pᵢ[i], xvi[i], dxi[i])

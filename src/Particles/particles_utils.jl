@@ -35,8 +35,8 @@ function init_particles(backend, nxcell, max_xcell, min_xcell, x, y, dx, dy, nx,
         # fill index array
         for l in 1:max_xcell
             if l <= nxcell
-                @cell px[l, i, j] = x0 + dx * (@cell(px[l, i, j]) * 0.9 + 0.05)
-                @cell py[l, i, j] = y0 + dy * (@cell(py[l, i, j]) * 0.9 + 0.05)
+                @cell px[l, i, j] = x0 + dx * (@cell(px[l, i, j]) * 0.4 + 0.4)
+                @cell py[l, i, j] = y0 + dy * (@cell(py[l, i, j]) * 0.4 + 0.4)
                 @cell index[l, i, j] = true
 
             else

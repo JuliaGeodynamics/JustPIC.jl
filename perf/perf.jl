@@ -41,10 +41,17 @@ function advection_test_2D(n, np)
         backend, nxcell, max_xcell, min_xcell, xvi..., dxi..., nx, ny
     )
 
-    passive_coords = ntuple(Val(2)) do i
-        rand(np*nx*ny) #.* 0.99 .+ 0.05
-    end
-    passive_markers = init_passive_markers(backend, passive_coords);
+    # passive_coords = ntuple(Val(2)) do i
+    #     rand(np*nx*ny) #.* 0.99 .+ 0.05
+    # end
+
+    # xp = filter(!isnan, particles.coords[1].data)
+    # yp = filter(!isnan, particles.coords[2].data)
+    # passive_coords = [@SVector [xp[i],yp[i]] for i in 1:np*nx*ny]
+
+    passive_coords = [(@SVector rand(2)).* 0.90 .+ 0.05 for i in 1:np*nx*ny]
+    passive_markers = PassiveMarkers(backend, passive_coords);
+    # passive_markers = init_passive_markers(backend, passive_coords);
     T_marker = zeros(np*nx*ny)
 
     # Cell fields -------------------------------
@@ -122,10 +129,10 @@ function run_cuda()
 end
 
 function run_cpu()
-    n = 16, 32, 64, 128
+    n = 32, 64, 128, 256
     # n = (256,)
-    np = 6, 12, 18#, 24
-    np = (24,)
+    np = 6, 12, 18, 24
+    # np = (24,)
     nt = Threads.nthreads()
     fldr = "timings_cpu/nt$(nt)"
     !isdir(fldr) && mkpath(fldr)
@@ -139,9 +146,7 @@ function run_cpu()
 end
 
 # run_cuda()
-# run_cpu()
-
-
+run_cpu()
 
 # advection_RK!(particles, V, grid_vx, grid_vy, dt, 2 / 3)
 # move_particles!(particles, xvi, particle_args)
@@ -153,11 +158,16 @@ end
 # particle2grid!(T0, T_marker, buffer, xvi, passive_markers)
 
 
-# xpm = Array(passive_markers.coords[1].data[:])
-# ypm = Array(passive_markers.coords[2].data[:])
+# # xpm = Array(passive_markers.coords[1].data[:])
+# # ypm = Array(passive_markers.coords[2].data[:])
 
 
-# scatter(xpm, ypm, color=Array(T_marker))
+# # scatter(xpm, ypm, color=Array(T_marker))
 
 # @btime particle2grid!($(T, pT0, xvi, particles)...)
 # @btime particle2grid!($(T0, T_marker, buffer, xvi, passive_markers)...)
+
+# ProfileCanvas.@profview  for i in 1:100 
+#     # particle2grid!(T, pT0, xvi, particles)
+#     particle2grid!(T0, T_marker, buffer, xvi, passive_markers)
+# end

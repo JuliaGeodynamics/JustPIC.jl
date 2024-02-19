@@ -15,7 +15,6 @@ end
 
 @parallel_indices (I...) function move_particles_ps!(coords, grid, dxi, index, domain_limits, args)
     _move_particles!(coords, grid, dxi, index, domain_limits, I, args)
-
     return nothing
 end
 
@@ -51,7 +50,9 @@ function move_kernel!(
         domain_check && continue
 
         # new cell indices
-        new_cell = cell_index(pᵢ, grid)
+        new_cell = ntuple(Val(N1)) do i
+            cell_index(pᵢ[i], grid[i], dxi[i])
+        end
         # hold particle variables
         current_args = @inbounds cache_args(args, ip, idx)
         # remove particle from child cell

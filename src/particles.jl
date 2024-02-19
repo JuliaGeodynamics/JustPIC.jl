@@ -51,15 +51,21 @@ struct MarkerChain{Backend,N,M,I,T1,T2,TV} <: AbstractParticles
     end
 end
 
-struct PassiveMarkers{Backend,N,T} <: AbstractParticles
-    coords::NTuple{N,T}
+struct PassiveMarkers{Backend,T} <: AbstractParticles
+    coords::T
     np::Int64
 
     function PassiveMarkers(backend, coords::NTuple{N,T}) where {N,T}
-        np = length(coords[1].data)
-        return new{backend,N,T}(coords, np)
+        # np = length(coords[1].data)
+        np = length(coords[1])
+        return new{backend,typeof(coords)}(coords, np)
+    end
+    function PassiveMarkers(backend, coords::AbstractArray)
+        np = length(coords)
+        return new{backend,typeof(coords)}(coords, np)
     end
 end
+
 
 
 # useful functions
@@ -79,7 +85,8 @@ unwrap_abstractarray(x::AbstractArray) = typeof(x).name.wrapper
 @inline cell_y(p::AbstractParticles, icell::Vararg{Int,N}) where {N} = p.coords[2][icell...]
 @inline cell_z(p::AbstractParticles, icell::Vararg{Int,N}) where {N} = p.coords[3][icell...]
 
-@inline cell_index(xᵢ::T, dxᵢ::T) where {T} = abs(Int(xᵢ ÷ dxᵢ)) + 1
+# @inline cell_index(xᵢ::T, dxᵢ::T) where {T} = abs(Int(xᵢ ÷ dxᵢ)) + 1
+@inline cell_index(xᵢ::T, dxᵢ::T) where {T} = abs(Int(trunc(xᵢ / dxᵢ))) + 1
 @inline cell_index(xᵢ::T, xvᵢ::AbstractRange{T}) where {T} =
     cell_index(xᵢ, xvᵢ, abs(xvᵢ[2] - xvᵢ[1]))
 
