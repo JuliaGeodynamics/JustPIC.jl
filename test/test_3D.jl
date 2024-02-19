@@ -143,6 +143,34 @@ end
     @test norm(T2 .- T) / length(T) < 1e-2
 end
 
+@testset "Cell index 3D" begin
+    n = 100
+    a, b = rand()*50, rand()*50
+    start, finish = extrema((a, b))
+    L = finish - start
+    x = range(start, stop=finish, length=n)
+    xv = x, x, x
+
+    p = px, py, pz = tuple((rand(3).*L .+ start)...)
+    i, j, k = cell_index(p, xv)
+    @assert x[i] ≤ px < x[i+1]
+    @assert x[j] ≤ py < x[j+1]
+    @assert x[k] ≤ pz < x[k+1]
+
+    y = x
+    z = range(-start, stop=finish, length=n)
+    xv = x, y, z
+    px, py = tuple((rand(2).*L .+ start)...)
+    Lz = z[end] - z[1]
+    pz = rand()*Lz - start
+    p = px, py, pz
+
+    i, j, k = cell_index(p, xv)
+    @assert x[i] ≤ px < x[i+1]
+    @assert y[j] ≤ py < y[j+1]
+    @assert z[k] ≤ pz < z[k+1]
+end
+
 @testset "Passive markers 3D" begin
     n   = 64
     nx  = ny = nz = n-1

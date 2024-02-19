@@ -23,13 +23,13 @@ function _move_particles!(coords, grid, dxi, index, domain_limits, idx, args)
     # coordinate of the lower-most-left coordinate of the parent cell 
     corner_xi = corner_coordinate(grid, idx)
     # iterate over neighbouring (child) cells
-    move_kernel!(coords, corner_xi, dxi, index, domain_limits, args, idx)
+    move_kernel!(coords, corner_xi, grid, dxi, index, domain_limits, args, idx)
 
     return nothing
 end
 
 function move_kernel!(
-    coords, corner_xi, dxi, index, domain_limits, args::NTuple{N2,T}, idx::NTuple{N1,Int64}
+    coords, corner_xi, grid, dxi, index, domain_limits, args::NTuple{N2,T}, idx::NTuple{N1,Int64}
 ) where {N1,N2,T}
 
     # iterate over particles in child cell 
@@ -45,13 +45,13 @@ function move_kernel!(
         domain_check = !(indomain(pᵢ, domain_limits))
         if domain_check
             @cell index[ip, idx...] = false
-            empty_particle!(particle_coords, ip, idx)
+            empty_particle!(coords, ip, idx)
             empty_particle!(args, ip, idx)
         end
         domain_check && continue
 
         # new cell indices
-        new_cell = get_cell(pᵢ, dxi)
+        new_cell = cell_index(pᵢ, grid)
         # hold particle variables
         current_args = @inbounds cache_args(args, ip, idx)
         # remove particle from child cell
