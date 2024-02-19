@@ -206,6 +206,31 @@ end
 
     @test norm(T2 .- T) / length(T) < 1e-2
 end
+@testset "Cell index 2D" begin
+    n = 11
+    x = range(0, stop=1, length=n)
+    xv = x, x
+    
+    px = rand()
+    idx = cell_index(px, x)
+    @test x[idx] ≤ px < x[idx+1]
+    
+    px, py = rand(2)
+    i, j = cell_index((px,py), xv)
+    @test x[i] ≤ px < x[i+1]
+    @test x[j] ≤ py < x[j+1]
+    
+    x = range(0, stop=1, length=n)
+    y = range(-1, stop=0, length=n)
+    px, py = rand(), -rand()
+    idx = cell_index(py, y)
+    @test y[idx] ≤ py < y[idx+1]
+    
+    xv = x, y
+    i, j = cell_index((px,py), xv)
+    @test x[i] ≤ px < x[i+1]
+    @test y[j] ≤ py < y[j+1] 
+end
 
 @testset "Passive markers 2D" begin
     # Initialize particles -------------------------------

@@ -81,17 +81,15 @@ unwrap_abstractarray(x::AbstractArray) = typeof(x).name.wrapper
 
 @inline cell_index(xᵢ::T, dxᵢ::T) where {T} = abs(Int(xᵢ ÷ dxᵢ)) + 1
 @inline cell_index(xᵢ::T, xvᵢ::AbstractRange{T}) where {T} =
-    cell_index(xᵢ, xvᵢ, xvᵢ[2] - xvᵢ[1])
+    cell_index(xᵢ, xvᵢ, abs(xvᵢ[2] - xvᵢ[1]))
 
 # generic one that works for any grid
 @inline function cell_index(xᵢ::T, xvᵢ::AbstractRange{T}, dxᵢ::T) where {T}
     xv₀ = first(xvᵢ)
     if iszero(xv₀)
         return cell_index(xᵢ, dxᵢ)
-
     else
-        first_index = cell_index(xv₀, dxᵢ)
-        return cell_index(xᵢ, dxᵢ) - first_index + 1
+        return cell_index(xᵢ-xv₀, dxᵢ)
     end
 end
 
