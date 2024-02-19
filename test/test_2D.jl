@@ -16,6 +16,150 @@ else
     CPUBackend
 end
 
+@testset "Interpolations 2D" begin
+    nxcell, max_xcell, min_xcell = 24, 24, 1
+    n = 5 # number of vertices
+    nx = ny = n - 1
+    Lx = Ly = 1.0
+    # nodal vertices
+    xvi = xv, yv = LinRange(0, Lx, n), LinRange(0, Ly, n)
+    dxi = dx, dy = xv[2] - xv[1], yv[2] - yv[1]
+    # nodal centers
+    xci = xc, yc = LinRange(0+dx/2, Lx-dx/2, n-1), LinRange(0+dy/2, Ly-dy/2, n-1)
+    # staggered grid velocity nodal locations
+
+    # Initialize particles & particle fields
+    particles = init_particles(
+        backend, nxcell, max_xcell, min_xcell, xvi..., dxi..., nx, ny
+    )
+    pT, = init_cell_arrays(particles, Val(1))
+
+    # Linear field at the vertices
+    T  = TA(backend)([y for x in xv, y in yv])
+    T0 = TA(backend)([y for x in xv, y in yv])
+
+    # Grid to particle test
+    grid2particle!(pT, xvi, T, particles)
+
+    @test pT == particles.coords[2]
+
+    # Grid to particle test
+    grid2particle_flip!(pT, xvi, T, T0, particles)
+
+    @test pT == particles.coords[2]
+
+    # Particle to grid test
+    T2 = similar(T)
+    particle2grid!(T2, pT, xvi, particles)
+
+    @test norm(T2 .- T) / length(T) < 1e-2
+end
+
+@testset "Particles initialization 2D" begin
+    # Initialize particles -------------------------------
+    nxcell, max_xcell, min_xcell = 12, 24, 6
+    n = 101
+    nx = ny = n-1
+    ni = nx, ny
+    Lx = Ly = 1.0
+    # nodal vertices
+    xvi = xv, yv = LinRange(0, Lx, n), LinRange(0, Ly, n)
+    dxi = dx, dy = xv[2] - xv[1], yv[2] - yv[1]
+    # nodal centers
+    xc, yc = LinRange(0+dx/2, Lx-dx/2, n-1), LinRange(0+dy/2, Ly-dy/2, n-1)
+    # staggered grid velocity nodal locations
+    grid_vx = xv, expand_range(yc)
+    grid_vy = expand_range(xc), yv
+
+    particles1 = init_particles(
+        backend, nxcell, max_xcell, min_xcell, xvi..., dxi..., nx, ny
+    )
+
+    particles2 = init_particles(
+        backend, nxcell, max_xcell, min_xcell, xvi, dxi, ni
+    )
+
+    @test particles1.min_xcell == particles2.min_xcell
+    @test particles1.max_xcell == particles2.max_xcell
+    @test particles1.np == particles2.np
+end
+
+@testset "Cell index 2D" begin
+    n = 11
+    x = range(0, stop=1, length=n)
+    xv = x, x
+    
+    px = rand()
+    idx = cell_index(px, x)
+    @test x[idx] ≤ px < x[idx+1]
+    
+    px, py = rand(2)
+    i, j = cell_index((px,py), xv)
+    @test x[i] ≤ px < x[i+1]
+    @test x[j] ≤ py < x[j+1]
+    
+    x = range(0, stop=1, length=n)
+    y = range(-1, stop=0, length=n)
+    px, py = rand(), -rand()
+    idx = cell_index(py, y)
+    @test y[idx] ≤ py < y[idx+1]
+    
+    xv = x, y
+    i, j = cell_index((px,py), xv)
+    @test x[i] ≤ px < x[i+1]
+    @test y[j] ≤ py < y[j+1] 
+end
+
+@testset "Passive markers 2D" begin
+    # Initialize particles -------------------------------
+    n = 51
+    Lx = Ly = 1.0
+    # nodal vertices
+    xvi = xv, yv = LinRange(0, Lx, n), LinRange(0, Ly, n)
+    dxi = dx, dy = xv[2] - xv[1], yv[2] - yv[1]
+    # nodal centers
+    xc, yc = LinRange(0+dx/2, Lx-dx/2, n-1), LinRange(0+dy/2, Ly-dy/2, n-1)
+    # staggered grid velocity nodal locations
+    grid_vx = xv, expand_range(yc)
+    grid_vy = expand_range(xc), yv
+
+    # Cell fields -------------------------------
+    Vx = TA(backend)([-vi_stream(y) for x in grid_vx[1], y in grid_vx[2]]);
+    Vy = TA(backend)([ vi_stream(x) for x in grid_vy[1], y in grid_vy[2]]);
+
+    T   = TA(backend)([y for x in xv, y in yv]);
+    P   = TA(backend)([x for x in xv, y in yv]);
+    V   = Vx, Vy;
+
+    w = π*1e-5  # angular velocity
+    period = 1  # revolution number
+    tmax = period / (w/(2*π))
+    dt = 200.0
+
+    np = 256 # number of passive markers
+    passive_coords = ntuple(Val(2)) do i
+        (rand(np) .+ 1) .* Lx/4
+    end
+
+    passive_markers = init_passive_markers(backend, passive_coords);
+    T_marker = zeros(np)
+    P_marker = zeros(np)
+
+    for _ in 1:50
+        advect_passive_markers!(passive_markers, V, grid_vx, grid_vy, dt)
+    end
+
+    # interpolate grid fields T and P onto the marker locations
+    grid2particle!((T_marker, P_marker), xvi, (T, P), passive_markers)
+    x_marker = passive_markers.coords[1].data[:]
+    y_marker = passive_markers.coords[2].data[:]
+
+    @test y_marker ≈ T_marker
+    @test x_marker ≈ P_marker
+end
+
+#####
+
 function expand_range(x::AbstractRange)
     dx = x[2] - x[1]
     n = length(x)
@@ -90,10 +234,6 @@ function test_advection_2D()
     return passed
 end
 
-@testset "Advection 2D" begin
-    @test test_advection_2D()
-end
-
 # Analytical flow solution
 vi_stream(x) =  π*1e-5 * (x - 0.5)
 
@@ -156,7 +296,7 @@ function test_rotating_circle()
     return abs(sumT - sumT_final) / sumT
 end
 
-function test_advection_2D()
+function test_rotation_2D()
     @show err = test_rotating_circle()
     tol = 1e-2
     passed = err < tol
@@ -164,118 +304,12 @@ function test_advection_2D()
     return passed
 end
 
-@testset "Rotating circle 2D" begin
-    @test test_advection_2D()
-end
-
-@testset "Interpolations 2D" begin
-    nxcell, max_xcell, min_xcell = 24, 24, 1
-    n = 5 # number of vertices
-    nx = ny = n - 1
-    Lx = Ly = 1.0
-    # nodal vertices
-    xvi = xv, yv = LinRange(0, Lx, n), LinRange(0, Ly, n)
-    dxi = dx, dy = xv[2] - xv[1], yv[2] - yv[1]
-    # nodal centers
-    xci = xc, yc = LinRange(0+dx/2, Lx-dx/2, n-1), LinRange(0+dy/2, Ly-dy/2, n-1)
-    # staggered grid velocity nodal locations
-
-    # Initialize particles & particle fields
-    particles = init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi..., dxi..., nx, ny
-    )
-    pT, = init_cell_arrays(particles, Val(1))
-
-    # Linear field at the vertices
-    T  = TA(backend)([y for x in xv, y in yv])
-    T0 = TA(backend)([y for x in xv, y in yv])
-
-    # Grid to particle test
-    grid2particle!(pT, xvi, T, particles)
-
-    @test pT == particles.coords[2]
-
-    # Grid to particle test
-    grid2particle_flip!(pT, xvi, T, T0, particles)
-
-    @test pT == particles.coords[2]
-
-    # Particle to grid test
-    T2 = similar(T)
-    particle2grid!(T2, pT, xvi, particles)
-
-    @test norm(T2 .- T) / length(T) < 1e-2
-end
-@testset "Cell index 2D" begin
-    n = 11
-    x = range(0, stop=1, length=n)
-    xv = x, x
-    
-    px = rand()
-    idx = cell_index(px, x)
-    @test x[idx] ≤ px < x[idx+1]
-    
-    px, py = rand(2)
-    i, j = cell_index((px,py), xv)
-    @test x[i] ≤ px < x[i+1]
-    @test x[j] ≤ py < x[j+1]
-    
-    x = range(0, stop=1, length=n)
-    y = range(-1, stop=0, length=n)
-    px, py = rand(), -rand()
-    idx = cell_index(py, y)
-    @test y[idx] ≤ py < y[idx+1]
-    
-    xv = x, y
-    i, j = cell_index((px,py), xv)
-    @test x[i] ≤ px < x[i+1]
-    @test y[j] ≤ py < y[j+1] 
-end
-
-@testset "Passive markers 2D" begin
-    # Initialize particles -------------------------------
-    n = 51
-    Lx = Ly = 1.0
-    # nodal vertices
-    xvi = xv, yv = LinRange(0, Lx, n), LinRange(0, Ly, n)
-    dxi = dx, dy = xv[2] - xv[1], yv[2] - yv[1]
-    # nodal centers
-    xc, yc = LinRange(0+dx/2, Lx-dx/2, n-1), LinRange(0+dy/2, Ly-dy/2, n-1)
-    # staggered grid velocity nodal locations
-    grid_vx = xv, expand_range(yc)
-    grid_vy = expand_range(xc), yv
-
-    # Cell fields -------------------------------
-    Vx = TA(backend)([-vi_stream(y) for x in grid_vx[1], y in grid_vx[2]]);
-    Vy = TA(backend)([ vi_stream(x) for x in grid_vy[1], y in grid_vy[2]]);
-
-    T   = TA(backend)([y for x in xv, y in yv]);
-    P   = TA(backend)([x for x in xv, y in yv]);
-    V   = Vx, Vy;
-
-    w = π*1e-5  # angular velocity
-    period = 1  # revolution number
-    tmax = period / (w/(2*π))
-    dt = 200.0
-
-    np = 256 # number of passive markers
-    passive_coords = ntuple(Val(2)) do i
-        (rand(np) .+ 1) .* Lx/4
+@testset "Miniapps" begin
+    @testset "1. Advection 2D" begin
+        @test test_advection_2D()
     end
 
-    passive_markers = init_passive_markers(backend, passive_coords);
-    T_marker = zeros(np)
-    P_marker = zeros(np)
-
-    for _ in 1:50
-        advect_passive_markers!(passive_markers, V, grid_vx, grid_vy, dt)
+    @testset "2. Rotating circle 2D" begin
+        @test test_rotation_2D()
     end
-
-    # interpolate grid fields T and P onto the marker locations
-    grid2particle!((T_marker, P_marker), xvi, (T, P), passive_markers)
-    x_marker = passive_markers.coords[1].data[:]
-    y_marker = passive_markers.coords[2].data[:]
-
-    @test y_marker ≈ T_marker
-    @test x_marker ≈ P_marker
 end
