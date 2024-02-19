@@ -48,7 +48,7 @@ function main()
     # Initialize particles -------------------------------
     nxcell, max_xcell, min_xcell = 24, 24, 3
     particles = init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi..., dxi..., ni
+        backend, nxcell, max_xcell, min_xcell, xvi, dxi, ni
     )
 
     # Cell fields -------------------------------

@@ -18,68 +18,55 @@ end
 
 ## random particles initialization 
 
-function init_particles(backend, nxcell, max_xcell, min_xcell, x, y, dx, dy, nx, ny)
-    ni = nx, ny
-    ncells = nx * ny
-    np = max_xcell * ncells
-    px, py = ntuple(_ -> @rand(ni..., celldims = (max_xcell,)), Val(2))
+function init_particles(backend, nxcell, max_xcell, min_xcell, x, y, dx, dy, nx, ny) 
+    return init_particles(backend, nxcell, max_xcell, min_xcell, (x, y), (dx, dy), (nx, ny))
+end
 
-    inject = @fill(false, nx, ny, eltype = Bool)
-    index = @fill(false, ni..., celldims = (max_xcell,), eltype = Bool)
+function init_particles(backend, nxcell, max_xcell, min_xcell, x, y, z, dx, dy, dz, nx, ny, nz)
+    return init_particles(backend, nxcell, max_xcell, min_xcell, (x, y, z), (dx, dy, dz), (nx, ny, nz))
+end
 
-    @parallel_indices (i, j) function fill_coords_index(
-        px, py, index, x, y, dx, dy, nxcell, max_xcell
-    )
+function init_particles(backend, nxcell, max_xcell, min_xcell, coords::NTuple{N, AbstractArray}, dxᵢ::NTuple{N, T}, nᵢ::NTuple{N, I}) where {N, T, I}
+    ncells = prod(nᵢ)
+    np     = max_xcell * ncells
+    pxᵢ    = ntuple(_ -> @rand(nᵢ..., celldims = (max_xcell,)), Val(N))
+
+    inject = @fill(false, nᵢ..., eltype = Bool)
+    index = @fill(false, nᵢ..., celldims = (max_xcell,), eltype = Bool)
+
+    @parallel_indices (I...) function fill_coords_index(
+        pxᵢ::NTuple{N, T}, index, coords, dxᵢ, nxcell, max_xcell
+    ) where {N, T}
         # lower-left corner of the cell
-        x0, y0 = x[i], y[j]
+        x0ᵢ = ntuple(Val(N)) do ndim
+            coords[ndim][I[ndim]]
+        end
+
         # fill index array
         for l in 1:max_xcell
-            if l <= nxcell
-                @cell px[l, i, j] = x0 + dx * (@cell(px[l, i, j]) * 0.9 + 0.05)
-                @cell py[l, i, j] = y0 + dy * (@cell(py[l, i, j]) * 0.9 + 0.05)
-                @cell index[l, i, j] = true
+            if l ≤ nxcell
+                ntuple(Val(N)) do ndim
+                    @cell pxᵢ[ndim][l, I...] = x0ᵢ[ndim] + dxᵢ[ndim] * (@cell(pxᵢ[ndim][l, I...]) * 0.9 + 0.05)
+                end
+                @cell index[l,  I...] = true
 
             else
-                @cell px[l, i, j] = NaN
-                @cell py[l, i, j] = NaN
+                ntuple(Val(N)) do ndim
+                    @cell pxᵢ[ndim][l, I...] = NaN
+                end
             end
         end
         return nothing
     end
 
-    @parallel (1:nx, 1:ny) fill_coords_index(px, py, index, x, y, dx, dy, nxcell, max_xcell)
+    @parallel (@idx nᵢ) fill_coords_index(pxᵢ, index, coords, dxᵢ, nxcell, max_xcell)
 
-    return Particles(backend, (px, py), index, inject, nxcell, max_xcell, min_xcell, np)
+    return Particles(backend, pxᵢ, index, inject, nxcell, max_xcell, min_xcell, np)
 end
 
-function init_particles(backend, nxcell, max_xcell, min_xcell, x, y, z, dx, dy, dz, ni)
-    ncells = prod(ni)
-    np = max_xcell * ncells
-    px, py, pz = ntuple(_ -> @fill(NaN, ni..., celldims = (max_xcell,)), Val(3))
-    inject = @fill(false, ni..., eltype = Bool)
-    index = @fill(false, ni..., celldims = (max_xcell,), eltype = Bool)
-
-    @parallel_indices (i, j, k) function fill_coords_index(px, py, pz, index)
-        # lower-left corner of the cell
-        x0, y0, z0 = x[i], y[j], z[k]
-        # fill index array
-        for l in 1:nxcell
-            @cell px[l, i, j, k] = x0 + dx * rand(0.05:1e-5:0.95)
-            @cell py[l, i, j, k] = y0 + dy * rand(0.05:1e-5:0.95)
-            @cell pz[l, i, j, k] = z0 + dz * rand(0.05:1e-5:0.95)
-            @cell index[l, i, j, k] = true
-        end
-        return nothing
-    end
-
-    @parallel (@idx ni) fill_coords_index(px, py, pz, index)
-
-    return Particles(backend, (px, py, pz), index, inject, nxcell, max_xcell, min_xcell, np)
-end
-
-function get_cell(xi::Union{SVector{N,T},NTuple{N,T}}, dxi::NTuple{N,T}) where {N,T<:Real}
-    ntuple(Val(N)) do i
-        Base.@_inline_meta
-        abs(Int64(xi[i] ÷ dxi[i])) + 1
-    end
-end
+# function get_cell(xi::Union{SVector{N,T},NTuple{N,T}}, dxi::NTuple{N,T}) where {N,T<:Real}
+#     ntuple(Val(N)) do i
+#         Base.@_inline_meta
+#         abs(Int64(xi[i] ÷ dxi[i])) + 1
+#     end
+# end
