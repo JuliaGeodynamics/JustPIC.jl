@@ -144,23 +144,27 @@ end
 end
 
 @testset "Cell index 3D" begin
-    n = 11
-    x = range(0, stop=1, length=n)
+    n = 100
+    a, b = rand()*50, rand()*50
+    start, finish = extrema((a, b))
+    L = finish - start
+    x = range(start, stop=finish, length=n)
     xv = x, x, x
-    
-    p = px, py, pz = tuple(rand(3)...)
+
+    p = px, py, pz = tuple((rand(3).*L .+ start)...)
     i, j, k = cell_index(p, xv)
     @assert x[i] ≤ px < x[i+1]
     @assert x[j] ≤ py < x[j+1]
     @assert x[k] ≤ pz < x[k+1]
-    
-    x = range(0, stop=1, length=n)
-    y = range(0, stop=1, length=n)
-    z = range(-1, stop=0, length=n)
+
+    y = x
+    z = range(-start, stop=finish, length=n)
     xv = x, y, z
-    px, py, pz = rand(), rand(), -rand()
+    px, py = tuple((rand(2).*L .+ start)...)
+    Lz = z[end] - z[1]
+    pz = rand()*Lz - start
     p = px, py, pz
-    
+
     i, j, k = cell_index(p, xv)
     @assert x[i] ≤ px < x[i+1]
     @assert y[j] ≤ py < y[j+1]
