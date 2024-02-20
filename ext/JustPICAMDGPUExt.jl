@@ -62,6 +62,13 @@ module _2D
         return inject_particles!(particles, args, fields, grid)
     end
 
+    function JustPIC._2D.inject_particles_phase!(
+        particles::ParticlesExt{AMDGPUBackend}, particles_phases, args, fields, grid
+    )
+        inject_particles_phase!(particles::Particles, particles_phases, args, fields, grid)
+        return nothing4
+    end
+
     function JustPIC._2D.shuffle_particles!(
         particles::ParticlesExt{AMDGPUBackend}, args::Vararg{Any,N}
     ) where {N}
@@ -176,6 +183,13 @@ module _3D
         particles::ParticlesExt{AMDGPUBackend}, args, fields, grid
     )
         return inject_particles!(particles, args, fields, grid)
+    end
+
+    function JustPIC._3D.inject_particles_phase!(
+        particles::ParticlesExt{AMDGPUBackend}, particles_phases, args, fields, grid
+    )
+        inject_particles_phase!(particles::Particles, particles_phases, args, fields, grid)
+        return nothing4
     end
 
     function JustPIC._3D.shuffle_particles!(
