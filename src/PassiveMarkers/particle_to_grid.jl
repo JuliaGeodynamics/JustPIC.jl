@@ -45,7 +45,8 @@ end
             ivertex = ioffset + inode
             xvertex = xv[ivertex], yv[jvertex] # cell lower-left coordinates
             # F acting as buffer here
-            ω_i = distance_weight(xvertex, pᵢ; order=4)
+            # ω_i = distance_weight(xvertex, pᵢ; order=4)
+            ω_i = bilinear_weight(xvertex, pᵢ, dxi)
             @myatomic F[ivertex, jvertex] += ω_i
             @myatomic buffer[ivertex, jvertex] += Fp_ipart * ω_i
         end

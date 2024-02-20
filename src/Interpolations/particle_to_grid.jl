@@ -14,13 +14,12 @@ end
 
 ## INTERPOLATION KERNEL 2D
 
-@inbounds function _particle2grid!(
+function _particle2grid!(
     F, Fp, inode, jnode, xi::NTuple{2,T}, p, index, di
 ) where {T}
-    px, py = p # particle coordinates
-    # nx, ny = size(F)
+    px, py  = p # particle coordinates
     xvertex = xi[1][inode], xi[2][jnode] # cell lower-left coordinates
-    ω, ωxF = 0.0, 0.0 # init weights
+    ω, ωxF  = 0.0, 0.0 # init weights
 
     # iterate over cells around i-th node
     @inbounds for joffset in -1:0
@@ -39,16 +38,16 @@ end
                 doskip(index, ip, ivertex, jvertex) && continue
 
                 p_i = @cell(px[ip, ivertex, jvertex]), @cell(py[ip, ivertex, jvertex])
-                ω_i = distance_weight(xvertex, p_i; order=4)
-                # # ω_i = bilinear_weight(xvertex, p_i, di)
+                # ω_i = distance_weight(xvertex, p_i; order=4)
+                ω_i = bilinear_weight(xvertex, p_i, di)
                 ω += ω_i
                 ωxF = fma(ω_i, @cell(Fp[ip, ivertex, jvertex]), ωxF)
-                # ωxF += ω_i * @cell(Fp[i, ivertex, jvertex])
             end
         end
     end
 
-    return @inbounds F[inode, jnode] = ωxF / ω
+    @inbounds F[inode, jnode] = ωxF / ω
+    return nothing
 end
 
 @inbounds function _particle2grid!(
