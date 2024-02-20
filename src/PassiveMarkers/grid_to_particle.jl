@@ -18,8 +18,8 @@ end
 @inline function _grid2particle_passive_marker!(Fp::AbstractArray, F::AbstractArray, xvi, dxi::NTuple{N,T}, p, ip) where {N,T}
     
     # particle coordinates 
-    # pᵢ = get_particle_coords(p, ip)
-    pᵢ = p[ip].data
+    pᵢ = get_particle_coords(p, ip)
+    # pᵢ = p[ip].data
     
     I = ntuple(Val(N)) do i
         Base.@_inline_meta
@@ -32,6 +32,11 @@ end
     Fp[ip] = _grid2particle(pᵢ, xvi, dxi, Fi, I)
 
     return nothing
+end
+
+@inline function _grid2particle!(Fp, ip, pᵢ, xvi, dxi, Fi, I)
+    # Interpolate field F onto particle
+    Fp[ip] = _grid2particle(pᵢ, xvi, dxi, Fi, I)
 end
 
 @inline function _grid2particle_passive_marker!(

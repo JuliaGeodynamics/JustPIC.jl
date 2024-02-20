@@ -18,40 +18,37 @@ end
     F, Fp, inode, jnode, xi::NTuple{2,T}, p, index, di
 ) where {T}
     px, py = p # particle coordinates
-    nx, ny = size(F)
+    # nx, ny = size(F)
     xvertex = xi[1][inode], xi[2][jnode] # cell lower-left coordinates
     ω, ωxF = 0.0, 0.0 # init weights
 
     # iterate over cells around i-th node
-    for joffset in -1:0
+    @inbounds for joffset in -1:0
         jvertex = joffset + jnode
-
-        !(1 ≤ jvertex < ny) && continue
+        !(1 ≤ jvertex) && continue
 
         # make sure we stay within the grid
         for ioffset in -1:0
             ivertex = ioffset + inode
-
-            !(1 ≤ ivertex < nx) && continue
+            !(1 ≤ ivertex) && continue
 
             # make sure we stay within the grid
             # iterate over cell
-            @inbounds for i in cellaxes(px)
-                # Base.@nexprs 24 i -> begin
+            for ip in cellaxes(px)
                 # early exit if particle is not in the cell
-                doskip(index, i, ivertex, jvertex) && continue
+                doskip(index, ip, ivertex, jvertex) && continue
 
-                p_i = @cell(px[i, ivertex, jvertex]), @cell(py[i, ivertex, jvertex])
+                p_i = @cell(px[ip, ivertex, jvertex]), @cell(py[ip, ivertex, jvertex])
                 ω_i = distance_weight(xvertex, p_i; order=4)
                 # # ω_i = bilinear_weight(xvertex, p_i, di)
                 ω += ω_i
-                ωxF = muladd(ω_i, @cell(Fp[i, ivertex, jvertex]), ωxF)
+                ωxF = fma(ω_i, @cell(Fp[ip, ivertex, jvertex]), ωxF)
                 # ωxF += ω_i * @cell(Fp[i, ivertex, jvertex])
             end
         end
     end
 
-    return F[inode, jnode] = ωxF / ω
+    return @inbounds F[inode, jnode] = ωxF / ω
 end
 
 @inbounds function _particle2grid!(

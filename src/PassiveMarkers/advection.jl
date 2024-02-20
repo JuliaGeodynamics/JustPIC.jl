@@ -59,13 +59,13 @@ end
     p, V::NTuple{N,T}, grid, local_limits, dxi, dt, α
 ) where {N,T}
     # cache particle coordinates 
-    pᵢ = p[ipart].data
-    # pᵢ = get_particle_coords(p, ipart)
+    # pᵢ = p[ipart].data
+    pᵢ = get_particle_coords(p, ipart)
     
     p_new = advect_particle_RK(pᵢ, V, grid, local_limits, dxi, dt, α)
-    p[ipart] = SVector(p_new)
-    # ntuple(Val(N)) do i
-    #     @inbounds p[i][ipart] = p_new[i]
-    # end
+    # p[ipart] = SVector(p_new)
+    ntuple(Val(N)) do i
+        @inbounds p[i][ipart] = p_new[i]
+    end
     return nothing
 end
