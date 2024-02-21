@@ -14,7 +14,7 @@ function advection_RK!(
 ) where {T}
     (; coords, np) = particles
 
-    # compute some basic stuff   
+    # compute some basic stuff
     dxi = compute_dx(grid_vx)
     # Need to transpose grid_vy and Vy to reuse interpolation kernels
     grid_vi = grid_vx, grid_vy
@@ -35,11 +35,11 @@ function advection_RK!(
     dt,
     α,
 ) where {T}
-    # unpack 
+    # unpack
     (; coords, np) = particles
     # compute some basic stuff
     dxi = compute_dx(grid_vx)
-   
+
     # Need to transpose grid_vy and Vy to reuse interpolation kernels
     grid_vi = grid_vx, grid_vy, grid_vz
     local_limits = inner_limits(grid_vi)
@@ -54,13 +54,13 @@ end
 
 # DIMENSION AGNOSTIC KERNELS
 
-# ParallelStencil fuction Runge-Kuttaadvection function for 3D staggered grids
+# ParallelStencil function Runge-Kuttaadvection function for 3D staggered grids
 @parallel_indices (ipart) function _advection_passive_markers_RK!(
     p, V::NTuple{N,T}, grid, local_limits, dxi, dt, α
 ) where {N,T}
-    # cache particle coordinates 
+    # cache particle coordinates
     pᵢ = get_particle_coords(p, ipart, 1)
-    
+
     p_new = advect_particle_RK(pᵢ, V, grid, local_limits, dxi, dt, α)
 
     ntuple(Val(N)) do i

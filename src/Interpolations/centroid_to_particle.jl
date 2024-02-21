@@ -35,11 +35,11 @@ end
         for i in idx_i:(idx_i + 1)
             !(1 ≤ i < nx) && continue
 
-            # iterate over all the particles within the cells of index `idx` 
+            # iterate over all the particles within the cells of index `idx`
             for ip in cellaxes(Fp)
-                # cache particle coordinates 
+                # cache particle coordinates
                 pᵢ = ntuple(ii -> (@cell p[ii][ip, i, j]), Val(2))
-                # skip lines below if there is no particle in this pice of memory
+                # skip lines below if there is no particle in this piece of memory
                 any(isnan, pᵢ) && continue
                 # Interpolate field F onto particle
                 @cell Fp[ip, i, j] = _centroid2particle(pᵢ, xci, di, F, idx)
@@ -61,11 +61,11 @@ end
         for i in idx_i:(idx_i + 1)
             !(1 ≤ i < nx) && continue
 
-            # iterate over all the particles within the cells of index `idx` 
+            # iterate over all the particles within the cells of index `idx`
             for ip in cellaxes(Fp)
-                # cache particle coordinates 
+                # cache particle coordinates
                 pᵢ = ntuple(ii -> (@cell p[ii][ip, i, j]), Val(2))
-                # skip lines below if there is no particle in this pice of memory
+                # skip lines below if there is no particle in this piece of memory
                 any(isnan, pᵢ) && continue
                 # Interpolate field F onto particle
                 ntuple(Val(N)) do n
@@ -91,11 +91,11 @@ end
             for i in idx_i:(idx_i + 1)
                 !(1 ≤ i < nx) && continue
 
-                # iterate over all the particles within the cells of index `idx` 
+                # iterate over all the particles within the cells of index `idx`
                 for ip in cellaxes(Fp)
-                    # cache particle coordinates 
+                    # cache particle coordinates
                     pᵢ = ntuple(ii -> (@cell p[ii][ip, i, j, k]), Val(3))
-                    # skip lines below if there is no particle in this pice of memory
+                    # skip lines below if there is no particle in this piece of memory
                     any(isnan, pᵢ) && continue
                     # Interpolate field F onto particle
                     @cell Fp[ip, i, j, k] = _centroid2particle(pᵢ, xci, di, F, idx)
@@ -121,11 +121,11 @@ end
             for i in idx_i:(idx_i + 1)
                 !(1 ≤ i < nx) && continue
 
-                # iterate over all the particles within the cells of index `idx` 
+                # iterate over all the particles within the cells of index `idx`
                 for ip in cellaxes(Fp)
-                    # cache particle coordinates 
+                    # cache particle coordinates
                     pᵢ = ntuple(ii -> (@cell p[ii][ip, i, j, k]), Val(3))
-                    # skip lines below if there is no particle in this pice of memory
+                    # skip lines below if there is no particle in this piece of memory
                     any(isnan, pᵢ) && continue
                     # Interpolate field F onto particle
                     ntuple(Val(N)) do n
@@ -183,11 +183,11 @@ end
         for i in idx_i:(idx_i + 1)
             !(1 ≤ i < nx) && continue
 
-            # iterate over all the particles within the cells of index `idx` 
+            # iterate over all the particles within the cells of index `idx`
             for ip in cellaxes(Fp)
-                # cache particle coordinates 
+                # cache particle coordinates
                 pᵢ = ntuple(i -> (@cell p[i][ip, i, j]), Val(2))
-                # skip lines below if there is no particle in this pice of memory
+                # skip lines below if there is no particle in this piece of memory
                 any(isnan, pᵢ) && continue
                 Fᵢ = @cell Fp[ip, i, j]
                 F_pic, F0_pic = _centroid2particle(pᵢ, xci, di, (F, F0), idx)
@@ -217,12 +217,12 @@ end
             for i in idx_i:(idx_i + 1)
                 !(1 ≤ i < nx) && continue
 
-                # iterate over all the particles within the cells of index `idx` 
+                # iterate over all the particles within the cells of index `idx`
                 for ip in cellaxes(Fp)
-                    # cache particle coordinates 
+                    # cache particle coordinates
                     pᵢ = ntuple(i -> (@cell p[i][ip, i, j, k]), Val(3))
 
-                    # skip lines below if there is no particle in this pice of memory
+                    # skip lines below if there is no particle in this piece of memory
                     any(isnan, pᵢ) && continue
 
                     Fᵢ = @cell Fp[ip, i, j, k]
@@ -251,11 +251,11 @@ end
         for i in idx_i:(idx_i + 1)
             !(1 ≤ i < nx) && continue
 
-            # iterate over all the particles within the cells of index `idx` 
+            # iterate over all the particles within the cells of index `idx`
             for ip in cellaxes(Fp)
-                # cache particle coordinates 
+                # cache particle coordinates
                 pᵢ = ntuple(i -> (@cell p[i][ip, i, j]), Val(2))
-                # skip lines below if there is no particle in this pice of memory
+                # skip lines below if there is no particle in this piece of memory
                 any(isnan, pᵢ) && continue
                 ntuple(Val(N1)) do i
                     Base.@_inline_meta
@@ -288,12 +288,12 @@ end
             for i in idx_i:(idx_i + 1)
                 !(1 ≤ i < nx) && continue
 
-                # iterate over all the particles within the cells of index `idx` 
+                # iterate over all the particles within the cells of index `idx`
                 for ip in cellaxes(Fp)
-                    # cache particle coordinates 
+                    # cache particle coordinates
                     pᵢ = ntuple(i -> (@cell p[i][ip, i, j, k]), Val(3))
 
-                    # skip lines below if there is no particle in this pice of memory
+                    # skip lines below if there is no particle in this piece of memory
                     any(isnan, pᵢ) && continue
 
                     ntuple(Val(N1)) do i
@@ -323,12 +323,12 @@ end
     idx,
     α,
 ) where {N1,T1,N2,T2,T3}
-    # iterate over all the particles within the cells of index `idx` 
+    # iterate over all the particles within the cells of index `idx`
     for ip in cellaxes(Fp)
-        # cache particle coordinates 
+        # cache particle coordinates
         pᵢ = ntuple(i -> (@cell p[i][ip, idx...]), Val(N2))
 
-        # skip lines below if there is no particle in this pice of memory
+        # skip lines below if there is no particle in this piece of memory
         any(isnan, pᵢ) && continue
 
         ntuple(Val(N1)) do i
