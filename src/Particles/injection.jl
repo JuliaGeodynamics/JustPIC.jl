@@ -1,4 +1,4 @@
-## FUNCTIONS TO CHECK WHETER INJECTION IS NEEDED OR NOT
+## FUNCTIONS TO CHECK WHETHER INJECTION IS NEEDED OR NOT
 
 """
     check_injection(particles)
@@ -249,7 +249,7 @@ function index_min_distance(coords, pn, index, current_cell, icell, jcell)
         (i == icell) && (j == jcell) && (ip == current_cell) && continue # current injected particle
         !(@cell index[ip, i, j]) && continue
 
-        # distance from new point to the existing particle        
+        # distance from new point to the existing particle
         pxi = @cell(px[ip, i, j]), @cell(py[ip, i, j])
         d = distance(pxi, pn)
 
@@ -280,7 +280,7 @@ function index_min_distance(coords, pn, index, current_cell, icell, jcell, kcell
         (i == icell) && (j == jcell) && (k == kcell) && (ip == current_cell) && continue # current injected particle
         !(@cell index[ip, i, j, k]) && continue
 
-        # distance from new point to the existing particle        
+        # distance from new point to the existing particle
         pxi = @cell(px[ip, i, j, k]), @cell(py[ip, i, j, k]), @cell(pz[ip, i, j, k])
         d = distance(pxi, pn)
 

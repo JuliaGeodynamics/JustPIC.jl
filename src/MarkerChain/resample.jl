@@ -31,7 +31,7 @@ function resample_cell!(
     np = count(index[I])
     # dx of the new chain
     dx_chain = dx_cells / (np + 1)
-    # resample the cell if the number of particles is  
+    # resample the cell if the number of particles is
     # less than min_xcell or it is too distorted
     do_resampling = (np < min_xcell) || isdistorded(x_cell, dx_chain)
 
@@ -76,7 +76,7 @@ function isdistorded(x_cell, dx_ideal)
         isnan(current_x) && continue
         # next particle
         next_x = x_cell[ip + 1]
-        # check wether next memory location holds a particle;
+        # check whether next memory location holds a particle;
         # if thats the case, find the next particle
         if isnan(next_x)
             next_index = findnext(!isnan, x_cell, ip + 1)
