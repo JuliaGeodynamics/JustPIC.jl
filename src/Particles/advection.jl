@@ -107,7 +107,7 @@ function advect_particle_RK(
     # advect α*dt
     p1 = ntuple(ValN) do i
         Base.@_inline_meta
-        muladd(vp0[i], dt * α, p0[i])
+        fma(vp0[i], dt * α, p0[i])
     end
 
     # interpolate velocity to new location
@@ -152,31 +152,59 @@ end
 end
 
 # Get field F and nodal indices of the cell corners where the particle is located
-@inline function corner_field_nodes(
-    F::AbstractArray{T,N}, p_i, xi_vx, dxi, idx::Union{SVector{N,Integer},NTuple{N,Integer}}
+# @inline function corner_field_nodes(
+#     F::AbstractArray{T,N}, p_i, xi_vx, dxi, idx::Union{SVector{N,Integer},NTuple{N,Integer}}
+# ) where {N,T}
+#     ValN = Val(N)
+#     indices = ntuple(ValN) do n
+#         Base.@_inline_meta
+#         @inbounds begin
+#             # unpack
+#             idx_n = idx[n]
+#             # compute offsets and corrections
+#             offset = @inline vertex_offset(xi_vx[n][idx_n], p_i[n], dxi[n])
+#         end
+#         # cell indices
+#         idx_n += offset
+#     end
+
+#     # coordinates of lower-left corner of the cell
+#     cells = ntuple(ValN) do n
+#         Base.@_inline_meta
+#         @inbounds xi_vx[n][indices[n]]
+#     end
+
+#     # F at the four centers
+#     Fi = @inbounds extract_field_corners(F, indices...)
+
+#     return Fi, cells
+# end
+
+@generated function corner_field_nodes(
+    F::AbstractArray{T,N}, particle, xi_vx, dxi, idx::Union{SVector{N,Integer},NTuple{N,Integer}}
 ) where {N,T}
-    ValN = Val(N)
-    indices = ntuple(ValN) do n
+    quote
         Base.@_inline_meta
-        # unpack
-        idx_n = idx[n]
-        # compute offsets and corrections
-        offset = vertex_offset(xi_vx[n][idx_n], p_i[n], dxi[n])
-        # cell indices
-        idx_n += offset
+        @inbounds begin
+            Base.@nexprs $N i ->  begin
+                # unpack
+                corrected_idx_i = idx[i]
+                # compute offsets and corrections
+                corrected_idx_i += @inline vertex_offset(xi_vx[i][corrected_idx_i], particle[i], dxi[i])
+                cell_i = xi_vx[i][corrected_idx_i]
+            end
+
+            indices = Base.@ncall $N tuple corrected_idx
+            cells = Base.@ncall $N tuple cell
+
+            # F at the four centers
+            Fi = @inbounds extract_field_corners(F, indices...)
+        end
+    
+        return Fi, cells     
     end
-
-    # coordinates of lower-left corner of the cell
-    cells = ntuple(ValN) do n
-        Base.@_inline_meta
-        xi_vx[n][indices[n]]
-    end
-
-    # F at the four centers
-    Fi = extract_field_corners(F, indices...)
-
-    return Fi, cells
 end
+
 
 @inline function vertex_offset(xi, pxi, di)
     dist = normalised_distance(xi, pxi, di)
@@ -204,7 +232,7 @@ end
     F101 = F[i1, j, k1]
     F011 = F[i, j1, k1]
     F111 = F[i1, j1, k1]
-    return (F000, F100, F001, F101, F010, F110, F011, F111)
+    return F000, F100, F001, F101, F010, F110, F011, F111
 end
 
 @inline firstlast(x::Array) = first(x), last(x)
