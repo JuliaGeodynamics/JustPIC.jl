@@ -190,7 +190,7 @@ end
                 # unpack
                 corrected_idx_i = idx[i]
                 # compute offsets and corrections
-                corrected_idx_i += @inline vertex_offset(xi_vx[i][corrected_idx_i], particle[i], dxi[i])
+                corrected_idx_i += @inline vertex_offset(xi_vx[i][corrected_idx_i], particle[i], dxi[1])
                 cell_i = xi_vx[i][corrected_idx_i]
             end
 
