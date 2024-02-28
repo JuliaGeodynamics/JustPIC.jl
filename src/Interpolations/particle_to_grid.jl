@@ -24,12 +24,12 @@ function _particle2grid!(
     # iterate over cells around i-th node
     @inbounds for joffset in -1:0
         jvertex = joffset + jnode
-        !(1 ≤ jvertex) && continue
+        !(1 ≤ jvertex < size(F,2)) && continue
 
         # make sure we stay within the grid
         for ioffset in -1:0
             ivertex = ioffset + inode
-            !(1 ≤ ivertex) && continue
+            !(1 ≤ ivertex < size(F,1)) && continue
 
             # make sure we stay within the grid
             # iterate over cell
@@ -38,14 +38,13 @@ function _particle2grid!(
                 doskip(index, ip, ivertex, jvertex) && continue
 
                 p_i = @cell(px[ip, ivertex, jvertex]), @cell(py[ip, ivertex, jvertex])
-                # ω_i = distance_weight(xvertex, p_i; order=4)
-                ω_i = bilinear_weight(xvertex, p_i, di)
+                ω_i = distance_weight(xvertex, p_i; order=2)
+                # ω_i = bilinear_weight(xvertex, p_i, di) 
                 ω += ω_i
                 ωxF = fma(ω_i, @cell(Fp[ip, ivertex, jvertex]), ωxF)
             end
         end
     end
-
     @inbounds F[inode, jnode] = ωxF / ω
     return nothing
 end
