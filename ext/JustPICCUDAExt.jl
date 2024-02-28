@@ -83,7 +83,7 @@ module _2D
         particles::ParticlesExt{CUDABackend}, particles_phases, args, fields, grid
     )
         inject_particles_phase!(particles::Particles, particles_phases, args, fields, grid)
-        return nothing4
+        return nothing
     end
 
     function JustPIC._2D.shuffle_particles!(
@@ -216,7 +216,7 @@ module _3D
         particles::ParticlesExt{CUDABackend}, particles_phases, args, fields, grid
     )
         inject_particles_phase!(particles::Particles, particles_phases, args, fields, grid)
-        return nothing4
+        return nothing
     end
 
     function JustPIC._3D.shuffle_particles!(
