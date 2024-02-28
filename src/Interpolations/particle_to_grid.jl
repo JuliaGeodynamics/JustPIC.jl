@@ -38,7 +38,7 @@ function _particle2grid!(
                 doskip(index, ip, ivertex, jvertex) && continue
 
                 p_i = @cell(px[ip, ivertex, jvertex]), @cell(py[ip, ivertex, jvertex])
-                ω_i = distance_weight(xvertex, p_i; order=2)
+                ω_i = distance_weight(xvertex, p_i; order=3)
                 # ω_i = bilinear_weight(xvertex, p_i, di) 
                 ω += ω_i
                 ωxF = fma(ω_i, @cell(Fp[ip, ivertex, jvertex]), ωxF)
