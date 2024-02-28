@@ -39,7 +39,7 @@ particles = init_particles(
     backend, nxcell, max_xcell, min_xcell, xvi..., dxi..., nx, ny
 )
 
-# Then we define the velocity field on the correspondant grid points
+# Then we define the velocity field on the correspondent grid points
 # with the help of two functions describing an analytical flow
 vx_stream(x, y) =  250 * sin(π*x) * cos(π*y)
 vy_stream(x, y) = -250 * cos(π*x) * sin(π*y)
