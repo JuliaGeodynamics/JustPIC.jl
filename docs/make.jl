@@ -1,8 +1,6 @@
 using Documenter, JustPIC
 push!(LOAD_PATH, "../src/")
 
-pth = "/Users/albert/Desktop/JustPIC.jl/docs/examples/advection_2D"
-
 @info "Making documentation..."
 makedocs(;
     sitename="JustPIC.jl",
@@ -15,4 +13,4 @@ makedocs(;
     ],
 )
 
-deploydocs(; repo="https://github.com/JuliaGeodynamics/JustPIC.jl", devbranch="adm/docs")
+deploydocs(; repo="https://github.com/JuliaGeodynamics/JustPIC.jl", devbranch="main")
