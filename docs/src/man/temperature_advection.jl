@@ -1,7 +1,7 @@
 # Load JustPIC and its 2D submodule
 using JustPIC, JustPIC._2D
 
-# For convinience we define the device backend as a constant in our script.
+# For convenience we define the device backend as a constant in our script.
 # Threads is the default backend;
 # to run on a CUDA GPU load CUDA.jl and define the backend as CUDABackend, 
 # and to run on an AMD GPU load AMDGPU.jl and define the backend as AMDGPUBackend
@@ -16,7 +16,7 @@ xvi     = xv, yv = range(0, Lx, length=n), range(0, Ly, length=n) # coordinates 
 dxi     = dx, dy = xv[2] - xv[1], yv[2] - yv[1] # grid step
 xc, yc  = range(0+dx/2, Lx-dx/2, length=n-1), range(0+dy/2, Ly-dy/2, length=n-1) # coordinates of the cell centers
 
-# Staggered typicall have ghost nodex at the boundaries for the velocit field, so we 
+# Staggered typically have ghost nodex at the boundaries for the velocit field, so we 
 # need to add them using the `expand_range` helper function 
 function expand_range(x::AbstractRange)
     dx = x[2] - x[1]
