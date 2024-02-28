@@ -1,15 +1,14 @@
 module JustPIC
 
-__precompile__(false)
-
 export CPUBackend, CUDABackend, AMDGPUBackend
 
 abstract type AbstractBackend end
 struct CPUBackend <: AbstractBackend end
-# struct CUDABackend <: AbstractBackend end
 struct AMDGPUBackend <: AbstractBackend end
 
 export TA
+
+function CA end
 
 TA() = Array
 TA(::Type{CPUBackend}) = Array

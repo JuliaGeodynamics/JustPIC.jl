@@ -73,15 +73,17 @@ end
     px, py = p # particle coordinate
     xc, yc = xci # corner coordinate
     dx, dy = dxi # spacing between gridpoints
-
-    # check if it's outside the x-limits
-    px < xc && return false
-    px > xc + dx && return false
-    # check if it's outside the y-limits
-    py < yc && return false
-    py > yc + dy && return false
-    # otherwise particle is inside parent cell
-    return true
+    
+    return (xc < px < xc + dx) && (yc < py < yc + dy)
+    
+    # # check if it's outside the x-limits
+    # px < xc && return false
+    # px > xc + dx && return false
+    # # check if it's outside the y-limits
+    # py < yc && return false
+    # py > yc + dy && return false
+    # # otherwise particle is inside parent cell
+    # return true
 end
 
 @inline function isincell(p::NTuple{3,T}, xci::NTuple{3,T}, dxi::NTuple{3,T}) where {T}

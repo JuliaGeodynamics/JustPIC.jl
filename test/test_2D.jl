@@ -67,7 +67,7 @@ vi_stream(x) =  π*1e-5 * (x - 0.5)
     # Particle to grid test
     T2 = similar(T)
     particle2grid!(T2, pT, xvi, particles)
-
+    # norm(T2 .- T) / length(T)
     @test norm(T2 .- T) / length(T) < 1e-2
 end
 
@@ -167,8 +167,8 @@ end
 
     # interpolate grid fields T and P onto the marker locations
     grid2particle!((T_marker, P_marker), xvi, (T, P), passive_markers)
-    x_marker = passive_markers.coords[1].data[:]
-    y_marker = passive_markers.coords[2].data[:]
+    x_marker = passive_markers.coords[1]
+    y_marker = passive_markers.coords[2]
 
     @test y_marker ≈ T_marker
     @test x_marker ≈ P_marker

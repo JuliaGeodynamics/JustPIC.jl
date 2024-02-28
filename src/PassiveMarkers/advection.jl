@@ -1,15 +1,15 @@
 function advect_passive_markers!(particles::PassiveMarkers, V, grid_vx, grid_vy, dt; α::Float64=2 / 3)
-    advection_RK!(particles, V, grid_vx, grid_vy, dt, α)
+    advection_passive_markers_RK!(particles, V, grid_vx, grid_vy, dt, α)
     return nothing
 end
 
 function advect_passive_markers!(particles::PassiveMarkers, V, grid_vx, grid_vy, grid_vz, dt; α::Float64=2 / 3)
-    advection_RK!(particles, V, grid_vx, grid_vy, grid_vz, dt, α)
+    advection_passive_markers_RK!(particles, V, grid_vx, grid_vy, grid_vz, dt, α)
     return nothing
 end
 
 # Two-step Runge-Kutta advection scheme for marker chains
-function advection_RK!(
+function advection_passive_markers_RK!(
     particles::PassiveMarkers, V, grid_vx::NTuple{2,T}, grid_vy::NTuple{2,T}, dt, α
 ) where {T}
     (; coords, np) = particles
@@ -26,7 +26,7 @@ function advection_RK!(
     return nothing
 end
 
-function advection_RK!(
+function advection_passive_markers_RK!(
     particles::PassiveMarkers,
     V,
     grid_vx::NTuple{3,T},
@@ -58,13 +58,12 @@ end
 @parallel_indices (ipart) function _advection_passive_markers_RK!(
     p, V::NTuple{N,T}, grid, local_limits, dxi, dt, α
 ) where {N,T}
-    # cache particle coordinates
-    pᵢ = get_particle_coords(p, ipart, 1)
-
+    # cache particle coordinates 
+    pᵢ = get_particle_coords(p, ipart)
     p_new = advect_particle_RK(pᵢ, V, grid, local_limits, dxi, dt, α)
-
+    # p[ipart] = SVector(p_new)
     ntuple(Val(N)) do i
-        @inbounds @cell p[i][ipart, 1] = p_new[i]
+        @inbounds p[i][ipart] = p_new[i]
     end
     return nothing
 end

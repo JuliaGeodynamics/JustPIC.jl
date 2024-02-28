@@ -85,7 +85,7 @@ end
 end
 
 function advect_particle_RK(
-    p0::NTuple{N,T}, V::NTuple{N,AbstractArray{T,N}}, grid_vi, local_limits, dxi, dt, α
+    p0, V::NTuple{N,AbstractArray{T,N}}, grid_vi, local_limits, dxi, dt, α
 ) where {T,N}
     ValN = Val(N)
     # interpolate velocity to current location
@@ -154,7 +154,7 @@ end
 @inline function corner_field_nodes(F::AbstractArray{T,N}, pᵢ, xi_vx, dxi) where {T,N}
     I = ntuple(Val(N)) do i
         Base.@_inline_meta
-        cell_index(pᵢ[i], xi_vx[i], dxi[i])
+        cell_index(pᵢ[i], xi_vx[i], dxi[1])
     end
 
     # coordinates of lower-left corner of the cell

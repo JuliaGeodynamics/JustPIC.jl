@@ -177,8 +177,8 @@ end
     # interpolate grid fields T and P onto the marker locations
     grid2particle!((T_marker, P_marker), xvi, (T, P), passive_markers)
 
-    x_marker = passive_markers.coords[1].data[:]
-    z_marker = passive_markers.coords[3].data[:]
+    x_marker = passive_markers.coords[1]
+    z_marker = passive_markers.coords[3]
 
     @test x_marker ≈ P_marker
     @test z_marker ≈ T_marker

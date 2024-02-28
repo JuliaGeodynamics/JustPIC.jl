@@ -59,11 +59,12 @@ function main()
     
     !isdir("figs") && mkdir("figs")
 
-    niter = 1000
+    niter = 250
     for it in 1:niter
         advection_RK!(particles, V, grid_vx, grid_vy, dt, 2 / 3)
         move_particles!(particles, xvi, particle_args)
         inject = check_injection(particles)
+        inject && println("Injecting particles")
         inject && inject_particles!(particles, (pT, ), (T,), xvi)
 
         particle2grid!(T, pT, xvi, particles)
