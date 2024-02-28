@@ -75,10 +75,10 @@ for it in 1:niter
     particle2grid!(T, pT, xvi, particles)
 end
 
-# and see the results with Makie.jl
-using GLMakie
-g(x) = Point2f(vx_stream(x[1], x[2]), vy_stream(x[1], x[2]))
-f, ax, = heatmap(xvi..., Array(T), colormap=:managua)
-streamplot!(ax, g, xvi...)
+# # and see the results with Makie.jl
+# using GLMakie
+# g(x) = Point2f(vx_stream(x[1], x[2]), vy_stream(x[1], x[2]))
+# f, ax, = heatmap(xvi..., Array(T), colormap=:managua)
+# streamplot!(ax, g, xvi...)
 
-# ![image](./adv2D.png)
+# # ![image](./adv2D.png)

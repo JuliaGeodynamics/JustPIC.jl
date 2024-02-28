@@ -129,15 +129,6 @@ end
 
 and see the results with Makie.jl
 
-````@example temperature_advection
-using GLMakie
-g(x) = Point2f(vx_stream(x[1], x[2]), vy_stream(x[1], x[2]))
-f, ax, = heatmap(xvi..., Array(T), colormap=:managua)
-streamplot!(ax, g, xvi...)
-````
-
-![image](./adv2D.png)
-
 ---
 
 *This page was generated using [Literate.jl](https://github.com/fredrikekre/Literate.jl).*
