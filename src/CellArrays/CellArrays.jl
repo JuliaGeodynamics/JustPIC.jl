@@ -97,7 +97,7 @@ import Base: getindex, setindex!
     return setindex!(A, x, I...)
 end
 
-## Convinience macros
+## Convenience macros
 
 macro cell(ex)
     ex = if ex.head === (:(=))

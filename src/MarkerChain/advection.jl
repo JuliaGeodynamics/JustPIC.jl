@@ -8,7 +8,7 @@ end
     advection_RK!(particles, V, grid_vx, grid_vy, dt, α)
 
 Advect `particles` with the velocity field `V::NTuple{dims, AbstractArray{T,dims}`
-on the staggered grid given by `grid_vx` and `grid_vy`using a Runge-Kutta2 scheme 
+on the staggered grid given by `grid_vx` and `grid_vy`using a Runge-Kutta2 scheme
 with `α` and time step `dt`.
 
     xᵢ ← xᵢ + h*( (1-1/(2α))*f(t,xᵢ) + f(t, y+α*h*f(t,xᵢ))) / (2α)
@@ -23,7 +23,7 @@ function advection_RK!(
 ) where {T}
     (; coords, index) = particles
 
-    # compute some basic stuff   
+    # compute some basic stuff
     ni = size(index)
     dxi = compute_dx(grid_vx)
     # Need to transpose grid_vy and Vy to reuse interpolation kernels
@@ -45,7 +45,7 @@ function advection_RK!(
     dt,
     α,
 ) where {T}
-    # unpack 
+    # unpack
     (; coords, index) = particles
     # compute some basic stuff
     dxi = compute_dx(grid_vx)
@@ -65,14 +65,14 @@ end
 
 # DIMENSION AGNOSTIC KERNELS
 
-# ParallelStencil fuction Runge-Kuttaadvection function for 3D staggered grids
+# ParallelStencil function Runge-Kuttaadvection function for 3D staggered grids
 @parallel_indices (I...) function _advection_markerchain_RK!(
     p, V::NTuple{N,T}, index, grid, local_limits, dxi, dt, α
 ) where {N,T}
     for ipart in cellaxes(index)
         doskip(index, ipart, I...) && continue
 
-        # cache particle coordinates 
+        # cache particle coordinates
         pᵢ = get_particle_coords(p, ipart, I...)
         p_new = advect_particle_RK(pᵢ, V, grid, local_limits, dxi, dt, α)
 
@@ -94,7 +94,7 @@ function advect_particle_RK(
         local_lims = local_limits[i]
 
         # if this condition is met, it means that the particle
-        # went outside the local rank domain. It will be removed 
+        # went outside the local rank domain. It will be removed
         # during shuffling
         v = if check_local_limits(local_lims, p0)
             interp_velocity_grid2particle(p0, grid_vi[i], dxi, V[i])
@@ -114,7 +114,7 @@ function advect_particle_RK(
         Base.@_inline_meta
         local_lims = local_limits[i]
         # if this condition is met, it means that the particle
-        # went outside the local rank domain. It will be removed 
+        # went outside the local rank domain. It will be removed
         # during shuffling
         v = if check_local_limits(local_lims, p1)
             interp_velocity_grid2particle(p1, grid_vi[i], dxi, V[i])

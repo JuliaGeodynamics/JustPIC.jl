@@ -25,11 +25,11 @@ end
     Fp, p, xvi, di::NTuple{2,T}, F, index, idx
 ) where {T}
     i, j, ip = idx
-    # iterate over all the particles within the cells of index `idx` 
-    # skip lines below if there is no particle in this pice of memory
+    # iterate over all the particles within the cells of index `idx`
+    # skip lines below if there is no particle in this piece of memory
     if !doskip(index, ip, i, j)
         Fi = field_corners(F, (i, j))
-        # cache particle coordinates 
+        # cache particle coordinates
         pᵢ = get_particle_coords(p, ip, i, j)
         # Interpolate field F onto particle
         @cell Fp[ip, i, j] = _grid2particle(pᵢ, xvi, di, Fi, (i, j))
@@ -43,11 +43,11 @@ end
         Base.@_inline_meta
         Fi = field_corners(F, idx)
         xi_corner = corner_coordinate(xvi, idx)
-        # iterate over all the particles within the cells of index `idx` 
+        # iterate over all the particles within the cells of index `idx`
         Base.@nexprs $N ip -> begin
-            # skip lines below if there is no particle in this pice of memory
+            # skip lines below if there is no particle in this piece of memory
             @inbounds if !doskip(index, ip, idx...)
-                # cache particle coordinates 
+                # cache particle coordinates
                 pᵢ = get_particle_coords(p, ip, idx...)
                 # Interpolate field F onto particle
                 @cell Fp[ip, idx...] = _grid2particle(pᵢ, xi_corner, di, Fi)
@@ -59,15 +59,15 @@ end
 @inline function _grid2particle_classic!(
     Fp::NTuple{N1,T1}, p, xvi, di::NTuple{N2,T2}, F::NTuple{N1,T3}, index, idx
 ) where {N1,T1,N2,T2,T3}
-    # iterate over all the particles within the cells of index `idx` 
+    # iterate over all the particles within the cells of index `idx`
     @inbounds for ip in cellaxes(Fp[1])
-        # skip lines below if there is no particle in this pice of memory
+        # skip lines below if there is no particle in this piece of memory
         doskip(index, ip, idx...) && continue
 
-        # cache particle coordinates 
+        # cache particle coordinates
         pᵢ = get_particle_coords(p, ip, idx...)
 
-        # skip lines below if there is no particle in this pice of memory
+        # skip lines below if there is no particle in this piece of memory
         any(isnan, pᵢ) && continue
 
         # Interpolate field F onto particle
@@ -106,15 +106,15 @@ end
     Fi = field_corners(F, idx)
     F0i = field_corners(F0, idx)
 
-    # iterate over all the particles within the cells of index `idx` 
+    # iterate over all the particles within the cells of index `idx`
     @inbounds for ip in cellaxes(Fp)
-        # skip lines below if there is no particle in this pice of memory
+        # skip lines below if there is no particle in this piece of memory
         doskip(index, ip, idx...) && continue
 
         # cache particle coordinates
         pᵢ = get_particle_coords(p, ip, idx...)
 
-        # # skip lines below if there is no particle in this pice of memory
+        # # skip lines below if there is no particle in this piece of memory
         # any(isnan, pᵢ) && continue
 
         Fᵢ = @cell Fp[ip, idx...]
@@ -137,15 +137,15 @@ end
     idx,
     α,
 ) where {N1,T1,N2,T2,T3}
-    # iterate over all the particles within the cells of index `idx` 
+    # iterate over all the particles within the cells of index `idx`
     @inbounds for ip in cellaxes(Fp)
-        # skip lines below if there is no particle in this pice of memory
+        # skip lines below if there is no particle in this piece of memory
         doskip(index, ip, idx...) && continue
 
-        # cache particle coordinates 
+        # cache particle coordinates
         pᵢ = ntuple(i -> (@cell p[i][ip, idx...]), Val(N2))
 
-        # skip lines below if there is no particle in this pice of memory
+        # skip lines below if there is no particle in this piece of memory
         # any(isnan, pᵢ) && continue
 
         ntuple(Val(N1)) do i
