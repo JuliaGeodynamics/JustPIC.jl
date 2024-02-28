@@ -4,7 +4,7 @@ function advect_passive_markers!(particles::PassiveMarkers, V, grid_vx, grid_vy,
 end
 
 function advect_passive_markers!(particles::PassiveMarkers, V, grid_vx, grid_vy, grid_vz, dt; α::Float64=2 / 3)
-    advadvection_passive_markers_RK!ection_RK!(particles, V, grid_vx, grid_vy, grid_vz, dt, α)
+    advection_passive_markers_RK!(particles, V, grid_vx, grid_vy, grid_vz, dt, α)
     return nothing
 end
 
