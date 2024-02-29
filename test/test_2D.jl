@@ -154,7 +154,7 @@ end
 
     np = 256 # number of passive markers
     passive_coords = ntuple(Val(2)) do i
-        (@rand(np) .+ 1) .* Lx/4
+        TA(backeknd)((rand(np) .+ 1) .* Lx/4)
     end
 
     passive_markers = init_passive_markers(backend, passive_coords);
