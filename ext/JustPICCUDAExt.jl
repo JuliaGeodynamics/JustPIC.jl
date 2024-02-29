@@ -39,7 +39,7 @@ module _2D
     include(joinpath(@__DIR__, "../src/CUDAExt/CellArrays.jl"))
 
     function JustPIC._2D.init_particles(
-        ::Type{AMDGPUBackend}, nxcell, max_xcell, min_xcell, x, y, dx, dy, nx, ny
+        ::Type{CUDABackend}, nxcell, max_xcell, min_xcell, x, y, dx, dy, nx, ny
     )
         return init_particles(
             CUDABackend, nxcell, max_xcell, min_xcell, (x, y), (dx, dy), (nx, ny)
@@ -47,7 +47,7 @@ module _2D
     end
 
     function JustPIC._2D.init_particles(
-        ::Type{AMDGPUBackend},
+        ::Type{CUDABackend},
         nxcell,
         max_xcell,
         min_xcell,
@@ -215,10 +215,10 @@ module _3D
     include(joinpath(@__DIR__, "../src/CUDAExt/CellArrays.jl"))
 
     function JustPIC._3D.init_particles(
-        ::Type{AMDGPUBackend}, nxcell, max_xcell, min_xcell, x, y, z, dx, dy, dz, nx, ny, nz
+        ::Type{CUDABackend}, nxcell, max_xcell, min_xcell, x, y, z, dx, dy, dz, nx, ny, nz
     )
         return init_particles(
-            AMDGPUBackend,
+            CUDABackend,
             nxcell,
             max_xcell,
             min_xcell,
@@ -229,7 +229,7 @@ module _3D
     end
 
     function JustPIC._3D.init_particles(
-        ::Type{AMDGPUBackend},
+        ::Type{CUDABackend},
         nxcell,
         max_xcell,
         min_xcell,
@@ -237,7 +237,7 @@ module _3D
         dxᵢ::NTuple{3,T},
         nᵢ::NTuple{3,I},
     ) where {T,I}
-        return init_particles(AMDGPUBackend, nxcell, max_xcell, min_xcell, coords, dxᵢ, nᵢ)
+        return init_particles(CUDABackend, nxcell, max_xcell, min_xcell, coords, dxᵢ, nᵢ)
     end
 
     function JustPIC._3D.advection_RK!(
