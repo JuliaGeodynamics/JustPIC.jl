@@ -55,8 +55,13 @@ module _2D
     end
 
     function JustPIC._2D.advection_RK!(
-        particles::ParticlesExt{AMDGPUBackend}, V, grid_vx, grid_vy, dt, α
-    )
+        particles::ParticlesExt{AMDGPUBackend},
+        V,
+        grid_vx::NTuple{2,T},
+        grid_vy::NTuple{2,T},
+        dt,
+        α,
+    ) where {T}
         return advection_RK!(particles, V, grid_vx, grid_vy, dt, α)
     end
 
