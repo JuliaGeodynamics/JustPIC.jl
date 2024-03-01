@@ -154,12 +154,12 @@ end
 
     np = 256 # number of passive markers
     passive_coords = ntuple(Val(2)) do i
-        (rand(np) .+ 1) .* Lx/4
+        TA(backend)((rand(np) .+ 1) .* Lx/4)
     end
 
     passive_markers = init_passive_markers(backend, passive_coords);
-    T_marker = zeros(np)
-    P_marker = zeros(np)
+    T_marker = TA(backend)(zeros(np))
+    P_marker = TA(backend)(zeros(np))
 
     for _ in 1:50
         advect_passive_markers!(passive_markers, V, grid_vx, grid_vy, dt)
