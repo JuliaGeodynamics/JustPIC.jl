@@ -27,7 +27,6 @@ function parse_flags!(args, flag; default=nothing, typ=typeof(default))
 end
 
 function runtests()
-    exename = joinpath(Sys.BINDIR, Base.julia_exename())
     testdir = pwd()
     testfiles = sort(
         filter(
@@ -55,7 +54,7 @@ function runtests()
         if occursin("2D", f)
             println("\n Running tests from $f")
             try
-                run(`$exename --startup-file=no $(joinpath(testdir, f))`)
+                run(`$(Base.julia_cmd()) --startup-file=no $(joinpath(testdir, f))`)
             catch ex
                 nfail += 1
             end
@@ -81,7 +80,7 @@ function runtests()
         if occursin("3D", f)
             println("\n Running tests from $f")
             try
-                run(`$exename --startup-file=no $(joinpath(testdir, f))`)
+                run(`$(Base.julia_cmd()) --startup-file=no $(joinpath(testdir, f))`)
             catch ex
                 nfail += 1
             end
