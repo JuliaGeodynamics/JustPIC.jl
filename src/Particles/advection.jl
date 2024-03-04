@@ -24,6 +24,7 @@ function advection_RK!(
     grid_vi = grid_vx, grid_vy
 
     local_limits = inner_limits(grid_vi)
+    # local_limits = (((0.0, 1.0), (0.0, 1.0)), ((0.0, 1.0), (0.0, 1.0)))
 
     # launch parallel advection kernel
     @parallel (@idx ni) _advection_RK!(coords, V, index, grid_vi, local_limits, dxi, dt, α)
@@ -92,7 +93,7 @@ function advect_particle_RK(
     # interpolate velocity to current location
     vp0 = ntuple(ValN) do i
         Base.@_inline_meta
-        local_lims = local_limits[i]
+        local_lims = local_limits[1][1], local_limits[2][2]
 
         # if this condition is met, it means that the particle
         # went outside the local rank domain. It will be removed
@@ -100,6 +101,7 @@ function advect_particle_RK(
         v = if check_local_limits(local_lims, p0)
             interp_velocity_grid2particle(p0, grid_vi[i], dxi, V[i], idx)
         else
+            print("Particle went out of domain 1")
             zero(T)
         end
     end
@@ -113,14 +115,17 @@ function advect_particle_RK(
     # interpolate velocity to new location
     vp1 = ntuple(ValN) do i
         Base.@_inline_meta
-        local_lims = local_limits[i]
+        # local_lims = local_limits[i]
+        local_lims = local_limits[1][1], local_limits[2][2]
+
         # if this condition is met, it means that the particle
         # went outside the local rank domain. It will be removed
         # during shuffling
         v = if check_local_limits(local_lims, p1)
             interp_velocity_grid2particle(p1, grid_vi[i], dxi, V[i], idx)
         else
-            zero(T)
+            # print("Particle went out of domain 2\n")
+            vp0[i]
         end
     end
 
@@ -128,7 +133,7 @@ function advect_particle_RK(
     pf = ntuple(ValN) do i
         Base.@_propagate_inbounds_meta
         Base.@_inline_meta
-        if α == 0.5
+        pf = if α == 0.5
             @muladd p0[i] + dt * vp1[i]
         else
             @muladd p0[i] + dt * ((1.0 - 0.5 * _α) * vp0[i] + 0.5 * _α * vp1[i])
