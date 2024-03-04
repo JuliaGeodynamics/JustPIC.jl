@@ -38,7 +38,7 @@ function _particle2grid!(
                 doskip(index, ip, ivertex, jvertex) && continue
 
                 p_i = @cell(px[ip, ivertex, jvertex]), @cell(py[ip, ivertex, jvertex])
-                ω_i = distance_weight(xvertex, p_i; order=3)
+                ω_i = distance_weight(xvertex, p_i; order=1)
                 # ω_i = bilinear_weight(xvertex, p_i, di) 
                 ω += ω_i
                 ωxF = fma(ω_i, @cell(Fp[ip, ivertex, jvertex]), ωxF)
@@ -71,7 +71,7 @@ end
                     doskip(index, i, ivertex, jvertex) && continue
 
                     p_i = @cell(px[i, ivertex, jvertex]), @cell(py[i, ivertex, jvertex])
-                    ω_i = distance_weight(xvertex, p_i; order=4)
+                    ω_i = distance_weight(xvertex, p_i; order=1)
                     # ω_i = bilinear_weight(xvertex, p_i, di)
                     ω += ω_i
                     ωxF = ntuple(Val(N)) do j
@@ -119,7 +119,7 @@ end
                             @cell(py[ip, ivertex, jvertex, kvertex]),
                             @cell(pz[ip, ivertex, jvertex, kvertex]),
                         )
-                        ω_i = distance_weight(xvertex, p_i; order=4)
+                        ω_i = distance_weight(xvertex, p_i; order=1)
                         # ω_i = bilinear_weight(xvertex, p_i, di)
                         ω += ω_i
                         ωF = muladd(ω_i, @cell(Fp[ip, ivertex, jvertex, kvertex]), ωF)
@@ -160,7 +160,7 @@ end
                             @cell(py[ip, ivertex, jvertex, kvertex]),
                             @cell(pz[ip, ivertex, jvertex, kvertex]),
                         )
-                        ω_i = distance_weight(xvertex, p_i; order=4)
+                        ω_i = distance_weight(xvertex, p_i; order=1)
                         # ω_i = bilinear_weight(xvertex, p_i, di)
                         ω += ω_i
                         ωxF = ntuple(Val(N)) do j
@@ -182,11 +182,11 @@ end
 
 ## OTHERS
 
-@inline function distance_weight(a, b; order::Int64=4)
+@inline function distance_weight(a, b; order::Int64=1)
     return inv(distance(a, b)^order)
 end
 
-@inline function distance_weight(x, y, b; order::Int64=4)
+@inline function distance_weight(x, y, b; order::Int64=1)
     return inv(distance((x, y), b)^order)
 end
 
