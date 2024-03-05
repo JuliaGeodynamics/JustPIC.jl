@@ -128,6 +128,15 @@ module _2D
         return init_cell_arrays(particles, V)
     end
 
+    function JustPIC._2D.subgrid_diffusion!(
+        pT, T_grid, ΔT_grid, subgrid_arrays, particles::Particles{AMDGPUBackend}, xvi,  di, dt; d = 1.0
+    )
+        subgrid_diffusion!(
+            pT, T_grid, ΔT_grid, subgrid_arrays, particles, xvi,  di, dt; d = d
+        )
+        return nothing
+    end
+
     ## MakerChain
 
     function JustPIC._2D.advect_markerchain!(
@@ -312,6 +321,15 @@ module _3D
         particles::ParticlesExt{AMDGPUBackend}, V::Val{N}
     ) where {N}
         return init_cell_arrays(particles, V)
+    end
+
+    function JustPIC._3D.subgrid_diffusion!(
+        pT, T_grid, ΔT_grid, subgrid_arrays, particles::Particles{AMDGPUBackend}, xvi,  di, dt; d = 1.0
+    )
+        subgrid_diffusion!(
+            pT, T_grid, ΔT_grid, subgrid_arrays, particles, xvi,  di, dt; d = d
+        )
+        return nothing
     end
 
     ## PassiveMarkers
