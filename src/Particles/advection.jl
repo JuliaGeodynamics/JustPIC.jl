@@ -102,7 +102,7 @@ function advect_particle_RK(
             interp_velocity_grid2particle(p0, grid_vi[i], dxi, V[i], idx)
         else
             zero(T)
-        end        
+        end
     end
 
     # advect α*dt
@@ -185,16 +185,22 @@ end
 # end
 
 @generated function corner_field_nodes(
-    F::AbstractArray{T,N}, particle, xi_vx, dxi, idx::Union{SVector{N,Integer},NTuple{N,Integer}}
+    F::AbstractArray{T,N},
+    particle,
+    xi_vx,
+    dxi,
+    idx::Union{SVector{N,Integer},NTuple{N,Integer}},
 ) where {N,T}
     quote
         Base.@_inline_meta
         @inbounds begin
-            Base.@nexprs $N i ->  begin
+            Base.@nexprs $N i -> begin
                 # unpack
                 corrected_idx_i = idx[i]
                 # compute offsets and corrections
-                corrected_idx_i += @inline vertex_offset(xi_vx[i][corrected_idx_i], particle[i], dxi[1])
+                corrected_idx_i += @inline vertex_offset(
+                    xi_vx[i][corrected_idx_i], particle[i], dxi[1]
+                )
                 cell_i = xi_vx[i][corrected_idx_i]
             end
 
@@ -204,11 +210,10 @@ end
             # F at the four centers
             Fi = @inbounds extract_field_corners(F, indices...)
         end
-    
-        return Fi, cells     
+
+        return Fi, cells
     end
 end
-
 
 @inline function vertex_offset(xi, pxi, di)
     dist = normalised_distance(xi, pxi, di)

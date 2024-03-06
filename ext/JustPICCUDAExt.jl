@@ -129,11 +129,17 @@ module _2D
     end
 
     function JustPIC._2D.subgrid_diffusion!(
-        pT, T_grid, ΔT_grid, subgrid_arrays, particles::Particles{CUDABackend}, xvi,  di, dt; d = 1.0
+        pT,
+        T_grid,
+        ΔT_grid,
+        subgrid_arrays,
+        particles::Particles{CUDABackend},
+        xvi,
+        di,
+        dt;
+        d=1.0,
     )
-        subgrid_diffusion!(
-            pT, T_grid, ΔT_grid, subgrid_arrays, particles, xvi,  di, dt; d = d
-        )
+        subgrid_diffusion!(pT, T_grid, ΔT_grid, subgrid_arrays, particles, xvi, di, dt; d=d)
         return nothing
     end
     ## MakerChain
@@ -226,13 +232,7 @@ module _3D
         ::Type{CUDABackend}, nxcell, max_xcell, min_xcell, x, y, z, dx, dy, dz, nx, ny, nz
     )
         return init_particles(
-            CUDABackend,
-            nxcell,
-            max_xcell,
-            min_xcell,
-            (x, y, z),
-            (dx, dy, dz),
-            (nx, ny, nz),
+            CUDABackend, nxcell, max_xcell, min_xcell, (x, y, z), (dx, dy, dz), (nx, ny, nz)
         )
     end
 
@@ -322,11 +322,17 @@ module _3D
     end
 
     function JustPIC._3D.subgrid_diffusion!(
-        pT, T_grid, ΔT_grid, subgrid_arrays, particles::Particles{CUDABackend}, xvi,  di, dt; d = 1.0
+        pT,
+        T_grid,
+        ΔT_grid,
+        subgrid_arrays,
+        particles::Particles{CUDABackend},
+        xvi,
+        di,
+        dt;
+        d=1.0,
     )
-        subgrid_diffusion!(
-            pT, T_grid, ΔT_grid, subgrid_arrays, particles, xvi,  di, dt; d = d
-        )
+        subgrid_diffusion!(pT, T_grid, ΔT_grid, subgrid_arrays, particles, xvi, di, dt; d=d)
         return nothing
     end
 

@@ -14,22 +14,20 @@ end
 
 ## INTERPOLATION KERNEL 2D
 
-function _particle2grid!(
-    F, Fp, inode, jnode, xi::NTuple{2,T}, p, index, di
-) where {T}
-    px, py  = p # particle coordinates
+function _particle2grid!(F, Fp, inode, jnode, xi::NTuple{2,T}, p, index, di) where {T}
+    px, py = p # particle coordinates
     xvertex = xi[1][inode], xi[2][jnode] # cell lower-left coordinates
-    ω, ωxF  = 0.0, 0.0 # init weights
+    ω, ωxF = 0.0, 0.0 # init weights
 
     # iterate over cells around i-th node
     @inbounds for joffset in -1:0
         jvertex = joffset + jnode
-        !(1 ≤ jvertex < size(F,2)) && continue
+        !(1 ≤ jvertex < size(F, 2)) && continue
 
         # make sure we stay within the grid
         for ioffset in -1:0
             ivertex = ioffset + inode
-            !(1 ≤ ivertex < size(F,1)) && continue
+            !(1 ≤ ivertex < size(F, 1)) && continue
 
             # make sure we stay within the grid
             # iterate over cell
@@ -191,7 +189,9 @@ end
 end
 
 @generated function bilinear_weight(
-    a::Union{NTuple{N,T}, SVector{N,T}}, b::Union{NTuple{N,T}, SVector{N,T}}, di::Union{NTuple{N,T}, SVector{N,T}}
+    a::Union{NTuple{N,T},SVector{N,T}},
+    b::Union{NTuple{N,T},SVector{N,T}},
+    di::Union{NTuple{N,T},SVector{N,T}},
 ) where {N,T}
     quote
         Base.@_inline_meta
