@@ -12,7 +12,7 @@ module _2D
 
     @init_parallel_stencil(CUDA, Float64, 2)
 
-    __precompile__(false)
+    
 
     const ParticlesExt = JustPIC.Particles
     const PassiveMarkersExt = JustPIC.PassiveMarkers
@@ -206,7 +206,7 @@ module _3D
 
     @init_parallel_stencil(CUDA, Float64, 3)
 
-    __precompile__(false)
+    
 
     macro myatomic(expr)
         return esc(

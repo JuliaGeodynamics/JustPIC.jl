@@ -24,7 +24,6 @@ function advection_RK!(
     grid_vi = grid_vx, grid_vy
 
     local_limits = inner_limits(grid_vi)
-    # local_limits = (((0.0, 1.0), (0.0, 1.0)), ((0.0, 1.0), (0.0, 1.0)))
 
     # launch parallel advection kernel
     @parallel (@idx ni) _advection_RK!(coords, V, index, grid_vi, local_limits, dxi, dt, α)
