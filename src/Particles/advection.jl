@@ -67,7 +67,6 @@ end
 
         # cache particle coordinates
         pᵢ = get_particle_coords(p, ipart, I...)
-
         p_new = advect_particle_RK(pᵢ, V, grid, local_limits, dxi, dt, I, α)
 
         ntuple(Val(N)) do i
@@ -93,7 +92,8 @@ function advect_particle_RK(
     # interpolate velocity to current location
     vp0 = ntuple(ValN) do i
         Base.@_inline_meta
-        local_lims = local_limits[1][1], local_limits[2][2]
+        local_lims = local_limits[i]
+        # local_lims = local_limits[1][1], local_limits[2][2]
 
         # if this condition is met, it means that the particle
         # went outside the local rank domain. It will be removed
@@ -114,8 +114,8 @@ function advect_particle_RK(
     # interpolate velocity to new location
     vp1 = ntuple(ValN) do i
         Base.@_inline_meta
-        # local_lims = local_limits[i]
-        local_lims = local_limits[1][1], local_limits[2][2]
+        local_lims = local_limits[i]
+        # local_lims = local_limits[1][1], local_limits[2][2]
 
         # if this condition is met, it means that the particle
         # went outside the local rank domain. It will be removed
@@ -123,7 +123,6 @@ function advect_particle_RK(
         v = if check_local_limits(local_lims, p1)
             interp_velocity_grid2particle(p1, grid_vi[i], dxi, V[i], idx)
         else
-            # print("Particle went out of domain 2\n")
             vp0[i]
         end
     end
