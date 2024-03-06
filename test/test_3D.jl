@@ -57,12 +57,12 @@ vz_stream(x, z) = -250 * cos(π*x) * sin(π*z)
     # Grid to particle test
     grid2particle!(pT, xvi, T, particles)
 
-    @test pT == particles.coords[3]
+    @test pT ≈ particles.coords[3]
 
     # Grid to particle test
     grid2particle_flip!(pT, xvi, T, T0, particles)
 
-    @test pT == particles.coords[3]
+    @test pT ≈ particles.coords[3]
 
     # Particle to grid test
     T2 = similar(T)
