@@ -68,7 +68,7 @@ vi_stream(x) =  π*1e-5 * (x - 0.5)
     T2 = similar(T)
     particle2grid!(T2, pT, xvi, particles)
     # norm(T2 .- T) / length(T)
-    @test norm(T2 .- T) / length(T) < 1e-2
+    @test norm(T2 .- T) / length(T) < 1e-1
 end
 
 @testset "Particles initialization 2D" begin

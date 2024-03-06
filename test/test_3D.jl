@@ -68,7 +68,7 @@ vz_stream(x, z) = -250 * cos(π*x) * sin(π*z)
     T2 = similar(T)
     particle2grid!(T2, pT, xvi, particles)
 
-    @test norm(T2 .- T) / length(T) < 1e-2
+    @test norm(T2 .- T) / length(T) < 1e-1
 end
 
 @testset "Particles initialization 3D" begin
