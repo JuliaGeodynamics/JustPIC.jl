@@ -128,7 +128,7 @@ function _inject_particles!(
                         p_i = ntuple(Val(N)) do n
                             @cell(coords[n][ip, idx_cell...])
                         end
-                        ω_i = distance_weight(p_i, p_new; order=3)
+                        ω_i = distance_weight(p_i, p_new; order=2)
                         ω += ω_i
                         ωxF = fma(ω_i, @cell(args[j][ip, idx_cell...]), ωxF)
                     end
