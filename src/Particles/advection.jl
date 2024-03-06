@@ -131,7 +131,7 @@ function advect_particle_RK(
     pf = ntuple(ValN) do i
         Base.@_propagate_inbounds_meta
         Base.@_inline_meta
-        pf = if α == 0.5
+        p = if α == 0.5
             @muladd p0[i] + dt * vp1[i]
         else
             @muladd p0[i] + dt * ((1.0 - 0.5 * _α) * vp0[i] + 0.5 * _α * vp1[i])
