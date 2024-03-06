@@ -278,7 +278,7 @@ function test_rotating_circle()
         particle2grid!(T, pT, xvi, particles)
         copyto!(T0, T)
         advection_RK!(particles, V, grid_vx, grid_vy, dt, 2 / 3)
-        shuffle_particles!(particles, xvi, particle_args)
+        move_particles!(particles, xvi, particle_args)
 
         inject = check_injection(particles)
         inject && inject_particles!(particles, (pT, ), (T,), xvi)
@@ -295,7 +295,7 @@ function test_rotating_circle()
 end
 
 function test_rotation_2D()
-    @show err = test_rotating_circle()
+    err = test_rotating_circle()
     tol = 1e-2
     passed = err < tol
 

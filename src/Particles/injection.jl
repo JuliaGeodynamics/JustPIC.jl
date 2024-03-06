@@ -100,13 +100,13 @@ function _inject_particles!(
                 @cell index[i, idx_cell...] = true
 
                 # add phase to new particle
-                # particle_idx, min_idx = index_min_distance(
-                #     coords, p_new, index, i, idx_cell...
-                # )
+                particle_idx, min_idx = index_min_distance(
+                    coords, p_new, index, i, idx_cell...
+                )
 
-                # for j in eachindex(args)
-                #     @cell args[j][i, idx_cell...] = @cell args[j][particle_idx, min_idx...]
-                # end
+                for j in eachindex(args)
+                    @cell args[j][i, idx_cell...] = @cell args[j][particle_idx, min_idx...]
+                end
 
                 # for j in eachindex(args)
                 #     local_field = cell_field(fields[j], idx_cell...)
@@ -118,22 +118,22 @@ function _inject_particles!(
                 #     @cell args[j][i, idx_cell...] = tmp
                 # end
 
-                for j in eachindex(args)
-                    ω, ωxF = 0e0, 0e0
-                    # iterate over cell
-                    for ip in cellaxes(index)
-                        # early exit if particle is not in the cell
-                        i == ip && continue # this is the index of the new particle
-                        doskip(index, ip, idx_cell...) && continue
-                        p_i = ntuple(Val(N)) do n
-                            @cell(coords[n][ip, idx_cell...])
-                        end
-                        ω_i = distance_weight(p_i, p_new; order=2)
-                        ω += ω_i
-                        ωxF = fma(ω_i, @cell(args[j][ip, idx_cell...]), ωxF)
-                    end
-                    @cell args[j][i, idx_cell...] = ωxF / ω
-                end
+                # for j in eachindex(args)
+                #     ω, ωxF = 0e0, 0e0
+                #     # iterate over cell
+                #     for ip in cellaxes(index)
+                #         # early exit if particle is not in the cell
+                #         i == ip && continue # this is the index of the new particle
+                #         doskip(index, ip, idx_cell...) && continue
+                #         p_i = ntuple(Val(N)) do n
+                #             @cell(coords[n][ip, idx_cell...])
+                #         end
+                #         ω_i = distance_weight(p_i, p_new; order=2)
+                #         ω += ω_i
+                #         ωxF = fma(ω_i, @cell(args[j][ip, idx_cell...]), ωxF)
+                #     end
+                #     @cell args[j][i, idx_cell...] = ωxF / ω
+                # end
 
             end
 
