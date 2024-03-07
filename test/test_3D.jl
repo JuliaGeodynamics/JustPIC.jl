@@ -1,6 +1,3 @@
-using CUDA
-ENV["JULIA_JUSTPIC_BACKEND"] = "CUDA"
-
 @static if ENV["JULIA_JUSTPIC_BACKEND"] === "AMDGPU"
     using AMDGPU
     AMDGPU.allowscalar(true)
