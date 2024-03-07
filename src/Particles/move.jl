@@ -13,7 +13,9 @@ function move_particles!(particles::AbstractParticles, grid, args)
     return nothing
 end
 
-@parallel_indices (I...) function move_particles_ps!(coords, grid, dxi, index, domain_limits, args)
+@parallel_indices (I...) function move_particles_ps!(
+    coords, grid, dxi, index, domain_limits, args
+)
     _move_particles!(coords, grid, dxi, index, domain_limits, I, args)
     return nothing
 end
@@ -28,7 +30,14 @@ function _move_particles!(coords, grid, dxi, index, domain_limits, idx, args)
 end
 
 function move_kernel!(
-    coords, corner_xi, grid, dxi, index, domain_limits, args::NTuple{N2,T}, idx::NTuple{N1,Int64}
+    coords,
+    corner_xi,
+    grid,
+    dxi,
+    index,
+    domain_limits,
+    args::NTuple{N2,T},
+    idx::NTuple{N1,Int64},
 ) where {N1,N2,T}
 
     # iterate over particles in child cell 

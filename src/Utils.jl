@@ -68,4 +68,3 @@ function get_particle_coords(p::NTuple{N,T}, ip) where {N,T}
         p[i][ip]
     end
 end
-

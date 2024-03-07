@@ -66,7 +66,6 @@ end
 
         # cache particle coordinates
         pᵢ = get_particle_coords(p, ipart, I...)
-
         p_new = advect_particle_RK(pᵢ, V, grid, local_limits, dxi, dt, I, α)
 
         ntuple(Val(N)) do i
@@ -93,6 +92,7 @@ function advect_particle_RK(
     vp0 = ntuple(ValN) do i
         Base.@_inline_meta
         local_lims = local_limits[i]
+        # local_lims = local_limits[1][1], local_limits[2][2]
 
         # if this condition is met, it means that the particle
         # went outside the local rank domain. It will be removed
@@ -114,13 +114,15 @@ function advect_particle_RK(
     vp1 = ntuple(ValN) do i
         Base.@_inline_meta
         local_lims = local_limits[i]
+        # local_lims = local_limits[1][1], local_limits[2][2]
+
         # if this condition is met, it means that the particle
         # went outside the local rank domain. It will be removed
         # during shuffling
         v = if check_local_limits(local_lims, p1)
             interp_velocity_grid2particle(p1, grid_vi[i], dxi, V[i], idx)
         else
-            zero(T)
+            vp0[i]
         end
     end
 
@@ -128,7 +130,7 @@ function advect_particle_RK(
     pf = ntuple(ValN) do i
         Base.@_propagate_inbounds_meta
         Base.@_inline_meta
-        if α == 0.5
+        p = if α == 0.5
             @muladd p0[i] + dt * vp1[i]
         else
             @muladd p0[i] + dt * ((1.0 - 0.5 * _α) * vp0[i] + 0.5 * _α * vp1[i])
@@ -181,16 +183,22 @@ end
 # end
 
 @generated function corner_field_nodes(
-    F::AbstractArray{T,N}, particle, xi_vx, dxi, idx::Union{SVector{N,Integer},NTuple{N,Integer}}
+    F::AbstractArray{T,N},
+    particle,
+    xi_vx,
+    dxi,
+    idx::Union{SVector{N,Integer},NTuple{N,Integer}},
 ) where {N,T}
     quote
         Base.@_inline_meta
         @inbounds begin
-            Base.@nexprs $N i ->  begin
+            Base.@nexprs $N i -> begin
                 # unpack
                 corrected_idx_i = idx[i]
                 # compute offsets and corrections
-                corrected_idx_i += @inline vertex_offset(xi_vx[i][corrected_idx_i], particle[i], dxi[1])
+                corrected_idx_i += @inline vertex_offset(
+                    xi_vx[i][corrected_idx_i], particle[i], dxi[1]
+                )
                 cell_i = xi_vx[i][corrected_idx_i]
             end
 
@@ -200,11 +208,10 @@ end
             # F at the four centers
             Fi = @inbounds extract_field_corners(F, indices...)
         end
-    
-        return Fi, cells     
+
+        return Fi, cells
     end
 end
-
 
 @inline function vertex_offset(xi, pxi, di)
     dist = normalised_distance(xi, pxi, di)

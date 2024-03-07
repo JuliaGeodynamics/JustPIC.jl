@@ -12,7 +12,7 @@ module _2D
 
     @init_parallel_stencil(AMDGPU, Float64, 2)
 
-    __precompile__(false)
+    # __precompile__(false)
 
     const ParticlesExt = JustPIC.Particles
     const PassiveMarkersExt{AMDGPUBackend} = JustPIC.PassiveMarkers
@@ -128,6 +128,21 @@ module _2D
         return init_cell_arrays(particles, V)
     end
 
+    function JustPIC._2D.subgrid_diffusion!(
+        pT,
+        T_grid,
+        ΔT_grid,
+        subgrid_arrays,
+        particles::Particles{AMDGPUBackend},
+        xvi,
+        di,
+        dt;
+        d=1.0,
+    )
+        subgrid_diffusion!(pT, T_grid, ΔT_grid, subgrid_arrays, particles, xvi, di, dt; d=d)
+        return nothing
+    end
+
     ## MakerChain
 
     function JustPIC._2D.advect_markerchain!(
@@ -193,7 +208,7 @@ module _3D
 
     @init_parallel_stencil(AMDGPU, Float64, 3)
 
-    __precompile__(false)
+    # __precompile__(false)
 
     macro myatomic(expr)
         return esc(
@@ -312,6 +327,21 @@ module _3D
         particles::ParticlesExt{AMDGPUBackend}, V::Val{N}
     ) where {N}
         return init_cell_arrays(particles, V)
+    end
+
+    function JustPIC._3D.subgrid_diffusion!(
+        pT,
+        T_grid,
+        ΔT_grid,
+        subgrid_arrays,
+        particles::Particles{AMDGPUBackend},
+        xvi,
+        di,
+        dt;
+        d=1.0,
+    )
+        subgrid_diffusion!(pT, T_grid, ΔT_grid, subgrid_arrays, particles, xvi, di, dt; d=d)
+        return nothing
     end
 
     ## PassiveMarkers

@@ -12,7 +12,7 @@ module _2D
 
     @init_parallel_stencil(CUDA, Float64, 2)
 
-    __precompile__(false)
+    
 
     const ParticlesExt = JustPIC.Particles
     const PassiveMarkersExt = JustPIC.PassiveMarkers
@@ -128,6 +128,20 @@ module _2D
         return init_cell_arrays(particles, V)
     end
 
+    function JustPIC._2D.subgrid_diffusion!(
+        pT,
+        T_grid,
+        ΔT_grid,
+        subgrid_arrays,
+        particles::Particles{CUDABackend},
+        xvi,
+        di,
+        dt;
+        d=1.0,
+    )
+        subgrid_diffusion!(pT, T_grid, ΔT_grid, subgrid_arrays, particles, xvi, di, dt; d=d)
+        return nothing
+    end
     ## MakerChain
 
     function JustPIC._2D.advect_markerchain!(
@@ -192,7 +206,7 @@ module _3D
 
     @init_parallel_stencil(CUDA, Float64, 3)
 
-    __precompile__(false)
+    
 
     macro myatomic(expr)
         return esc(
@@ -218,13 +232,7 @@ module _3D
         ::Type{CUDABackend}, nxcell, max_xcell, min_xcell, x, y, z, dx, dy, dz, nx, ny, nz
     )
         return init_particles(
-            CUDABackend,
-            nxcell,
-            max_xcell,
-            min_xcell,
-            (x, y, z),
-            (dx, dy, dz),
-            (nx, ny, nz),
+            CUDABackend, nxcell, max_xcell, min_xcell, (x, y, z), (dx, dy, dz), (nx, ny, nz)
         )
     end
 
@@ -311,6 +319,21 @@ module _3D
         particles::ParticlesExt{CUDABackend}, V::Val{N}
     ) where {N}
         return init_cell_arrays(particles, V)
+    end
+
+    function JustPIC._3D.subgrid_diffusion!(
+        pT,
+        T_grid,
+        ΔT_grid,
+        subgrid_arrays,
+        particles::Particles{CUDABackend},
+        xvi,
+        di,
+        dt;
+        d=1.0,
+    )
+        subgrid_diffusion!(pT, T_grid, ΔT_grid, subgrid_arrays, particles, xvi, di, dt; d=d)
+        return nothing
     end
 
     ## PassiveMarkers

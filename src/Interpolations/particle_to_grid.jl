@@ -14,22 +14,20 @@ end
 
 ## INTERPOLATION KERNEL 2D
 
-function _particle2grid!(
-    F, Fp, inode, jnode, xi::NTuple{2,T}, p, index, di
-) where {T}
-    px, py  = p # particle coordinates
+function _particle2grid!(F, Fp, inode, jnode, xi::NTuple{2,T}, p, index, di) where {T}
+    px, py = p # particle coordinates
     xvertex = xi[1][inode], xi[2][jnode] # cell lower-left coordinates
-    ω, ωxF  = 0.0, 0.0 # init weights
+    ω, ωxF = 0.0, 0.0 # init weights
 
     # iterate over cells around i-th node
     @inbounds for joffset in -1:0
         jvertex = joffset + jnode
-        !(1 ≤ jvertex < size(F,2)) && continue
+        !(1 ≤ jvertex < size(F, 2)) && continue
 
         # make sure we stay within the grid
         for ioffset in -1:0
             ivertex = ioffset + inode
-            !(1 ≤ ivertex < size(F,1)) && continue
+            !(1 ≤ ivertex < size(F, 1)) && continue
 
             # make sure we stay within the grid
             # iterate over cell
@@ -38,7 +36,7 @@ function _particle2grid!(
                 doskip(index, ip, ivertex, jvertex) && continue
 
                 p_i = @cell(px[ip, ivertex, jvertex]), @cell(py[ip, ivertex, jvertex])
-                ω_i = distance_weight(xvertex, p_i; order=3)
+                ω_i = distance_weight(xvertex, p_i; order=1)
                 # ω_i = bilinear_weight(xvertex, p_i, di) 
                 ω += ω_i
                 ωxF = fma(ω_i, @cell(Fp[ip, ivertex, jvertex]), ωxF)
@@ -71,7 +69,7 @@ end
                     doskip(index, i, ivertex, jvertex) && continue
 
                     p_i = @cell(px[i, ivertex, jvertex]), @cell(py[i, ivertex, jvertex])
-                    ω_i = distance_weight(xvertex, p_i; order=4)
+                    ω_i = distance_weight(xvertex, p_i; order=1)
                     # ω_i = bilinear_weight(xvertex, p_i, di)
                     ω += ω_i
                     ωxF = ntuple(Val(N)) do j
@@ -119,7 +117,7 @@ end
                             @cell(py[ip, ivertex, jvertex, kvertex]),
                             @cell(pz[ip, ivertex, jvertex, kvertex]),
                         )
-                        ω_i = distance_weight(xvertex, p_i; order=4)
+                        ω_i = distance_weight(xvertex, p_i; order=1)
                         # ω_i = bilinear_weight(xvertex, p_i, di)
                         ω += ω_i
                         ωF = muladd(ω_i, @cell(Fp[ip, ivertex, jvertex, kvertex]), ωF)
@@ -160,7 +158,7 @@ end
                             @cell(py[ip, ivertex, jvertex, kvertex]),
                             @cell(pz[ip, ivertex, jvertex, kvertex]),
                         )
-                        ω_i = distance_weight(xvertex, p_i; order=4)
+                        ω_i = distance_weight(xvertex, p_i; order=1)
                         # ω_i = bilinear_weight(xvertex, p_i, di)
                         ω += ω_i
                         ωxF = ntuple(Val(N)) do j
@@ -182,16 +180,18 @@ end
 
 ## OTHERS
 
-@inline function distance_weight(a, b; order::Int64=4)
+@inline function distance_weight(a, b; order::Int64=1)
     return inv(distance(a, b)^order)
 end
 
-@inline function distance_weight(x, y, b; order::Int64=4)
+@inline function distance_weight(x, y, b; order::Int64=1)
     return inv(distance((x, y), b)^order)
 end
 
 @generated function bilinear_weight(
-    a::Union{NTuple{N,T}, SVector{N,T}}, b::Union{NTuple{N,T}, SVector{N,T}}, di::Union{NTuple{N,T}, SVector{N,T}}
+    a::Union{NTuple{N,T},SVector{N,T}},
+    b::Union{NTuple{N,T},SVector{N,T}},
+    di::Union{NTuple{N,T},SVector{N,T}},
 ) where {N,T}
     quote
         Base.@_inline_meta

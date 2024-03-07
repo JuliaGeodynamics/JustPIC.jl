@@ -27,6 +27,9 @@ export centroid2particle!, centroid2particle_flip!
 include("Interpolations/kernels.jl")
 export lerp, bilinear, trilinear
 
+include("Physics/subgrid_diffusion.jl")
+export SubgridDiffusionCellArrays, subgrid_diffusion!
+
 # PARTICLES RELATED FILES
 
 include("Particles/particles_utils.jl")

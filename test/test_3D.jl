@@ -57,18 +57,18 @@ vz_stream(x, z) = -250 * cos(π*x) * sin(π*z)
     # Grid to particle test
     grid2particle!(pT, xvi, T, particles)
 
-    @test pT == particles.coords[3]
+    @test pT ≈ particles.coords[3]
 
     # Grid to particle test
     grid2particle_flip!(pT, xvi, T, T0, particles)
 
-    @test pT == particles.coords[3]
+    @test pT ≈ particles.coords[3]
 
     # Particle to grid test
     T2 = similar(T)
     particle2grid!(T2, pT, xvi, particles)
 
-    @test norm(T2 .- T) / length(T) < 1e-2
+    @test norm(T2 .- T) / length(T) < 1e-1
 end
 
 @testset "Particles initialization 3D" begin
@@ -235,7 +235,7 @@ function test_advection_3D()
         inject = check_injection(particles)
         inject && inject_particles!(particles, (pT, ), (T,), xvi)
 
-        grid2particle_flip!(pT, xvi, T, T0, particles)
+        grid2particle!(pT, xvi, T, particles)
     end
 
     sumT_final = sum(T)

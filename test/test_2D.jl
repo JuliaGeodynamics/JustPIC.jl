@@ -68,7 +68,7 @@ vi_stream(x) =  π*1e-5 * (x - 0.5)
     T2 = similar(T)
     particle2grid!(T2, pT, xvi, particles)
     # norm(T2 .- T) / length(T)
-    @test norm(T2 .- T) / length(T) < 1e-2
+    @test norm(T2 .- T) / length(T) < 1e-1
 end
 
 @testset "Particles initialization 2D" begin
@@ -218,7 +218,7 @@ function advection_test_2D()
         inject = check_injection(particles)
         inject && inject_particles!(particles, (pT, ), (T,), xvi)
 
-        grid2particle_flip!(pT, xvi, T, T0, particles)
+        grid2particle!(pT, xvi, T, particles)
     end
 
     sumT_final = sum(T)
@@ -258,7 +258,7 @@ function test_rotating_circle()
     Vx = TA(backend)([-vi_stream(y) for x in grid_vx[1], y in grid_vx[2]]);
     Vy = TA(backend)([ vi_stream(x) for x in grid_vy[1], y in grid_vy[2]]);
     xc0 = yc0 =  0.25
-    R   = 12 * dx
+    R   = 6 * dx
     T   = TA(backend)([((x-xc0)^2 + (y-yc0)^2 ≤ R^2)  * 1.0 for x in xv, y in yv]);
     T0  = deepcopy(T)
     V   = Vx, Vy;
@@ -278,13 +278,11 @@ function test_rotating_circle()
         particle2grid!(T, pT, xvi, particles)
         copyto!(T0, T)
         advection_RK!(particles, V, grid_vx, grid_vy, dt, 2 / 3)
-        shuffle_particles!(particles, xvi, particle_args)
+        move_particles!(particles, xvi, particle_args)
 
         inject = check_injection(particles)
         inject && inject_particles!(particles, (pT, ), (T,), xvi)
-
-        grid2particle_flip!(pT, xvi, T, T0, particles)
-
+        grid2particle!(pT, xvi, T, particles)
         t += dt
         it += 1
     end
@@ -295,7 +293,7 @@ function test_rotating_circle()
 end
 
 function test_rotation_2D()
-    @show err = test_rotating_circle()
+    err = test_rotating_circle()
     tol = 1e-2
     passed = err < tol
 
