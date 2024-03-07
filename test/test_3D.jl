@@ -1,3 +1,6 @@
+using CUDA
+ENV["JULIA_JUSTPIC_BACKEND"] = "CUDA"
+
 @static if ENV["JULIA_JUSTPIC_BACKEND"] === "AMDGPU"
     using AMDGPU
     AMDGPU.allowscalar(true)
@@ -235,7 +238,7 @@ function test_advection_3D()
         inject = check_injection(particles)
         inject && inject_particles!(particles, (pT, ), (T,), xvi)
 
-        grid2particle_flip!(pT, xvi, T, T0, particles)
+        grid2particle!(pT, xvi, T, particles)
     end
 
     sumT_final = sum(T)

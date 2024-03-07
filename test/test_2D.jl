@@ -218,7 +218,7 @@ function advection_test_2D()
         inject = check_injection(particles)
         inject && inject_particles!(particles, (pT, ), (T,), xvi)
 
-        grid2particle_flip!(pT, xvi, T, T0, particles)
+        grid2particle!(pT, xvi, T, particles)
     end
 
     sumT_final = sum(T)
@@ -258,7 +258,7 @@ function test_rotating_circle()
     Vx = TA(backend)([-vi_stream(y) for x in grid_vx[1], y in grid_vx[2]]);
     Vy = TA(backend)([ vi_stream(x) for x in grid_vy[1], y in grid_vy[2]]);
     xc0 = yc0 =  0.25
-    R   = 12 * dx
+    R   = 6 * dx
     T   = TA(backend)([((x-xc0)^2 + (y-yc0)^2 ≤ R^2)  * 1.0 for x in xv, y in yv]);
     T0  = deepcopy(T)
     V   = Vx, Vy;
@@ -282,9 +282,7 @@ function test_rotating_circle()
 
         inject = check_injection(particles)
         inject && inject_particles!(particles, (pT, ), (T,), xvi)
-
-        grid2particle_flip!(pT, xvi, T, T0, particles)
-
+        grid2particle!(pT, xvi, T, particles)
         t += dt
         it += 1
     end
