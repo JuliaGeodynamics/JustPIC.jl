@@ -65,7 +65,7 @@ end
         pTᵢ = @cell pT[ip, I...]
 
         # subgrid diffusion of the i-th particle
-        pΔTᵢ = (pTᵢ - pT0ᵢ) * (1 - exp(-d * dt / @cell(dt₀[ip, I...])))
+        pΔTᵢ = (pTᵢ - pT0ᵢ) * (1 - exp(-d * dt / max(@cell(dt₀[ip, I...]), 1e-9))
         @cell pT0[ip, I...] = pT0ᵢ + pΔTᵢ
         @cell pΔT[ip, I...] = pΔTᵢ
     end
