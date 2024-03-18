@@ -4,7 +4,7 @@ struct SubgridDiffusionCellArrays{CA,T}
     dt₀::CA # characteristic timescale `dt₀` of the local cell := ρCp / (K * (2/Δx^2 + 2/Δy^2))
     ΔT_subgrid::T # subgrid temperature increment
 
-    function SubgridDiffusionCellArrays(particles::Particles)
+    function SubgridDiffusionCellArrays(particles::Particles{CPUBackend})
         pΔT, pT0, dt₀ = init_cell_arrays(particles, Val(3))
         ni = size(pΔT)
         ΔT = @zeros(ni .+ 1)
@@ -13,6 +13,8 @@ struct SubgridDiffusionCellArrays{CA,T}
         return new{CA,T}(pT0, pΔT, dt₀, ΔT)
     end
 end
+
+SubgridDiffusionCellArrays(::T) = throw(ArgumentError("SubgridDiffusionCellArrays: $T backend not supported"))
 
 """
     subgrid_diffusion!(pT, T_grid, ΔT_grid, subgrid_arrays, particles::Particles, xvi,  di, dt; d = 1.0)
