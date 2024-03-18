@@ -12,8 +12,6 @@ module _2D
 
     @init_parallel_stencil(CUDA, Float64, 2)
 
-    
-
     const ParticlesExt = JustPIC.Particles
     const PassiveMarkersExt = JustPIC.PassiveMarkers
 
@@ -37,6 +35,10 @@ module _2D
     include(joinpath(@__DIR__, "../src/common.jl"))
 
     include(joinpath(@__DIR__, "../src/CUDAExt/CellArrays.jl"))
+
+    function JustPIC._2D.SubgridDiffusionCellArrays(particles::ParticlesExt{CUDABackend})
+        return SubgridDiffusionCellArrays(particles)
+    end
 
     function JustPIC._2D.init_particles(
         ::Type{CUDABackend}, nxcell, max_xcell, min_xcell, x, y, dx, dy, nx, ny
@@ -206,8 +208,6 @@ module _3D
 
     @init_parallel_stencil(CUDA, Float64, 3)
 
-    
-
     macro myatomic(expr)
         return esc(
             quote
@@ -227,6 +227,10 @@ module _3D
     include(joinpath(@__DIR__, "../src/common.jl"))
 
     include(joinpath(@__DIR__, "../src/CUDAExt/CellArrays.jl"))
+
+    function JustPIC._3D.SubgridDiffusionCellArrays(particles::ParticlesExt{CUDABackend})
+        return SubgridDiffusionCellArrays(particles)
+    end
 
     function JustPIC._3D.init_particles(
         ::Type{CUDABackend}, nxcell, max_xcell, min_xcell, x, y, z, dx, dy, dz, nx, ny, nz
