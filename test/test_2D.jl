@@ -30,7 +30,7 @@ vx_stream(x, y) =  250 * sin(π*x) * cos(π*y)
 vy_stream(x, y) = -250 * cos(π*x) * sin(π*y)
 
 # Analytical flow solution
-vi_stream(x) =  π*1e-5 * (x - 0.5)
+vi_stream(x) =  π * 1e-5 * (x - 0.5)
 
 @testset "Interpolations 2D" begin
     nxcell, max_xcell, min_xcell = 24, 24, 1
@@ -69,6 +69,28 @@ vi_stream(x) =  π*1e-5 * (x - 0.5)
     _2D.particle2grid!(T2, pT, xvi, particles)
     # norm(T2 .- T) / length(T)
     @test norm(T2 .- T) / length(T) < 1e-1
+end
+
+@testset "Subgrid diffusion 2D" begin
+    nxcell, max_xcell, min_xcell = 12, 12, 1
+    n = 5 # number of vertices
+    nx = ny = n - 1
+    Lx = Ly = 1.0
+    # nodal vertices
+    xvi = xv, yv = LinRange(0, Lx, n), LinRange(0, Ly, n)
+    dxi = dx, dy = xv[2] - xv[1], yv[2] - yv[1]
+
+    # Initialize particles & particle fields
+    particles = _2D.init_particles(
+        backend, nxcell, max_xcell, min_xcell, xvi..., dxi..., nx, ny
+    )
+
+    arrays = SubgridDiffusionCellArrays(particles)
+    # Test they are allocated in the right backend
+    @test arrays.ΔT_subgrid isa TA(backend)
+    @test arrays.pT0.data isa TA(backend)
+    @test arrays.pΔT.data isa TA(backend)
+    @test arrays.dt₀.data isa TA(backend)
 end
 
 @testset "Particles initialization 2D" begin
