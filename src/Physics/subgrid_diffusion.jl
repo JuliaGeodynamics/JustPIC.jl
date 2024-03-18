@@ -14,7 +14,9 @@ struct SubgridDiffusionCellArrays{CA,T}
     end
 end
 
-SubgridDiffusionCellArrays(::T) where T = throw(ArgumentError("SubgridDiffusionCellArrays: $T backend not supported"))
+function SubgridDiffusionCellArrays(::T) where {T}
+    throw(ArgumentError("SubgridDiffusionCellArrays: $T backend not supported"))
+end
 
 """
     subgrid_diffusion!(pT, T_grid, ΔT_grid, subgrid_arrays, particles::Particles, xvi,  di, dt; d = 1.0)
