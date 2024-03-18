@@ -70,7 +70,9 @@ end
                 # Interpolate field F onto particle
                 ntuple(Val(N)) do n
                     Base.@_inline_meta
-                    @cell Fp[n][ip, i, j] = _centroid2particle(pᵢ, xci, di, F[n], cell_index)
+                    @cell Fp[n][ip, i, j] = _centroid2particle(
+                        pᵢ, xci, di, F[n], cell_index
+                    )
                 end
             end
         end
@@ -94,7 +96,7 @@ end
                     # cache particle coordinates
                     pᵢ = ntuple(ii -> (@cell p[ii][ip, i, j, k]), Val(3))
                     xc = xci[1][i], xci[2][j], xci[3][k]
-                    cell_index = shifted_index(pᵢ, xc, idx)                  
+                    cell_index = shifted_index(pᵢ, xc, idx)
                     # skip lines below if there is no particle in this piece of memory
                     any(isnan, pᵢ) && continue
                     # Interpolate field F onto particle
@@ -124,8 +126,8 @@ end
                     # cache particle coordinates
                     pᵢ = ntuple(ii -> (@cell p[ii][ip, i, j, k]), Val(3))
                     xc = xci[1][i], xci[2][j], xci[3][k]
-                    cell_index = shifted_index(pᵢ, xc, idx)                  
-                  # skip lines below if there is no particle in this piece of memory
+                    cell_index = shifted_index(pᵢ, xc, idx)
+                    # skip lines below if there is no particle in this piece of memory
                     any(isnan, pᵢ) && continue
                     # Interpolate field F onto particle
                     ntuple(Val(N)) do n
@@ -140,7 +142,6 @@ end
     end
     return nothing
 end
-
 
 ## UTILS ------------------------------------------------------------------------------------------------------
 
@@ -224,7 +225,7 @@ end
             -di[i] * 0.5
         else
             xi[i][j]
-        end      
+        end
         (p[i] - xc) * inv(di[i])
     end
 end
