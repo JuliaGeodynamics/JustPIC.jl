@@ -28,19 +28,20 @@ end
     idx_i, idx_j = idx
 
     for j in idx_j:(idx_j + 1)
-        !(1 ≤ j < ny) && continue
-
+        !(1 ≤ j ≤ ny) && continue
         for i in idx_i:(idx_i + 1)
-            !(1 ≤ i < nx) && continue
+            !(1 ≤ i ≤ nx) && continue
 
             # iterate over all the particles within the cells of index `idx`
             for ip in cellaxes(Fp)
                 # cache particle coordinates
                 pᵢ = ntuple(ii -> (@cell p[ii][ip, i, j]), Val(2))
+                xc = xci[1][i], xci[2][j]
+                cell_index = shifted_index(pᵢ, xc, idx)
                 # skip lines below if there is no particle in this piece of memory
                 any(isnan, pᵢ) && continue
                 # Interpolate field F onto particle
-                @cell Fp[ip, i, j] = _centroid2particle(pᵢ, xci, di, F, idx)
+                @cell Fp[ip, i, j] = _centroid2particle(pᵢ, xci, di, F, cell_index)
             end
         end
     end
@@ -54,21 +55,24 @@ end
     idx_i, idx_j = idx
 
     for j in idx_j:(idx_j + 1)
-        !(1 ≤ j < ny) && continue
-
+        !(1 ≤ j ≤ ny) && continue
         for i in idx_i:(idx_i + 1)
-            !(1 ≤ i < nx) && continue
+            !(1 ≤ i ≤ nx) && continue
 
             # iterate over all the particles within the cells of index `idx`
             for ip in cellaxes(Fp)
                 # cache particle coordinates
                 pᵢ = ntuple(ii -> (@cell p[ii][ip, i, j]), Val(2))
+                xc = xci[1][i], xci[2][j]
+                cell_index = shifted_index(pᵢ, xc, idx)
                 # skip lines below if there is no particle in this piece of memory
                 any(isnan, pᵢ) && continue
                 # Interpolate field F onto particle
                 ntuple(Val(N)) do n
                     Base.@_inline_meta
-                    @cell Fp[n][ip, i, j] = _centroid2particle(pᵢ, xci, di, F[n], idx)
+                    @cell Fp[n][ip, i, j] = _centroid2particle(
+                        pᵢ, xci, di, F[n], cell_index
+                    )
                 end
             end
         end
@@ -81,22 +85,22 @@ end
     idx_i, idx_j, idx_k = idx
 
     for k in idx_k:(idx_k + 1)
-        !(1 ≤ k < nz) && continue
-
+        !(1 ≤ k ≤ nz) && continue
         for j in idx_j:(idx_j + 1)
-            !(1 ≤ j < ny) && continue
-
+            !(1 ≤ j ≤ ny) && continue
             for i in idx_i:(idx_i + 1)
-                !(1 ≤ i < nx) && continue
+                !(1 ≤ i ≤ nx) && continue
 
                 # iterate over all the particles within the cells of index `idx`
                 for ip in cellaxes(Fp)
                     # cache particle coordinates
                     pᵢ = ntuple(ii -> (@cell p[ii][ip, i, j, k]), Val(3))
+                    xc = xci[1][i], xci[2][j], xci[3][k]
+                    cell_index = shifted_index(pᵢ, xc, idx)
                     # skip lines below if there is no particle in this piece of memory
                     any(isnan, pᵢ) && continue
                     # Interpolate field F onto particle
-                    @cell Fp[ip, i, j, k] = _centroid2particle(pᵢ, xci, di, F, idx)
+                    @cell Fp[ip, i, j, k] = _centroid2particle(pᵢ, xci, di, F, cell_index)
                 end
             end
         end
@@ -111,25 +115,25 @@ end
     idx_i, idx_j, idx_k = idx
 
     for k in idx_k:(idx_k + 1)
-        !(1 ≤ k < nz) && continue
-
+        !(1 ≤ k ≤ nz) && continue
         for j in idx_j:(idx_j + 1)
-            !(1 ≤ j < ny) && continue
-
+            !(1 ≤ j ≤ ny) && continue
             for i in idx_i:(idx_i + 1)
-                !(1 ≤ i < nx) && continue
+                !(1 ≤ i ≤ nx) && continue
 
                 # iterate over all the particles within the cells of index `idx`
                 for ip in cellaxes(Fp)
                     # cache particle coordinates
                     pᵢ = ntuple(ii -> (@cell p[ii][ip, i, j, k]), Val(3))
+                    xc = xci[1][i], xci[2][j], xci[3][k]
+                    cell_index = shifted_index(pᵢ, xc, idx)
                     # skip lines below if there is no particle in this piece of memory
                     any(isnan, pᵢ) && continue
                     # Interpolate field F onto particle
                     ntuple(Val(N)) do n
                         Base.@_inline_meta
                         @cell Fp[n][ip, i, j, k] = _centroid2particle(
-                            pᵢ, xci, di, F[n], idx
+                            pᵢ, xci, di, F[n], cell_index
                         )
                     end
                 end
@@ -137,204 +141,6 @@ end
         end
     end
     return nothing
-end
-
-## FULL PARTICLE PIC ------------------------------------------------------------------------------------------
-
-# LAUNCHERS
-
-function centroid2particle_flip!(Fp, xci, F, F0, coords; α=0.0)
-    di = grid_size(xci)
-    centroid2particle_flip!(Fp, xci, F, F0, coords, di; α=α)
-
-    return nothing
-end
-
-function centroid2particle_flip!(Fp, xci, F, F0, coords, di::NTuple{N,T}; α=0.0) where {N,T}
-    indices = ntuple(i -> 0:(length(xci[i]) + 1), Val(N))
-
-    @parallel (indices) centroid2particle_full!(Fp, F, F0, xci, di, coords, α)
-
-    return nothing
-end
-
-@parallel_indices (I...) function centroid2particle_full!(Fp, F, F0, xci, di, coords, α)
-    _centroid2particle_full!(Fp, coords, xci, di, F, F0, I, α)
-    return nothing
-end
-
-# INNERMOST INTERPOLATION KERNEL
-
-@inline function _centroid2particle_full!(
-    Fp, p, xci, di::NTuple{2,T}, F, F0, idx, α
-) where {T}
-    nx, ny = size(F)
-    idx_i, idx_j = idx
-
-    for j in idx_j:(idx_j + 1)
-        !(1 ≤ j < ny) && continue
-
-        for i in idx_i:(idx_i + 1)
-            !(1 ≤ i < nx) && continue
-
-            # iterate over all the particles within the cells of index `idx`
-            for ip in cellaxes(Fp)
-                # cache particle coordinates
-                pᵢ = ntuple(i -> (@cell p[i][ip, i, j]), Val(2))
-                # skip lines below if there is no particle in this piece of memory
-                any(isnan, pᵢ) && continue
-                Fᵢ = @cell Fp[ip, i, j]
-                F_pic, F0_pic = _centroid2particle(pᵢ, xci, di, (F, F0), idx)
-                ΔF = F_pic - F0_pic
-                F_flip = Fᵢ + ΔF
-                # Interpolate field F onto particle
-                @cell Fp[ip, i, j] = muladd(F_pic, α, F_flip * (1.0 - α))
-            end
-        end
-    end
-
-    return nothing
-end
-
-@inline function _centroid2particle_full!(
-    Fp, p, xci, di::NTuple{3,T}, F, F0, idx, α
-) where {T}
-    nx, ny, nz = size(F)
-    idx_i, idx_j, idx_k = idx
-
-    for k in idx_k:(idx_k + 1)
-        !(1 ≤ k < nz) && continue
-
-        for j in idx_j:(idx_j + 1)
-            !(1 ≤ j < ny) && continue
-
-            for i in idx_i:(idx_i + 1)
-                !(1 ≤ i < nx) && continue
-
-                # iterate over all the particles within the cells of index `idx`
-                for ip in cellaxes(Fp)
-                    # cache particle coordinates
-                    pᵢ = ntuple(i -> (@cell p[i][ip, i, j, k]), Val(3))
-
-                    # skip lines below if there is no particle in this piece of memory
-                    any(isnan, pᵢ) && continue
-
-                    Fᵢ = @cell Fp[ip, i, j, k]
-                    F_pic, F0_pic = _centroid2particle(pᵢ, xci, di, (F, F0), idx)
-                    ΔF = F_pic - F0_pic
-                    F_flip = Fᵢ + ΔF
-                    # Interpolate field F onto particle
-                    @cell Fp[ip, i, j, k] = muladd(F_pic, α, F_flip * (1.0 - α))
-                end
-            end
-        end
-    end
-
-    return nothing
-end
-
-@inline function _centroid2particle_full!(
-    Fp::NTuple{N,T1}, p, xci, di::NTuple{2,T2}, F::NTuple{N,T2}, F0::NTuple{N,T2}, idx, α
-) where {N,T1,T2}
-    nx, ny = size(F)
-    idx_i, idx_j = idx
-
-    for j in idx_j:(idx_j + 1)
-        !(1 ≤ j < ny) && continue
-
-        for i in idx_i:(idx_i + 1)
-            !(1 ≤ i < nx) && continue
-
-            # iterate over all the particles within the cells of index `idx`
-            for ip in cellaxes(Fp)
-                # cache particle coordinates
-                pᵢ = ntuple(i -> (@cell p[i][ip, i, j]), Val(2))
-                # skip lines below if there is no particle in this piece of memory
-                any(isnan, pᵢ) && continue
-                ntuple(Val(N1)) do i
-                    Base.@_inline_meta
-                    Fᵢ = @cell Fp[i][ip, i, j]
-                    F_pic, F0_pic = _centroid2particle(pᵢ, xci, di, (F[i], F0[i]), idx)
-                    ΔF = F_pic - F0_pic
-                    F_flip = Fᵢ + ΔF
-                    # Interpolate field F onto particle
-                    @cell Fp[i][ip, i, j] = muladd(F_pic, α, F_flip * (1.0 - α))
-                end
-            end
-        end
-    end
-
-    return nothing
-end
-
-@inline function _centroid2particle_full!(
-    Fp::NTuple{N,T1}, p, xci, di::NTuple{3,T2}, F::NTuple{N,T2}, F0::NTuple{N,T2}, idx, α
-) where {N,T1,T2}
-    nx, ny, nz = size(F)
-    idx_i, idx_j, idx_k = idx
-
-    for k in idx_k:(idx_k + 1)
-        !(1 ≤ k < nz) && continue
-
-        for j in idx_j:(idx_j + 1)
-            !(1 ≤ j < ny) && continue
-
-            for i in idx_i:(idx_i + 1)
-                !(1 ≤ i < nx) && continue
-
-                # iterate over all the particles within the cells of index `idx`
-                for ip in cellaxes(Fp)
-                    # cache particle coordinates
-                    pᵢ = ntuple(i -> (@cell p[i][ip, i, j, k]), Val(3))
-
-                    # skip lines below if there is no particle in this piece of memory
-                    any(isnan, pᵢ) && continue
-
-                    ntuple(Val(N1)) do i
-                        Base.@_inline_meta
-                        Fᵢ = @cell Fp[i][ip, i, j, k]
-                        F_pic, F0_pic = _centroid2particle(pᵢ, xci, di, (F[i], F0[i]), idx)
-                        ΔF = F_pic - F0_pic
-                        F_flip = Fᵢ + ΔF
-                        # Interpolate field F onto particle
-                        @cell Fp[i][ip, i, j, k] = muladd(F_pic, α, F_flip * (1.0 - α))
-                    end
-                end
-            end
-        end
-    end
-
-    return nothing
-end
-
-@inline function _centroid2particle_full!(
-    Fp::NTuple{N1,T1},
-    p,
-    xci,
-    di::NTuple{N2,T2},
-    F::NTuple{N1,T3},
-    F0::NTuple{N1,T3},
-    idx,
-    α,
-) where {N1,T1,N2,T2,T3}
-    # iterate over all the particles within the cells of index `idx`
-    for ip in cellaxes(Fp)
-        # cache particle coordinates
-        pᵢ = ntuple(i -> (@cell p[i][ip, idx...]), Val(N2))
-
-        # skip lines below if there is no particle in this piece of memory
-        any(isnan, pᵢ) && continue
-
-        ntuple(Val(N1)) do i
-            Base.@_inline_meta
-            Fᵢ = @cell Fp[i][ip, idx...]
-            F_pic, F0_pic = _centroid2particle(pᵢ, xci, di, (F[i], F0[i]), idx)
-            ΔF = F_pic - F0_pic
-            F_flip = Fᵢ + ΔF
-            # Interpolate field F onto particle
-            @cell Fp[i][ip, idx...] = F_pic * α + F_flip * (1.0 - α)
-        end
-    end
 end
 
 ## UTILS ------------------------------------------------------------------------------------------------------
@@ -415,15 +221,10 @@ end
     return ntuple(Val(N)) do i
         Base.@_inline_meta
         j = idx[i]
-
-        x = xi[i]
-        n = length(x)
-        xc = if 0 < j ≤ n # set cellcenter coordinates outside the domain otherwise
-            x[j]
-        elseif j < 1
+        xc = if j < 1 # set cellcenter coordinates outside the domain otherwise
             -di[i] * 0.5
-        elseif j > n
-            muladd(di[i], 0.5, x[j])
+        else
+            xi[i][j]
         end
         (p[i] - xc) * inv(di[i])
     end
@@ -435,3 +236,7 @@ end
 ) where {N,A,B,C}
     return ntuple(i -> (p[i] - xci[i]) * inv(di[i]), Val(N))
 end
+
+# shifts the index of the cell bot-left to the left if it is located in the left cell
+@inline shifted_index(pxi, xci, idx) = pxi < xci ? idx - 1 : idx
+@inline shifted_index(pxi::NTuple, xci::NTuple, idx::NTuple) = shifted_index.(pxi, xci, idx)
