@@ -91,6 +91,9 @@ end
     @test arrays.pT0.data isa TA(backend)
     @test arrays.pΔT.data isa TA(backend)
     @test arrays.dt₀.data isa TA(backend)
+
+    @test_throws ArgumentError SubgridDiffusionCellArrays(1)
+
 end
 
 @testset "Particles initialization 2D" begin
