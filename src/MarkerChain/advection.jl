@@ -32,7 +32,9 @@ function advection_RK!(
     local_limits = inner_limits(grid_vi)
 
     # launch parallel advection kernel
-    @parallel (@idx ni) _advection_markerchain_RK!(coords, V, index, grid_vi, local_limits, dxi, dt, α)
+    @parallel (@idx ni) _advection_markerchain_RK!(
+        coords, V, index, grid_vi, local_limits, dxi, dt, α
+    )
     return nothing
 end
 

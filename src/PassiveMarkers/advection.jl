@@ -1,9 +1,13 @@
-function advect_passive_markers!(particles::PassiveMarkers, V, grid_vx, grid_vy, dt; α::Float64=2 / 3)
+function advect_passive_markers!(
+    particles::PassiveMarkers, V, grid_vx, grid_vy, dt; α::Float64=2 / 3
+)
     advection_passive_markers_RK!(particles, V, grid_vx, grid_vy, dt, α)
     return nothing
 end
 
-function advect_passive_markers!(particles::PassiveMarkers, V, grid_vx, grid_vy, grid_vz, dt; α::Float64=2 / 3)
+function advect_passive_markers!(
+    particles::PassiveMarkers, V, grid_vx, grid_vy, grid_vz, dt; α::Float64=2 / 3
+)
     advection_passive_markers_RK!(particles, V, grid_vx, grid_vy, grid_vz, dt, α)
     return nothing
 end
@@ -22,7 +26,9 @@ function advection_passive_markers_RK!(
     local_limits = inner_limits(grid_vi)
 
     # launch parallel advection kernel
-    @parallel (1:np) _advection_passive_markers_RK!(coords, V, grid_vi, local_limits, dxi, dt, α)
+    @parallel (1:np) _advection_passive_markers_RK!(
+        coords, V, grid_vi, local_limits, dxi, dt, α
+    )
     return nothing
 end
 

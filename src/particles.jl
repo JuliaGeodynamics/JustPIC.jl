@@ -66,8 +66,6 @@ struct PassiveMarkers{Backend,T} <: AbstractParticles
     end
 end
 
-
-
 # useful functions
 
 unwrap_abstractarray(x::AbstractArray) = typeof(x).name.wrapper
@@ -96,7 +94,7 @@ unwrap_abstractarray(x::AbstractArray) = typeof(x).name.wrapper
     if iszero(xv₀)
         return cell_index(xᵢ, dxᵢ)
     else
-        return cell_index(xᵢ-xv₀, dxᵢ)
+        return cell_index(xᵢ - xv₀, dxᵢ)
     end
 end
 

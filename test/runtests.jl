@@ -27,7 +27,6 @@ function parse_flags!(args, flag; default=nothing, typ=typeof(default))
 end
 
 function runtests()
-    exename = joinpath(Sys.BINDIR, Base.julia_exename())
     testdir = pwd()
     testfiles = sort(
         filter(
@@ -38,52 +37,44 @@ function runtests()
     nfail = 0
     printstyled("Testing package JustPIC.jl\n"; bold=true, color=:white)
 
-    # 2D tests --------------------------------------------------
-    printstyled("Running 2D tests\n"; bold=true, color=:white)
+    if get(ENV, "JULIA_JUSTPIC_BACKEND", "") === "CPU"
 
-    # if get(ENV, "JULIA_JUSTPIC_BACKEND", "") == "AMDGPU"
-    #     # set_backend("AMDGPU_Float64_2D")
-    #     using AMDGPU
-    # elseif get(ENV, "JULIA_JUSTPIC_BACKEND", "") == "CUDA"
-    #     # set_backend("CUDA_Float64_2D")
-    #     using CUDA
-    # # elseif get(ENV, "JULIA_JUSTPIC_BACKEND", "") == "CPU"
-    # #     set_backend("Threads_Float64_2D")
-    # end
-
-    for f in testfiles
-        if occursin("2D", f)
-            println("\n Running tests from $f")
-            try
-                run(`$exename --startup-file=no $(joinpath(testdir, f))`)
-            catch ex
-                nfail += 1
+        try
+            printstyled("Running 2D tests\n"; bold=true, color=:white)
+            include("test_2D.jl")
+        catch 
+            nfail +=1 
+        end
+        try
+            printstyled("Running 3D tests\n"; bold=true, color=:white)
+            include("test_3D.jl")
+        catch 
+            nfail +=1 
+        end
+    else
+        # 2D tests --------------------------------------------------
+        printstyled("Running 2D tests\n"; bold=true, color=:white)
+        for f in testfiles
+            if occursin("2D", f)
+                println("\n Running tests from $f")
+                try
+                    run(`$(Base.julia_cmd()) --startup-file=no $(joinpath(testdir, f))`)
+                catch ex
+                    nfail += 1
+                end
             end
         end
-    end
 
-    # 3D tests --------------------------------------------------
-    printstyled("Running 3D tests\n"; bold=true, color=:white)
-
-    # if get(ENV, "JULIA_JUSTPIC_BACKEND", "") == "AMDGPU"
-    #     # set_backend("AMDGPU_Float64_3D")
-    #     using AMDGPU
-
-    # elseif get(ENV, "JULIA_JUSTPIC_BACKEND", "") == "CUDA"
-    #     # set_backend("CUDA_Float64_3D")
-    #     using CUDA
-
-    # # elseif get(ENV, "JULIA_JUSTPIC_BACKEND", "") == "CPU"
-    # #     set_backend("Threads_Float64_3D")
-    # end
-
-    for f in testfiles
-        if occursin("3D", f)
-            println("\n Running tests from $f")
-            try
-                run(`$exename --startup-file=no $(joinpath(testdir, f))`)
-            catch ex
-                nfail += 1
+        # 3D tests --------------------------------------------------
+        printstyled("Running 3D tests\n"; bold=true, color=:white)
+        for f in testfiles
+            if occursin("3D", f)
+                println("\n Running tests from $f")
+                try
+                    run(`$(Base.julia_cmd()) --startup-file=no $(joinpath(testdir, f))`)
+                catch ex
+                    nfail += 1
+                end
             end
         end
     end

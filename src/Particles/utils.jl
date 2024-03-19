@@ -73,9 +73,9 @@ end
     px, py = p # particle coordinate
     xc, yc = xci # corner coordinate
     dx, dy = dxi # spacing between gridpoints
-    
+
     return (xc < px < xc + dx) && (yc < py < yc + dy)
-    
+
     # # check if it's outside the x-limits
     # px < xc && return false
     # px > xc + dx && return false

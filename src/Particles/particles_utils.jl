@@ -18,25 +18,37 @@ end
 
 ## random particles initialization 
 
-function init_particles(backend, nxcell, max_xcell, min_xcell, x, y, dx, dy, nx, ny) 
+function init_particles(backend, nxcell, max_xcell, min_xcell, x, y, dx, dy, nx, ny)
     return init_particles(backend, nxcell, max_xcell, min_xcell, (x, y), (dx, dy), (nx, ny))
 end
 
-function init_particles(backend, nxcell, max_xcell, min_xcell, x, y, z, dx, dy, dz, nx, ny, nz)
-    return init_particles(backend, nxcell, max_xcell, min_xcell, (x, y, z), (dx, dy, dz), (nx, ny, nz))
+function init_particles(
+    backend, nxcell, max_xcell, min_xcell, x, y, z, dx, dy, dz, nx, ny, nz
+)
+    return init_particles(
+        backend, nxcell, max_xcell, min_xcell, (x, y, z), (dx, dy, dz), (nx, ny, nz)
+    )
 end
 
-function init_particles(backend, nxcell, max_xcell, min_xcell, coords::NTuple{N, AbstractArray}, dxᵢ::NTuple{N, T}, nᵢ::NTuple{N, I}) where {N, T, I}
+function init_particles(
+    backend,
+    nxcell,
+    max_xcell,
+    min_xcell,
+    coords::NTuple{N,AbstractArray},
+    dxᵢ::NTuple{N,T},
+    nᵢ::NTuple{N,I},
+) where {N,T,I}
     ncells = prod(nᵢ)
-    np     = max_xcell * ncells
-    pxᵢ    = ntuple(_ -> @rand(nᵢ..., celldims = (max_xcell,)), Val(N))
+    np = max_xcell * ncells
+    pxᵢ = ntuple(_ -> @rand(nᵢ..., celldims = (max_xcell,)), Val(N))
 
     inject = @fill(false, nᵢ..., eltype = Bool)
     index = @fill(false, nᵢ..., celldims = (max_xcell,), eltype = Bool)
 
     @parallel_indices (I...) function fill_coords_index(
-        pxᵢ::NTuple{N, T}, index, coords, dxᵢ, nxcell, max_xcell
-    ) where {N, T}
+        pxᵢ::NTuple{N,T}, index, coords, dxᵢ, nxcell, max_xcell
+    ) where {N,T}
         # lower-left corner of the cell
         x0ᵢ = ntuple(Val(N)) do ndim
             coords[ndim][I[ndim]]
@@ -46,9 +58,10 @@ function init_particles(backend, nxcell, max_xcell, min_xcell, coords::NTuple{N,
         for l in 1:max_xcell
             if l ≤ nxcell
                 ntuple(Val(N)) do ndim
-                    @cell pxᵢ[ndim][l, I...] = x0ᵢ[ndim] + dxᵢ[ndim] * (@cell(pxᵢ[ndim][l, I...]) * 0.9 + 0.05)
+                    @cell pxᵢ[ndim][l, I...] =
+                        x0ᵢ[ndim] + dxᵢ[ndim] * (@cell(pxᵢ[ndim][l, I...]) * 0.9 + 0.05)
                 end
-                @cell index[l,  I...] = true
+                @cell index[l, I...] = true
 
             else
                 ntuple(Val(N)) do ndim

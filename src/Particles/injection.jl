@@ -73,8 +73,8 @@ end
 end
 
 function _inject_particles!(
-    inject, args, fields, coords, index, grid, di, min_xcell, idx_cell
-)
+    inject, args, fields, coords, index, grid, di::NTuple{N,T}, min_xcell, idx_cell
+) where {N,T}
     max_xcell = cellnum(index)
 
     @inbounds if inject[idx_cell...]
@@ -93,21 +93,48 @@ function _inject_particles!(
                 particles_num += 1
 
                 # add at cellcenter + small random perturbation
-                # p_new = new_particle(xvi, di)
-                p_new = new_particle(xvi, di, particles_num, max_xcell)
+                p_new = new_particle(xvi, di)
+                # p_new = new_particle(xvi, di, particles_num, max_xcell)
 
                 fill_particle!(coords, p_new, i, idx_cell)
                 @cell index[i, idx_cell...] = true
 
+                # add phase to new particle
+                particle_idx, min_idx = index_min_distance(
+                    coords, p_new, index, i, idx_cell...
+                )
+
                 for j in eachindex(args)
-                    local_field = cell_field(fields[j], idx_cell...)
-                    upper = maximum(local_field)
-                    lower = minimum(local_field)
-                    tmp = _grid2particle(p_new, grid, di, fields[j], idx_cell)
-                    tmp < lower && (tmp = lower)
-                    tmp > upper && (tmp = upper)
-                    @cell args[j][i, idx_cell...] = tmp
+                    @cell args[j][i, idx_cell...] = @cell args[j][particle_idx, min_idx...]
                 end
+
+                # for j in eachindex(args)
+                #     local_field = cell_field(fields[j], idx_cell...)
+                #     upper = maximum(local_field)
+                #     lower = minimum(local_field)
+                #     tmp = _grid2particle(p_new, grid, di, fields[j], idx_cell)
+                #     tmp < lower && (tmp = lower)
+                #     tmp > upper && (tmp = upper)
+                #     @cell args[j][i, idx_cell...] = tmp
+                # end
+
+                # for j in eachindex(args)
+                #     ω, ωxF = 0e0, 0e0
+                #     # iterate over cell
+                #     for ip in cellaxes(index)
+                #         # early exit if particle is not in the cell
+                #         i == ip && continue # this is the index of the new particle
+                #         doskip(index, ip, idx_cell...) && continue
+                #         p_i = ntuple(Val(N)) do n
+                #             @cell(coords[n][ip, idx_cell...])
+                #         end
+                #         ω_i = distance_weight(p_i, p_new; order=2)
+                #         ω += ω_i
+                #         ωxF = fma(ω_i, @cell(args[j][ip, idx_cell...]), ωxF)
+                #     end
+                #     @cell args[j][i, idx_cell...] = ωxF / ω
+                # end
+
             end
 
             particles_num == min_xcell && break
@@ -116,6 +143,59 @@ function _inject_particles!(
 
     return inject[idx_cell...] = false
 end
+
+# function _inject_particles!(
+#     inject, args, fields, coords, index, grid, di::NTuple{N,T}, min_xcell, idx_cell
+# ) where {N,T}
+#     max_xcell = cellnum(index)
+#     # xvertex = ntuple(Val(N)) do i
+#     #     grid[i][idx_cell[i]]
+#     # end
+#     @inbounds if inject[idx_cell...]
+
+#         # count current number of particles inside the cell
+#         particles_num = false
+#         for i in 1:max_xcell
+#             particles_num += @cell index[i, idx_cell...]
+#         end
+
+#         # coordinates of the lower-left center
+#         xvi = corner_coordinate(grid, idx_cell)
+
+#         for i in 1:max_xcell
+#             if @cell(index[i, idx_cell...]) === false
+#                 particles_num += 1
+
+#                 # add at cellcenter + small random perturbation
+#                 p_new = new_particle(xvi, di)
+#                 # p_new = new_particle(xvi, di, particles_num, max_xcell)
+
+#                 fill_particle!(coords, p_new, i, idx_cell)
+#                 @cell index[i, idx_cell...] = true
+#                 # iterate over cell
+#                 for j in eachindex(args)
+#                     ω, ωxF = 0e0, 0e0
+#                     for ip in cellaxes(index)
+#                         # early exit if particle is not in the cell
+#                         i == ip && continue # this is the index of the new particle
+#                         doskip(index, ip, idx_cell...) && continue
+#                         p_i = ntuple(Val(N)) do n
+#                             @cell(coords[n][ip, idx_cell...])
+#                         end
+#                         ω_i = distance_weight(p_i, p_new; order=3)
+#                         ω += ω_i
+#                         ωxF = fma(ω_i, @cell(args[j][ip, idx_cell...]), ωxF)
+#                     end
+#                     @cell args[j][i, idx_cell...] = ωxF / ω
+#                 end
+#             end
+
+#             particles_num == min_xcell && break
+#         end
+#     end
+
+#     return inject[idx_cell...] = false
+# end
 
 # Injection of particles when multiple phases are present
 

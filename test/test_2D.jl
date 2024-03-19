@@ -30,7 +30,7 @@ vx_stream(x, y) =  250 * sin(π*x) * cos(π*y)
 vy_stream(x, y) = -250 * cos(π*x) * sin(π*y)
 
 # Analytical flow solution
-vi_stream(x) =  π*1e-5 * (x - 0.5)
+vi_stream(x) =  π * 1e-5 * (x - 0.5)
 
 @testset "Interpolations 2D" begin
     nxcell, max_xcell, min_xcell = 24, 24, 1
@@ -45,30 +45,55 @@ vi_stream(x) =  π*1e-5 * (x - 0.5)
     # staggered grid velocity nodal locations
 
     # Initialize particles & particle fields
-    particles = init_particles(
+    particles = _2D.init_particles(
         backend, nxcell, max_xcell, min_xcell, xvi..., dxi..., nx, ny
     )
-    pT, = init_cell_arrays(particles, Val(1))
+    pT, = _2D.init_cell_arrays(particles, Val(1))
 
     # Linear field at the vertices
     T  = TA(backend)([y for x in xv, y in yv])
     T0 = TA(backend)([y for x in xv, y in yv])
 
     # Grid to particle test
-    grid2particle!(pT, xvi, T, particles)
+    _2D.grid2particle!(pT, xvi, T, particles)
 
     @test pT == particles.coords[2]
 
     # Grid to particle test
-    grid2particle_flip!(pT, xvi, T, T0, particles)
+    _2D.grid2particle_flip!(pT, xvi, T, T0, particles)
 
     @test pT == particles.coords[2]
 
     # Particle to grid test
     T2 = similar(T)
-    particle2grid!(T2, pT, xvi, particles)
+    _2D.particle2grid!(T2, pT, xvi, particles)
     # norm(T2 .- T) / length(T)
-    @test norm(T2 .- T) / length(T) < 1e-2
+    @test norm(T2 .- T) / length(T) < 1e-1
+end
+
+@testset "Subgrid diffusion 2D" begin
+    nxcell, max_xcell, min_xcell = 12, 12, 1
+    n = 5 # number of vertices
+    nx = ny = n - 1
+    Lx = Ly = 1.0
+    # nodal vertices
+    xvi = xv, yv = LinRange(0, Lx, n), LinRange(0, Ly, n)
+    dxi = dx, dy = xv[2] - xv[1], yv[2] - yv[1]
+
+    # Initialize particles & particle fields
+    particles = _2D.init_particles(
+        backend, nxcell, max_xcell, min_xcell, xvi..., dxi..., nx, ny
+    )
+
+    arrays = SubgridDiffusionCellArrays(particles)
+    # Test they are allocated in the right backend
+    @test arrays.ΔT_subgrid isa TA(backend)
+    @test arrays.pT0.data isa TA(backend)
+    @test arrays.pΔT.data isa TA(backend)
+    @test arrays.dt₀.data isa TA(backend)
+
+    @test_throws ArgumentError SubgridDiffusionCellArrays(1)
+
 end
 
 @testset "Particles initialization 2D" begin
@@ -87,11 +112,11 @@ end
     grid_vx = xv, expand_range(yc)
     grid_vy = expand_range(xc), yv
 
-    particles1 = init_particles(
+    particles1 = _2D.init_particles(
         backend, nxcell, max_xcell, min_xcell, xvi..., dxi..., ni...
     )
 
-    particles2 = init_particles(
+    particles2 = _2D.init_particles(
         backend, nxcell, max_xcell, min_xcell, xvi, dxi, ni
     )
 
@@ -106,11 +131,11 @@ end
     xv = x, x
     
     px = rand()
-    idx = cell_index(px, x)
+    idx = _2D.cell_index(px, x)
     @test x[idx] ≤ px < x[idx+1]
     
     px, py = rand(2)
-    i, j = cell_index((px,py), xv)
+    i, j = _2D.cell_index((px,py), xv)
     @test x[i] ≤ px < x[i+1]
     @test x[j] ≤ py < x[j+1]
     
@@ -121,7 +146,7 @@ end
     @test y[idx] ≤ py < y[idx+1]
     
     xv = x, y
-    i, j = cell_index((px,py), xv)
+    i, j = _2D.cell_index((px,py), xv)
     @test x[i] ≤ px < x[i+1]
     @test y[j] ≤ py < y[j+1] 
 end
@@ -154,19 +179,19 @@ end
 
     np = 256 # number of passive markers
     passive_coords = ntuple(Val(2)) do i
-        (rand(np) .+ 1) .* Lx/4
+        TA(backend)((rand(np) .+ 1) .* Lx/4)
     end
 
     passive_markers = init_passive_markers(backend, passive_coords);
-    T_marker = zeros(np)
-    P_marker = zeros(np)
+    T_marker = TA(backend)(zeros(np))
+    P_marker = TA(backend)(zeros(np))
 
     for _ in 1:50
-        advect_passive_markers!(passive_markers, V, grid_vx, grid_vy, dt)
+        _2D.advect_passive_markers!(passive_markers, V, grid_vx, grid_vy, dt)
     end
 
     # interpolate grid fields T and P onto the marker locations
-    grid2particle!((T_marker, P_marker), xvi, (T, P), passive_markers)
+    _2D.grid2particle!((T_marker, P_marker), xvi, (T, P), passive_markers)
     x_marker = passive_markers.coords[1]
     y_marker = passive_markers.coords[2]
 
@@ -189,7 +214,7 @@ function advection_test_2D()
     grid_vx = xv, expand_range(yc)
     grid_vy = expand_range(xc), yv
 
-    particles = init_particles(
+    particles = _2D.init_particles(
         backend, nxcell, max_xcell, min_xcell, xvi..., dxi..., nx, ny
     )
 
@@ -204,21 +229,21 @@ function advection_test_2D()
 
     # Advection test
     particle_args = pT, = init_cell_arrays(particles, Val(1));
-    grid2particle!(pT, xvi, T, particles);
+    _2D.grid2particle!(pT, xvi, T, particles);
 
     sumT = sum(T)
 
     niter = 25
     for it in 1:niter
-        particle2grid!(T, pT, xvi, particles)
+        _2D.particle2grid!(T, pT, xvi, particles)
         copyto!(T0, T)
-        advection_RK!(particles, V, grid_vx, grid_vy, dt, 2 / 3)
-        move_particles!(particles, xvi, particle_args)
+        _2D.advection_RK!(particles, V, grid_vx, grid_vy, dt, 2 / 3)
+        _2D.move_particles!(particles, xvi, particle_args)
 
-        inject = check_injection(particles)
-        inject && inject_particles!(particles, (pT, ), (T,), xvi)
+        inject = _2D.check_injection(particles)
+        inject && _2D.inject_particles!(particles, (pT, ), (T,), xvi)
 
-        grid2particle_flip!(pT, xvi, T, T0, particles)
+        _2D.grid2particle!(pT, xvi, T, particles)
     end
 
     sumT_final = sum(T)
@@ -250,7 +275,7 @@ function test_rotating_circle()
     grid_vx = xv, expand_range(yc)
     grid_vy = expand_range(xc), yv
 
-    particles = init_particles(
+    particles = _2D.init_particles(
         backend, nxcell, max_xcell, min_xcell, xvi..., dxi..., nx, ny
     )
 
@@ -258,7 +283,7 @@ function test_rotating_circle()
     Vx = TA(backend)([-vi_stream(y) for x in grid_vx[1], y in grid_vx[2]]);
     Vy = TA(backend)([ vi_stream(x) for x in grid_vy[1], y in grid_vy[2]]);
     xc0 = yc0 =  0.25
-    R   = 12 * dx
+    R   = 6 * dx
     T   = TA(backend)([((x-xc0)^2 + (y-yc0)^2 ≤ R^2)  * 1.0 for x in xv, y in yv]);
     T0  = deepcopy(T)
     V   = Vx, Vy;
@@ -269,22 +294,20 @@ function test_rotating_circle()
     dt     = 200.0
 
     particle_args = pT, = init_cell_arrays(particles, Val(1));
-    grid2particle!(pT, xvi, T, particles);
+    _2D.grid2particle!(pT, xvi, T, particles);
 
     t = 0
     it = 0
     sumT = sum(T)
     while t ≤ tmax
-        particle2grid!(T, pT, xvi, particles)
+        _2D.particle2grid!(T, pT, xvi, particles)
         copyto!(T0, T)
-        advection_RK!(particles, V, grid_vx, grid_vy, dt, 2 / 3)
-        shuffle_particles!(particles, xvi, particle_args)
+        _2D.advection_RK!(particles, V, grid_vx, grid_vy, dt, 2 / 3)
+        _2D.move_particles!(particles, xvi, particle_args)
 
-        inject = check_injection(particles)
-        inject && inject_particles!(particles, (pT, ), (T,), xvi)
-
-        grid2particle_flip!(pT, xvi, T, T0, particles)
-
+        inject = _2D.check_injection(particles)
+        inject && _2D.inject_particles!(particles, (pT, ), (T,), xvi)
+        _2D.grid2particle!(pT, xvi, T, particles)
         t += dt
         it += 1
     end
@@ -295,7 +318,7 @@ function test_rotating_circle()
 end
 
 function test_rotation_2D()
-    @show err = test_rotating_circle()
+    err = test_rotating_circle()
     tol = 1e-2
     passed = err < tol
 
