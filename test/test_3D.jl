@@ -99,7 +99,32 @@ end
         @test particles1.max_xcell == particles2.max_xcell
         @test particles1.np == particles2.np
     end
+    @testset "Subgrid diffusion 3D" begin
+        nxcell, max_xcell, min_xcell = 24, 24, 1
+        n   = 5 # number of vertices
+        nx  = ny = nz = n-1
+        ni  = nx, ny, nz
+        Lx  = Ly = Lz = 1.0
+        Li  = Lx, Ly, Lz
+        # nodal vertices
+        xvi = xv, yv, zv = ntuple(i -> LinRange(0, Li[i], n), Val(3))
+        # grid spacing
+        dxi = dx, dy, dz = ntuple(i -> xvi[i][2] - xvi[i][1], Val(3))
+        # nodal centers
+        xci = xc, yc, zc = ntuple(i -> LinRange(0+dxi[i]/2, Li[i]-dxi[i]/2, ni[i]), Val(3))
 
+        # Initialize particles -------------------------------
+        particles = _3D.init_particles(
+            backend, nxcell, max_xcell, min_xcell, xvi, dxi, ni
+        )
+    
+        arrays = SubgridDiffusionCellArrays(particles)
+        # Test they are allocated in the right backend
+        @test arrays.ΔT_subgrid isa TA(backend)
+        @test arrays.pT0.data isa TA(backend)
+        @test arrays.pΔT.data isa TA(backend)
+        @test arrays.dt₀.data isa TA(backend)
+    end
     @testset "Cell index 3D" begin
         n = 100
         a, b = rand()*50, rand()*50

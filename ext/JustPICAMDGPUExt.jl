@@ -12,8 +12,6 @@ module _2D
 
     @init_parallel_stencil(AMDGPU, Float64, 2)
 
-    # __precompile__(false)
-
     const ParticlesExt = JustPIC.Particles
     const PassiveMarkersExt{AMDGPUBackend} = JustPIC.PassiveMarkers
 
@@ -33,6 +31,10 @@ module _2D
     include(joinpath(@__DIR__, "../src/common.jl"))
 
     include(joinpath(@__DIR__, "../src/AMDGPUExt/CellArrays.jl"))
+
+    function JustPIC._2D.SubgridDiffusionCellArrays(particles::ParticlesExt{AMDGPUBackend})
+        return SubgridDiffusionCellArrays(particles)
+    end
 
     function JustPIC._2D.init_particles(
         ::Type{AMDGPUBackend}, nxcell, max_xcell, min_xcell, x, y, dx, dy, nx, ny
@@ -229,6 +231,10 @@ module _3D
     include(joinpath(@__DIR__, "../src/common.jl"))
 
     include(joinpath(@__DIR__, "../src/AMDGPUExt/CellArrays.jl"))
+
+    function JustPIC._3D.SubgridDiffusionCellArrays(particles::ParticlesExt{AMDGPUBackend})
+        return SubgridDiffusionCellArrays(particles)
+    end
 
     function JustPIC._3D.init_particles(
         ::Type{AMDGPUBackend}, nxcell, max_xcell, min_xcell, x, y, z, dx, dy, dz, nx, ny, nz
