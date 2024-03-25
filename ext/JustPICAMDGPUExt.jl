@@ -1,5 +1,8 @@
 module JustPICAMDGPUExt
 
+using AMDGPU
+JustPIC.TA(::Type{AMDGPUBackend}) = ROCArray
+
 module _2D
     using ImplicitGlobalGrid
     using MPI: MPI
@@ -23,7 +26,6 @@ module _2D
         )
     end
 
-    JustPIC.TA(::Type{AMDGPUBackend}) = ROCArray
     function JustPIC._2D.CA(::Type{AMDGPUBackend}, dims; eltype=Float64)
         return ROCCellArray{eltype}(undef, dims)
     end
@@ -223,7 +225,6 @@ module _3D
     const ParticlesExt = JustPIC.Particles
     const PassiveMarkersExt{AMDGPUBackend} = JustPIC.PassiveMarkers
 
-    JustPIC.TA(::Type{AMDGPUBackend}) = ROCArray
     function JustPIC._3D.CA(::Type{AMDGPUBackend}, dims; eltype=Float64)
         return ROCCellArray{eltype}(undef, dims)
     end

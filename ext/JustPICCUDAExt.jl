@@ -1,5 +1,9 @@
 module JustPICCUDAExt
 
+using CUDA
+using JustPIC
+JustPIC.TA(::Type{CUDABackend}) = CuArray
+
 module _2D
     using ImplicitGlobalGrid
     using MPI: MPI
@@ -19,7 +23,6 @@ module _2D
 
     export CA
 
-    JustPIC.TA(::Type{CUDABackend}) = CuArray
     function JustPIC._2D.CA(::Type{CUDABackend}, dims; eltype=Float64)
         return CuCellArray{eltype}(undef, dims)
     end
@@ -219,7 +222,6 @@ module _3D
     const ParticlesExt = JustPIC.Particles
     const PassiveMarkersExt = JustPIC.PassiveMarkers
 
-    JustPIC.TA(::Type{CUDABackend}) = CuArray
     function JustPIC._3D.CA(::Type{CUDABackend}, dims; eltype=Float64)
         return CuCellArray{eltype}(undef, dims)
     end
@@ -276,7 +278,7 @@ module _3D
         return grid2particle!(Fp, xvi, F, particles)
     end
 
-    function JustPIC._2D.particle2grid_centroid!(
+    function JustPIC._3D.particle2grid_centroid!(
         F::CuArray, Fp, xi, particles::ParticlesExt{CUDABackend}
     )
         return particle2grid_centroid!(F, Fp, xi, particles)
