@@ -9,7 +9,10 @@ makedocs(;
     format=Documenter.HTML(; prettyurls=get(ENV, "CI", nothing) == "true"), # easier local build
     pages=[
         "Home" => "index.md",
-        "Bi-dimensional advection" => "man/temperature_advection.md",
+        "Examples" => Any[
+            "examples/field_advection2D.md",
+            "examples/field_advection3D.md",
+        ]
     ],
 )
 
