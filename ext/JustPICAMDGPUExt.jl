@@ -1,5 +1,6 @@
 module JustPICAMDGPUExt
 
+using AMDGPU
 JustPIC.TA(::Type{AMDGPUBackend}) = ROCArray
 
 module _2D
