@@ -107,7 +107,8 @@ function advect_particle_RK(
     # advect α*dt
     p1 = ntuple(ValN) do i
         Base.@_inline_meta
-        fma(vp0[i], dt * α, p0[i])
+        # fma(vp0[i], dt * α, p0[i])
+        @muladd p0[i] + dt * vp0[i]
     end
 
     # interpolate velocity to new location

@@ -9,7 +9,7 @@ function check_injection(particles::Particles{B,N,A}) where {B,N,A}
     (; inject, index, min_xcell) = particles
     nxi = size(index)
 
-    @parallel @range(nxi) check_injection!(inject, index, min_xcell)
+    @parallel @idx(nxi) check_injection!(inject, index, min_xcell)
 
     return check_injection(particles.inject)
 end
@@ -213,7 +213,7 @@ function inject_particles_phase!(particles::Particles, particles_phases, args, f
     ni = size(inject)
     di = compute_dx(grid)
 
-    @parallel (@range ni) inject_particles_phase!(
+    @parallel (@idx ni) inject_particles_phase!(
         inject, particles_phases, args, fields, coords, index, grid, di, min_xcell
     )
 end
