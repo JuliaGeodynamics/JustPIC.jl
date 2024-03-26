@@ -1,5 +1,9 @@
 module JustPICCUDAExt
 
+using CUDA
+using JustPIC
+JustPIC.TA(::Type{CUDABackend}) = CuArray
+
 module _2D
     using ImplicitGlobalGrid
     using MPI: MPI
@@ -12,8 +16,6 @@ module _2D
 
     @init_parallel_stencil(CUDA, Float64, 2)
 
-    
-
     const ParticlesExt = JustPIC.Particles
     const PassiveMarkersExt = JustPIC.PassiveMarkers
 
@@ -21,7 +23,6 @@ module _2D
 
     export CA
 
-    JustPIC.TA(::Type{CUDABackend}) = CuArray
     function JustPIC._2D.CA(::Type{CUDABackend}, dims; eltype=Float64)
         return CuCellArray{eltype}(undef, dims)
     end
@@ -37,6 +38,10 @@ module _2D
     include(joinpath(@__DIR__, "../src/common.jl"))
 
     include(joinpath(@__DIR__, "../src/CUDAExt/CellArrays.jl"))
+
+    function JustPIC._2D.SubgridDiffusionCellArrays(particles::ParticlesExt{CUDABackend})
+        return SubgridDiffusionCellArrays(particles)
+    end
 
     function JustPIC._2D.init_particles(
         ::Type{CUDABackend}, nxcell, max_xcell, min_xcell, x, y, dx, dy, nx, ny
@@ -206,8 +211,6 @@ module _3D
 
     @init_parallel_stencil(CUDA, Float64, 3)
 
-    
-
     macro myatomic(expr)
         return esc(
             quote
@@ -219,7 +222,6 @@ module _3D
     const ParticlesExt = JustPIC.Particles
     const PassiveMarkersExt = JustPIC.PassiveMarkers
 
-    JustPIC.TA(::Type{CUDABackend}) = CuArray
     function JustPIC._3D.CA(::Type{CUDABackend}, dims; eltype=Float64)
         return CuCellArray{eltype}(undef, dims)
     end
@@ -227,6 +229,10 @@ module _3D
     include(joinpath(@__DIR__, "../src/common.jl"))
 
     include(joinpath(@__DIR__, "../src/CUDAExt/CellArrays.jl"))
+
+    function JustPIC._3D.SubgridDiffusionCellArrays(particles::ParticlesExt{CUDABackend})
+        return SubgridDiffusionCellArrays(particles)
+    end
 
     function JustPIC._3D.init_particles(
         ::Type{CUDABackend}, nxcell, max_xcell, min_xcell, x, y, z, dx, dy, dz, nx, ny, nz
@@ -272,7 +278,7 @@ module _3D
         return grid2particle!(Fp, xvi, F, particles)
     end
 
-    function JustPIC._2D.particle2grid_centroid!(
+    function JustPIC._3D.particle2grid_centroid!(
         F::CuArray, Fp, xi, particles::ParticlesExt{CUDABackend}
     )
         return particle2grid_centroid!(F, Fp, xi, particles)
