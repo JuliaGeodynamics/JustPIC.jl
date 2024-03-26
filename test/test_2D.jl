@@ -237,7 +237,7 @@ function advection_test_2D()
     for it in 1:niter
         _2D.particle2grid!(T, pT, xvi, particles)
         copyto!(T0, T)
-        _2D.advection_RK!(particles, V, grid_vx, grid_vy, dt, 2 / 3)
+        _2D.advection!(particles, RungeKutta2(2/3), V, (grid_vx, grid_vy), dt)
         _2D.move_particles!(particles, xvi, particle_args)
 
         inject = _2D.check_injection(particles)
@@ -302,7 +302,7 @@ function test_rotating_circle()
     while t ≤ tmax
         _2D.particle2grid!(T, pT, xvi, particles)
         copyto!(T0, T)
-        _2D.advection_RK!(particles, V, grid_vx, grid_vy, dt, 2 / 3)
+        _2D.advection!(particles, RungeKutta2(2/3), V, (grid_vx, grid_vy), dt)
         _2D.move_particles!(particles, xvi, particle_args)
 
         inject = _2D.check_injection(particles)
