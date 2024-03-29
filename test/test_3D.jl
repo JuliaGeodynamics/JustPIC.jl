@@ -253,9 +253,8 @@ end
         niter = 25
         for _ in 1:niter
             _3D.particle2grid!(T, pT, xvi, particles)
-            copyto!(T0, T)
             _3D.advection_RK!(particles, V, grid_vx, grid_vy, grid_vz, dt, 2 / 3)
-            _3D.shuffle_particles!(particles, xvi, particle_args)
+            _3D.move_particles!(particles, xvi, particle_args)
 
             # reseed
             inject = _3D.check_injection(particles)
