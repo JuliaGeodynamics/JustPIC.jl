@@ -11,7 +11,6 @@ MPI = "da04e1cc-30fd-572f-bb4f-1f8673147195"
 MuladdMacro = "46d2c3a1-f734-5fdb-9937-b9b9aeba4221"
 ParallelStencil = "94395366-693c-11ea-3b26-d9b7aac5d958"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
-TimerOutputs = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
 
 [weakdeps]
 AMDGPU = "21141c5a-9bdb-4563-92ae-f87d6854732e"
