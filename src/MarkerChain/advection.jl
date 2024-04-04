@@ -18,125 +18,120 @@ with `α` and time step `dt`.
 """
 
 # Two-step Runge-Kutta advection scheme for marker chains
-function advection_RK!(
-    particles::MarkerChain, V, grid_vx::NTuple{2,T}, grid_vy::NTuple{2,T}, dt, α
+function advection!(
+    particles::MarkerChain, 
+    method::AbstractAdvectionIntegrator, 
+    V, 
+    grid_vi::NTuple{N, NTuple{N,T}}, 
+    dt
 ) where {T}
     (; coords, index) = particles
 
     # compute some basic stuff
     ni = size(index)
-    dxi = compute_dx(grid_vx)
+    dxi = compute_dx(first(grid_vi))
     # Need to transpose grid_vy and Vy to reuse interpolation kernels
-    grid_vi = grid_vx, grid_vy
 
     local_limits = inner_limits(grid_vi)
 
     # launch parallel advection kernel
-    @parallel (@idx ni) _advection_markerchain_RK!(
-        coords, V, index, grid_vi, local_limits, dxi, dt, α
+    @parallel (@idx ni) advection_markerchain_kernel!(
+        coords, methods, V, index, grid_vi, local_limits, dxi, dt
     )
-    return nothing
-end
-
-function advection_RK!(
-    particles::MarkerChain,
-    V,
-    grid_vx::NTuple{3,T},
-    grid_vy::NTuple{3,T},
-    grid_vz::NTuple{3,T},
-    dt,
-    α,
-) where {T}
-    # unpack
-    (; coords, index) = particles
-    # compute some basic stuff
-    dxi = compute_dx(grid_vx)
-    ni = size(index)
-
-    # Need to transpose grid_vy and Vy to reuse interpolation kernels
-    grid_vi = grid_vx, grid_vy, grid_vz
-    local_limits = inner_limits(grid_vi)
-
-    # launch parallel advection kernel
-    @parallel (@idx ni) _advection_markerchain_RK!(
-        coords, V, index, grid_vi, local_limits, dxi, dt, α
-    )
-
     return nothing
 end
 
 # DIMENSION AGNOSTIC KERNELS
 
 # ParallelStencil function Runge-Kuttaadvection function for 3D staggered grids
-@parallel_indices (I...) function _advection_markerchain_RK!(
-    p, V::NTuple{N,T}, index, grid, local_limits, dxi, dt, α
+@parallel_indices (I...) function advection_markerchain_kernel!(
+    p, 
+    method::AbstractAdvectionIntegrator, 
+    V::NTuple{N,T}, 
+    index, 
+    grid,
+    local_limits, 
+    dxi, 
+    dt, 
 ) where {N,T}
     for ipart in cellaxes(index)
         doskip(index, ipart, I...) && continue
 
-        # cache particle coordinates
+        # skip if particle does not exist in this memory location
+        doskip(index, ipart, I...) && continue
+        # extract particle coordinates
         pᵢ = get_particle_coords(p, ipart, I...)
-        p_new = advect_particle_RK(pᵢ, V, grid, local_limits, dxi, dt, α)
-
-        ntuple(Val(N)) do i
-            @inbounds @cell p[i][ipart, I...] = p_new[i]
+        # advect particle
+        pᵢ_new = advect_particle_markerchain(method, pᵢ, V, grid, local_limits, dxi, dt)
+        # update particle coordinates
+        for k in 1:N
+            @inbounds @cell p[k][ipart, I...] = pᵢ_new[k]
         end
     end
 
     return nothing
 end
 
-function advect_particle_RK(
-    p0, V::NTuple{N,AbstractArray{T,N}}, grid_vi, local_limits, dxi, dt, α
+@inline function advect_particle_markerchain(
+    method::RungeKutta2,
+    p0::NTuple{N,T},
+    V::NTuple{N,AbstractArray{T,N}},
+    grid_vi,
+    local_limits,
+    dxi,
+    dt,
 ) where {T,N}
-    ValN = Val(N)
+
     # interpolate velocity to current location
-    vp0 = ntuple(ValN) do i
-        Base.@_inline_meta
-        local_lims = local_limits[i]
+    vp0 = interp_velocity2particle_markerchain(p0, grid_vi, local_limits, dxi, V)
 
-        # if this condition is met, it means that the particle
-        # went outside the local rank domain. It will be removed
-        # during shuffling
-        v = if check_local_limits(local_lims, p0)
-            interp_velocity_grid2particle(p0, grid_vi[i], dxi, V[i])
-        else
-            zero(T)
-        end
-    end
-
-    # advect α*dt
-    p1 = ntuple(ValN) do i
-        Base.@_inline_meta
-        muladd(vp0[i], dt * α, p0[i])
-    end
+    # first advection stage x = x + v * dt * α
+    p1 = first_stage(method, dt, vp0, p0)
 
     # interpolate velocity to new location
-    vp1 = ntuple(ValN) do i
-        Base.@_inline_meta
-        local_lims = local_limits[i]
-        # if this condition is met, it means that the particle
-        # went outside the local rank domain. It will be removed
-        # during shuffling
-        v = if check_local_limits(local_lims, p1)
-            interp_velocity_grid2particle(p1, grid_vi[i], dxi, V[i])
-        else
-            zero(T)
-        end
-    end
+    vp1 = interp_velocity2particle_markerchain(p1, grid_vi, local_limits, dxi, V)
 
     # final advection step
-    _α = inv(α)
-    pf = ntuple(ValN) do i
+    p2 = second_stage(method, dt, vp0, vp1, p0)
+
+    return p2
+end
+
+@inline function advect_particle_markerchain(
+    method::Euler,
+    p0::NTuple{N,T},
+    V::NTuple{N,AbstractArray{T,N}},
+    grid_vi,
+    local_limits,
+    dxi,
+    dt,
+) where {T,N}
+
+    # interpolate velocity to current location
+    vp0 = interp_velocity2particle_markerchain(p0, grid_vi, local_limits, dxi, V)
+
+    # first advection stage x = x + v * dt
+    p1 = first_stage(method, dt, vp0, p0)
+
+    return p1
+end
+
+@inline function interp_velocity2particle_markerchain(
+    particle_coords::NTuple{N, Any},
+    grid_vi, 
+    local_limits,
+    dxi, 
+    V::NTuple{N, Any}, 
+) where N
+    return ntuple(Val(N)) do i
         Base.@_inline_meta
-        if α == 0.5
-            @muladd p0[i] + dt * vp1[i]
+        local_lims = local_limits[i]
+        v = if check_local_limits(local_lims, particle_coords)
+            interp_velocity_grid2particle(particle_coords, grid_vi[i], dxi, V[i])
         else
-            @muladd p0[i] + dt * ((1.0 - 0.5 * _α) * vp0[i] + 0.5 * _α * vp1[i])
+            Inf
         end
     end
-
-    return pf
 end
 
 # Interpolate velocity from staggered grid to particle
