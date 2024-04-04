@@ -1,21 +1,9 @@
-function advect_markerchain!(chain::MarkerChain, V, grid_vx, grid_vy, dt; α::Float64=2 / 3)
-    advection_RK!(chain, V, grid_vx, grid_vy, dt, α)
+function advect_markerchain!(chain::MarkerChain, method::AbstractAdvectionIntegrator, V, grid_vxi, dt)
+    advection_RK!(chain, method, V, grid_vxi, dt)
     move_particles!(chain)
-    return resample!(chain)
+    resample!(chain)
+    return nothing
 end
-
-"""
-    advection_RK!(particles, V, grid_vx, grid_vy, dt, α)
-
-Advect `particles` with the velocity field `V::NTuple{dims, AbstractArray{T,dims}`
-on the staggered grid given by `grid_vx` and `grid_vy`using a Runge-Kutta2 scheme
-with `α` and time step `dt`.
-
-    xᵢ ← xᵢ + h*( (1-1/(2α))*f(t,xᵢ) + f(t, y+α*h*f(t,xᵢ))) / (2α)
-        α = 0.5 ==> midpoint
-        α = 1   ==> Heun
-        α = 2/3 ==> Ralston
-"""
 
 # Two-step Runge-Kutta advection scheme for marker chains
 function advection!(
@@ -24,7 +12,7 @@ function advection!(
     V, 
     grid_vi::NTuple{N, NTuple{N,T}}, 
     dt
-) where {T}
+) where {N,T}
     (; coords, index) = particles
 
     # compute some basic stuff
@@ -36,7 +24,7 @@ function advection!(
 
     # launch parallel advection kernel
     @parallel (@idx ni) advection_markerchain_kernel!(
-        coords, methods, V, index, grid_vi, local_limits, dxi, dt
+        coords, method, V, index, grid_vi, local_limits, dxi, dt
     )
     return nothing
 end
