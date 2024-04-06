@@ -66,11 +66,11 @@ module _2D
     end
 
     function JustPIC._2D.advection!(
-        particles::ParticlesExt{CUDABackend},
-        method::AbstractAdvectionIntegrator,
-        V,
-        grid_vxi,
-        dt,
+        particles::Particles, 
+        method::AbstractAdvectionIntegrator, 
+        V, 
+        grid_vxi::NTuple{N, NTuple{N,T}}, 
+        dt
     )
         return advection!(particles, method, V, grid_vxi, dt)
     end
