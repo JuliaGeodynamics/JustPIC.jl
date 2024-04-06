@@ -100,6 +100,7 @@ end
         @test particles1.max_xcell == particles2.max_xcell
         @test particles1.np == particles2.np
     end
+
     @testset "Subgrid diffusion 3D" begin
         nxcell, max_xcell, min_xcell = 24, 24, 1
         n   = 5 # number of vertices
@@ -198,7 +199,7 @@ end
         P_marker = TA(backend)(zeros(np))
 
         for _ in 1:75
-            _3D.advect_passive_markers!(passive_markers, V, grid_vx, grid_vy, grid_vz, dt)
+            _3D.advection!(passive_markers, _3D.RungeKutta2(2/3), V, (grid_vx, grid_vy, grid_vz), dt)
         end
 
         # interpolate grid fields T and P onto the marker locations
@@ -255,7 +256,7 @@ end
         for _ in 1:niter
             _3D.particle2grid!(T, pT, xvi, particles)
             copyto!(T0, T)
-            _3D.advection!(particles, _3D.RungeKutta2(2/3), V, (grid_vx, grid_vy, grid_vz), dt)
+            _3D.advection!(particles, _3D._3D.RungeKutta2(2/3), V, (grid_vx, grid_vy, grid_vz), dt)
             _3D.move_particles!(particles, xvi, particle_args)
 
             # reseed

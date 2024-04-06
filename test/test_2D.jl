@@ -6,7 +6,7 @@ elseif ENV["JULIA_JUSTPIC_BACKEND"] === "CUDA"
     CUDA.allowscalar(true)
 end
 
-using JustPIC, JustPIC._2D, CellArrays, ParallelStencil, Test, LinearAlgebra
+using JustPIC, JustPIC._2D, CellArrays, Test, LinearAlgebra
 
 const backend = @static if ENV["JULIA_JUSTPIC_BACKEND"] === "AMDGPU"
     AMDGPUBackend
@@ -187,7 +187,7 @@ end
     P_marker = TA(backend)(zeros(np))
 
     for _ in 1:50
-        _2D.advect_passive_markers!(passive_markers, V, grid_vx, grid_vy, dt)
+        _2D.advection!(passive_markers, RungeKutta2(2/3), V, (grid_vx, grid_vy), dt)
     end
 
     # interpolate grid fields T and P onto the marker locations
