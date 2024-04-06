@@ -1,4 +1,6 @@
-function advect_markerchain!(chain::MarkerChain, method::AbstractAdvectionIntegrator, V, grid_vxi, dt)
+function advect_markerchain!(
+    chain::MarkerChain, method::AbstractAdvectionIntegrator, V, grid_vxi, dt
+)
     advection!(chain, method, V, grid_vxi, dt)
     move_particles!(chain)
     resample!(chain)
@@ -7,11 +9,11 @@ end
 
 # Two-step Runge-Kutta advection scheme for marker chains
 function advection!(
-    particles::MarkerChain, 
-    method::AbstractAdvectionIntegrator, 
-    V, 
-    grid_vi::NTuple{N, NTuple{N,T}}, 
-    dt
+    particles::MarkerChain,
+    method::AbstractAdvectionIntegrator,
+    V,
+    grid_vi::NTuple{N,NTuple{N,T}},
+    dt,
 ) where {N,T}
     (; coords, index) = particles
 
@@ -33,14 +35,14 @@ end
 
 # ParallelStencil function Runge-Kuttaadvection function for 3D staggered grids
 @parallel_indices (I...) function advection_markerchain_kernel!(
-    p, 
-    method::AbstractAdvectionIntegrator, 
-    V::NTuple{N,T}, 
-    index, 
+    p,
+    method::AbstractAdvectionIntegrator,
+    V::NTuple{N,T},
+    index,
     grid,
-    local_limits, 
-    dxi, 
-    dt, 
+    local_limits,
+    dxi,
+    dt,
 ) where {N,T}
     for ipart in cellaxes(index)
         doskip(index, ipart, I...) && continue
@@ -61,12 +63,8 @@ end
 end
 
 @inline function interp_velocity2particle_markerchain(
-    particle_coords::NTuple{N, Any},
-    grid_vi, 
-    local_limits,
-    dxi, 
-    V::NTuple{N, Any}, 
-) where N
+    particle_coords::NTuple{N,Any}, grid_vi, local_limits, dxi, V::NTuple{N,Any}
+) where {N}
     return ntuple(Val(N)) do i
         Base.@_inline_meta
         local_lims = local_limits[i]

@@ -12,11 +12,11 @@ with `α` and time step `dt`.
 """
 # Main Runge-Kutta advection function for 2D staggered grids
 function advection!(
-    particles::Particles, 
-    method::AbstractAdvectionIntegrator, 
-    V, 
-    grid_vi::NTuple{N, NTuple{N,T}}, 
-    dt
+    particles::Particles,
+    method::AbstractAdvectionIntegrator,
+    V,
+    grid_vi::NTuple{N,NTuple{N,T}},
+    dt,
 ) where {N,T}
     dxi = compute_dx(first(grid_vi))
     (; coords, index) = particles
@@ -26,23 +26,24 @@ function advection!(
     local_limits = inner_limits(grid_vi)
 
     # launch parallel advection kernel
-    @parallel (@idx ni) advection_kernel!(coords, method, V, index, grid_vi, local_limits, dxi, dt)
+    @parallel (@idx ni) advection_kernel!(
+        coords, method, V, index, grid_vi, local_limits, dxi, dt
+    )
 
     return nothing
 end
 
-
 # DIMENSION AGNOSTIC KERNELS
 
 @parallel_indices (I...) function advection_kernel!(
-    p, 
-    method::AbstractAdvectionIntegrator, 
-    V::NTuple{N,T}, 
-    index, 
-    grid, 
-    local_limits, 
-    dxi, 
-    dt
+    p,
+    method::AbstractAdvectionIntegrator,
+    V::NTuple{N,T},
+    index,
+    grid,
+    local_limits,
+    dxi,
+    dt,
 ) where {N,T}
 
     # iterate over particles in the I-th cell
@@ -61,15 +62,15 @@ end
 
     return nothing
 end
-   
+
 @inline function interp_velocity2particle(
-    particle_coords::NTuple{N, Any},
-    grid_vi, 
+    particle_coords::NTuple{N,Any},
+    grid_vi,
     local_limits,
-    dxi, 
-    V::NTuple{N, Any}, 
-    idx::NTuple{N, Any}
-) where N
+    dxi,
+    V::NTuple{N,Any},
+    idx::NTuple{N,Any},
+) where {N}
     return ntuple(Val(N)) do i
         Base.@_inline_meta
         local_lims = local_limits[i]

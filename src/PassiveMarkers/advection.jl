@@ -9,9 +9,7 @@ function advection!(
     local_limits = inner_limits(grid_vxi)
 
     # launch parallel advection kernel
-    @parallel (1:np) _advection!(
-        method, coords, V, grid_vxi, local_limits, dxi, dt
-    )
+    @parallel (1:np) _advection!(method, coords, V, grid_vxi, local_limits, dxi, dt)
     return nothing
 end
 
@@ -22,7 +20,7 @@ end
     method::AbstractAdvectionIntegrator, p, V::NTuple{N,T}, grid, local_limits, dxi, dt
 ) where {N,T}
     # cache particle coordinates 
-    pᵢ     = get_particle_coords(p, ipart)
+    pᵢ = get_particle_coords(p, ipart)
     # reuses marker chain methods
     pᵢ_new = advect_particle_markerchain(method, pᵢ, V, grid, local_limits, dxi, dt)
 

@@ -1,5 +1,8 @@
 @inline function first_stage(
-    integrator::RungeKutta2, dt, particle_velocity::NTuple{N,T}, particle_coordinate::NTuple{N,T}
+    integrator::RungeKutta2,
+    dt,
+    particle_velocity::NTuple{N,T},
+    particle_coordinate::NTuple{N,T},
 ) where {N,T}
     (; α) = integrator
     return @. @muladd particle_coordinate + dt * α * particle_velocity
@@ -17,7 +20,7 @@ end
         @. @muladd particle_coordinate + dt * particle_velocity1
     else
         @. @muladd particle_coordinate +
-        dt * (
+            dt * (
             (1.0 - 0.5 * inv(α)) * particle_velocity0 + 0.5 * inv(α) * particle_velocity1
         )
     end

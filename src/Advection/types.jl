@@ -1,6 +1,6 @@
 abstract type AbstractAdvectionIntegrator end
 
-struct Euler <: AbstractAdvectionIntegrator 
+struct Euler <: AbstractAdvectionIntegrator
     Euler(::Vararg{Any,N}) where {N} = new()
 end
 
