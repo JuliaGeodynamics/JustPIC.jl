@@ -19,6 +19,8 @@ module _2D
     const ParticlesExt = JustPIC.Particles
     const PassiveMarkersExt{AMDGPUBackend} = JustPIC.PassiveMarkers
 
+    import JustPIC: Euler, RungeKutta2, AbstractAdvectionIntegrator
+
     macro myatomic(expr)
         return esc(
             quote
@@ -59,15 +61,14 @@ module _2D
         return init_particles(AMDGPUBackend, nxcell, max_xcell, min_xcell, coords, dxᵢ, nᵢ)
     end
 
-    function JustPIC._2D.advection_RK!(
+    function JustPIC._2D.advection!(
         particles::ParticlesExt{AMDGPUBackend},
+        method::AbstractAdvectionIntegrator,
         V,
-        grid_vx::NTuple{2,T},
-        grid_vy::NTuple{2,T},
+        grid_vxi,
         dt,
-        α,
-    ) where {T}
-        return advection_RK!(particles, V, grid_vx, grid_vy, dt, α)
+    )
+        return advection!(particles, method, V, grid_vxi, dt)
     end
 
     function JustPIC._2D.centroid2particle!(
@@ -151,9 +152,9 @@ module _2D
     ## MakerChain
 
     function JustPIC._2D.advect_markerchain!(
-        chain::MarkerChain{AMDGPUBackend}, V, grid_vx, grid_vy, dt
+        chain::MarkerChain{AMDGPUBackend}, method::AbstractAdvectionIntegrator, V, grid_vxi, dt
     )
-        return advect_markerchain!(chain, V, grid_vx, grid_vy, dt)
+        return advect_markerchain!(chain, method, V, grid_vxi, dt)
     end
 
     ## PassiveMarkers
@@ -164,15 +165,14 @@ module _2D
         return init_passive_markers(AMDGPUBackend, coords)
     end
 
-    function JustPIC._2D.advect_passive_markers!(
+    function JustPIC._2D.advection!(
         particles::PassiveMarkersExt{AMDGPUBackend},
-        V::NTuple{N,ROCArray},
-        grid_vx,
-        grid_vy,
-        dt;
-        α::Float64=2 / 3,
+        method::AbstractAdvectionIntegrator,
+        V::NTuple{N,CuArray},
+        grid_vxi,
+        dt
     ) where {N}
-        return advect_passive_markers!(particles, V, grid_vx, grid_vy, dt; α=α)
+        return advection!(particles, method, V, grid_vxi, dt)
     end
 
     function JustPIC._2D.grid2particle!(
@@ -213,7 +213,7 @@ module _3D
 
     @init_parallel_stencil(AMDGPU, Float64, 3)
 
-    # __precompile__(false)
+    import JustPIC: Euler, RungeKutta2, AbstractAdvectionIntegrator
 
     macro myatomic(expr)
         return esc(
@@ -264,16 +264,14 @@ module _3D
         return init_particles(AMDGPUBackend, nxcell, max_xcell, min_xcell, coords, dxᵢ, nᵢ)
     end
 
-    function JustPIC._3D.advection_RK!(
+    function JustPIC._3D.advection!(
         particles::ParticlesExt{AMDGPUBackend},
+        method::AbstractAdvectionIntegrator,
         V,
-        grid_vx::NTuple{3,T},
-        grid_vy::NTuple{3,T},
-        grid_vz::NTuple{3,T},
-        dt,
-        α,
-    ) where {T}
-        return advection_RK!(particles, V, grid_vx, grid_vy, grid_vz, dt, α)
+        grid_vxi,
+        dt
+    )
+        return advection!(particles, method, V, grid_vxi, dt)
     end
 
     function JustPIC._3D.centroid2particle!(
@@ -360,16 +358,14 @@ module _3D
         return init_passive_markers(AMDGPUBackend, coords)
     end
 
-    function JustPIC._3D.advect_passive_markers!(
+    function JustPIC._3D.advection!(
         particles::PassiveMarkersExt{AMDGPUBackend},
-        V::NTuple{N,ROCArray},
-        grid_vx,
-        grid_vy,
-        grid_vz,
-        dt;
-        α::Float64=2 / 3,
+        method::AbstractAdvectionIntegrator,
+        V::NTuple{N,CuArray},
+        grid_vxi,
+        dt
     ) where {N}
-        return advect_passive_markers!(particles, V, grid_vx, grid_vy, grid_vz, dt; α=α)
+        return advection!(particles, method, V, grid_vxi, dt)
     end
 
     function JustPIC._3D.grid2particle!(Fp, xvi, F, particles::ParticlesExt{AMDGPUBackend})

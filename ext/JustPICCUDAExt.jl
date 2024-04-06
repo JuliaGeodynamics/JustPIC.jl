@@ -18,7 +18,9 @@ module _2D
 
     const ParticlesExt = JustPIC.Particles
     const PassiveMarkersExt = JustPIC.PassiveMarkers
+    # const AbstractAdvectionIntegratorExt = JustPIC.AbstractAdvectionIntegrator
 
+    import JustPIC: Euler, RungeKutta2, AbstractAdvectionIntegrator
     import JustPIC._2D.CA
 
     export CA
@@ -63,15 +65,14 @@ module _2D
         return init_particles(CUDABackend, nxcell, max_xcell, min_xcell, coords, dxᵢ, nᵢ)
     end
 
-    function JustPIC._2D.advection_RK!(
+    function JustPIC._2D.advection!(
         particles::ParticlesExt{CUDABackend},
+        method::AbstractAdvectionIntegrator,
         V,
-        grid_vx::NTuple{2,T},
-        grid_vy::NTuple{2,T},
+        grid_vxi,
         dt,
-        α,
-    ) where {T}
-        return advection_RK!(particles, V, grid_vx, grid_vy, dt, α)
+    )
+        return advection!(particles, method, V, grid_vxi, dt)
     end
 
     function JustPIC._2D.centroid2particle!(
@@ -150,9 +151,9 @@ module _2D
     ## MakerChain
 
     function JustPIC._2D.advect_markerchain!(
-        chain::MarkerChain{CUDABackend}, V, grid_vx, grid_vy, dt
+        chain::MarkerChain{CUDABackend}, method::AbstractAdvectionIntegrator, V, grid_vxi, dt
     )
-        return advect_markerchain!(chain, V, grid_vx, grid_vy, dt)
+        return advect_markerchain!(chain, method, V, grid_vxi, dt)
     end
 
     ## PassiveMarkers
@@ -163,15 +164,14 @@ module _2D
         return init_passive_markers(CUDABackend, coords)
     end
 
-    function JustPIC._2D.advect_passive_markers!(
+    function JustPIC._2D.advection!(
         particles::PassiveMarkersExt{CUDABackend},
+        method::AbstractAdvectionIntegrator,
         V::NTuple{N,CuArray},
-        grid_vx,
-        grid_vy,
-        dt;
-        α::Float64=2 / 3,
+        grid_vxi,
+        dt
     ) where {N}
-        return advect_passive_markers!(particles, V, grid_vx, grid_vy, dt; α=α)
+        return advection!(particles, method, V, grid_vxi, dt)
     end
 
     function JustPIC._2D.grid2particle!(
@@ -222,6 +222,8 @@ module _3D
     const ParticlesExt = JustPIC.Particles
     const PassiveMarkersExt = JustPIC.PassiveMarkers
 
+    import JustPIC: Euler, RungeKutta2, AbstractAdvectionIntegrator
+
     function JustPIC._3D.CA(::Type{CUDABackend}, dims; eltype=Float64)
         return CuCellArray{eltype}(undef, dims)
     end
@@ -254,16 +256,14 @@ module _3D
         return init_particles(CUDABackend, nxcell, max_xcell, min_xcell, coords, dxᵢ, nᵢ)
     end
 
-    function JustPIC._3D.advection_RK!(
+    function JustPIC._3D.advection!(
         particles::ParticlesExt{CUDABackend},
+        method::AbstractAdvectionIntegrator,
         V,
-        grid_vx::NTuple{3,T},
-        grid_vy::NTuple{3,T},
-        grid_vz::NTuple{3,T},
-        dt,
-        α,
-    ) where {T}
-        return advection_RK!(particles, V, grid_vx, grid_vy, grid_vz, dt, α)
+        grid_vxi,
+        dt
+    )
+        return advection!(particles, method, V, grid_vxi, dt)
     end
 
     function JustPIC._3D.centroid2particle!(
@@ -350,16 +350,14 @@ module _3D
         return init_passive_markers(CUDABackend, coords)
     end
 
-    function JustPIC._3D.advect_passive_markers!(
+    function JustPIC._3D.advection!(
         particles::PassiveMarkersExt{CUDABackend},
+        method::AbstractAdvectionIntegrator,
         V::NTuple{N,CuArray},
-        grid_vx,
-        grid_vy,
-        grid_vz,
-        dt;
-        α::Float64=2 / 3,
+        grid_vxi,
+        dt
     ) where {N}
-        return advect_passive_markers!(particles, V, grid_vx, grid_vy, grid_vz, dt; α=α)
+        return advection!(particles, method, V, grid_vxi, dt)
     end
 
     function JustPIC._3D.grid2particle!(
