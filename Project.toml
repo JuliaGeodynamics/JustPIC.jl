@@ -1,7 +1,7 @@
 name = "JustPIC"
 uuid = "10dc771f-8528-4cd9-9d3b-b21b2e693339"
 authors = ["Albert De Montserrat <albertdemontserratnavarro@erdw.ethz.ch>, Ivan Utkin <iutkin@ethz.ch>"]
-version = "0.2.2"
+version = "0.2.3"
 
 [deps]
 Atomix = "a9b6321e-bd34-4604-b9c9-b65b8de01458"
@@ -11,7 +11,6 @@ MPI = "da04e1cc-30fd-572f-bb4f-1f8673147195"
 MuladdMacro = "46d2c3a1-f734-5fdb-9937-b9b9aeba4221"
 ParallelStencil = "94395366-693c-11ea-3b26-d9b7aac5d958"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
-TimerOutputs = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
 
 [weakdeps]
 AMDGPU = "21141c5a-9bdb-4563-92ae-f87d6854732e"
@@ -25,10 +24,10 @@ JustPICCUDAExt = "CUDA"
 AMDGPU = "0.8"
 Atomix = "0.1"
 CUDA = "5"
-CellArrays = "0.1, 0.2"
+CellArrays = "0.2"
 ImplicitGlobalGrid = "0.15"
 MPI = "0.20"
 MuladdMacro = "0.2.4"
-ParallelStencil = "0.11"
+ParallelStencil = "0.12"
 StaticArrays = "1.6"
 julia = "1.9, 1.10"

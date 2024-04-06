@@ -262,7 +262,7 @@ end
 
 function test_rotating_circle()
     # Initialize particles -------------------------------
-    nxcell, max_xcell, min_xcell = 12, 24, 6
+    nxcell, max_xcell, min_xcell = 40, 60, 20
     n = 101
     nx = ny = n-1
     Lx = Ly = 1.0
@@ -302,7 +302,7 @@ function test_rotating_circle()
     while t ≤ tmax
         _2D.particle2grid!(T, pT, xvi, particles)
         copyto!(T0, T)
-        _2D.advection!(particles, RungeKutta2(2/3), V, (grid_vx, grid_vy), dt)
+        _2D.advection!(particles, _2D.RungeKutta2(2/3), V, (grid_vx, grid_vy), dt)
         _2D.move_particles!(particles, xvi, particle_args)
 
         inject = _2D.check_injection(particles)

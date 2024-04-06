@@ -256,7 +256,7 @@ end
         for _ in 1:niter
             _3D.particle2grid!(T, pT, xvi, particles)
             copyto!(T0, T)
-            _3D.advection!(particles, _3D._3D.RungeKutta2(2/3), V, (grid_vx, grid_vy, grid_vz), dt)
+            _3D.advection!(particles, _3D.RungeKutta2(2/3), V, (grid_vx, grid_vy, grid_vz), dt)
             _3D.move_particles!(particles, xvi, particle_args)
 
             # reseed
