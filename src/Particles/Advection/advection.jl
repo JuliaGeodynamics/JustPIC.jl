@@ -12,7 +12,7 @@ with `α` and time step `dt`.
 """
 # Main Runge-Kutta advection function for 2D staggered grids
 function advection!(
-    particles::Particles,
+    particles::Particles{CPUBackend},
     method::AbstractAdvectionIntegrator,
     V,
     grid_vi::NTuple{N,NTuple{N,T}},

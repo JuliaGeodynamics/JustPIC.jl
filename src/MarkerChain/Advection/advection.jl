@@ -1,5 +1,5 @@
 function advect_markerchain!(
-    chain::MarkerChain, method::AbstractAdvectionIntegrator, V, grid_vxi, dt
+    chain::MarkerChain{CPUBackend}, method::AbstractAdvectionIntegrator, V, grid_vxi, dt
 )
     advection!(chain, method, V, grid_vxi, dt)
     move_particles!(chain)
