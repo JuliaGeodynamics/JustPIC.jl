@@ -8,6 +8,8 @@ export cell_array, add_ghost_nodes, add_global_ghost_nodes, doskip
 include("CellArrays/ImplicitGlobalGrid.jl")
 export update_cell_halo!
 
+include("Advection/common.jl")
+
 # INTERPOLATION RELATED FILES
 
 include("Interpolations/utils.jl")
@@ -40,16 +42,16 @@ include("Particles/utils.jl")
 include("Particles/move.jl")
 export move_particles!
 
-# include("Particles/advection.jl")
-# export advection_RK!
+include("Particles/Advection/Euler.jl")
+include("Particles/Advection/RK2.jl")
+include("Particles/Advection/advection.jl")
+export advection!
 
 include("Particles/injection.jl")
 export check_injection, inject_particles!, inject_particles_phase!, clean_particles!
 
 include("Particles/shuffle.jl")
 export shuffle_particles!
-
-include("Advection/common.jl")
 
 ## MARKER CHAIN RELATED FILES
 
@@ -67,8 +69,10 @@ export sort_chain!
 include("MarkerChain/resample.jl")
 export resample!
 
-include("MarkerChain/advection.jl")
-export advect_markerchain!, advection_RK!
+include("MarkerChain/Advection/Euler.jl")
+include("MarkerChain/Advection/RK2.jl")
+include("MarkerChain/Advection/advection.jl")
+export advection!, advect_markerchain!
 
 ## PASSIVE MARKERS RELATED FILES
 
@@ -76,7 +80,7 @@ include("PassiveMarkers/init.jl")
 export init_passive_markers
 
 include("PassiveMarkers/advection.jl")
-export advect_passive_markers!
+export advection!
 
 include("PassiveMarkers/grid_to_particle.jl")
 export grid2particle!
