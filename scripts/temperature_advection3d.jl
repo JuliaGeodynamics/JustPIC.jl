@@ -68,7 +68,7 @@ function main()
     for _ in 1:niter
         particle2grid!(T, pT, xvi, particles)
         copyto!(T0, T)
-        advection_RK!(particles, V, grid_vx, grid_vy, grid_vz, dt, 2 / 3)
+        advection!(particles, RungeKutta2(2/3), V, (grid_vx, grid_vy), dt)
         move_particles!(particles, xvi, particle_args)
         
         # reseed
