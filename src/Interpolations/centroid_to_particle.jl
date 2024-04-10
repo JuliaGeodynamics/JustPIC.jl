@@ -211,7 +211,7 @@ end
     F011 = F[i, j1, k1]  # v011
     F111 = F[i1, j1, k1] # v111
     # reorder to match the order of the lerp kernel
-    return F000, F100, F011, F111, F010, F110, F001, F101
+    return F000, F100, F010, F110, F001, F101, F011, F111
 end
 
 # normalize coordinates
