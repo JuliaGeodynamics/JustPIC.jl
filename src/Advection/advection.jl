@@ -19,7 +19,7 @@ end
     F101 = F[i1, j, k1]
     F011 = F[i, j1, k1]
     F111 = F[i1, j1, k1]
-    return F000, F100, F001, F101, F010, F110, F011, F111
+    return F000, F100, F011, F111, F010, F110, F001, F101
 end
 
 @inline firstlast(x::Array) = first(x), last(x)

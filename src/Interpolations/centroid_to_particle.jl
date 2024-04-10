@@ -155,7 +155,7 @@ end
     # normalize particle coordinates
     ti = normalize_coordinates_clamped(pᵢ, xci, di, idx)
     # Interpolate field F onto particle
-    Fp = ndlinear(ti, Fi)
+    Fp = ndlerp(Fi, ti)
 
     return Fp
 end
@@ -171,7 +171,7 @@ end
         # F at the cell corners
         Fi = field_corners_clamped(F[i], idx)
         # Interpolate field F onto particle
-        ndlinear(ti, Fi)
+        ndlerp(Fi, ti)
     end
 
     return Fp
@@ -211,7 +211,7 @@ end
     F011 = F[i, j1, k1]  # v011
     F111 = F[i1, j1, k1] # v111
     # reorder to match the order of the lerp kernel
-    return F000, F100, F001, F101, F010, F110, F011, F111
+    return F000, F100, F011, F111, F010, F110, F001, F101
 end
 
 # normalize coordinates

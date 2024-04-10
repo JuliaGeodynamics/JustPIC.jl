@@ -85,7 +85,7 @@ end
     # normalize particle coordinates
     ti = normalize_coordinates(pᵢ, x_vertex_cell, dxi)
     # Interpolate field F onto particle
-    Fp = ndlinear(ti, Fi)
+    Fp = ndlerp(Fi, ti)
     return Fp
 end
 
