@@ -71,7 +71,7 @@ module _2D
         V,
         grid_vxi::NTuple{N,NTuple{N,T}},
         dt,
-    )
+    ) where {N,T}
         return advection!(particles, method, V, grid_vxi, dt)
     end
 
