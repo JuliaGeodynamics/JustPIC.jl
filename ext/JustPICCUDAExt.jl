@@ -17,11 +17,12 @@ module _2D
     @init_parallel_stencil(CUDA, Float64, 2)
 
     const ParticlesExt = JustPIC.Particles
-    const PassiveMarkersExt = JustPIC.PassiveMarkers
+    # const PassiveMarkersExt = JustPIC.PassiveMarkers
     # const AbstractAdvectionIntegratorExt = JustPIC.AbstractAdvectionIntegrator
 
     import JustPIC: Euler, RungeKutta2, AbstractAdvectionIntegrator
     import JustPIC._2D.CA
+    import JustPIC: PassiveMarkers
 
     export CA
 
@@ -148,6 +149,7 @@ module _2D
         subgrid_diffusion!(pT, T_grid, ΔT_grid, subgrid_arrays, particles, xvi, di, dt; d=d)
         return nothing
     end
+
     ## MakerChain
 
     function JustPIC._2D.advect_markerchain!(
@@ -169,7 +171,8 @@ module _2D
     end
 
     function JustPIC._2D.advection!(
-        particles::PassiveMarkersExt{CUDABackend},
+        # particles::PassiveMarkersExt{CUDABackend},
+        particles::PassiveMarkers,
         method::AbstractAdvectionIntegrator,
         V::NTuple{N,CuArray},
         grid_vxi,
@@ -261,12 +264,12 @@ module _3D
     end
 
     function JustPIC._3D.advection!(
-        particles::ParticlesExt{CUDABackend},
+        particles::Particles,
         method::AbstractAdvectionIntegrator,
         V,
-        grid_vxi,
+        grid_vxi::NTuple{N,NTuple{N,T}},
         dt,
-    )
+    ) where {N,T}
         return advection!(particles, method, V, grid_vxi, dt)
     end
 
