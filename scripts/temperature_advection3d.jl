@@ -72,8 +72,7 @@ function main()
         move_particles!(particles, xvi, particle_args)
         
         # reseed
-        inject = check_injection(particles)
-        inject && inject_particles!(particles, (pT, ), (T,), xvi)
+        inject_particles!(particles, (pT, ), xvi)
 
         grid2particle!(pT, xvi, T, T0, particles.coords)
     end
