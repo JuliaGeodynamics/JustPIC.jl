@@ -170,7 +170,7 @@ end
     # normalize particle coordinates
     ti = normalize_coordinates(pᵢ, xvi, di, idx)
     # Interpolate field F onto particle
-    Fp = ndlerp(Fi, ti)
+    Fp = lerp(Fi, ti)
 
     return Fp
 end
@@ -181,7 +181,7 @@ end
     # normalize particle coordinates
     ti = normalize_coordinates(pᵢ, xvi, di, idx)
     # Interpolate field F onto particle
-    Fp = ndlerp(Fi, ti)
+    Fp = lerp(Fi, ti)
 
     return Fp
 end
@@ -192,7 +192,7 @@ end
     # normalize particle coordinates
     ti = normalize_coordinates(pᵢ, xvi, di)
     # Interpolate field F onto particle
-    Fp = ndlerp(Fi, ti)
+    Fp = lerp(Fi, ti)
     return Fp
 end
 
@@ -206,7 +206,7 @@ end
         # F at the cell corners
         Fi = field_corners(F[i], idx)
         # Interpolate field F onto particle
-        ndlerp(Fi, ti)
+        lerp(Fi, ti)
     end
 
     return Fp
@@ -220,7 +220,7 @@ end
     Fp = ntuple(Val(N1)) do i
         Base.@_inline_meta
         # Interpolate field F onto particle
-        ndlerp(F[i], ti)
+        lerp(F[i], ti)
     end
 
     return Fp

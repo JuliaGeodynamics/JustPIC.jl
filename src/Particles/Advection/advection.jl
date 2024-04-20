@@ -91,7 +91,7 @@ end
     # normalize particle coordinates
     ti = normalize_coordinates(p_i, xci, dxi)
     # Interpolate field F onto particle
-    Fp = ndlerp(Fi, ti)
+    Fp = lerp(Fi, ti)
     return Fp
 end
 

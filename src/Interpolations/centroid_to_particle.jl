@@ -155,7 +155,7 @@ end
     # normalize particle coordinates
     ti = normalize_coordinates_clamped(pᵢ, xci, di, idx)
     # Interpolate field F onto particle
-    Fp = ndlerp(Fi, ti)
+    Fp = lerp(Fi, ti)
 
     return Fp
 end
@@ -171,7 +171,7 @@ end
         # F at the cell corners
         Fi = field_corners_clamped(F[i], idx)
         # Interpolate field F onto particle
-        ndlerp(Fi, ti)
+        lerp(Fi, ti)
     end
 
     return Fp

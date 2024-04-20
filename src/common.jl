@@ -30,7 +30,7 @@ export centroid2particle!, centroid2particle_flip!
 # export lerp, bilinear, trilinear
 
 include("Interpolations/ndlerp.jl")
-export lerp, ndlerp
+export lerp
 
 include("Physics/subgrid_diffusion.jl")
 export SubgridDiffusionCellArrays, subgrid_diffusion!
