@@ -239,10 +239,7 @@ function advection_test_2D()
         copyto!(T0, T)
         _2D.advection!(particles, RungeKutta2(2/3), V, (grid_vx, grid_vy), dt)
         _2D.move_particles!(particles, xvi, particle_args)
-
-        inject = _2D.check_injection(particles)
-        inject && _2D.inject_particles!(particles, (pT, ), (T,), xvi)
-
+        _2D.inject_particles!(particles, (pT, ), xvi)
         _2D.grid2particle!(pT, xvi, T, particles)
     end
 
@@ -304,9 +301,7 @@ function test_rotating_circle()
         copyto!(T0, T)
         _2D.advection!(particles, _2D.RungeKutta2(2/3), V, (grid_vx, grid_vy), dt)
         _2D.move_particles!(particles, xvi, particle_args)
-
-        inject = _2D.check_injection(particles)
-        inject && _2D.inject_particles!(particles, (pT, ), (T,), xvi)
+        _2D.inject_particles!(particles, (pT, ), xvi)
         _2D.grid2particle!(pT, xvi, T, particles)
         t += dt
         it += 1

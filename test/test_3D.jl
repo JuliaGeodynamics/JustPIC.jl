@@ -25,7 +25,7 @@ function expand_range(x::AbstractRange)
     LinRange(xI, xF, n+2)
 end
 
-@testset "3D tests" begin
+# @testset "3D tests" begin
     
     # Analytical flow solution
     vx_stream(x, z) =  250 * sin(π*x) * cos(π*z)
@@ -258,11 +258,8 @@ end
             copyto!(T0, T)
             _3D.advection!(particles, _3D.RungeKutta2(2/3), V, (grid_vx, grid_vy, grid_vz), dt)
             _3D.move_particles!(particles, xvi, particle_args)
-
             # reseed
-            inject = _3D.check_injection(particles)
-            inject && _3D.inject_particles!(particles, (pT, ), (T,), xvi)
-
+            _3D.inject_particles!(particles, (pT, ), xvi)
             _3D.grid2particle!(pT, xvi, T, particles)
         end
 
@@ -283,4 +280,4 @@ end
     @testset "Miniapps" begin
         @test test_advection()
     end
-end
+# end
