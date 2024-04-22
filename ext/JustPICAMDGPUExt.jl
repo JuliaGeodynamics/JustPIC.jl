@@ -166,7 +166,7 @@ module _2D
     function JustPIC._2D.advection!(
         particles::PassiveMarkers{AMDGPUBackend},
         method::AbstractAdvectionIntegrator,
-        V::NTuple{N,CuArray},
+        V::NTuple{N,RocArray},
         grid_vxi,
         dt,
     ) where {N}
@@ -351,7 +351,7 @@ module _3D
     function JustPIC._3D.advection!(
         particles::PassiveMarkers{AMDGPUBackend},
         method::AbstractAdvectionIntegrator,
-        V::NTuple{N,CuArray},
+        V::NTuple{N,RocArray},
         grid_vxi,
         dt,
     ) where {N}
