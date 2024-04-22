@@ -74,7 +74,7 @@ function main()
         # grid2particle!(pT, xvi, T, T0, particles)
 
         # advect particles
-        advection_RK!(particles, V, grid_vx, grid_vy, dt, 2 / 3)
+        advection!(particles, RungeKutta2(2/3), V, (grid_vx, grid_vy), dt)
 
         # update halos
         update_cell_halo!(particles.coords..., particle_args...);

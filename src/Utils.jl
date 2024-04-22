@@ -1,18 +1,4 @@
 """
-    range(args...)
-
-Make a linear range from `1` to `args[i]`, with `i ∈ [1, ..., n]`
-"""
-macro range(args...)
-    return quote
-        _range(tuple($(esc.(args)...))...)
-    end
-end
-
-@inline _range(args::Vararg{Int,N}) where {N} = ntuple(i -> 1:args[i], Val(N))
-@inline _range(args::NTuple{N,Int}) where {N} = ntuple(i -> 1:args[i], Val(N))
-
-"""
     add_global_ghost_nodes(x, dx, origin)
 
 Add ghost nodes to the global coordinates array `x` with spacing `dx` and origin `origin`    

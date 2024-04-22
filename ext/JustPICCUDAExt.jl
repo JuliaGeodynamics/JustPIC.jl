@@ -16,10 +16,9 @@ module _2D
 
     @init_parallel_stencil(CUDA, Float64, 2)
 
-    const ParticlesExt = JustPIC.Particles
-    const PassiveMarkersExt = JustPIC.PassiveMarkers
-
+    import JustPIC: Euler, RungeKutta2, AbstractAdvectionIntegrator
     import JustPIC._2D.CA
+    import JustPIC: Particles, PassiveMarkers
 
     export CA
 
@@ -36,10 +35,9 @@ module _2D
     end
 
     include(joinpath(@__DIR__, "../src/common.jl"))
-
     include(joinpath(@__DIR__, "../src/CUDAExt/CellArrays.jl"))
 
-    function JustPIC._2D.SubgridDiffusionCellArrays(particles::ParticlesExt{CUDABackend})
+    function JustPIC._2D.SubgridDiffusionCellArrays(particles::Particles{CUDABackend})
         return SubgridDiffusionCellArrays(particles)
     end
 
@@ -63,31 +61,30 @@ module _2D
         return init_particles(CUDABackend, nxcell, max_xcell, min_xcell, coords, dxᵢ, nᵢ)
     end
 
-    function JustPIC._2D.advection_RK!(
-        particles::ParticlesExt{CUDABackend},
+    function JustPIC._2D.advection!(
+        particles::Particles{CUDABackend},
+        method::AbstractAdvectionIntegrator,
         V,
-        grid_vx::NTuple{2,T},
-        grid_vy::NTuple{2,T},
+        grid_vxi::NTuple{N,NTuple{N,T}},
         dt,
-        α,
-    ) where {T}
-        return advection_RK!(particles, V, grid_vx, grid_vy, dt, α)
+    ) where {N,T}
+        return advection!(particles, method, V, grid_vxi, dt)
     end
 
     function JustPIC._2D.centroid2particle!(
-        Fp, xci, F::CuArray, particles::ParticlesExt{CUDABackend}
+        Fp, xci, F::CuArray, particles::Particles{CUDABackend}
     )
         return centroid2particle!(Fp, xci, F, particles)
     end
 
     function JustPIC._2D.grid2particle!(
-        Fp, xvi, F::CuArray, particles::ParticlesExt{CUDABackend}
+        Fp, xvi, F::CuArray, particles::Particles{CUDABackend}
     )
         return grid2particle!(Fp, xvi, F, particles)
     end
 
     function JustPIC._2D.particle2grid_centroid!(
-        F::CuArray, Fp, xi, particles::ParticlesExt{CUDABackend}
+        F::CuArray, Fp, xi, particles::Particles{CUDABackend}
     )
         return particle2grid_centroid!(F, Fp, xi, particles)
     end
@@ -100,35 +97,31 @@ module _2D
         return grid2particle_flip!(Fp, xvi, F, F0, particles; α=α)
     end
 
-    function JustPIC._2D.check_injection(particles::ParticlesExt{CUDABackend})
-        return check_injection(particles)
-    end
-
     function JustPIC._2D.inject_particles!(
-        particles::ParticlesExt{CUDABackend}, args, fields, grid
+        particles::Particles{CUDABackend}, args, grid
     )
-        return inject_particles!(particles, args, fields, grid)
+        return inject_particles!(particles, args, grid)
     end
 
     function JustPIC._2D.inject_particles_phase!(
-        particles::ParticlesExt{CUDABackend}, particles_phases, args, fields, grid
+        particles::Particles{CUDABackend}, particles_phases, args, fields, grid
     )
         inject_particles_phase!(particles::Particles, particles_phases, args, fields, grid)
         return nothing
     end
 
     function JustPIC._2D.shuffle_particles!(
-        particles::ParticlesExt{CUDABackend}, args::Vararg{Any,N}
+        particles::Particles{CUDABackend}, args::Vararg{Any,N}
     ) where {N}
         return shuffle_particles!(particles, args...)
     end
 
-    function JustPIC._2D.move_particles!(particles::ParticlesExt{CUDABackend}, grid, args)
+    function JustPIC._2D.move_particles!(particles::Particles{CUDABackend}, grid, args)
         return shuffle_particles!(particles, grid, args)
     end
 
     function JustPIC._2D.init_cell_arrays(
-        particles::ParticlesExt{CUDABackend}, V::Val{N}
+        particles::Particles{CUDABackend}, V::Val{N}
     ) where {N}
         return init_cell_arrays(particles, V)
     end
@@ -147,12 +140,17 @@ module _2D
         subgrid_diffusion!(pT, T_grid, ΔT_grid, subgrid_arrays, particles, xvi, di, dt; d=d)
         return nothing
     end
+
     ## MakerChain
 
     function JustPIC._2D.advect_markerchain!(
-        chain::MarkerChain{CUDABackend}, V, grid_vx, grid_vy, dt
+        chain::MarkerChain{CUDABackend},
+        method::AbstractAdvectionIntegrator,
+        V,
+        grid_vxi,
+        dt,
     )
-        return advect_markerchain!(chain, V, grid_vx, grid_vy, dt)
+        return advect_markerchain!(chain, method, V, grid_vxi, dt)
     end
 
     ## PassiveMarkers
@@ -163,19 +161,18 @@ module _2D
         return init_passive_markers(CUDABackend, coords)
     end
 
-    function JustPIC._2D.advect_passive_markers!(
-        particles::PassiveMarkersExt{CUDABackend},
+    function JustPIC._2D.advection!(
+        particles::PassiveMarkers{CUDABackend},
+        method::AbstractAdvectionIntegrator,
         V::NTuple{N,CuArray},
-        grid_vx,
-        grid_vy,
-        dt;
-        α::Float64=2 / 3,
+        grid_vxi,
+        dt,
     ) where {N}
-        return advect_passive_markers!(particles, V, grid_vx, grid_vy, dt; α=α)
+        return advection!(particles, method, V, grid_vxi, dt)
     end
 
     function JustPIC._2D.grid2particle!(
-        Fp, xvi, F, particles::PassiveMarkersExt{CUDABackend}
+        Fp, xvi, F, particles::PassiveMarkers{CUDABackend}
     )
         grid2particle!(Fp, xvi, F, particles)
         return nothing
@@ -185,14 +182,14 @@ module _2D
         Fp::NTuple{N,CuArray},
         xvi,
         F::NTuple{N,CuArray},
-        particles::PassiveMarkersExt{CUDABackend},
+        particles::PassiveMarkers{CUDABackend},
     ) where {N}
         grid2particle!(Fp, xvi, F, particles)
         return nothing
     end
 
     function JustPIC._2D.particle2grid!(
-        F, Fp, buffer, xi, particles::PassiveMarkersExt{CUDABackend}
+        F, Fp, buffer, xi, particles::PassiveMarkers{CUDABackend}
     )
         particle2grid!(F, Fp, buffer, xi, particles)
         return nothing
@@ -219,18 +216,16 @@ module _3D
         )
     end
 
-    const ParticlesExt = JustPIC.Particles
-    const PassiveMarkersExt = JustPIC.PassiveMarkers
+    import JustPIC: Euler, RungeKutta2, AbstractAdvectionIntegrator, Particles, PassiveMarkers
 
     function JustPIC._3D.CA(::Type{CUDABackend}, dims; eltype=Float64)
         return CuCellArray{eltype}(undef, dims)
     end
 
     include(joinpath(@__DIR__, "../src/common.jl"))
-
     include(joinpath(@__DIR__, "../src/CUDAExt/CellArrays.jl"))
 
-    function JustPIC._3D.SubgridDiffusionCellArrays(particles::ParticlesExt{CUDABackend})
+    function JustPIC._3D.SubgridDiffusionCellArrays(particles::Particles{CUDABackend})
         return SubgridDiffusionCellArrays(particles)
     end
 
@@ -254,38 +249,36 @@ module _3D
         return init_particles(CUDABackend, nxcell, max_xcell, min_xcell, coords, dxᵢ, nᵢ)
     end
 
-    function JustPIC._3D.advection_RK!(
-        particles::ParticlesExt{CUDABackend},
+    function JustPIC._3D.advection!(
+        particles::Particles{CUDABackend},
+        method::AbstractAdvectionIntegrator,
         V,
-        grid_vx::NTuple{3,T},
-        grid_vy::NTuple{3,T},
-        grid_vz::NTuple{3,T},
+        grid_vxi::NTuple{N,NTuple{N,T}},
         dt,
-        α,
-    ) where {T}
-        return advection_RK!(particles, V, grid_vx, grid_vy, grid_vz, dt, α)
+    ) where {N,T}
+        return advection!(particles, method, V, grid_vxi, dt)
     end
 
     function JustPIC._3D.centroid2particle!(
-        Fp, xci, F::CuArray, particles::ParticlesExt{CUDABackend}
+        Fp, xci, F::CuArray, particles::Particles{CUDABackend}
     )
         return centroid2particle!(Fp, xci, F, particles)
     end
 
     function JustPIC._3D.grid2particle!(
-        Fp, xvi, F::CuArray, particles::ParticlesExt{CUDABackend}
+        Fp, xvi, F::CuArray, particles::Particles{CUDABackend}
     )
         return grid2particle!(Fp, xvi, F, particles)
     end
 
     function JustPIC._3D.particle2grid_centroid!(
-        F::CuArray, Fp, xi, particles::ParticlesExt{CUDABackend}
+        F::CuArray, Fp, xi, particles::Particles{CUDABackend}
     )
         return particle2grid_centroid!(F, Fp, xi, particles)
     end
 
     function JustPIC._3D.particle2grid!(
-        F::CuArray, Fp, xi, particles::ParticlesExt{CUDABackend}
+        F::CuArray, Fp, xi, particles::Particles{CUDABackend}
     )
         return particle2grid!(F, Fp, xi, particles)
     end
@@ -294,35 +287,31 @@ module _3D
         return grid2particle_flip!(Fp, xvi, F, F0, particles; α=α)
     end
 
-    function JustPIC._3D.check_injection(particles::ParticlesExt{CUDABackend})
-        return check_injection(particles)
-    end
-
     function JustPIC._3D.inject_particles!(
-        particles::ParticlesExt{CUDABackend}, args, fields, grid
+        particles::Particles{CUDABackend}, args, grid
     )
-        return inject_particles!(particles, args, fields, grid)
+        return inject_particles!(particles, args, grid)
     end
 
     function JustPIC._3D.inject_particles_phase!(
-        particles::ParticlesExt{CUDABackend}, particles_phases, args, fields, grid
+        particles::Particles{CUDABackend}, particles_phases, args, fields, grid
     )
         inject_particles_phase!(particles::Particles, particles_phases, args, fields, grid)
         return nothing
     end
 
     function JustPIC._3D.shuffle_particles!(
-        particles::ParticlesExt{CUDABackend}, args::Vararg{Any,N}
+        particles::Particles{CUDABackend}, args::Vararg{Any,N}
     ) where {N}
         return shuffle_particles!(particles, args...)
     end
 
-    function JustPIC._3D.move_particles!(particles::ParticlesExt{CUDABackend}, grid, args)
+    function JustPIC._3D.move_particles!(particles::Particles{CUDABackend}, grid, args)
         return shuffle_particles!(particles, grid, args)
     end
 
     function JustPIC._3D.init_cell_arrays(
-        particles::ParticlesExt{CUDABackend}, V::Val{N}
+        particles::Particles{CUDABackend}, V::Val{N}
     ) where {N}
         return init_cell_arrays(particles, V)
     end
@@ -350,20 +339,18 @@ module _3D
         return init_passive_markers(CUDABackend, coords)
     end
 
-    function JustPIC._3D.advect_passive_markers!(
-        particles::PassiveMarkersExt{CUDABackend},
+    function JustPIC._3D.advection!(
+        particles::PassiveMarkers{CUDABackend},
+        method::AbstractAdvectionIntegrator,
         V::NTuple{N,CuArray},
-        grid_vx,
-        grid_vy,
-        grid_vz,
-        dt;
-        α::Float64=2 / 3,
+        grid_vxi,
+        dt,
     ) where {N}
-        return advect_passive_markers!(particles, V, grid_vx, grid_vy, grid_vz, dt; α=α)
+        return advection!(particles, method, V, grid_vxi, dt)
     end
 
     function JustPIC._3D.grid2particle!(
-        Fp, xvi, F, particles::PassiveMarkersExt{CUDABackend}
+        Fp, xvi, F, particles::PassiveMarkers{CUDABackend}
     )
         grid2particle!(Fp, xvi, F, particles)
         return nothing
@@ -373,7 +360,7 @@ module _3D
         Fp::NTuple{N,CuArray},
         xvi,
         F::NTuple{N,CuArray},
-        particles::PassiveMarkersExt{CUDABackend},
+        particles::PassiveMarkers{CUDABackend},
     ) where {N}
         grid2particle!(Fp, xvi, F, particles)
         return nothing

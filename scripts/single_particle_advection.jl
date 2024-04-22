@@ -62,7 +62,7 @@ function main()
     # Advection test
     niter = 250
     for _ in 1:niter
-        advection_RK!(particles, V, grid_vx, grid_vy, dt, 2 / 3)
+        advection!(particles, RungeKutta2(2/3), V, (grid_vx, grid_vy), dt)
         move_particles!(particles, xvi, particle_args)
 
         pxv = particles.coords[1].data;

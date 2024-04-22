@@ -6,7 +6,7 @@ elseif ENV["JULIA_JUSTPIC_BACKEND"] === "CUDA"
     CUDA.allowscalar(true)
 end
 
-using JustPIC, JustPIC._2D, CellArrays, ParallelStencil, Test, LinearAlgebra
+using JustPIC, JustPIC._2D, CellArrays, Test, LinearAlgebra
 
 const backend = @static if ENV["JULIA_JUSTPIC_BACKEND"] === "AMDGPU"
     AMDGPUBackend
@@ -187,7 +187,7 @@ end
     P_marker = TA(backend)(zeros(np))
 
     for _ in 1:50
-        _2D.advect_passive_markers!(passive_markers, V, grid_vx, grid_vy, dt)
+        _2D.advection!(passive_markers, RungeKutta2(2/3), V, (grid_vx, grid_vy), dt)
     end
 
     # interpolate grid fields T and P onto the marker locations
@@ -237,12 +237,9 @@ function advection_test_2D()
     for it in 1:niter
         _2D.particle2grid!(T, pT, xvi, particles)
         copyto!(T0, T)
-        _2D.advection_RK!(particles, V, grid_vx, grid_vy, dt, 2 / 3)
+        _2D.advection!(particles, RungeKutta2(2/3), V, (grid_vx, grid_vy), dt)
         _2D.move_particles!(particles, xvi, particle_args)
-
-        inject = _2D.check_injection(particles)
-        inject && _2D.inject_particles!(particles, (pT, ), (T,), xvi)
-
+        _2D.inject_particles!(particles, (pT, ), xvi)
         _2D.grid2particle!(pT, xvi, T, particles)
     end
 
@@ -301,11 +298,10 @@ function test_rotating_circle()
     sumT = sum(T)
     while t ≤ tmax
         _2D.particle2grid!(T, pT, xvi, particles)
-        _2D.advection_RK!(particles, V, grid_vx, grid_vy, dt, 2 / 3)
+        copyto!(T0, T)
+        _2D.advection!(particles, _2D.RungeKutta2(2/3), V, (grid_vx, grid_vy), dt)
         _2D.move_particles!(particles, xvi, particle_args)
-
-        inject = _2D.check_injection(particles)
-        inject && _2D.inject_particles!(particles, (pT, ), (T,), xvi)
+        _2D.inject_particles!(particles, (pT, ), xvi)
         _2D.grid2particle!(pT, xvi, T, particles)
         t += dt
         it += 1

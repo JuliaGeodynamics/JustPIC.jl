@@ -16,16 +16,17 @@ else
     CPUBackend
 end
 
-@testset "3D tests" begin
-    function expand_range(x::AbstractRange)
-        dx = x[2] - x[1]
-        n = length(x)
-        x1, x2 = extrema(x)
-        xI = round(x1-dx; sigdigits=5)
-        xF = round(x2+dx; sigdigits=5)
-        LinRange(xI, xF, n+2)
-    end
+function expand_range(x::AbstractRange)
+    dx = x[2] - x[1]
+    n = length(x)
+    x1, x2 = extrema(x)
+    xI = round(x1-dx; sigdigits=5)
+    xF = round(x2+dx; sigdigits=5)
+    LinRange(xI, xF, n+2)
+end
 
+# @testset "3D tests" begin
+    
     # Analytical flow solution
     vx_stream(x, z) =  250 * sin(π*x) * cos(π*z)
     vy_stream(x, z) =  0.0
@@ -99,6 +100,7 @@ end
         @test particles1.max_xcell == particles2.max_xcell
         @test particles1.np == particles2.np
     end
+
     @testset "Subgrid diffusion 3D" begin
         nxcell, max_xcell, min_xcell = 24, 24, 1
         n   = 5 # number of vertices
@@ -197,7 +199,7 @@ end
         P_marker = TA(backend)(zeros(np))
 
         for _ in 1:75
-            _3D.advect_passive_markers!(passive_markers, V, grid_vx, grid_vy, grid_vz, dt)
+            _3D.advection!(passive_markers, _3D.RungeKutta2(2/3), V, (grid_vx, grid_vy, grid_vz), dt)
         end
 
         # interpolate grid fields T and P onto the marker locations
@@ -253,13 +255,11 @@ end
         niter = 25
         for _ in 1:niter
             _3D.particle2grid!(T, pT, xvi, particles)
-            _3D.advection_RK!(particles, V, grid_vx, grid_vy, grid_vz, dt, 2 / 3)
+            copyto!(T0, T)
+            _3D.advection!(particles, _3D.RungeKutta2(2/3), V, (grid_vx, grid_vy, grid_vz), dt)
             _3D.move_particles!(particles, xvi, particle_args)
-
             # reseed
-            inject = _3D.check_injection(particles)
-            inject && _3D.inject_particles!(particles, (pT, ), (T,), xvi)
-
+            _3D.inject_particles!(particles, (pT, ), xvi)
             _3D.grid2particle!(pT, xvi, T, particles)
         end
 
@@ -280,4 +280,4 @@ end
     @testset "Miniapps" begin
         @test test_advection()
     end
-end
+# end
