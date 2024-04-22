@@ -11,7 +11,7 @@ function update_cell_halo!(x::Vararg{CellArray,N}) where {N}
         for ip in cellaxes(x[i])
             tmp .= field(x[i], ip)
             update_halo!(tmp)
-            @parallel (@range ni) copy_field!(x[i], tmp, ip)
+            @parallel (@idx ni) copy_field!(x[i], tmp, ip)
         end
     end
     return nothing

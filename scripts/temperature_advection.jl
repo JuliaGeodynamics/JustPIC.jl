@@ -61,11 +61,9 @@ function main()
 
     niter = 250
     for it in 1:niter
-        advection_RK!(particles, V, grid_vx, grid_vy, dt, 2 / 3)
+        advection!(particles, RungeKutta2(2/3), V, (grid_vx, grid_vy), dt)
         move_particles!(particles, xvi, particle_args)
-        inject = check_injection(particles)
-        inject && println("Injecting particles")
-        inject && inject_particles!(particles, (pT, ), (T,), xvi)
+        inject_particles!(particles, (pT, ), xvi)
 
         particle2grid!(T, pT, xvi, particles)
 

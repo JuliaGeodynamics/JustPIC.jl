@@ -1,9 +1,8 @@
 abstract type AbstractParticles end
 
-struct Particles{Backend,N,M,I,T1,T2,T3} <: AbstractParticles
+struct Particles{Backend,N,M,I,T1,T2} <: AbstractParticles
     coords::NTuple{N,T1}
     index::T2
-    inject::T3
     nxcell::I
     max_xcell::I
     min_xcell::I
@@ -12,20 +11,14 @@ struct Particles{Backend,N,M,I,T1,T2,T3} <: AbstractParticles
     function Particles(
         backend,
         coords::NTuple{N,T1},
-        index,
-        inject,
+        index::T2,
         nxcell::I,
         max_xcell::I,
         min_xcell::I,
         np::I,
-    ) where {N,I,T1}
-
-        # types
-        T2 = typeof(index)
-        T3 = typeof(inject)
-
-        return new{backend,N,max_xcell,I,T1,T2,T3}(
-            coords, index, inject, nxcell, max_xcell, min_xcell, np
+    ) where {N,I,T1,T2}
+        return new{backend,N,max_xcell,I,T1,T2}(
+            coords, index,  nxcell, max_xcell, min_xcell, np
         )
     end
 end

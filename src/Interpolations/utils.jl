@@ -69,13 +69,13 @@ end
 @inline function field_corners(F::AbstractArray{T,3}, idx::NTuple{3,Int64}) where {T}
     idx_x, idx_y, idx_z = idx
     return (
-        F[idx_x, idx_y, idx_z],   # v000
-        F[idx_x + 1, idx_y, idx_z],   # v100
-        F[idx_x, idx_y, idx_z + 1], # v001
-        F[idx_x + 1, idx_y, idx_z + 1], # v101
-        F[idx_x, idx_y + 1, idx_z],   # v010
-        F[idx_x + 1, idx_y + 1, idx_z],   # v110
-        F[idx_x, idx_y + 1, idx_z + 1], # v011
+        F[idx_x, idx_y, idx_z],             # v000
+        F[idx_x + 1, idx_y, idx_z],         # v100
+        F[idx_x, idx_y + 1, idx_z],         # v010
+        F[idx_x + 1, idx_y + 1, idx_z],     # v110
+        F[idx_x, idx_y, idx_z + 1],         # v001
+        F[idx_x + 1, idx_y, idx_z + 1],     # v101
+        F[idx_x, idx_y + 1, idx_z + 1],     # v011
         F[idx_x + 1, idx_y + 1, idx_z + 1], # v111
     )
 end
@@ -102,13 +102,13 @@ end
 @inline function field_corners(F::AbstractArray{T,3}, idx::NTuple{3,Integer}) where {T}
     idx_x, idx_y, idx_z = idx
     return @inbounds (
-        F[idx_x, idx_y, idx_z],   # v000
-        F[idx_x + 1, idx_y, idx_z],   # v100
-        F[idx_x, idx_y, idx_z + 1], # v001
-        F[idx_x + 1, idx_y, idx_z + 1], # v101
-        F[idx_x, idx_y + 1, idx_z],   # v010
-        F[idx_x + 1, idx_y + 1, idx_z],   # v110
-        F[idx_x, idx_y + 1, idx_z + 1], # v011
+        F[idx_x, idx_y, idx_z],             # v000
+        F[idx_x + 1, idx_y, idx_z],         # v100
+        F[idx_x, idx_y + 1, idx_z],         # v010
+        F[idx_x + 1, idx_y + 1, idx_z],     # v110
+        F[idx_x, idx_y, idx_z + 1],         # v001
+        F[idx_x + 1, idx_y, idx_z + 1],     # v101
+        F[idx_x, idx_y + 1, idx_z + 1],     # v011
         F[idx_x + 1, idx_y + 1, idx_z + 1], # v111
     )
 end
@@ -162,13 +162,13 @@ end
     zc = center_coordinate(xi[3], offset_z, idx_z, dz)
     # F at the eight centers
     Fi = (
-        F[idx_x, idx_y, idx_z],   # v000
-        F[idx_x + 1, idx_y, idx_z],   # v100
-        F[idx_x, idx_y, idx_z + 1], # v001
-        F[idx_x + 1, idx_y, idx_z + 1], # v101
-        F[idx_x, idx_y + 1, idx_z],   # v010
-        F[idx_x + 1, idx_y + 1, idx_z],   # v110
-        F[idx_x, idx_y + 1, idx_z + 1], # v011
+        F[idx_x, idx_y, idx_z],             # v000
+        F[idx_x + 1, idx_y, idx_z],         # v100
+        F[idx_x, idx_y + 1, idx_z],         # v010
+        F[idx_x + 1, idx_y + 1, idx_z],     # v110
+        F[idx_x, idx_y, idx_z + 1],         # v001
+        F[idx_x + 1, idx_y, idx_z + 1],     # v101
+        F[idx_x, idx_y + 1, idx_z + 1],     # v011
         F[idx_x + 1, idx_y + 1, idx_z + 1], # v111
     )
 
@@ -197,13 +197,13 @@ end
     idx_z = (pz - z) > 0 ? idx_z + 1 : idx_z
 
     return (
-        F[idx_x, idx_y, idx_z],   # v000
-        F[idx_x + 1, idx_y, idx_z],   # v100
-        F[idx_x, idx_y, idx_z + 1], # v001
-        F[idx_x + 1, idx_y, idx_z + 1], # v101
-        F[idx_x, idx_y + 1, idx_z],   # v010
-        F[idx_x + 1, idx_y + 1, idx_z],   # v110
-        F[idx_x, idx_y + 1, idx_z + 1], # v011
+        F[idx_x, idx_y, idx_z],             # v000
+        F[idx_x + 1, idx_y, idx_z],         # v100
+        F[idx_x, idx_y + 1, idx_z],         # v010
+        F[idx_x + 1, idx_y + 1, idx_z],     # v110
+        F[idx_x, idx_y, idx_z + 1],         # v001
+        F[idx_x + 1, idx_y, idx_z + 1],     # v101
+        F[idx_x, idx_y + 1, idx_z + 1],     # v011
         F[idx_x + 1, idx_y + 1, idx_z + 1], # v111
     )
 end

@@ -16,6 +16,9 @@ TA(::Type{CPUBackend}) = Array
 include("particles.jl")
 export AbstractParticles, Particles, MarkerChain, PassiveMarkers, cell_index, cell_length
 
+include("Advection/types.jl")
+export AbstractAdvectionIntegrator, Euler, RungeKutta2
+
 include("JustPIC_CPU.jl")
 
 end # module

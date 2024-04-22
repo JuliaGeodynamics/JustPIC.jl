@@ -303,7 +303,7 @@ function clean_particles!(particles::Particles, grid, args)
     (; coords, index) = particles
     dxi = compute_dx(grid)
     ni = size(index)
-    @parallel (@range ni) _clean!(coords, grid, dxi, index, args)
+    @parallel (@idx ni) _clean!(coords, grid, dxi, index, args)
     return nothing
 end
 

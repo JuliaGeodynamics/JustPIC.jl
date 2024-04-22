@@ -1,7 +1,5 @@
 using JustPIC
 using JustPIC._2D
-using ParallelStencil
-@init_parallel_stencil(Threads, Float64, 2)
 using GLMakie
 
 const backend = CPUBackend
@@ -40,10 +38,10 @@ function main()
     P   = TA(backend)([x for x in xv, y in yv]);
     V   = Vx, Vy;
 
-    w = π*1e-5  # angular velocity
+    w      = π*1e-5  # angular velocity
     period = 1  # revolution number
-    tmax = period / (w/(2*π))
-    dt = 200.0
+    tmax   = period / (w/(2*π))
+    dt     = 200.0
 
     np = 256 # number of passive markers
     passive_coords = ntuple(Val(2)) do i
@@ -51,8 +49,8 @@ function main()
     end
 
     passive_markers = init_passive_markers(backend, passive_coords);
-    T_marker = zeros(np)
-    P_marker = zeros(np)
+    T_marker = TA(backend)(zeros(np))
+    P_marker = TA(backend)(zeros(np))
 
     f = Figure()
     ax = Axis(f[1, 1])
@@ -67,7 +65,7 @@ function main()
     scatter!(px, py, color=:black)
     
     for _ in 1:325
-        advect_passive_markers!(passive_markers, V, grid_vx, grid_vy, dt)
+        advection!(passive_markers, RungeKutta2(), V, (grid_vx, grid_vy), dt)
     end
 
     # interpolate grid fields T and P onto the marker locations
