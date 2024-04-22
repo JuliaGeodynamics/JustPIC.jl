@@ -92,7 +92,7 @@ end
             grid,
             di,
             min_xcell,
-            (i, j),
+            I,
         )
     end
     return nothing
