@@ -1,7 +1,7 @@
 name = "JustPIC"
 uuid = "10dc771f-8528-4cd9-9d3b-b21b2e693339"
 authors = ["Albert De Montserrat <albertdemontserratnavarro@erdw.ethz.ch>, Ivan Utkin <iutkin@ethz.ch>"]
-version = "0.2.3"
+version = "0.3.0"
 
 [deps]
 Atomix = "a9b6321e-bd34-4604-b9c9-b65b8de01458"
