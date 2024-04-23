@@ -1,7 +1,3 @@
-```@meta
-EditURL = "docs/examples/field_advection2D.jl"
-```
-
 # Field advection in 2D
 
 First we load JustPIC
