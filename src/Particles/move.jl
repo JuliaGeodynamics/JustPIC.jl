@@ -1,7 +1,3 @@
-"""
-    move_particles!(particles, grid, args)
-
-"""
 function move_particles!(particles::AbstractParticles, grid, args)
     dxi = compute_dx(grid)
     (; coords, index) = particles
@@ -76,4 +72,132 @@ function move_kernel!(
         fill_particle!(coords, pᵢ, free_idx, new_cell)
         fill_particle!(args, current_args, free_idx, new_cell)
     end
+end
+
+## Utility functions
+
+function find_free_memory(index, I::Vararg{Int,N}) where {N}
+    for i in cellaxes(index)
+        !(@cell(index[i, I...])) && return i
+    end
+    return 0
+end
+
+@generated function indomain(p::NTuple{N,T1}, domain_limits::NTuple{N,T2}) where {N,T1,T2}
+    quote
+        Base.@_inline_meta
+        Base.Cartesian.@nexprs $N i ->
+            (@inbounds !(domain_limits[i][1] < p[i] < domain_limits[i][2]) && return false)
+        return true
+    end
+end
+
+@generated function indomain(idx_child::NTuple{N,Integer}, nxi::NTuple{N,Integer}) where {N}
+    quote
+        Base.@_inline_meta
+        Base.Cartesian.@nexprs $N i ->
+            @inbounds (1 ≤ idx_child[i] ≤ nxi[i] - 1) == false && return false
+        return true
+    end
+end
+
+@generated function isparticleempty(p::NTuple{N,T}) where {N,T}
+    quote
+        Base.@_inline_meta
+        Base.Cartesian.@nexprs $N i -> @inbounds isnan(p[i]) && return true
+        return false
+    end
+end
+
+@inline function cache_args(args::NTuple{N1,T}, ip, I::NTuple{N2,Int64}) where {T,N1,N2}
+    return ntuple(i -> @cell(args[i][ip, I...]), Val(N1))
+end
+
+@inline function cache_particle(p::NTuple{N1,T}, ip, I::NTuple{N2,Int64}) where {T,N1,N2}
+    return cache_args(p, ip, I)
+end
+
+@inline function child_index(parent_cell::NTuple{N,Int64}, I::NTuple{N,Int64}) where {N}
+    return ntuple(i -> parent_cell[i] + I[i], Val(N))
+end
+
+@generated function empty_particle!(
+    p::NTuple{N1,T}, ip, I::NTuple{N2,Int64}
+) where {N1,N2,T}
+    quote
+        Base.@_inline_meta
+        Base.Cartesian.@nexprs $N1 i -> @cell p[i][ip, I...] = NaN
+    end
+end
+
+@inline function fill_particle!(
+    p::NTuple{N,T1}, field::NTuple{N,T2}, ip, I::Int64
+) where {N,T1,T2}
+    return fill_particle!(p, field, ip, (I,))
+end
+
+@generated function fill_particle!(
+    p::NTuple{N1,T1}, field::NTuple{N1,T2}, ip, I::NTuple{N2,Int64}
+) where {N1,N2,T1,T2}
+    quote
+        Base.Cartesian.@nexprs $N1 i -> begin
+            Base.@_inline_meta
+            tmp = p[i]
+            @cell tmp[ip, I...] = field[i]
+        end
+        return nothing
+    end
+end
+
+function clean_particles!(particles::Particles, grid, args)
+    (; coords, index) = particles
+    dxi = compute_dx(grid)
+    ni = size(index)
+    @parallel (@idx ni) _clean!(coords, grid, dxi, index, args)
+    return nothing
+end
+
+@parallel_indices (i, j) function _clean!(
+    particle_coords::NTuple{2,Any}, grid::NTuple{2,Any}, dxi::NTuple{2,Any}, index, args
+)
+    clean_kernel!(particle_coords, grid, dxi, index, args, i, j)
+    return nothing
+end
+
+@parallel_indices (i, j, k) function _clean!(
+    particle_coords::NTuple{3,Any}, grid::NTuple{3,Any}, dxi::NTuple{3,Any}, index, args
+)
+    clean_kernel!(particle_coords, grid, dxi, index, args, i, j, k)
+    return nothing
+end
+
+function clean_kernel!(
+    particle_coords, grid, dxi, index, args, cell_indices::Vararg{Int,N}
+) where {N}
+    corner_xi = corner_coordinate(grid, cell_indices...)
+    # iterate over particles in child cell 
+    for ip in cellaxes(index)
+        pᵢ = cache_particle(particle_coords, ip, cell_indices)
+
+        if @cell index[ip, cell_indices...] # true if memory allocation is filled with a particle
+            if !(isincell(pᵢ, corner_xi, dxi))
+                # remove particle from child cell
+                @cell index[ip, cell_indices...] = false
+                empty_particle!(particle_coords, ip, cell_indices)
+                empty_particle!(args, ip, cell_indices)
+            end
+        end
+    end
+    return nothing
+end
+
+function global_domain_limits(origin::NTuple{N,Any}, dxi::NTuple{N,Any}) where {N}
+    fn = nx_g, ny_g, nz_g
+
+    lims = ntuple(Val(N)) do i
+        Base.@_inline_meta
+        origin[i], (fn[i]() - 1) * dxi[i]
+    end
+
+    return lims
 end

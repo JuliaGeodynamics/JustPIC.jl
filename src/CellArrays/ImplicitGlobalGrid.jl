@@ -1,8 +1,3 @@
-"""
-    update_cell_halo!(x)
-
-Update the halo of the `CellArray` `x`
-"""
 function update_cell_halo!(x::Vararg{CellArray,N}) where {N}
     ni = size(x[1])
     tmp = @fill(0, ni..., eltype = eltype(x[1].data))

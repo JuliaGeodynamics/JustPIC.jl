@@ -1,7 +1,3 @@
-"""
-    move_particles!(particles, grid)
-
-"""
 function move_particles!(chain::MarkerChain)
     (; coords, index, cell_vertices) = chain
     dxi = compute_dx(cell_vertices)

@@ -1,11 +1,5 @@
 ## PARTICLE INJECTION FUNCTIONS
 
-"""
-    inject_particles!(particles, args, fields, grid)
-
-Injects new particles in the struct `particles` and interpolates the nodal fields `fields` defined
-on the staggered grid `grid` onto the new particle field `args`.
-"""
 function inject_particles!(particles::Particles, args, grid)
     # unpack
     (; coords, index, min_xcell) = particles
@@ -57,15 +51,9 @@ function _inject_particles!(
 
     return nothing
 end
+
 # Injection of particles when multiple phases are present
 
-"""
-    inject_particles_phase!(particles, particles_phases, args, fields, grid)
-
-Injects new particles in the struct `particles` and interpolates the nodal fields `fields` defined
-on the staggered grid `grid` onto the new particle field `args`. The phase of the particle is given
-by `particles_phases`.
-"""
 function inject_particles_phase!(particles::Particles, particles_phases, args, fields, grid)
     # unpack
     (; coords, index, min_xcell) = particles
