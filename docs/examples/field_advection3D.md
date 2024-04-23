@@ -6,7 +6,7 @@ First we load JustPIC
 using JustPIC
 ````
 
-and the correspondant 3D module
+and the correspondent 3D module
 
 ````julia
 using JustPIC._3D
@@ -61,7 +61,7 @@ function expand_range(x::AbstractRange)
 end
 ````
 
-Next we initalize the particles
+Next we initialize the particles
 
 ````julia
 nxcell    = 24 # initial number of particles per cell
