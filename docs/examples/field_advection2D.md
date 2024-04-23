@@ -56,7 +56,7 @@ function expand_range(x::AbstractRange)
 end
 ````
 
-Next we initalize the particles
+Next we initialize the particles
 
 ````julia
 nxcell    = 24 # initial number of particles per cell

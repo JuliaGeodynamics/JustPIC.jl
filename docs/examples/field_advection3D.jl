@@ -6,7 +6,7 @@ using JustPIC
 # and the correspondent 3D module
 using JustPIC._3D
 
-# We need to specify what backend are we running our simulation on. For convinience we define the backend as a constant. In this case we use the CPU backend, but we could also use the CUDA (CUDABackend) or AMDGPU (AMDGPUBackend) backends.
+# We need to specify what backend are we running our simulation on. For convenience we define the backend as a constant. In this case we use the CPU backend, but we could also use the CUDA (CUDABackend) or AMDGPU (AMDGPUBackend) backends.
 const backend = CPUBackend 
 
 # we define an analytical flow solution to advected our particles

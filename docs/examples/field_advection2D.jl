@@ -35,7 +35,7 @@ function expand_range(x::AbstractRange)
     range(xI, xF, length=n+2)
 end
 
-# Next we initalize the particles
+# Next we initialize the particles
 nxcell    = 24 # initial number of particles per cell
 max_xcell = 48 # maximum number of particles per cell
 min_xcell = 14 # minimum number of particles per cell
