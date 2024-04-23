@@ -112,14 +112,8 @@ module _2D
         return nothing
     end
 
-    function JustPIC._2D.shuffle_particles!(
-        particles::Particles{AMDGPUBackend}, args::Vararg{Any,N}
-    ) where {N}
-        return shuffle_particles!(particles, args...)
-    end
-
     function JustPIC._2D.move_particles!(particles::Particles{AMDGPUBackend}, grid, args)
-        return shuffle_particles!(particles, grid, args)
+        return move_particles!(particles, grid, args)
     end
 
     function JustPIC._2D.init_cell_arrays(
@@ -309,14 +303,8 @@ module _3D
         return nothing
     end
 
-    function JustPIC._3D.shuffle_particles!(
-        particles::Particles{AMDGPUBackend}, args::Vararg{Any,N}
-    ) where {N}
-        return shuffle_particles!(particles, args...)
-    end
-
     function JustPIC._3D.move_particles!(particles::Particles{AMDGPUBackend}, grid, args)
-        return shuffle_particles!(particles, grid, args)
+        return move_particles!(particles, grid, args)
     end
 
     function JustPIC._3D.init_cell_arrays(
