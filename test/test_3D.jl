@@ -272,9 +272,10 @@ vz_stream(x, z) = -250 * cos(π*x) * sin(π*z)
     end
 
     function test_advection()
-        err = NaN
-        while isnan(err)
+        err = 0e0
+        for _ in 1:5
             err = test_advection_3D()
+            !isnan(err) && break
         end
         tol = 1e-1
         passed = err < tol
