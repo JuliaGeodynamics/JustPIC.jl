@@ -1,7 +1,3 @@
-"""
-    move_particles!(particles, grid, args)
-
-"""
 function move_particles!(particles::AbstractParticles, grid, args)
     dxi = compute_dx(grid)
     (; coords, index) = particles

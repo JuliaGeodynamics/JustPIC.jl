@@ -1,8 +1,3 @@
-"""
-    init_particle_fields(particles, ::Val{N})
-
-Returns `N` particle fields with the same size as `particles`
-"""
 @inline function init_cell_arrays(particles::Particles, ::Val{N}) where {N}
     return ntuple(
         _ -> @fill(

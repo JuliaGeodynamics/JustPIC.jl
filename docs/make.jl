@@ -5,7 +5,7 @@ push!(LOAD_PATH, "../src/")
 makedocs(;
     sitename="JustPIC.jl",
     authors="Albert de Montserrat and contributors",
-    modules=[JustPIC],
+    modules=[JustPIC, JustPIC._2D, JustPIC._3D],
     format=Documenter.HTML(; prettyurls=get(ENV, "CI", nothing) == "true"), # easier local build
     pages=[
         "Home" => "index.md",

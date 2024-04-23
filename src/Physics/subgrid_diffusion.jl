@@ -18,20 +18,6 @@ function SubgridDiffusionCellArrays(::T) where {T}
     throw(ArgumentError("SubgridDiffusionCellArrays: $T backend not supported"))
 end
 
-"""
-    subgrid_diffusion!(pT, T_grid, ΔT_grid, subgrid_arrays, particles::Particles, xvi,  di, dt; d = 1.0)
-
-The `subgrid_diffusion!` function performs subgrid diffusion calculations of the temperature field at the particles `pT`.
-
-# Arguments
-- `T_grid`: Temperature at the grid vertices
-- `ΔT_grid`: Temperature increment at the grid vertices
-- `subgrid_arrays`: buffers needed for subgrid diffusion
-- `particles::Particles`: Particles object
-- `xvi`: vertex coordinates
-- `di::NTuple{N,T}` : grid spacing
-- `dt` : time step
-"""
 function subgrid_diffusion!(
     pT, T_grid, ΔT_grid, subgrid_arrays, particles::Particles, xvi, di, dt; d=1.0
 )

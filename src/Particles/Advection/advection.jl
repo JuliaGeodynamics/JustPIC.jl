@@ -1,15 +1,3 @@
-"""
-    advection_RK!(particles, V, grid_vx, grid_vy, dt, α)
-
-Advect `particles` with the velocity field `V::NTuple{dims, AbstractArray{T,dims}`
-on the staggered grid given by `grid_vx` and `grid_vy`using a Runge-Kutta2 scheme
-with `α` and time step `dt`.
-
-    xᵢ ← xᵢ + h*( (1-1/(2α))*f(t,xᵢ) + f(t, y+α*h*f(t,xᵢ))) / (2α)
-        α = 0.5 ==> midpoint
-        α = 1   ==> Heun
-        α = 2/3 ==> Ralston
-"""
 # Main Runge-Kutta advection function for 2D staggered grids
 function advection!(
     particles::Particles,
