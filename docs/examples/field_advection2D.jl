@@ -59,9 +59,8 @@ grid2particle!(pT, xvi, T, particles);
 dt = min(dx / maximum(abs.(Array(Vx))),  dy / maximum(abs.(Array(Vy))));
 niter = 250
 for it in 1:niter
-    advection_RK!(particles, V, grid_vx, grid_vy, dt, 2 / 3) # advect particles (α = 2 / 3)
-    move_particles!(particles, xvi, particle_args) # move particles in the memory
-    inject = check_injection(particles) # check if we need to inject particles
-    inject && inject_particles!(particles, (pT, ), (T,), xvi) # inject particles if needed
-    particle2grid!(T, pT, xvi, particles) # interpolate particles to the grid
+    advection!(particles, RungeKutta2(), V, (grid_vx, grid_vy), dt) # advect particles
+    move_particles!(particles, xvi, particle_args)                  # move particles in the memory
+    inject_particles!(particles, (pT, ), xvi)                       # inject particles if needed
+    particle2grid!(T, pT, xvi, particles)                           # interpolate particles to the grid
 end
