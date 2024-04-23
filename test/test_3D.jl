@@ -25,8 +25,7 @@ function expand_range(x::AbstractRange)
     LinRange(xI, xF, n+2)
 end
 
-# @testset "3D tests" begin
-    
+@testset "3D tests" begin
     # Analytical flow solution
     vx_stream(x, z) =  250 * sin(π*x) * cos(π*z)
     vy_stream(x, z) =  0.0
@@ -137,9 +136,9 @@ end
 
         p = px, py, pz = tuple((rand(3).*L .+ start)...)
         i, j, k = _3D.cell_index(p, xv)
-        @assert x[i] ≤ px < x[i+1]
-        @assert x[j] ≤ py < x[j+1]
-        @assert x[k] ≤ pz < x[k+1]
+        @test x[i] ≤ px < x[i+1]
+        @test x[j] ≤ py < x[j+1]
+        @test x[k] ≤ pz < x[k+1]
 
         y = x
         z = range(-start, stop=finish, length=n)
@@ -150,9 +149,9 @@ end
         p = px, py, pz
 
         i, j, k = _3D.cell_index(p, xv)
-        @assert x[i] ≤ px < x[i+1]
-        @assert y[j] ≤ py < y[j+1]
-        @assert z[k] ≤ pz < z[k+1]
+        @test x[i] ≤ px < x[i+1]
+        @test y[j] ≤ py < y[j+1]
+        @test z[k] ≤ pz < z[k+1]
     end
 
     @testset "Passive markers 3D" begin
@@ -231,7 +230,7 @@ end
         grid_vz = expand_range(xc), expand_range(yc), zv
 
         # Initialize particles -------------------------------
-        nxcell, max_xcell, min_xcell = 24, 24, 3
+        nxcell, max_xcell, min_xcell = 75, 100, 50
         particles = _3D.init_particles(
             backend, nxcell, max_xcell, min_xcell, xvi, dxi, ni
         )
@@ -271,7 +270,7 @@ end
 
     function test_advection()
         err = test_advection_3D()
-        tol = 1e-1
+        tol = 1e-2
         passed = err < tol
 
         return passed
@@ -280,4 +279,4 @@ end
     @testset "Miniapps" begin
         @test test_advection()
     end
-# end
+end
