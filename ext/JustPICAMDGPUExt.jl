@@ -63,9 +63,9 @@ module _2D
         particles::Particles{AMDGPUBackend},
         method::AbstractAdvectionIntegrator,
         V,
-        grid_vxi,
+        grid_vxi::NTuple{N,NTuple{N,T}},
         dt,
-    )
+    ) where {N,T}
         return advection!(particles, method, V, grid_vxi, dt)
     end
 
@@ -256,9 +256,9 @@ module _3D
         particles::Particles{AMDGPUBackend},
         method::AbstractAdvectionIntegrator,
         V,
-        grid_vxi,
+        grid_vxi::NTuple{N,NTuple{N,T}},
         dt,
-    )
+    ) where {N,T}
         return advection!(particles, method, V, grid_vxi, dt)
     end
 
