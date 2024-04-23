@@ -17,4 +17,4 @@ makedocs(;
     ],
 )
 
-deploydocs(; repo="https://github.com/JuliaGeodynamics/JustPIC.jl", devbranch="main")
+deploydocs(; repo="github.com/JuliaGeodynamics/JustPIC.jl", devbranch="main")
