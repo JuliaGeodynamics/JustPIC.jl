@@ -7,6 +7,7 @@ makedocs(;
     authors="Albert de Montserrat and contributors",
     modules=[JustPIC, JustPIC._2D, JustPIC._3D],
     format=Documenter.HTML(; prettyurls=get(ENV, "CI", nothing) == "true"), # easier local build
+    warnonly = Documenter.except(:footnote),
     pages=[
         "Home" => "index.md",
         "Examples" => [
