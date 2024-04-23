@@ -42,8 +42,6 @@ function init_particles(
     ncells = prod(nᵢ)
     np = max_xcell * ncells
     pxᵢ = ntuple(_ -> @rand(nᵢ..., celldims = (max_xcell,)), Val(N))
-
-    inject = @fill(false, nᵢ..., eltype = Bool)
     index = @fill(false, nᵢ..., celldims = (max_xcell,), eltype = Bool)
 
     @parallel_indices (I...) function fill_coords_index(
@@ -74,7 +72,7 @@ function init_particles(
 
     @parallel (@idx nᵢ) fill_coords_index(pxᵢ, index, coords, dxᵢ, nxcell, max_xcell)
 
-    return Particles(backend, pxᵢ, index, inject, nxcell, max_xcell, min_xcell, np)
+    return Particles(backend, pxᵢ, index, nxcell, max_xcell, min_xcell, np)
 end
 
 # function get_cell(xi::Union{SVector{N,T},NTuple{N,T}}, dxi::NTuple{N,T}) where {N,T<:Real}
