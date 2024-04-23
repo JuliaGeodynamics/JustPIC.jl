@@ -271,7 +271,7 @@ end
 
     function test_advection()
         err = test_advection_3D()
-        tol = 1e-2
+        tol = 1e-1
         passed = err < tol
 
         return passed

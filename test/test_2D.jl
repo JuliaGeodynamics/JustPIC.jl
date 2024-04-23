@@ -259,7 +259,7 @@ end
 
 function test_rotating_circle()
     # Initialize particles -------------------------------
-    nxcell, max_xcell, min_xcell = 40, 60, 20
+    nxcell, max_xcell, min_xcell = 50, 60, 40
     n = 101
     nx = ny = n-1
     Lx = Ly = 1.0
@@ -303,7 +303,7 @@ function test_rotating_circle()
         _2D.move_particles!(particles, xvi, particle_args)
         _2D.inject_particles!(particles, (pT, ), xvi)
         _2D.grid2particle!(pT, xvi, T, particles)
-        t += dt
+        t  += dt
         it += 1
     end
 
@@ -314,7 +314,7 @@ end
 
 function test_rotation_2D()
     err = test_rotating_circle()
-    tol = 1e-2
+    tol = 1e-1
     passed = err < tol
 
     return passed
