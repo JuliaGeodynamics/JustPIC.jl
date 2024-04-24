@@ -1,3 +1,3 @@
 # JustPIC.jl
 
-bla bla bla
+Particle-in-Cell advection for large scale multi-XPU simulations
