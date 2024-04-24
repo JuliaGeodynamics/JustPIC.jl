@@ -11,6 +11,7 @@ makedocs(;
     pages=[
         "Home" => "index.md",
         "Examples" => [
+            "CellArrays.md",
             "field_advection2D.md",
             "field_advection3D.md",
         ],
