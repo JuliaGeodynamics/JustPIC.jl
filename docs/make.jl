@@ -12,8 +12,9 @@ makedocs(;
         "Home" => "index.md",
         "Examples" => [
             "field_advection2D.md",
-            "API.md",
-        ]
+            "field_advection3D.md",
+        ],
+        "Public API" => "API.md"
     ],
 )
 
