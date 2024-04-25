@@ -6,7 +6,15 @@
     return ntuple(i -> grid[i][I[i]], Val(N))
 end
 
-@inline isincell(p::NTuple, xci::NTuple, dxi::NTuple) = mapreduce(x ->  isincell(x...), &, zip(p, xci, dxi))
+
+@generated function isincell(p::NTuple{N, T}, xci::NTuple{N, T}, dxi::NTuple{N, T}) where {N,T}
+    quote
+        Base.@_inline_meta
+        bool = true
+        Base.@nexprs $N i -> bool = bool & isincell(p[i], xci[i], dxi[i])
+        return bool
+    end
+end
 @inline isincell(px::T, xv::T, dx::T) where {T<:Real} = xv < px < xv + dx
 
 @inline function isemptycell(
