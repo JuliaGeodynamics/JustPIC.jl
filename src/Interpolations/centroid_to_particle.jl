@@ -239,4 +239,4 @@ end
 
 # shifts the index of the cell bot-left to the left if it is located in the left cell
 @inline shifted_index(pxi, xci, idx) = pxi < xci ? idx - 1 : idx
-@inline shifted_index(pxi::NTuple, xci::NTuple, idx::NTuple) = shifted_index.(pxi, xci, idx)
+@inline shifted_index(pxi::NTuple{N,A}, xci::NTuple{N,B}, idx::NTuple{N,Integer}) where {N,A,B} = ntuple(i -> shifted_index(pxi[i], xci[i], idx[i]), Val(N))
