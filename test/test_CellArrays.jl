@@ -31,10 +31,10 @@ end
 
 @testset "CellArrays - 3D" begin
     x = 1e0
-    ncells = (2,)
-
-    ## Test a 2x2x2 grid with 2x1 CellArrays per grid cell
     ni = (2, 2, 2)
+    
+    ## Test a 2x2x2 grid with 2x1 CellArrays per grid cell
+    ncells = (2,)
     # instantiate CellArray object
     CA =  JustPIC._3D.cell_array(x, ncells, ni)
     # test all the data is one
