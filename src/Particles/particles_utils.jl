@@ -7,7 +7,7 @@
     )
 end
 
-@inline function cell_array(x::T, ncells::NTuple{N,Integer}, ni::Vararg{Any,N}) where {T,N}
+@inline function cell_array(x::T, ncells::NTuple{N1,Integer}, ni::NTuple{N2,Integer}) where {T,N1,N2}
     @fill(x, ni..., celldims = ncells, eltype = T)
 end
 
