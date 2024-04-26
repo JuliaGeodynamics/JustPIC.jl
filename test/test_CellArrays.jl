@@ -12,7 +12,7 @@ using JustPIC, Test, StaticArrays
     @test all(isone, CA.data)
     # create empty cell
     @test JustPIC._2D.new_empty_cell(CA) == @SArray zeros(2)
-    # mutate and read 2nd element in grid cell [1,1]
+    # mutate and read 2nd element in grid cell [1, 1]
     JustPIC._2D.@cell CA[2, 1, 1] = 2.0
     @test JustPIC._2D.@cell(CA[2, 1, 1]) == 2.0
 
@@ -41,7 +41,7 @@ end
     @test all(isone, CA.data)
     # create empty cell
     @test JustPIC._3D.new_empty_cell(CA) == @SArray zeros(2)
-    # mutate and read 2nd element in grid cell [1,1,1]
+    # mutate and read 2nd element in grid cell [1, 1, 1]
     JustPIC._3D.@cell CA[2, 1, 1, 1] = 2.0
     @test JustPIC._3D.@cell(CA[2, 1, 1, 1]) == 2.0
 
@@ -53,7 +53,7 @@ end
     @test all(isone, CA.data)
     # create empty cell
     @test JustPIC._3D.new_empty_cell(CA) == @SArray zeros(2,2)
-    # mutate and read [2,2] element in grid cell [1, 1]
+    # mutate and read [2,2] element in grid cell [1, 1, 1]
     JustPIC._3D.@cell CA[2, 2, 1, 1, 1] = 2.0
     @test JustPIC._3D.@cell(CA[2, 2, 1, 1, 1]) == 2.0
 end
