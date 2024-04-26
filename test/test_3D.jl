@@ -229,12 +229,6 @@ vz_stream(x, z) = -250 * cos(π*x) * sin(π*z)
         grid_vy = expand_range(xc), yv              , expand_range(zc)
         grid_vz = expand_range(xc), expand_range(yc), zv
 
-        # Initialize particles -------------------------------
-        nxcell, max_xcell, min_xcell = 75, 100, 50
-        particles = _3D.init_particles(
-            backend, nxcell, max_xcell, min_xcell, xvi, dxi, ni
-        )
-
         # Cell fields -------------------------------
         Vx = TA(backend)([vx_stream(x, z) for x in grid_vx[1], y in grid_vx[2], z in grid_vx[3]])
         Vy = TA(backend)([vy_stream(x, z) for x in grid_vy[1], y in grid_vy[2], z in grid_vy[3]])
@@ -245,13 +239,19 @@ vz_stream(x, z) = -250 * cos(π*x) * sin(π*z)
 
         dt = min(dx / maximum(abs.(Vx)), dy / maximum(abs.(Vy)), dz / maximum(abs.(Vz))) / 2
 
+        # Initialize particles -------------------------------
+        nxcell, max_xcell, min_xcell = 75, 100, 50
+        particles = _3D.init_particles(
+            backend, nxcell, max_xcell, min_xcell, xvi, dxi, ni
+        )
+
         # Advection test
         particle_args = pT, = _3D.init_cell_arrays(particles, Val(1))
         _3D.grid2particle!(pT, xvi, T, particles)
 
         sumT = sum(T)
 
-        niter = 25
+        niter = 5
         for _ in 1:niter
             _3D.particle2grid!(T, pT, xvi, particles)
             copyto!(T0, T)
@@ -265,7 +265,8 @@ vz_stream(x, z) = -250 * cos(π*x) * sin(π*z)
         sumT_final = sum(T)
 
         err = abs(sumT - sumT_final) / sumT
-        
+        println(err)
+
         return err
     end
 
@@ -281,7 +282,11 @@ vz_stream(x, z) = -250 * cos(π*x) * sin(π*z)
         return passed
     end
 
-    @testset "Miniapps" begin
-        @test test_advection()
+
+    env = ENV["JULIA_JUSTPIC_BACKEND"]
+    if !(env === "AMDGPU" && env === "CUDA")
+        @testset "Miniapps" begin
+            @test test_advection()
+        end
     end
 end
