@@ -1,13 +1,13 @@
 ## LAUNCHERS
 
-function particle2grid_centroid!(F, Fp, xi::NTuple, particles)
+function particle2grid_centroid!(F, Fp, xi::NTuple, particles::Particles)
     (; coords) = particles
     dxi = grid_size(xi)
-    @parallel (@idx size(coords[1])) particle2grid_centroid!(F, Fp, xi, coords, dxi)
+    @parallel (@idx size(coords[1])) _particle2grid_centroid!(F, Fp, xi, coords, dxi)
     return nothing
 end
 
-@parallel_indices (I...) function particle2grid_centroid!(F, Fp, xi, coords, di)
+@parallel_indices (I...) function _particle2grid_centroid!(F, Fp, xi, coords, di)
     _particle2grid_centroid!(F, Fp, I..., xi, coords, di)
     return nothing
 end
