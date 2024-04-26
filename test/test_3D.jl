@@ -1,4 +1,3 @@
-ENV["JULIA_JUSTPIC_BACKEND"] = "CUDA"
 @static if ENV["JULIA_JUSTPIC_BACKEND"] === "AMDGPU"
     using AMDGPU
     AMDGPU.allowscalar(true)
@@ -283,7 +282,11 @@ vz_stream(x, z) = -250 * cos(π*x) * sin(π*z)
         return passed
     end
 
-    @testset "Miniapps" begin
-        @test test_advection()
+
+    env = ENV["JULIA_JUSTPIC_BACKEND"]
+    if !(env === "AMDGPU" && env === "CUDA")
+        @testset "Miniapps" begin
+            @test test_advection()
+        end
     end
 end
