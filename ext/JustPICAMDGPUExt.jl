@@ -82,7 +82,7 @@ module _2D
     end
 
     function JustPIC._2D.particle2grid_centroid!(
-        F::ROCArray, Fp, xi, particles::Particles{AMDGPUBackend}
+        F::ROCArray, Fp, xi::NTuple, particles::Particles{AMDGPUBackend}
     )
         return particle2grid_centroid!(F, Fp, xi, particles)
     end
@@ -275,7 +275,7 @@ module _3D
     end
 
     function JustPIC._3D.particle2grid_centroid!(
-        F::ROCArray, Fp, xi, particles::Particles{AMDGPUBackend}
+        F::ROCArray, Fp, xi::NTuple, particles::Particles{AMDGPUBackend}
     )
         return particle2grid_centroid!(F, Fp, xi, particles)
     end

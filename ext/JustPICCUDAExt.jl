@@ -84,7 +84,7 @@ module _2D
     end
 
     function JustPIC._2D.particle2grid_centroid!(
-        F::CuArray, Fp, xi, particles::Particles{CUDABackend}
+        F::CuArray, Fp, xi::NTuple, particles::Particles{CUDABackend}
     )
         return particle2grid_centroid!(F, Fp, xi, particles)
     end
@@ -266,7 +266,7 @@ module _3D
     end
 
     function JustPIC._3D.particle2grid_centroid!(
-        F::CuArray, Fp, xi, particles::Particles{CUDABackend}
+        F::CuArray, Fp, xi::NTuple, particles::Particles{CUDABackend}
     )
         return particle2grid_centroid!(F, Fp, xi, particles)
     end
