@@ -2,7 +2,7 @@ module JustPICAMDGPUExt
 
 using JustPIC
 using AMDGPU
-JustPIC.TA(::Type{AMDGPUBackend}) = ROCArray
+JustPIC.TA(::Type{JustPIC.AMDGPUBackend}) = ROCArray
 
 module _2D
     using ImplicitGlobalGrid
@@ -19,6 +19,7 @@ module _2D
     import JustPIC: Euler, RungeKutta2, AbstractAdvectionIntegrator
     import JustPIC._2D.CA
     import JustPIC: Particles, PassiveMarkers
+    import JustPIC: AbstractBackend, AMDGPUBackend
 
     macro myatomic(expr)
         return esc(
@@ -206,6 +207,7 @@ module _3D
     @init_parallel_stencil(AMDGPU, Float64, 3)
 
     import JustPIC: Euler, RungeKutta2, AbstractAdvectionIntegrator, Particles, PassiveMarkers
+    import JustPIC: AbstractBackend, AMDGPUBackend
 
     macro myatomic(expr)
         return esc(

@@ -4,7 +4,7 @@ using ParallelStencil
 @init_parallel_stencil(Threads, Float64, 2)
 using GLMakie
 
-const backend = CPUBackend
+const backend = JustPIC.CPUBackend
 
 function expand_range(x::AbstractRange)
     dx = x[2] - x[1]

@@ -19,6 +19,7 @@ module _2D
     import JustPIC: Euler, RungeKutta2, AbstractAdvectionIntegrator
     import JustPIC._2D.CA
     import JustPIC: Particles, PassiveMarkers
+    import JustPIC: AbstractBackend
 
     export CA
 
@@ -211,6 +212,7 @@ module _3D
     end
 
     import JustPIC: Euler, RungeKutta2, AbstractAdvectionIntegrator, Particles, PassiveMarkers
+    import JustPIC: AbstractBackend
 
     function JustPIC._3D.CA(::Type{CUDABackend}, dims; eltype=Float64)
         return CuCellArray{eltype}(undef, dims)

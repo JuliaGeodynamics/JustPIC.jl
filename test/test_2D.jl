@@ -9,11 +9,11 @@ end
 using JustPIC, JustPIC._2D, CellArrays, Test, LinearAlgebra
 
 const backend = @static if ENV["JULIA_JUSTPIC_BACKEND"] === "AMDGPU"
-    AMDGPUBackend
+    JustPIC.AMDGPUBackend
 elseif ENV["JULIA_JUSTPIC_BACKEND"] === "CUDA"
     CUDABackend
 else
-    CPUBackend
+    JustPIC.CPUBackend
 end
 
 function expand_range(x::AbstractRange)

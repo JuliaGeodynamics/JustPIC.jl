@@ -7,6 +7,8 @@ using CellArrays
 using Atomix
 using ..JustPIC
 
+import ..JustPIC: AbstractBackend, CPUBackend, CUDABackend, AMDGPUBackend
+
 @init_parallel_stencil(Threads, Float64, 2)
 
 export CA
@@ -32,6 +34,8 @@ using ParallelStencil
 using CellArrays
 using Atomix
 using ..JustPIC
+
+import ..JustPIC: AbstractBackend, CPUBackend, CUDABackend, AMDGPUBackend
 
 @init_parallel_stencil(Threads, Float64, 3)
 
