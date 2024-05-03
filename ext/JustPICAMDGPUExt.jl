@@ -2,7 +2,7 @@ module JustPICAMDGPUExt
 
 using JustPIC
 using AMDGPU
-JustPIC.TA(::Type{AMDGPUBackend}) = ROCArray
+JustPIC.TA(::Type{JustPIC.AMDGPUBackend}) = ROCArray
 
 module _2D
     using ImplicitGlobalGrid
