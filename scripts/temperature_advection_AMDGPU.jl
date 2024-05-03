@@ -2,7 +2,7 @@ using AMDGPU
 using JustPIC
 using JustPIC._2D
 
-const backend = AMDGPUBackend
+const backend = JustPIC.AMDGPUBackend
 using CairoMakie
 
 function init_particles(nxcell, max_xcell, min_xcell, x, y, dx, dy, nx, ny)
