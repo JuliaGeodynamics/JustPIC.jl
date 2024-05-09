@@ -13,6 +13,7 @@ makedocs(;
         "CellArrays" =>"CellArrays.md",
         "Examples" => [
             "field_advection2D.md",
+            "field_advection2D_MPI.md",
             "field_advection3D.md",
         ],
         "Public API" => "API.md"
