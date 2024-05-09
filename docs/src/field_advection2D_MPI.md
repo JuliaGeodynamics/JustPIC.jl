@@ -126,3 +126,6 @@ x_global = range(0, Lx, length=size(T_v,1))
 y_global = range(0, Ly, length=size(T_v,2))
 heatmap(x_global, y_global, T_v)
 ```
+
+## Going 3D
+A 3D example using MPI is found in `scripts/temperature_advection3D_MPI.jl`.
