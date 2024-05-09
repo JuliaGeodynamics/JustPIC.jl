@@ -1,5 +1,8 @@
 module JustPIC
 
+# using ImplicitGlobalGrid
+using MPI: MPI
+
 abstract type AbstractBackend end
 struct CPUBackend <: AbstractBackend end
 struct AMDGPUBackend <: AbstractBackend end

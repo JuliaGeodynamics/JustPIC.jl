@@ -1,13 +1,13 @@
 module _2D
 using ImplicitGlobalGrid
-using MPI: MPI
+# using MPI: MPI
 using MuladdMacro
 using ParallelStencil
 using CellArrays
 using Atomix
 using ..JustPIC
 
-import ..JustPIC: AbstractBackend, CPUBackend, CUDABackend, AMDGPUBackend
+import ..JustPIC: AbstractBackend, CPUBackend
 
 @init_parallel_stencil(Threads, Float64, 2)
 
@@ -28,14 +28,14 @@ end
 
 module _3D
 using ImplicitGlobalGrid
-using MPI: MPI
+# using MPI: MPI
 using MuladdMacro
 using ParallelStencil
 using CellArrays
 using Atomix
 using ..JustPIC
 
-import ..JustPIC: AbstractBackend, CPUBackend, CUDABackend, AMDGPUBackend
+import ..JustPIC: AbstractBackend, CPUBackend
 
 @init_parallel_stencil(Threads, Float64, 3)
 
