@@ -64,10 +64,7 @@ function main()
     T_v  = zeros(nx_v, ny_v)
     T_nohalo = @zeros(size(T).-2)
 
-    dt = min(
-        dx / MPI.Allreduce(maximum(abs.(Vx)), MPI.MAX, MPI.COMM_WORLD),
-        dy / MPI.Allreduce(maximum(abs.(Vy)), MPI.MAX, MPI.COMM_WORLD)
-    )
+    dt = mapreduce(x -> x[1] / MPI.Allreduce(maximum(abs.(x[2])), MPI.MAX, MPI.COMM_WORLD), min, zip(dxi, V))
 
     # Advection test
     particle_args = pT, = init_cell_arrays(particles, Val(1))
