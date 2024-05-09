@@ -13,7 +13,7 @@ and we define the usual analytical flow solution
 vx_stream(x, y) =  250 * sin(π*x) * cos(π*y)
 vy_stream(x, y) = -250 * cos(π*x) * sin(π*y)
 ```
-This time, we also need to load MPI.jl and ImplicitGlobalGrid.jl to handle the MPI communication betwen the different CPU's
+This time, we also need to load MPI.jl and ImplicitGlobalGrid.jl to handle the MPI communication between the different CPU's
 
 ```julia
 using ImplicitGlobalGrid
