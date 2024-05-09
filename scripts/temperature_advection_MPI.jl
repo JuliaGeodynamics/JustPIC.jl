@@ -1,13 +1,16 @@
-using JustPIC
-using JustPIC._2D
+using JustPIC, JustPIC._2D
 
 # Threads is the default backend, 
 # to run on a CUDA GPU load CUDA.jl (i.e. "using CUDA"), 
 # and to run on an AMD GPU load AMDGPU.jl (i.e. "using AMDGPU")
 const backend = JustPIC.CPUBackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
 
+using ParallelStencil
+@init_parallel_stencil(Threads, Float64, 2)
+
 using GLMakie
 using ImplicitGlobalGrid
+using MPI: MPI
 
 # Analytical flow solution
 vx_stream(x, y) =  250 * sin(π*x) * cos(π*y)
@@ -19,25 +22,25 @@ g(x) = Point2f(
 
 function main()
     # Initialize particles -------------------------------
-    nxcell, max_xcell, min_xcell = 8, 8, 8
+    nxcell, max_xcell, min_xcell = 25, 40, 15 
     n   = 32
     nx  = ny = n-1
-    me, dims, = init_global_grid(n-1, n-1, 0; init_MPI=JustPIC.MPI.Initialized() ? false : true)
+    me, dims, = init_global_grid(n-1, n-1, 1; init_MPI=MPI.Initialized() ? false : true)
     Lx  = Ly = 1.0
     dxi = dx, dy = Lx /(nx_g()-1), Ly / (ny_g()-1)
     # nodal vertices
     xvi = xv, yv = let
         dummy = zeros(n, n) 
-        xv  = TA([x_g(i, dx, dummy) for i in axes(dummy, 1)])
-        yv  = TA([y_g(i, dx, dummy) for i in axes(dummy, 2)])
+        xv  = TA(backend)([x_g(i, dx, dummy) for i in axes(dummy, 1)])
+        yv  = TA(backend)([y_g(i, dx, dummy) for i in axes(dummy, 2)])
         xv, yv
     end
     # nodal centers
     xci = xc, yc = let
         dummy = zeros(nx, ny) 
         xc  = @zeros(nx) 
-        xc .= TA([x_g(i, dx, dummy) for i in axes(dummy, 1)])
-        yc  = TA([y_g(i, dx, dummy) for i in axes(dummy, 2)])
+        xc .= TA(backend)([x_g(i, dx, dummy) for i in axes(dummy, 1)])
+        yc  = TA(backend)([y_g(i, dx, dummy) for i in axes(dummy, 2)])
         xc, yc
     end
 
@@ -61,7 +64,10 @@ function main()
     T_v  = zeros(nx_v, ny_v)
     T_nohalo = @zeros(size(T).-2)
 
-    dt = min(dx / maximum(abs.(Vx)),  dy / maximum(abs.(Vy)))
+    dt = min(
+        dx / MPI.Allreduce(maximum(abs.(Vx)), MPI.MAX, MPI.COMM_WORLD),
+        dy / MPI.Allreduce(maximum(abs.(Vy)), MPI.MAX, MPI.COMM_WORLD)
+    )
 
     # Advection test
     particle_args = pT, = init_cell_arrays(particles, Val(1))
@@ -70,11 +76,9 @@ function main()
     niter = 250
     for iter in 1:niter
         me == 0 && @show iter
-        
-        # grid2particle!(pT, xvi, T, T0, particles)
 
         # advect particles
-        advection!(particles, RungeKutta2(2/3), V, (grid_vx, grid_vy), dt)
+        advection!(particles, RungeKutta2(), V, (grid_vx, grid_vy), dt)
 
         # update halos
         update_cell_halo!(particles.coords..., particle_args...);
@@ -150,6 +154,8 @@ function main()
     # f, ax, = heatmap(xvi..., T, colormap=:batlow)
     # streamplot!(ax, g, xvi...)
     # f
+    finalize_global_grid()
+
 end
 
 main()
