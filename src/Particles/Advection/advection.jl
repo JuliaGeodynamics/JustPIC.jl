@@ -8,7 +8,7 @@ Advects the particles using the advection scheme defined by `method`.
 - `particles`: Particles object to be advected.
 - `method`: Time integration method (`Euler` or `RungeKutta2`).
 - `V`: Tuple containing `Vx`, `Vy`; and `Vz` in 3D.
-- `grid_vi`: Tuple containin the grids corresponing to `Vx`, `Vy`; and `Vz` in 3D.
+- `grid_vi`: Tuple containing the grids corresponing to `Vx`, `Vy`; and `Vz` in 3D.
 - `dt`: Time step.
 """
 function advection!(
