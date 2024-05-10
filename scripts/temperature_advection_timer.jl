@@ -1,12 +1,12 @@
-using JustPIC
-using JustPIC._2D
+using JustPIC, JustPIC._2D
 
 # Threads is the default backend, 
 # to run on a CUDA GPU load CUDA.jl (i.e. "using CUDA"), 
 # and to run on an AMD GPU load AMDGPU.jl (i.e. "using AMDGPU")
 const backend = JustPIC.CPUBackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
 
-using GLMakie
+# using GLMakie
+using TimerOutputs
 
 function expand_range(x::AbstractRange)
     dx = x[2] - x[1]
@@ -41,7 +41,7 @@ function main()
     grid_vy = expand_range(xc), yv
 
     particles = init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi...,
+        backend, nxcell, max_xcell, min_xcell, xvi..., dxi..., nx, ny
     )
 
     # Cell fields -------------------------------
@@ -59,13 +59,15 @@ function main()
     
     !isdir("figs") && mkdir("figs")
 
-    niter = 250
+    niter = 5
     for it in 1:niter
-        advection!(particles, RungeKutta2(2/3), V, (grid_vx, grid_vy), dt)
-        move_particles!(particles, xvi, particle_args)
-        inject_particles!(particles, (pT, ), xvi)
-
-        particle2grid!(T, pT, xvi, particles)
+        to = TimerOutput()
+        @timeit to "advect" advection!(particles, RungeKutta2(2/3), V, (grid_vx, grid_vy), dt)
+        @timeit to "move" move_particles!(particles, xvi, particle_args)
+        @timeit to "injection" inject_particles!(particles, (pT, ), xvi)
+        @timeit to "p2g" particle2grid!(T, pT, xvi, particles)
+        @timeit to "g2p" grid2particle!(pT, xvi, T, particles);
+        @show to
 
         if rem(it, 10) == 0
             f, ax, = heatmap(xvi..., Array(T), colormap=:batlow)
@@ -79,3 +81,42 @@ function main()
 end
 
 main()
+
+import JustPIC._2D.corner_field_nodes
+
+p_i = particles.coords[1][10,10][1], particles.coords[2][10,10][1]
+idx = 10,10
+xi_vx = grid_vx
+
+@b corner_field_nodes($(T, p_i, xi_vx, dxi, idx)...)
+corner_field_nodes(T, p_i, xi_vx, dxi, idx)
+
+@generated function foo(
+    particle,
+    xi_vx,
+    dxi,
+    idx::Union{SVector{N,Integer},NTuple{N,Integer}},
+) where {N}
+    quote
+        Base.@_inline_meta
+        Base.@nexprs $N i -> begin
+            # unpack
+            corrected_idx_i = idx[i]
+            # compute offsets and corrections
+            corrected_idx_i += @inline JustPIC._2D.vertex_offset(
+                xi_vx[i][corrected_idx_i], particle[i], dxi[1]
+            )
+            cell_i = xi_vx[i][corrected_idx_i]
+        end
+
+        cells = Base.@ncall $N tuple cell
+
+        return cells
+    end
+end
+@b foo($(p_i, xi_vx, dxi, idx)...)
+
+foo(p_i, xi_vx, dxi, idx)
+@code_warntype foo(p_i, xi_vx, dxi, idx)
+
+@b cell_index($(p_i[1], dxi[1])...)

@@ -46,7 +46,7 @@ vi_stream(x) =  π * 1e-5 * (x - 0.5)
 
     # Initialize particles & particle fields
     particles = _2D.init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi..., dxi..., nx, ny
+        backend, nxcell, max_xcell, min_xcell, xvi...,
     )
     pT, = _2D.init_cell_arrays(particles, Val(1))
 
@@ -82,7 +82,7 @@ end
 
     # Initialize particles & particle fields
     particles = _2D.init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi..., dxi..., nx, ny
+        backend, nxcell, max_xcell, min_xcell, xvi...,
     )
 
     arrays = SubgridDiffusionCellArrays(particles)
@@ -113,11 +113,11 @@ end
     grid_vy = expand_range(xc), yv
 
     particles1 = _2D.init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi..., dxi..., ni...
+        backend, nxcell, max_xcell, min_xcell, xvi...,
     )
 
     particles2 = _2D.init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi, dxi, ni
+        backend, nxcell, max_xcell, min_xcell, xvi...,
     )
 
     @test particles1.min_xcell == particles2.min_xcell
@@ -215,7 +215,7 @@ function advection_test_2D()
     grid_vy = expand_range(xc), yv
 
     particles = _2D.init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi..., dxi..., nx, ny
+        backend, nxcell, max_xcell, min_xcell, xvi...,
     )
 
     # Cell fields -------------------------------
@@ -273,7 +273,7 @@ function test_rotating_circle()
     grid_vy = expand_range(xc), yv
 
     particles = _2D.init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi..., dxi..., nx, ny
+        backend, nxcell, max_xcell, min_xcell, xvi...,
     )
 
     # Cell fields -------------------------------

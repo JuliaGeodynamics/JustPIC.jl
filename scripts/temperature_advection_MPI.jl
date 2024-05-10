@@ -49,7 +49,7 @@ function main()
     grid_vy = add_ghost_nodes(xc, dx, (0.0, Lx)), yv
     
     particles = init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi..., dxi..., nx, ny
+        backend, nxcell, max_xcell, min_xcell, xvi...
     )
 
     # Cell fields -------------------------------

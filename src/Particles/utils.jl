@@ -6,8 +6,7 @@
     return ntuple(i -> grid[i][I[i]], Val(N))
 end
 
-
-@generated function isincell(p::NTuple{N, T}, xci::NTuple{N, T}, dxi::NTuple{N, T}) where {N,T}
+@generated function isincell(p::NTuple{N,T}, xci::NTuple{N,T}, dxi::NTuple{N,T}) where {N,T}
     quote
         Base.@_inline_meta
         bool = true

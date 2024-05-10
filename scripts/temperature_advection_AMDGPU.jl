@@ -5,34 +5,6 @@ using JustPIC._2D
 const backend = JustPIC.AMDGPUBackend
 using CairoMakie
 
-function init_particles(nxcell, max_xcell, min_xcell, x, y, dx, dy, nx, ny)
-    ni = nx, ny
-    ncells = nx * ny
-    np = max_xcell * ncells
-    px, py = ntuple(_ -> @rand(ni..., celldims=(max_xcell,)) , Val(2))
-
-    inject = @fill(false, nx, ny, eltype=Bool)
-    index = @fill(false, ni..., celldims=(max_xcell,), eltype=Bool) 
-    
-    @parallel_indices (i, j) function fill_coords_index(px, py, index, x, y, dx, dy, nxcell)
-        # lower-left corner of the cell
-        x0, y0 = x[i], y[j]
-        # fill index array
-        for l in 1:nxcell
-            @cell px[l, i, j] = x0 + dx * (@cell(px[l, i, j]) * 0.9 + 0.05)
-            @cell py[l, i, j] = y0 + dy * (@cell(py[l, i, j]) * 0.9 + 0.05)
-            @cell index[l, i, j] = true
-        end
-        return nothing
-    end
-
-    @parallel (1:nx, 1:ny) fill_coords_index(px, py, index, x, y, dx, dy, nxcell) 
-
-    return Particles(
-        (px, py), index, inject, nxcell, max_xcell, min_xcell, np, (nx, ny)
-    )
-end
-
 function expand_range(x::AbstractRange)
     dx = x[2] - x[1]
     n = length(x)
@@ -66,7 +38,7 @@ function main()
     grid_vy = expand_range(xc), yv
 
     particles = init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi..., dxi..., nx, ny
+        backend, nxcell, max_xcell, min_xcell, xvi...
     )
 
     # Cell fields -------------------------------

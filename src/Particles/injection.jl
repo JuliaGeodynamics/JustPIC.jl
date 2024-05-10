@@ -1,6 +1,17 @@
 ## PARTICLE INJECTION FUNCTIONS
 
+"""
+    inject_particles!(particles::Particles, args, grid)
+
+Injects particles if the number of particles in a given cell is such that `n < particles.min_xcell`.
+
+# Arguments
+- `particles`: The particles object.
+- `args`: `CellArrays`s containing particle fields.
+- `grid`: The grid cell vertices.
+"""
 function inject_particles!(particles::Particles, args, grid)
+    # function implementation goes here
     # unpack
     (; coords, index, min_xcell) = particles
     ni = size(index)
@@ -71,16 +82,8 @@ end
 )
     if mapreduce(x -> x[1] ≤ x[2], &, zip(I, size(index))) &&
         isemptycell(index, min_xcell, I...)
-        _inject_particles_phase!(        
-            particles_phases,
-            args,
-            fields,
-            coords,
-            index,
-            grid,
-            di,
-            min_xcell,
-            I,
+        _inject_particles_phase!(
+            particles_phases, args, fields, coords, index, grid, di, min_xcell, I
         )
     end
     return nothing

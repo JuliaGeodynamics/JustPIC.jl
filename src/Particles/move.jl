@@ -1,4 +1,15 @@
+"""
+    move_particles!(particles::AbstractParticles, grid, args)
+
+Move particles in the given `particles` container according to the provided `grid` and particles fields in `args`.
+
+# Arguments
+- `particles`: The container of particles to be moved.
+- `grid`: The grid used for particle movement.
+- `args`: `CellArrays`s containing particle fields.
+"""
 function move_particles!(particles::AbstractParticles, grid, args)
+    # implementation goes here
     dxi = compute_dx(grid)
     (; coords, index) = particles
     nxi = size(index)
