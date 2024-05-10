@@ -68,7 +68,7 @@ nxcell    = 24 # initial number of particles per cell
 max_xcell = 48 # maximum number of particles per cell
 min_xcell = 14 # minimum number of particles per cell
 particles = init_particles(
-    backend, nxcell, max_xcell, min_xcell, xvi, dxi, ni
+    backend, nxcell, max_xcell, min_xcell, xvi...
 )
 ```
 
