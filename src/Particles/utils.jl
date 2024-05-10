@@ -25,13 +25,13 @@ end
         val += @inbounds @cell(index[i, cell_indices...])
     end
     # early escape
-    val ≥ min_xcell && return false
+    val < min_xcell && return false, val
     # tail
     n = cellnum(index)
     for i in (min_xcell + 1):n
         val += @inbounds @cell(index[i, cell_indices...])
     end
-    return !(val ≥ min_xcell)
+    return (val < min_xcell), val
 end
 
 @parallel_indices (i) function copy_vectors!(
