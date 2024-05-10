@@ -43,11 +43,9 @@ module _2D
     end
 
     function JustPIC._2D.init_particles(
-        ::Type{CUDABackend}, nxcell, max_xcell, min_xcell, x, y, dx, dy, nx, ny
+        ::Type{CUDABackend}, nxcell, max_xcell, min_xcell, x, y
     )
-        return init_particles(
-            CUDABackend, nxcell, max_xcell, min_xcell, (x, y), (dx, dy), (nx, ny)
-        )
+        return init_particles(CUDABackend, nxcell, max_xcell, min_xcell, x, y)
     end
 
     function JustPIC._2D.init_particles(
@@ -98,9 +96,7 @@ module _2D
         return grid2particle_flip!(Fp, xvi, F, F0, particles; α=α)
     end
 
-    function JustPIC._2D.inject_particles!(
-        particles::Particles{CUDABackend}, args, grid
-    )
+    function JustPIC._2D.inject_particles!(particles::Particles{CUDABackend}, args, grid)
         return inject_particles!(particles, args, grid)
     end
 
@@ -166,9 +162,7 @@ module _2D
         return advection!(particles, method, V, grid_vxi, dt)
     end
 
-    function JustPIC._2D.grid2particle!(
-        Fp, xvi, F, particles::PassiveMarkers{CUDABackend}
-    )
+    function JustPIC._2D.grid2particle!(Fp, xvi, F, particles::PassiveMarkers{CUDABackend})
         grid2particle!(Fp, xvi, F, particles)
         return nothing
     end
@@ -211,7 +205,8 @@ module _3D
         )
     end
 
-    import JustPIC: Euler, RungeKutta2, AbstractAdvectionIntegrator, Particles, PassiveMarkers
+    import JustPIC:
+        Euler, RungeKutta2, AbstractAdvectionIntegrator, Particles, PassiveMarkers
     import JustPIC: AbstractBackend
 
     function JustPIC._3D.CA(::Type{CUDABackend}, dims; eltype=Float64)
@@ -226,11 +221,9 @@ module _3D
     end
 
     function JustPIC._3D.init_particles(
-        ::Type{CUDABackend}, nxcell, max_xcell, min_xcell, x, y, z, dx, dy, dz, nx, ny, nz
+        ::Type{CUDABackend}, nxcell, max_xcell, min_xcell, x, y, z
     )
-        return init_particles(
-            CUDABackend, nxcell, max_xcell, min_xcell, (x, y, z), (dx, dy, dz), (nx, ny, nz)
-        )
+        return init_particles(CUDABackend, nxcell, max_xcell, min_xcell, x, y, z)
     end
 
     function JustPIC._3D.init_particles(
@@ -283,9 +276,7 @@ module _3D
         return grid2particle_flip!(Fp, xvi, F, F0, particles; α=α)
     end
 
-    function JustPIC._3D.inject_particles!(
-        particles::Particles{CUDABackend}, args, grid
-    )
+    function JustPIC._3D.inject_particles!(particles::Particles{CUDABackend}, args, grid)
         return inject_particles!(particles, args, grid)
     end
 
@@ -339,9 +330,7 @@ module _3D
         return advection!(particles, method, V, grid_vxi, dt)
     end
 
-    function JustPIC._3D.grid2particle!(
-        Fp, xvi, F, particles::PassiveMarkers{CUDABackend}
-    )
+    function JustPIC._3D.grid2particle!(Fp, xvi, F, particles::PassiveMarkers{CUDABackend})
         grid2particle!(Fp, xvi, F, particles)
         return nothing
     end

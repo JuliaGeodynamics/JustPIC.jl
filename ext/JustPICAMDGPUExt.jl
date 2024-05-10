@@ -41,11 +41,9 @@ module _2D
     end
 
     function JustPIC._2D.init_particles(
-        ::Type{AMDGPUBackend}, nxcell, max_xcell, min_xcell, x, y, dx, dy, nx, ny
+        ::Type{AMDGPUBackend}, nxcell, max_xcell, min_xcell, x, y
     )
-        return init_particles(
-            AMDGPUBackend, nxcell, max_xcell, min_xcell, (x, y), (dx, dy), (nx, ny)
-        )
+        return init_particles(AMDGPUBackend, nxcell, max_xcell, min_xcell, x, y)
     end
 
     function JustPIC._2D.init_particles(
@@ -100,9 +98,7 @@ module _2D
         return grid2particle_flip!(Fp, xvi, F, F0, particles; α=α)
     end
 
-    function JustPIC._2D.inject_particles!(
-        particles::Particles{AMDGPUBackend}, args, grid
-    )
+    function JustPIC._2D.inject_particles!(particles::Particles{AMDGPUBackend}, args, grid)
         return inject_particles!(particles, args, grid)
     end
 
@@ -206,7 +202,8 @@ module _3D
 
     @init_parallel_stencil(AMDGPU, Float64, 3)
 
-    import JustPIC: Euler, RungeKutta2, AbstractAdvectionIntegrator, Particles, PassiveMarkers
+    import JustPIC:
+        Euler, RungeKutta2, AbstractAdvectionIntegrator, Particles, PassiveMarkers
     import JustPIC: AbstractBackend, AMDGPUBackend
 
     macro myatomic(expr)
@@ -229,17 +226,9 @@ module _3D
     end
 
     function JustPIC._3D.init_particles(
-        ::Type{AMDGPUBackend}, nxcell, max_xcell, min_xcell, x, y, z, dx, dy, dz, nx, ny, nz
+        ::Type{AMDGPUBackend}, nxcell, max_xcell, min_xcell, x, y, z
     )
-        return init_particles(
-            AMDGPUBackend,
-            nxcell,
-            max_xcell,
-            min_xcell,
-            (x, y, z),
-            (dx, dy, dz),
-            (nx, ny, nz),
-        )
+        return init_particles(AMDGPUBackend, nxcell, max_xcell, min_xcell, x, y, z)
     end
 
     function JustPIC._3D.init_particles(
@@ -292,9 +281,7 @@ module _3D
         return grid2particle_flip!(Fp, xvi, F, F0, particles; α=α)
     end
 
-    function JustPIC._3D.inject_particles!(
-        particles::Particles{AMDGPUBackend}, args, grid
-    )
+    function JustPIC._3D.inject_particles!(particles::Particles{AMDGPUBackend}, args, grid)
         return inject_particles!(particles, args, grid)
     end
 
