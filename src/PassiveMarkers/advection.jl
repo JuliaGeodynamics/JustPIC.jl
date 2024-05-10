@@ -1,10 +1,6 @@
 # Two-step Runge-Kutta advection scheme for marker chains
 function advection!(
-    particles::PassiveMarkers,
-    method::AbstractAdvectionIntegrator,
-    V,
-    grid_vxi,
-    dt,
+    particles::PassiveMarkers, method::AbstractAdvectionIntegrator, V, grid_vxi, dt
 )
     (; coords, np) = particles
 

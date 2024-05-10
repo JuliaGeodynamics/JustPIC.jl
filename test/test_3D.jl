@@ -47,7 +47,7 @@ vz_stream(x, z) = -250 * cos(π*x) * sin(π*z)
 
         # Initialize particles -------------------------------
         particles = _3D.init_particles(
-            backend, nxcell, max_xcell, min_xcell, xvi, dxi, ni
+            backend, nxcell, max_xcell, min_xcell, xvi...
         )
         pT, = _3D.init_cell_arrays(particles, Val(1))
 
@@ -88,11 +88,11 @@ vz_stream(x, z) = -250 * cos(π*x) * sin(π*z)
 
         # Initialize particles -------------------------------
         particles1 = _3D.init_particles(
-            backend, nxcell, max_xcell, min_xcell, xvi..., dxi..., ni...
+            backend, nxcell, max_xcell, min_xcell, xvi...
         )
 
         particles2 = _3D.init_particles(
-            backend, nxcell, max_xcell, min_xcell, xvi, dxi, ni
+            backend, nxcell, max_xcell, min_xcell, xvi...
         )
 
         @test particles1.min_xcell == particles2.min_xcell
@@ -116,7 +116,7 @@ vz_stream(x, z) = -250 * cos(π*x) * sin(π*z)
 
         # Initialize particles -------------------------------
         particles = _3D.init_particles(
-            backend, nxcell, max_xcell, min_xcell, xvi, dxi, ni
+            backend, nxcell, max_xcell, min_xcell, xvi...
         )
     
         arrays = SubgridDiffusionCellArrays(particles)
@@ -175,7 +175,7 @@ vz_stream(x, z) = -250 * cos(π*x) * sin(π*z)
         # Initialize particles -------------------------------
         nxcell, max_xcell, min_xcell = 24, 24, 3
         particles = _3D.init_particles(
-            backend, nxcell, max_xcell, min_xcell, xvi, dxi, ni
+            backend, nxcell, max_xcell, min_xcell, xvi...
         )
 
         # Cell fields -------------------------------
@@ -242,7 +242,7 @@ vz_stream(x, z) = -250 * cos(π*x) * sin(π*z)
         # Initialize particles -------------------------------
         nxcell, max_xcell, min_xcell = 75, 100, 50
         particles = _3D.init_particles(
-            backend, nxcell, max_xcell, min_xcell, xvi, dxi, ni
+            backend, nxcell, max_xcell, min_xcell, xvi...
         )
 
         # Advection test

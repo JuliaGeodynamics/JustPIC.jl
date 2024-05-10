@@ -54,10 +54,6 @@ end
 # staggered grid for the velocity components
 grid_vx = xv, add_ghost_nodes(yc, dy, (0.0, Ly))
 grid_vy = add_ghost_nodes(xc, dx, (0.0, Lx)), yv
-    
-particles = init_particles(
-    backend, nxcell, max_xcell, min_xcell, xvi..., dxi..., nx, ny
-)
 ```
 
 And we continue with business as usual
@@ -67,7 +63,7 @@ nxcell    = 24 # initial number of particles per cell
 max_xcell = 48 # maximum number of particles per cell
 min_xcell = 14 # minimum number of particles per cell
 particles = init_particles(
-    backend, nxcell, max_xcell, min_xcell, xvi..., dxi..., nx, ny
+    backend, nxcell, max_xcell, min_xcell, xvi...
 )
 ```
 

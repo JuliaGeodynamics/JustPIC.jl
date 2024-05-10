@@ -12,9 +12,7 @@ function update_cell_halo!(x::Vararg{CellArray,N}) where {N}
     return nothing
 end
 
-@parallel_indices (I...) function copy_field!(
-    A::CellArray, B::AbstractArray, ip
-)
+@parallel_indices (I...) function copy_field!(A::CellArray, B::AbstractArray, ip)
     @cell A[ip, I...] = B[I...]
     return nothing
 end

@@ -1,5 +1,19 @@
 abstract type AbstractParticles end
 
+"""
+    struct Particles{Backend,N,M,I,T1,T2} <: AbstractParticles
+
+A struct representing a collection of particles.
+
+# Arguments
+- `backend`: The backend used for particle computations (CPUBackend, CUDABackend, AMDGPUBackend).
+- `coords`: Coordinates of the particles
+- `index`: Helper array flaggin active particles
+- `nxcell`: Initial number of particles per cell
+- `max_xcell`: Maximum number of particles per cell
+- `min_xcell`: Minimum number of particles per cell
+- `np`: Number of particles
+"""
 struct Particles{Backend,N,M,I,T1,T2} <: AbstractParticles
     coords::NTuple{N,T1}
     index::T2
@@ -18,7 +32,7 @@ struct Particles{Backend,N,M,I,T1,T2} <: AbstractParticles
         np::I,
     ) where {N,I,T1,T2}
         return new{backend,N,max_xcell,I,T1,T2}(
-            coords, index,  nxcell, max_xcell, min_xcell, np
+            coords, index, nxcell, max_xcell, min_xcell, np
         )
     end
 end

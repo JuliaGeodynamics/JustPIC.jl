@@ -7,22 +7,30 @@
     )
 end
 
-@inline function cell_array(x::T, ncells::NTuple{N1,Integer}, ni::NTuple{N2,Integer}) where {T,N1,N2}
+@inline function cell_array(
+    x::T, ncells::NTuple{N1,Integer}, ni::NTuple{N2,Integer}
+) where {T,N1,N2}
     @fill(x, ni..., celldims = ncells, eltype = T)
 end
 
 ## random particles initialization 
+"""
+    init_particles( backend, nxcell, max_xcell, min_xcell, coords::NTuple{N,AbstractArray}, dxᵢ::NTuple{N,T}, nᵢ::NTuple{N,I})
 
-function init_particles(backend, nxcell, max_xcell, min_xcell, x, y, dx, dy, nx, ny)
-    return init_particles(backend, nxcell, max_xcell, min_xcell, (x, y), (dx, dy), (nx, ny))
-end
+Initialize the particles object.
 
-function init_particles(
-    backend, nxcell, max_xcell, min_xcell, x, y, z, dx, dy, dz, nx, ny, nz
-)
-    return init_particles(
-        backend, nxcell, max_xcell, min_xcell, (x, y, z), (dx, dy, dz), (nx, ny, nz)
-    )
+# Arguments
+- `backend`: Device backend
+- `nxcell`: Initial number of particles per cell
+- `max_xcell`: Maximum number of particles per cell
+- `min_xcell`: Minimum number of particles per cell
+- `xvi`: Grid cells vertices
+"""
+function init_particles(backend, nxcell, max_xcell, min_xcell, xvi::Vararg{N,T}) where {N,T}
+    di = compute_dx(xvi)
+    ni = @. length(xvi) - 1
+
+    return init_particles(backend, nxcell, max_xcell, min_xcell, xvi, di, ni)
 end
 
 function init_particles(
@@ -69,10 +77,3 @@ function init_particles(
 
     return Particles(backend, pxᵢ, index, nxcell, max_xcell, min_xcell, np)
 end
-
-# function get_cell(xi::Union{SVector{N,T},NTuple{N,T}}, dxi::NTuple{N,T}) where {N,T<:Real}
-#     ntuple(Val(N)) do i
-#         Base.@_inline_meta
-#         abs(Int64(xi[i] ÷ dxi[i])) + 1
-#     end
-# end
