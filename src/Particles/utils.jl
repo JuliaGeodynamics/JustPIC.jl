@@ -25,7 +25,7 @@ end
         val += @inbounds @cell(index[i, cell_indices...])
     end
     # early escape
-    val < min_xcell && return false, val
+    val < min_xcell && return true, val
     # tail
     n = cellnum(index)
     for i in (min_xcell + 1):n
