@@ -123,8 +123,7 @@ T  = TA(backend)([z for x in xv, y in yv, z in zv]) # defined at the cell vertic
 We also need to initialize the field $T$ on the particles
 ```julia
 particle_args = pT, = init_cell_arrays(particles, Val(1));
-# and we can use the function `grid2particle!` to interpolate the field `T` to the particles
-grid2particle!(pT, xvi, T, particles)
+grid2particle!(pT, xvi, T, particles) # interpolate field `T` oto the particles
 ```
 
 And finally one can start the simulation
@@ -138,6 +137,8 @@ for it in 1:niter
   particle2grid!(T, pT, xvi, particles)                                               # interpolate particles to the grid
 end
 ```
+
+![Cros section of the nitial field (left) and resulting advected field after 250 time steps (right).](AdvectedField.png)
 
 # Acknowledgements
 
