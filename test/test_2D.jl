@@ -16,6 +16,10 @@ else
     JustPIC.CPUBackend
 end
 
+
+
+@test Array(particles).index isa JustPIC.CellArrays.CPUCellArray
+
 function expand_range(x::AbstractRange)
     dx = x[2] - x[1]
     n = length(x)
@@ -33,7 +37,7 @@ vy_stream(x, y) = -250 * cos(π*x) * sin(π*y)
 vi_stream(x) =  π * 1e-5 * (x - 0.5)
 
 @testset "Interpolations 2D" begin
-    nxcell, max_xcell, min_xcell = 24, 24, 1
+    nxcell, max_xcell, min_xcell = 5, 5, 1
     n = 5 # number of vertices
     nx = ny = n - 1
     Lx = Ly = 1.0
@@ -69,6 +73,9 @@ vi_stream(x) =  π * 1e-5 * (x - 0.5)
     _2D.particle2grid!(T2, pT, xvi, particles)
     # norm(T2 .- T) / length(T)
     @test norm(T2 .- T) / length(T) < 1e-1
+
+    # test Array conversion
+    @test Array(particles).index isa JustPIC.CellArrays.CPUCellArray
 end
 
 @testset "Subgrid diffusion 2D" begin

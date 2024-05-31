@@ -70,6 +70,9 @@ vz_stream(x, z) = -250 * cos(π*x) * sin(π*z)
         _3D.particle2grid!(T2, pT, xvi, particles)
 
         @test norm(T2 .- T) / length(T) < 1e-1
+
+        # test Array conversion
+        @test Array(particles).index isa JustPIC.CellArrays.CPUCellArray
     end
 
     @testset "Particles initialization 3D" begin
