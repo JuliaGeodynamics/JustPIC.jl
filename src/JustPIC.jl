@@ -2,6 +2,7 @@ module JustPIC
 
 # using ImplicitGlobalGrid
 using MPI: MPI
+using CellArrays
 
 abstract type AbstractBackend end
 struct CPUBackend <: AbstractBackend end
@@ -21,5 +22,8 @@ include("Advection/types.jl")
 export AbstractAdvectionIntegrator, Euler, RungeKutta2
 
 include("JustPIC_CPU.jl")
+
+include("CellArrays/conversion.jl")
+export Array
 
 end # module
