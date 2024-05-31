@@ -88,7 +88,7 @@ end
         backend, nxcell, max_xcell, min_xcell, xvi...,
     )
 
-    arrays = SubgridDiffusionCellArrays(particles)
+    arrays = _2D.SubgridDiffusionCellArrays(particles)
     # Test they are allocated in the right backend
     @test arrays.ΔT_subgrid isa TA(backend)
     @test arrays.pT0.data isa TA(backend)
