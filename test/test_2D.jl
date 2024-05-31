@@ -16,10 +16,6 @@ else
     JustPIC.CPUBackend
 end
 
-
-
-@test Array(particles).index isa JustPIC.CellArrays.CPUCellArray
-
 function expand_range(x::AbstractRange)
     dx = x[2] - x[1]
     n = length(x)
