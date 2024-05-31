@@ -62,7 +62,7 @@ The current version of `JustPIC.jl` is specialized for bi- and tri-dimensional, 
 # Example from the documentation
 We go through the example of 3D particles avection that can be found in the [documentation](https://github.com/JuliaGeodynamics/JustPIC.jl/blob/main/docs/src/field_advection3D.md) of JustPIC.jl. 
 
-Let use consider an arbitrary field $T=T(z)$, defined in the three-dimesional domain $\Omega \in [0,1]\times[0,1]\times[0,1]$, that we want to advect in time given the following velocity field:
+Let use consider an arbitrary field $T=T(z)$, defined in the three-dimesional and non-dimensional domain $\Omega \in [0,1]\times[0,1]\times[0,1]$, that we want to advect in time given the following stationary velocity field:
 
 $$
 \mathbf{v}(x, y, z) =
@@ -80,7 +80,7 @@ using JustPIC, JustPIC._3D
 const backend = _3D.CPUBackend
 ```
 
-Define model size and grids
+Define model size and grids of the vertices and centers of the cells forming the discretized domain:
 ```julia
 # define the model domain
 n  = 64             # number of nodes
@@ -89,10 +89,10 @@ Lx  = Ly = Lz = 1.0 # domain size
 ni  = nx, ny, nz
 Li  = Lx, Ly, Lz
 xvi = xv, yv, zv = ntuple(i -> range(0, Li[i], length=n), Val(3)) # cell vertices
-dxi = dx, dy, dz = ntuple(i -> xvi[i][2] - xvi[i][1], Val(3)) # cell size
+dxi = dx, dy, dz = ntuple(i -> xvi[i][2] - xvi[i][1], Val(3))     # cell size
 ```
 
-JustPIC.jl assumes that the velocity field has ghost nodes for the boundary conditions. Therefore, we add them with help of the `expand_range` function.
+As it is the standard in CFD solvers using Finite Difference staggered grids, JustPIC.jl assumes that the velocity field has a layer ghost nodes just outside the model domain, to help with the flow boundary boundary conditions. Therefore, we need to add these ghost nodes with help of the `expand_range` function to each one of the velocity grids:
 ```julia
 grid_vx = xv              , expand_range(yc), expand_range(zc) # staggered grid for Vx
 grid_vy = expand_range(xc), yv              , expand_range(zc) # staggered grid for Vy
@@ -108,22 +108,19 @@ particles = init_particles(
     backend, nxcell, max_xcell, min_xcell, xvi, dxi, ni
 )
 ```
-, the velocity field
+
+We initialize the velocity 3D field on the appropriate device. This is done with the help of `TA(backend)`, that will move the given array to the selected backend, with the supported backends being CPU, CUDA, or AMD.
 ```julia
 Vx = TA(backend)([ 250 * sin(π*x) * cos(π*z) for x in grid_vx[1], y in grid_vx[2], z in grid_vx[3]])
 Vy = TA(backend)([                       0.0 for x in grid_vy[1], y in grid_vy[2], z in grid_vy[3]])
 Vz = TA(backend)([-250 * cos(π*x) * sin(π*z) for x in grid_vz[1], y in grid_vz[2], z in grid_vz[3]])
 ```
 
-, and the arbitrary field $T=T(z)$, defined at the cell vertices, that we want to advect with time:
+Similarly, we insantiate the arbitrary field $T=T(z)$ defined at the cell vertices and Lagrangian particles
 ```julia
-T  = TA(backend)([z for x in xv, y in yv, z in zv]) # defined at the cell vertices
-```
-
-We also need to initialize the field $T$ on the particles
-```julia
-particle_args = pT, = init_cell_arrays(particles, Val(1));
-grid2particle!(pT, xvi, T, particles) # interpolate field `T` oto the particles
+T   = TA(backend)([z for x in xv, y in yv, z in zv]) # defined at the cell vertices
+pT, = init_cell_arrays(particles, Val(1));
+grid2particle!(pT, xvi, T, particles)                # interpolate field `T` oto the particles
 ```
 
 And finally one can start the simulation
@@ -132,7 +129,7 @@ niter = 250
 dt = min(dx / maximum(abs.(Vx)), dy / maximum(abs.(Vy)), dz / maximum(abs.(Vz))) / 2
 for it in 1:niter
   advection!(particles, RungeKutta2(), (Vx, Vy, Vz), (grid_vx, grid_vy, grid_vz), dt) # advect particles
-  move_particles!(particles, xvi, particle_args)                                      # move particles in the memory
+  move_particles!(particles, xvi, (pT, ))                                             # move particles in the memory
   inject_particles!(particles, (pT, ), xvi)                                           # inject particles if needed
   particle2grid!(T, pT, xvi, particles)                                               # interpolate particles to the grid
 end
