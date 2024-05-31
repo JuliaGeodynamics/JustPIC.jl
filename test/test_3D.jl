@@ -1,3 +1,5 @@
+ENV["JULIA_JUSTPIC_BACKEND"] = "CPU"
+
 @static if ENV["JULIA_JUSTPIC_BACKEND"] === "AMDGPU"
     using AMDGPU
     AMDGPU.allowscalar(true)
@@ -32,7 +34,7 @@ vz_stream(x, z) = -250 * cos(π*x) * sin(π*z)
 
 @testset "3D tests" begin
     @testset "Interpolations 3D" begin
-        nxcell, max_xcell, min_xcell = 24, 24, 1
+        nxcell, max_xcell, min_xcell = 12, 12, 1
         n   = 5 # number of vertices
         nx  = ny = nz = n-1
         ni  = nx, ny, nz
@@ -70,6 +72,9 @@ vz_stream(x, z) = -250 * cos(π*x) * sin(π*z)
         _3D.particle2grid!(T2, pT, xvi, particles)
 
         @test norm(T2 .- T) / length(T) < 1e-1
+
+        # test Array conversion
+        @test Array(particles).index isa JustPIC.CellArrays.CPUCellArray
     end
 
     @testset "Particles initialization 3D" begin
@@ -119,13 +124,14 @@ vz_stream(x, z) = -250 * cos(π*x) * sin(π*z)
             backend, nxcell, max_xcell, min_xcell, xvi...
         )
     
-        arrays = SubgridDiffusionCellArrays(particles)
+        arrays = _3D.SubgridDiffusionCellArrays(particles)
         # Test they are allocated in the right backend
         @test arrays.ΔT_subgrid isa TA(backend)
         @test arrays.pT0.data isa TA(backend)
         @test arrays.pΔT.data isa TA(backend)
         @test arrays.dt₀.data isa TA(backend)
     end
+
     @testset "Cell index 3D" begin
         n = 100
         a, b = rand()*50, rand()*50

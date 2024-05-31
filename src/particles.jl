@@ -37,6 +37,9 @@ struct Particles{Backend,N,M,I,T1,T2} <: AbstractParticles
     end
 end
 
+Particles(coords, index::CPUCellArray, nxcell, max_xcell, min_xcell, np) =
+    Particles(CPUBackend, coords, index, nxcell, max_xcell, min_xcell, np)
+
 struct MarkerChain{Backend,N,M,I,T1,T2,TV} <: AbstractParticles
     coords::NTuple{N,T1}
     index::T2
@@ -58,6 +61,9 @@ struct MarkerChain{Backend,N,M,I,T1,T2,TV} <: AbstractParticles
     end
 end
 
+MarkerChain(coords, index::CPUCellArray, cell_vertices, min_xcell, max_xcell) =
+    MarkerChain(CPUBackend, coords, index, cell_vertices, min_xcell, max_xcell)
+
 struct PassiveMarkers{Backend,T} <: AbstractParticles
     coords::T
     np::Int64
@@ -72,6 +78,8 @@ struct PassiveMarkers{Backend,T} <: AbstractParticles
         return new{backend,typeof(coords)}(coords, np)
     end
 end
+
+PassiveMarkers(coords::Union{AbstractArray, NTuple{N,T}}) where {N,T} = PassiveMarkers(CPUBackend, coords)
 
 # useful functions
 
