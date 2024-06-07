@@ -74,7 +74,13 @@ vz_stream(x, z) = -250 * cos(π*x) * sin(π*z)
         @test norm(T2 .- T) / length(T) < 1e-1
 
         # test Array conversion
-        @test Array(particles).index isa JustPIC.CellArrays.CPUCellArray
+        particles_cpu = Array(particles)
+        pT_cpu        = Array(pT)
+        @test particles_cpu.index isa JustPIC.CellArrays.CPUCellArray
+        @test pT_cpu isa JustPIC.CellArrays.CPUCellArray
+        
+        @test particles_cpu.index.data == Array(particles.index.data)
+        @test pT_cpu.data == Array(pT.data)
     end
 
     @testset "Particles initialization 3D" begin
@@ -161,7 +167,7 @@ vz_stream(x, z) = -250 * cos(π*x) * sin(π*z)
     end
 
     @testset "Passive markers 3D" begin
-        n   = 64
+        n   = 32
         nx  = ny = nz = n-1
         Lx  = Ly = Lz = 1.0
         ni  = nx, ny, nz
