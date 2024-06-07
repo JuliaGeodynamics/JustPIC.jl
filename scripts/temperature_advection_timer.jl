@@ -1,7 +1,7 @@
 using JustPIC, JustPIC._2D
 
-# Threads is the default backend, 
-# to run on a CUDA GPU load CUDA.jl (i.e. "using CUDA"), 
+# Threads is the default backend,
+# to run on a CUDA GPU load CUDA.jl (i.e. "using CUDA"),
 # and to run on an AMD GPU load AMDGPU.jl (i.e. "using AMDGPU")
 const backend = JustPIC.CPUBackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
 
@@ -41,8 +41,7 @@ function main()
     grid_vy = expand_range(xc), yv
 
     particles = init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi..., dxi..., nx, ny
-    )
+        backend, nxcell, max_xcell, min_xcell, xvi...)
 
     # Cell fields -------------------------------
     Vx = TA(backend)([vx_stream(x, y) for x in grid_vx[1], y in grid_vx[2]]);
@@ -56,7 +55,7 @@ function main()
     # Advection test
     particle_args = pT, = init_cell_arrays(particles, Val(1));
     grid2particle!(pT, xvi, T, particles);
-    
+
     !isdir("figs") && mkdir("figs")
 
     niter = 5
