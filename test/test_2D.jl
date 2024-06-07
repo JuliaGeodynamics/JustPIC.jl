@@ -74,10 +74,9 @@ vi_stream(x) =  π * 1e-5 * (x - 0.5)
     particles_cpu = Array(particles)
     pT_cpu        = Array(pT)
     @test particles_cpu.index isa JustPIC.CellArrays.CPUCellArray
-    @test pT_cpu isa JustPIC.CellArrays.CPUCellArray
-    
-    @test particles_cpu.index.data == Array(particles.index.data)
-    @test pT_cpu.data == Array(pT.data)
+    @test pT_cpu              isa JustPIC.CellArrays.CPUCellArray
+    @test particles_cpu.index.data[:] == Array(particles.index.data)[:]
+    @test pT_cpu.data[:]              == Array(pT.data)[:]
 end
 
 @testset "Subgrid diffusion 2D" begin

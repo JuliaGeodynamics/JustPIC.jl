@@ -1,5 +1,3 @@
-ENV["JULIA_JUSTPIC_BACKEND"] = "CPU"
-
 @static if ENV["JULIA_JUSTPIC_BACKEND"] === "AMDGPU"
     using AMDGPU
     AMDGPU.allowscalar(true)
@@ -77,10 +75,9 @@ vz_stream(x, z) = -250 * cos(π*x) * sin(π*z)
         particles_cpu = Array(particles)
         pT_cpu        = Array(pT)
         @test particles_cpu.index isa JustPIC.CellArrays.CPUCellArray
-        @test pT_cpu isa JustPIC.CellArrays.CPUCellArray
-        
-        @test particles_cpu.index.data == Array(particles.index.data)
-        @test pT_cpu.data == Array(pT.data)
+        @test pT_cpu              isa JustPIC.CellArrays.CPUCellArray
+        @test particles_cpu.index.data[:] == Array(particles.index.data)[:]
+        @test pT_cpu.data[:]              == Array(pT.data)[:]
     end
 
     @testset "Particles initialization 3D" begin

@@ -9,10 +9,10 @@ Array(CA::CellArray) = Array(isdevice(typeof(CA).parameters[end]), CA)
 Array(::Val{false}, CA::CellArray) = CA
 
 function Array(::Val{true}, CA::CellArray)
-    dims         = size(CA)
-    T_SArray     = first(typeof(CA).parameters)
-    CA_cpu       = CPUCellArray{T_SArray}(undef, dims)
-    CA_cpu.data .= Array(CA.data)
+    dims            = size(CA)
+    T_SArray        = first(typeof(CA).parameters)
+    CA_cpu          = CPUCellArray{T_SArray}(undef, dims)
+    CA_cpu.data[:] .= Array(CA.data)[:]
     return CA_cpu
 end
 
