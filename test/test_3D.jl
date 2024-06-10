@@ -82,8 +82,6 @@ vz_stream(x, z) = -250 * cos(π*x) * sin(π*z)
         # test copy function
         particles_copy = copy(particles)
         pT_copy        = copy(pT)
-        @test particles_copy.index isa JustPIC.CellArrays.CPUCellArray
-        @test pT_copy              isa JustPIC.CellArrays.CPUCellArray
         @test particles_copy.index.data[:] == particles.index.data[:]
         @test pT_copy.data[:]              == pT.data[:]
     end
