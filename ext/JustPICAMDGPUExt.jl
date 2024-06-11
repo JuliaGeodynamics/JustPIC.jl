@@ -36,6 +36,10 @@ module _2D
     include(joinpath(@__DIR__, "../src/common.jl"))
     include(joinpath(@__DIR__, "../src/AMDGPUExt/CellArrays.jl"))
 
+    function JustPIC._2D.Particles(coords, index::CellArray, nxcell, max_xcell, min_xcell, np)
+        return Particles(AMDGPUBackend, coords, index, nxcell, max_xcell, min_xcell, np)
+    end
+
     function JustPIC._2D.SubgridDiffusionCellArrays(particles::Particles{AMDGPUBackend})
         return SubgridDiffusionCellArrays(particles)
     end
@@ -220,6 +224,10 @@ module _3D
 
     include(joinpath(@__DIR__, "../src/common.jl"))
     include(joinpath(@__DIR__, "../src/AMDGPUExt/CellArrays.jl"))
+
+    function JustPIC._3D.Particles(coords, index::CellArray, nxcell, max_xcell, min_xcell, np)
+        return Particles(AMDGPUBackend, coords, index, nxcell, max_xcell, min_xcell, np)
+    end
 
     function JustPIC._3D.SubgridDiffusionCellArrays(particles::Particles{AMDGPUBackend})
         return SubgridDiffusionCellArrays(particles)
