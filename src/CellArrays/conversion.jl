@@ -31,7 +31,7 @@ function Array(x::T) where {T<:AbstractParticles}
         _Array(getfield(x, i))
     end
     T_clean = remove_parameters(x)
-    return T_clean(cpu_fields...)
+    return T_clean(CPUBackend, cpu_fields...)
 end
 
 _copy(::Nothing) = nothing
