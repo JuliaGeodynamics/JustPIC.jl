@@ -38,9 +38,9 @@ module _2D
     include(joinpath(@__DIR__, "../src/common.jl"))
     include(joinpath(@__DIR__, "../src/CUDAExt/CellArrays.jl"))
 
-    # function JustPIC._2D.Particles(coords, index::CellArray{StaticArraysCore.SVector{N1, Bool}, N2, 0, CuArray{Bool, N3}}, nxcell, max_xcell, min_xcell, np) where {N1,N2,N3}
-    #     return Particles(CUDABackend, coords, index, nxcell, max_xcell, min_xcell, np)
-    # end
+    function JustPIC._2D.Particles(coords, index::CellArray{StaticArraysCore.SVector{N1, Bool}, 2, 0, CuArray{Bool, N2}}, nxcell, max_xcell, min_xcell, np) where {N1,N2}
+        return Particles(CUDABackend, coords, index, nxcell, max_xcell, min_xcell, np)
+    end
 
     function JustPIC._2D.SubgridDiffusionCellArrays(particles::Particles{CUDABackend})
         return SubgridDiffusionCellArrays(particles)
@@ -220,7 +220,7 @@ module _3D
     include(joinpath(@__DIR__, "../src/common.jl"))
     include(joinpath(@__DIR__, "../src/CUDAExt/CellArrays.jl"))
 
-    function JustPIC._3D.Particles(coords, index::CellArray{StaticArraysCore.SVector{N1, Bool}, N2, 0, CuArray{Bool, N3}}, nxcell, max_xcell, min_xcell, np) where {N1,N2,N3}
+    function JustPIC._3D.Particles(coords, index::CellArray{StaticArraysCore.SVector{N1, Bool}, 3, 0, CuArray{Bool, N2}}, nxcell, max_xcell, min_xcell, np) where {N1,N2}
         return Particles(CUDABackend, coords, index, nxcell, max_xcell, min_xcell, np)
     end
 
