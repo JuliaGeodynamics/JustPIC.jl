@@ -37,8 +37,9 @@ struct Particles{Backend,N,M,I,T1,T2} <: AbstractParticles
     end
 end
 
-Particles(coords, index::CPUCellArray, nxcell, max_xcell, min_xcell, np) =
+function Particles(coords, index::CPUCellArray, nxcell, max_xcell, min_xcell, np)
     Particles(CPUBackend, coords, index, nxcell, max_xcell, min_xcell, np)
+end
 
 struct MarkerChain{Backend,N,M,I,T1,T2,TV} <: AbstractParticles
     coords::NTuple{N,T1}

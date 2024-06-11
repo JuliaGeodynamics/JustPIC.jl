@@ -1,4 +1,4 @@
-import Base.Array
+import Base: Array, copy
 
 @inline isdevice(::Type{Array}) = Val(false)
 @inline isdevice(::Type{T}) where {T<:AbstractArray} = Val(true) # this is a big assumption but still
@@ -31,5 +31,20 @@ function Array(x::T) where {T<:AbstractParticles}
         _Array(getfield(x, i))
     end
     T_clean = remove_parameters(x)
-    return T_clean(cpu_fields...)
+    return T_clean(CPUBackend, cpu_fields...)
+end
+
+_copy(::Nothing) = nothing
+_copy(x::AbstractArray) = copy(x)
+_copy(x::NTuple{N, T}) where {N, T} = ntuple(i-> _copy(x[i]), Val(N))
+_copy(x::T) where T = x
+
+function copy(x::T) where {T<:AbstractParticles}
+    nfields = fieldcount(T)
+    copied_fields = ntuple(Val(nfields)) do i
+        Base.@_inline_meta
+        _copy(getfield(x, i))
+    end
+    T_clean = remove_parameters(x)
+    return T_clean(copied_fields...)
 end
