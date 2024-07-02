@@ -100,13 +100,17 @@ end
     # interpolate velocity to pressure nodes
     FP = interpolate_V_to_P(F, xci, p_i, dxi, Val(N), indices...)
     # normalize particle coordinates
-    tP = normalize_coordinates(p_i, xci, dxi)
+    tP = normalize_coordinates(p_i, xci, flip_grid_step(dxi, Val(N)))
+    # tP = normalize_coordinates(p_i, xci, dxi)
     # Interpolate field F from pressure node onto particle
     VP = lerp(FP, tP)
     A = 2/3
 
     return A * VL + (1 - A) * VP
 end
+
+@inline flip_grid_step(dxi::NTuple{2}, ::Val{1}) = dxi
+@inline flip_grid_step(dxi::NTuple{2}, ::Val{2}) = dxi[2], dxi[1]
 
 @generated function corner_field_nodes_LinP(
     F::AbstractArray{T,N},
