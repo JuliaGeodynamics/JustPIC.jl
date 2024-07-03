@@ -42,3 +42,45 @@ function MQS(v::NTuple{12}, t::NTuple{3})
     v = front_bot_mqs, back_bot_mqs, front_top_mqs, back_top_mqs
     lerp(v, t[2:3])
 end
+
+####
+using Test
+using JustPIC, JustPIC._2D
+import JustPIC._2D: lerp, MQS
+
+@testset "Interpolation kernels" begin
+    @testset "lerp" begin
+        t1D = (0.5, )
+        v1D = 1e0, 2e0
+
+        @test lerp(v1D, t1D) == 1.5
+
+        t2D = 0.5, 0.5 
+        v2D = 1e0, 2e0, 1e0, 2e0
+        @test lerp(v2D, t2D)  == 1.5
+
+        t3D = 0.5, 0.5, 0.5 
+        v3D = 1e0, 2e0, 1e0, 2e0, 1e0, 2e0, 1e0, 2e0
+        @test lerp(v3D, t3D) == 1.5
+    end
+
+    @testset "MQS" begin
+        t2D = 0.5, 0.5 
+        v2D = 0e0, 1e0, 2e0, 0e0, 1e0, 2e0
+        @test MQS(v2D, t2D) == 1.5
+
+        bot_mqs = MQS(t2D[1], v2D[1:3]...)
+        top_mqs = MQS(t2D[1], v2D[4:6]...)
+        @test lerp(t2D[1], bot_mqs, top_mqs) == mqs
+
+        t3D = 0.5, 0.5, 0.5 
+        v3D = (
+            0e0, 1e0, 2e0,
+            0e0, 1e0, 2e0,
+            0e0, 1e0, 2e0,
+            0e0, 1e0, 2e0,
+        )
+
+        @test MQS(v3D, t3D) == 1.5
+    end
+end
