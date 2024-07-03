@@ -112,6 +112,10 @@ end
 @inline flip_grid_step(dxi::NTuple{2}, ::Val{1}) = dxi
 @inline flip_grid_step(dxi::NTuple{2}, ::Val{2}) = dxi[2], dxi[1]
 
+@inline flip_grid_step(dxi::NTuple{3}, ::Val{1}) = dxi
+@inline flip_grid_step(dxi::NTuple{3}, ::Val{2}) = dxi[2], dxi[1], dxi[3]
+@inline flip_grid_step(dxi::NTuple{3}, ::Val{3}) = dxi[3], dxi[2], dxi[1]
+
 @generated function corner_field_nodes_LinP(
     F::AbstractArray{T,N},
     particle,
@@ -180,27 +184,27 @@ function interpolate_V_to_P(F, xi_corner, xi_particle, dxi, ::Val{N}, i, j) wher
 end
 
 function interpolate_V_to_P(F, xi_corner, xi_particle, dxi, ::Val{N}, i, j, k) where N
+    VN = Val(N)
     nx, ny, nz = size(F)
-    i += clamp(offset_LinP_x(VN, xi_corner, xi_particle, dxi), 1, nx)
-    j += clamp(offset_LinP_y(VN, xi_corner, xi_particle, dxi), 1, ny)
-    k += clamp(offset_LinP_z(VN, xi_corner, xi_particle, dxi), 1, ny)
+    i += offset_LinP_x(VN, xi_corner, xi_particle, dxi)
+    j += offset_LinP_y(VN, xi_corner, xi_particle, dxi)
+    k += offset_LinP_z(VN, xi_corner, xi_particle, dxi)
     
-
     offsetᵢ, offsetⱼ, offsetₖ = augment_offset(VN)
 
     #  corners
-    F000 = F[i + offsetᵢ[1][1], j + offsetⱼ[1][1], k + offsetₖ[1][1]]
-    F100 = F[i + offsetᵢ[1][2], j + offsetⱼ[1][2], k + offsetₖ[1][2]]
-    F200 = F[i + offsetᵢ[1][3], j + offsetⱼ[1][3], k + offsetₖ[1][3]]
-    F010 = F[i + offsetᵢ[2][1], j + offsetⱼ[2][1], k + offsetₖ[2][1]]
-    F110 = F[i + offsetᵢ[2][2], j + offsetⱼ[2][2], k + offsetₖ[2][2]]
-    F210 = F[i + offsetᵢ[2][3], j + offsetⱼ[2][3], k + offsetₖ[2][3]]
-    F001 = F[i + offsetᵢ[3][1], j + offsetⱼ[1][1], k + offsetₖ[3][1]]
-    F101 = F[i + offsetᵢ[3][2], j + offsetⱼ[1][2], k + offsetₖ[3][2]]
-    F201 = F[i + offsetᵢ[3][3], j + offsetⱼ[1][3], k + offsetₖ[3][3]]
-    F011 = F[i + offsetᵢ[4][1], j + offsetⱼ[2][1], k + offsetₖ[4][1]]
-    F111 = F[i + offsetᵢ[4][2], j + offsetⱼ[2][2], k + offsetₖ[4][2]]
-    F211 = F[i + offsetᵢ[4][3], j + offsetⱼ[2][3], k + offsetₖ[4][3]]
+    F000 = F[clamp(i + offsetᵢ[1][1], 1, nx), clamp(j + offsetⱼ[1][1], 1, ny), clamp(k + offsetₖ[1][1], 1, nz)]
+    F100 = F[clamp(i + offsetᵢ[1][2], 1, nx), clamp(j + offsetⱼ[1][2], 1, ny), clamp(k + offsetₖ[1][2], 1, nz)]
+    F200 = F[clamp(i + offsetᵢ[1][3], 1, nx), clamp(j + offsetⱼ[1][3], 1, ny), clamp(k + offsetₖ[1][3], 1, nz)]
+    F010 = F[clamp(i + offsetᵢ[2][1], 1, nx), clamp(j + offsetⱼ[2][1], 1, ny), clamp(k + offsetₖ[2][1], 1, nz)]
+    F110 = F[clamp(i + offsetᵢ[2][2], 1, nx), clamp(j + offsetⱼ[2][2], 1, ny), clamp(k + offsetₖ[2][2], 1, nz)]
+    F210 = F[clamp(i + offsetᵢ[2][3], 1, nx), clamp(j + offsetⱼ[2][3], 1, ny), clamp(k + offsetₖ[2][3], 1, nz)]
+    F001 = F[clamp(i + offsetᵢ[3][1], 1, nx), clamp(j + offsetⱼ[1][1], 1, ny), clamp(k + offsetₖ[3][1], 1, nz)]
+    F101 = F[clamp(i + offsetᵢ[3][2], 1, nx), clamp(j + offsetⱼ[1][2], 1, ny), clamp(k + offsetₖ[3][2], 1, nz)]
+    F201 = F[clamp(i + offsetᵢ[3][3], 1, nx), clamp(j + offsetⱼ[1][3], 1, ny), clamp(k + offsetₖ[3][3], 1, nz)]
+    F011 = F[clamp(i + offsetᵢ[4][1], 1, nx), clamp(j + offsetⱼ[2][1], 1, ny), clamp(k + offsetₖ[4][1], 1, nz)]
+    F111 = F[clamp(i + offsetᵢ[4][2], 1, nx), clamp(j + offsetⱼ[2][2], 1, ny), clamp(k + offsetₖ[4][2], 1, nz)]
+    F211 = F[clamp(i + offsetᵢ[4][3], 1, nx), clamp(j + offsetⱼ[2][3], 1, ny), clamp(k + offsetₖ[4][3], 1, nz)]
 
     F000_av = (F000 + F100) * 0.5
     F100_av = (F200 + F100) * 0.5
