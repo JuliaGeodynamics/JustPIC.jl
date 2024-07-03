@@ -1,8 +1,21 @@
+# LinP
+
+Velocity interpolation from [Pusok et al. 2017](https://link.springer.com/article/10.1007/s00024-016-1431-8). The velocity at the m-th particle is given by
+
+$u_m = A u_L + (1-A) u_P$
+
+where $u_L$ is the bi or tri-linear interpolation from the velocity nodes to the particle, $u_P$ is the bi or tri-linear interpolation from the pressure nodes to the particle, and $A=2/3$ is an empirical coefficient.
+
+<img src="assets/LinP.png" width="700"  />
+
 # Modified Quadratic Spline MQS
 
-The scheme guarantee bi-linear interpolation of $\partial u_i/\partial x_i$ from pressure nodes where they are defined by solving (in)compressible continuity equation.
+Velocity interpolation from [Gerya et al. 2021](https://meetingorganizer.copernicus.org/EGU21/EGU21-15308.html). The scheme guarantee bi-linear interpolation of $\partial u_i/\partial x_i$ from pressure nodes where they are defined by solving (in)compressible continuity equation.
 
 Example for the $u_x$ component in 2D:
+
+<img src="assets/LinP.png" width="700"  />
+
 
 *Step 1* Compute the normalized distances between particle and left-bottom corner of the cell:
 
