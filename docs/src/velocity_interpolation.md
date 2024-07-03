@@ -14,7 +14,7 @@ Velocity interpolation from [Gerya et al. 2021](https://meetingorganizer.coperni
 
 Example for the $u_x$ component in 2D:
 
-<img src="assets/LinP.png" width="700"  />
+<img src="assets/MQs.png" width="700"  />
 
 
 *Step 1* Compute the normalized distances between particle and left-bottom corner of the cell:
