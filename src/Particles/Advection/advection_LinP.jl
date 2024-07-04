@@ -89,7 +89,7 @@ end
 @inline function interp_velocity2particle_LinP(
     p_i::Union{SVector,NTuple}, xi_vx::NTuple, dxi::NTuple, F::AbstractArray, ::Val{N}, idx
 ) where N
-    # F and coordinates at/of the cell corners
+    # F and coordinates of the cell corners
     Fi, xci, indices = corner_field_nodes_LinP(F, p_i, xi_vx, dxi, idx)
 
     # normalize particle coordinates
@@ -99,14 +99,37 @@ end
 
     # interpolate velocity to pressure nodes
     FP = interpolate_V_to_P(F, xci, p_i, dxi, Val(N), indices...)
-    # normalize particle coordinates
-    tP = normalize_coordinates(p_i, xci, flip_grid_step(dxi, Val(N)))
-    # tP = normalize_coordinates(p_i, xci, dxi)
+    xci_P = correct_xci_to_pressure_point(xci, p_i, dxi, Val(N))
+    tP = normalize_coordinates(p_i, xci_P, dxi)
     # Interpolate field F from pressure node onto particle
     VP = lerp(FP, tP)
     A = 2/3
-
     return A * VL + (1 - A) * VP
+end
+
+@inline function correct_xci_to_pressure_point(xci::NTuple{2}, pxi::NTuple{2}, dxi::NTuple{2}, ::Val{1}) 
+    offset = 1 - 2 * (pxi[1] < xci[1] + dxi[1] * 0.5)
+    return xci[1] + offset * dxi[1] * 0.5, xci[2]
+end
+
+@inline function correct_xci_to_pressure_point(xci::NTuple{2}, pxi::NTuple{2}, dxi::NTuple{2}, ::Val{2}) 
+    offset = 1 - 2 * (pxi[2] < xci[2] + dxi[2] * 0.5)
+    return xci[1], xci[2] + offset * dxi[2] * 0.5
+end
+
+@inline function correct_xci_to_pressure_point(xci::NTuple{3}, pxi::NTuple{3}, dxi::NTuple{3}, ::Val{1}) 
+    offset = 1 - 2 * (pxi[1] < xci[1] + dxi[1] * 0.5)
+    return xci[1] + offset * dxi[1] * 0.5, xci[2], xci[3]
+end
+
+@inline function correct_xci_to_pressure_point(xci::NTuple{3}, pxi::NTuple{3}, dxi::NTuple{3}, ::Val{2}) 
+    offset = 1 - 2 * (pxi[2] < xci[2] + dxi[2] * 0.5)
+    return xci[1], xci[2] + offset * dxi[2] * 0.5, xci[3]
+end
+
+@inline function correct_xci_to_pressure_point(xci::NTuple{3}, pxi::NTuple{3}, dxi::NTuple{3}, ::Val{3}) 
+    offset = 1 - 2 * (pxi[3] < xci[3] + dxi[3] * 0.5)
+    return xci[1], xci[2], xci[3]+ offset * dxi[3] * 0.5
 end
 
 @inline flip_grid_step(dxi::NTuple{2}, ::Val{1}) = dxi
@@ -152,35 +175,26 @@ function interpolate_V_to_P(F, xi_corner, xi_particle, dxi, ::Val{N}, i, j) wher
     nx, ny = size(F)
     i += offset_LinP_x(VN, xi_corner, xi_particle, dxi)
     j += offset_LinP_y(VN, xi_corner, xi_particle, dxi)
-    
     offsetᵢ, offsetⱼ,  = augment_offset(VN)
 
     # corners
-    # F00 = F[i + offsetᵢ[1][1], j + offsetⱼ[1][1]]
-    # F10 = F[i + offsetᵢ[1][2], j + offsetⱼ[1][2]]
-    # F20 = F[i + offsetᵢ[1][3], j + offsetⱼ[1][3]]
-    # F01 = F[i + offsetᵢ[2][1], j + offsetⱼ[2][1]]
-    # F11 = F[i + offsetᵢ[2][2], j + offsetⱼ[2][2]]
-    # F21 = F[i + offsetᵢ[2][3], j + offsetⱼ[2][3]]
-    # F00_av = (F00 + F10) * 0.5
-    # F10_av = (F20 + F10) * 0.5
-    # F01_av = (F01 + F11) * 0.5
-    # F11_av = (F21 + F11) * 0.5
+    F00 = F[clamp(i + offsetᵢ[1][1], 1, nx), clamp(j + offsetⱼ[1][1], 1, ny)]
+    F10 = F[clamp(i + offsetᵢ[1][2], 1, nx), clamp(j + offsetⱼ[1][2], 1, ny)]
+    F20 = F[clamp(i + offsetᵢ[1][3], 1, nx), clamp(j + offsetⱼ[1][3], 1, ny)]
+    F01 = F[clamp(i + offsetᵢ[2][1], 1, nx), clamp(j + offsetⱼ[2][1], 1, ny)]
+    F11 = F[clamp(i + offsetᵢ[2][2], 1, nx), clamp(j + offsetⱼ[2][2], 1, ny)]
+    F21 = F[clamp(i + offsetᵢ[2][3], 1, nx), clamp(j + offsetⱼ[2][3], 1, ny)]
+    F00_av = (F00 + F10) * 0.5
+    F10_av = (F20 + F10) * 0.5
+    F01_av = (F01 + F11) * 0.5
+    F11_av = (F21 + F11) * 0.5
 
-    # corners condensed way to do it
-    vi0 = ntuple(Val(3)) do k
-        Base.@_inline_meta
-        F[clamp(i + offsetᵢ[1][k], 1, nx), clamp(j + offsetⱼ[1][k], 1, ny)]
-    end
-    v0i = ntuple(Val(3)) do k
-        Base.@_inline_meta
-        F[clamp(i + offsetᵢ[2][k], 1, nx), clamp(j + offsetⱼ[2][k], 1, ny)]
-    end
-    v0 = (vi0[1], vi0[3], v0i[1], v0i[3])
-    v1 = (vi0[2], vi0[2], v0i[2], v0i[2])
-    av = @. (v0 + v1) * 0.5
-
-    return av
+    @inline swap_F(F, ::Val{1}) = F
+    @inline swap_F(F, ::Val{2}) = F[1], F[3], F[2], F[4] 
+    
+    F_av = swap_F((F00_av, F10_av, F01_av, F11_av), VN)
+    
+    return F_av
 end
 
 function interpolate_V_to_P(F, xi_corner, xi_particle, dxi, ::Val{N}, i, j, k) where N
@@ -215,11 +229,15 @@ function interpolate_V_to_P(F, xi_corner, xi_particle, dxi, ::Val{N}, i, j, k) w
     F011_av = (F011 + F111) * 0.5
     F111_av = (F211 + F111) * 0.5
 
-    return F000_av, F100_av, F010_av, F110_av, F001_av, F101_av, F011_av, F111_av
+    @inline swap_F(F, ::Val{1}) = F
+    @inline swap_F(F, ::Val{N}) where N = F[1], F[3], F[2], F[4], F[5], F[7], F[6], F[8]
+    F_av = swap_F((F000_av, F100_av, F010_av, F110_av, F001_av, F101_av, F011_av, F111_av), VN)
+    
+    # return F000_av, F100_av, F010_av, F110_av, F001_av, F101_av, F011_av, F111_av
 end
 
 @inline function offset_LinP(xi_corner, xi_particle, dxi)
-    return - 1 *(xi_particle < xi_corner + dxi * 0.5)
+    return +(xi_particle > xi_corner + dxi * 0.5)
 end
 
 for (i, fn) in enumerate((:offset_LinP_x, :offset_LinP_y, :offset_LinP_z))
@@ -233,7 +251,7 @@ for (i, fn) in enumerate((:offset_LinP_x, :offset_LinP_y, :offset_LinP_z))
 end
 
 function augment_offset(::Val{1})
-    offsetᵢ = (0, 1, 2), (0, 1, 2), (0, 1, 2), (0, 1, 2)
+    offsetᵢ = (-1, 0, 1), (-1, 0, 1), (-1, 0, 1), (-1, 0, 1)
     offsetⱼ = (0, 0, 0), (1, 1, 1), (0, 0, 0), (1, 1, 1)
     offsetₖ = (0, 0, 0), (0, 0, 0), (1, 1, 1), (1, 1, 1)
     return offsetᵢ, offsetⱼ, offsetₖ
@@ -241,16 +259,21 @@ end
 
 @inline function augment_offset(::Val{2})
     offsetᵢ = (0, 0, 0), (1, 1, 1), (0, 0, 0), (1, 1, 1)
-    offsetⱼ = (0, 1, 2), (0, 1, 2), (0, 1, 2), (0, 1, 2)
+    offsetⱼ = (-1, 0, 1), (-1, 0, 1), (-1, 0, 1), (-1, 0, 1)
     offsetₖ = (0, 0, 0), (0, 0, 0), (1, 1, 1), (1, 1, 1)
 
     return offsetᵢ, offsetⱼ, offsetₖ
 end
 
 @inline function augment_offset(::Val{3})
-    offsetᵢ = (0, 0, 0), (1, 1, 1), (0, 0, 0), (1, 1, 1)
-    offsetⱼ = (0, 0, 0), (0, 0, 0), (1, 1, 1), (1, 1, 1)
-    offsetₖ = (0, 0, 0), (1, 1, 1), (0, 0, 0), (1, 1, 1)
+    # original
+    # offsetᵢ = (0, 0, 0), (1, 1, 1), (0, 0, 0), (1, 1, 1)
+    # offsetⱼ = (0, 0, 0), (0, 0, 0), (1, 1, 1), (1, 1, 1)
+    # offsetₖ = (0, 0, 0), (1, 1, 1), (0, 0, 0), (1, 1, 1)
+
+    offsetᵢ = (0, 0, 0), (0, 0, 0), (1, 1, 1), (1, 1, 1)
+    offsetⱼ = (0, 0, 0), (1, 1, 1), (0, 0, 0), (1, 1, 1)
+    offsetₖ = (-1, 0, 1), (-1, 0, 1), (-1, 0, 1), (-1, 0, 1)
 
     return offsetᵢ, offsetⱼ, offsetₖ
 end
