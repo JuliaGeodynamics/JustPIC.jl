@@ -95,7 +95,7 @@ function cell_index_neighbour(x, xc, dx, i::Integer)
     (xc ≤ x ≤ xR)          && return i 
     (xc - dx < x < xc)     && return i - 1
     (xR < x < xc + 2 * dx) && return i + 1
-    error("Particle with moved more than one cell away from the parent cell: pxi = $(Float16(x)), xc =$(Float16(xc)), dx=$(Float16(dx))")
+    error("Particle with moved more than one cell away from the parent cell")
 end
 
 function cell_index_neighbour(xᵢ::NTuple{N}, xcᵢ::NTuple{N}, dxᵢ::NTuple{N}, I::NTuple{N,Integer}) where N
