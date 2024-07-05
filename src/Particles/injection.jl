@@ -108,8 +108,8 @@ function _inject_particles_phase!(
             particles_num += 1
 
             # add at cellcenter + small random perturbation
-            # p_new = new_particle(xvi, di)
-            p_new = new_particle(xvi, di, particles_num, np)
+            p_new = new_particle(xvi, di)
+            # p_new = new_particle(xvi, di, particles_num, np)
 
             # add phase to new particle
             particle_idx, min_idx = index_min_distance(coords, p_new, index, i, idx_cell...)
@@ -212,14 +212,14 @@ end
     field[i + 1, j + 1, k + 1]
 end
 
-@inline function new_particle(xvi::NTuple{N,T}, di::NTuple{N,T}) where {N,T}
+@inline function new_particle(xvi::NTuple{T}, di::NTuple{N}) where {N}
     p_new = ntuple(Val(N)) do i
-        xvi[i] + di[i] * rand(0.05:1e-5:0.95)
+        xvi[i] + di[i] * (0.95 * rand() + 0.05)
     end
     return p_new
 end
 
-@inline function new_particle(xvi::NTuple{2,T}, di::NTuple{2,T}, ctr, np) where {T}
+@inline function new_particle(xvi::NTuple{2}, di::NTuple{2}, ctr, np)
     th = (2 * pi) / np * (ctr - 1)
     r = min(di...) * 0.25
     p_new = (
@@ -229,7 +229,7 @@ end
     return p_new
 end
 
-@inline function new_particle(xvi::NTuple{3,T}, di::NTuple{3,T}, ctr, np) where {T}
+@inline function new_particle(xvi::NTuple{3}, di::NTuple{3}, ctr, np)
     th = (2 * pi) / np * (ctr - 1)
     r = min(di...) * 0.25
     p_new = (
