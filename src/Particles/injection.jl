@@ -212,7 +212,7 @@ end
     field[i + 1, j + 1, k + 1]
 end
 
-@inline function new_particle(xvi::NTuple{T}, di::NTuple{N}) where {N}
+@inline function new_particle(xvi::NTuple{N}, di::NTuple{N}) where {N}
     p_new = ntuple(Val(N)) do i
         xvi[i] + di[i] * (0.95 * rand() + 0.05)
     end
