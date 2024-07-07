@@ -15,9 +15,9 @@ function advection_LinP!(
     particles::Particles,
     method::AbstractAdvectionIntegrator,
     V,
-    grid_vi::NTuple{N,NTuple{N,T}},
+    grid_vi::NTuple{N, NTuple{N}},
     dt,
-) where {N,T}
+) where {N}
 
     interpolation_fn = interp_velocity2particle_LinP
 
@@ -107,37 +107,43 @@ end
     return A * VL + (1 - A) * VP
 end
 
+# Since the cell-center grid is offset by dxᵢ/2 w.r.t the velocity grid,
+# we need to correct the index of the lower-left corner coordinate
+# with ±1
+#  x------□------x------□------x------□------x
+#  |      |      |      |      |      |      |
+#  |      |      |      |      |      |      |  x: velocity nodes
+#  |      |      |      |      |      |      |  □: pressure nodes
+#  |      |      |      |      |      |      |
+#  |      |      |      |      |      |      |
+#  x------□------x------□------x------□------x
+#     (x-1/2,y)       (i,j)       (x+1/2,y)
+
+# 2D corner correction for x-dim
 @inline function correct_xci_to_pressure_point(xci::NTuple{2}, pxi::NTuple{2}, dxi::NTuple{2}, ::Val{1}) 
     offset = 1 - 2 * (pxi[1] < xci[1] + dxi[1] * 0.5)
     return xci[1] + offset * dxi[1] * 0.5, xci[2]
 end
-
+# 2D corner correction for y-dim
 @inline function correct_xci_to_pressure_point(xci::NTuple{2}, pxi::NTuple{2}, dxi::NTuple{2}, ::Val{2}) 
     offset = 1 - 2 * (pxi[2] < xci[2] + dxi[2] * 0.5)
     return xci[1], xci[2] + offset * dxi[2] * 0.5
 end
-
+# 3D corner correction for x-dim
 @inline function correct_xci_to_pressure_point(xci::NTuple{3}, pxi::NTuple{3}, dxi::NTuple{3}, ::Val{1}) 
     offset = 1 - 2 * (pxi[1] < xci[1] + dxi[1] * 0.5)
     return xci[1] + offset * dxi[1] * 0.5, xci[2], xci[3]
 end
-
+# 3D corner correction for y-dim
 @inline function correct_xci_to_pressure_point(xci::NTuple{3}, pxi::NTuple{3}, dxi::NTuple{3}, ::Val{2}) 
     offset = 1 - 2 * (pxi[2] < xci[2] + dxi[2] * 0.5)
     return xci[1], xci[2] + offset * dxi[2] * 0.5, xci[3]
 end
-
+# 3D corner correction for z-dim
 @inline function correct_xci_to_pressure_point(xci::NTuple{3}, pxi::NTuple{3}, dxi::NTuple{3}, ::Val{3}) 
     offset = 1 - 2 * (pxi[3] < xci[3] + dxi[3] * 0.5)
     return xci[1], xci[2], xci[3]+ offset * dxi[3] * 0.5
 end
-
-@inline flip_grid_step(dxi::NTuple{2}, ::Val{1}) = dxi
-@inline flip_grid_step(dxi::NTuple{2}, ::Val{2}) = dxi[2], dxi[1]
-
-@inline flip_grid_step(dxi::NTuple{3}, ::Val{1}) = dxi
-@inline flip_grid_step(dxi::NTuple{3}, ::Val{2}) = dxi[2], dxi[1], dxi[3]
-@inline flip_grid_step(dxi::NTuple{3}, ::Val{3}) = dxi[3], dxi[2], dxi[1]
 
 @generated function corner_field_nodes_LinP(
     F::AbstractArray{T,N},
@@ -170,25 +176,45 @@ end
     end
 end
 
+# Interpolates velocity from velocity-grid to pressure nodes
+#      P[i,j+1]     P[i+1,j+1]   
+# V[i-1,j+1]   V[i,j+1]    V[i+1,j+1]
+#  x------□------x------□------x
+#  |      |      |      |      |
+#  |      |      |      |      |  x: velocity nodes
+#  |      |      |   ⊕  |      |  □: pressure nodes
+#  |      |      |      |      |  ⊕: particle
+#  |      |      |      |      |
+#  x------□------x------□------x
+# V[i-1,j]     V[i,j]       V[i+1,j]
+#      P[i,j]         P[i+1,j]         
 function interpolate_V_to_P(F, xi_corner, xi_particle, dxi, ::Val{N}, i, j) where N
+    # this is the dimension we are dealing with
+    # 1 => x
+    # 2 => y
     VN = Val(N)
     nx, ny = size(F)
+    # +0 or +1 offset to find the pressure corner
     i += offset_LinP_x(VN, xi_corner, xi_particle, dxi)
     j += offset_LinP_y(VN, xi_corner, xi_particle, dxi)
     offsetᵢ, offsetⱼ,  = augment_offset(VN)
 
-    # corners
+    # velocity at velocity corners
     F00 = F[clamp(i + offsetᵢ[1][1], 1, nx), clamp(j + offsetⱼ[1][1], 1, ny)]
     F10 = F[clamp(i + offsetᵢ[1][2], 1, nx), clamp(j + offsetⱼ[1][2], 1, ny)]
     F20 = F[clamp(i + offsetᵢ[1][3], 1, nx), clamp(j + offsetⱼ[1][3], 1, ny)]
     F01 = F[clamp(i + offsetᵢ[2][1], 1, nx), clamp(j + offsetⱼ[2][1], 1, ny)]
     F11 = F[clamp(i + offsetᵢ[2][2], 1, nx), clamp(j + offsetⱼ[2][2], 1, ny)]
     F21 = F[clamp(i + offsetᵢ[2][3], 1, nx), clamp(j + offsetⱼ[2][3], 1, ny)]
+    # average velocity at pressure nodes
     F00_av = (F00 + F10) * 0.5
     F10_av = (F20 + F10) * 0.5
     F01_av = (F01 + F11) * 0.5
     F11_av = (F21 + F11) * 0.5
 
+    # swap is needed in the y dimension
+    # to keep things consitent
+    # due to the indexing convection
     @inline swap_F(F, ::Val{1}) = F
     @inline swap_F(F, ::Val{2}) = F[1], F[3], F[2], F[4] 
     
@@ -198,15 +224,20 @@ function interpolate_V_to_P(F, xi_corner, xi_particle, dxi, ::Val{N}, i, j) wher
 end
 
 function interpolate_V_to_P(F, xi_corner, xi_particle, dxi, ::Val{N}, i, j, k) where N
+    # this is the dimension we are dealing with
+    # 1 => x
+    # 2 => y
+    # 3 => z
     VN = Val(N)
     nx, ny, nz = size(F)
+
+    # +0 or +1 offset to find the pressure corner
     i += offset_LinP_x(VN, xi_corner, xi_particle, dxi)
     j += offset_LinP_y(VN, xi_corner, xi_particle, dxi)
     k += offset_LinP_z(VN, xi_corner, xi_particle, dxi)
-    
     offsetᵢ, offsetⱼ, offsetₖ = augment_offset(VN)
 
-    #  corners
+    # velocity at velocity corners
     F000 = F[clamp(i + offsetᵢ[1][1], 1, nx), clamp(j + offsetⱼ[1][1], 1, ny), clamp(k + offsetₖ[1][1], 1, nz)]
     F100 = F[clamp(i + offsetᵢ[1][2], 1, nx), clamp(j + offsetⱼ[1][2], 1, ny), clamp(k + offsetₖ[1][2], 1, nz)]
     F200 = F[clamp(i + offsetᵢ[1][3], 1, nx), clamp(j + offsetⱼ[1][3], 1, ny), clamp(k + offsetₖ[1][3], 1, nz)]
@@ -219,7 +250,7 @@ function interpolate_V_to_P(F, xi_corner, xi_particle, dxi, ::Val{N}, i, j, k) w
     F011 = F[clamp(i + offsetᵢ[4][1], 1, nx), clamp(j + offsetⱼ[2][1], 1, ny), clamp(k + offsetₖ[4][1], 1, nz)]
     F111 = F[clamp(i + offsetᵢ[4][2], 1, nx), clamp(j + offsetⱼ[2][2], 1, ny), clamp(k + offsetₖ[4][2], 1, nz)]
     F211 = F[clamp(i + offsetᵢ[4][3], 1, nx), clamp(j + offsetⱼ[2][3], 1, ny), clamp(k + offsetₖ[4][3], 1, nz)]
-
+    # average velocity at pressure nodes
     F000_av = (F000 + F100) * 0.5
     F100_av = (F200 + F100) * 0.5
     F010_av = (F010 + F110) * 0.5
@@ -229,11 +260,14 @@ function interpolate_V_to_P(F, xi_corner, xi_particle, dxi, ::Val{N}, i, j, k) w
     F011_av = (F011 + F111) * 0.5
     F111_av = (F211 + F111) * 0.5
 
+    # swap is needed in the y dimension
+    # to keep things consitent
+    # due to the indexing convection
     @inline swap_F(F, ::Val{1}) = F
     @inline swap_F(F, ::Val{N}) where N = F[1], F[3], F[2], F[4], F[5], F[7], F[6], F[8]
     F_av = swap_F((F000_av, F100_av, F010_av, F110_av, F001_av, F101_av, F011_av, F111_av), VN)
     
-    # return F000_av, F100_av, F010_av, F110_av, F001_av, F101_av, F011_av, F111_av
+    return F_av
 end
 
 @inline function offset_LinP(xi_corner, xi_particle, dxi)
@@ -267,10 +301,6 @@ end
 
 @inline function augment_offset(::Val{3})
     # original
-    # offsetᵢ = (0, 0, 0), (1, 1, 1), (0, 0, 0), (1, 1, 1)
-    # offsetⱼ = (0, 0, 0), (0, 0, 0), (1, 1, 1), (1, 1, 1)
-    # offsetₖ = (0, 0, 0), (1, 1, 1), (0, 0, 0), (1, 1, 1)
-
     offsetᵢ = (0, 0, 0), (0, 0, 0), (1, 1, 1), (1, 1, 1)
     offsetⱼ = (0, 0, 0), (1, 1, 1), (0, 0, 0), (1, 1, 1)
     offsetₖ = (-1, 0, 1), (-1, 0, 1), (-1, 0, 1), (-1, 0, 1)
