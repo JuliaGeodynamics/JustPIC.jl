@@ -28,9 +28,7 @@ This function is specialized for tuples of length `nD`.
 @inline MQS(v, t::NTuple{nD,T}, i, ::Val{0}) where {nD,T}    = MQS(t[1], v[i + 1], v[i + 2], v[i + 3])
 @inline function MQS(t::T, v0::T, v1::T, v2::T) where {T<:Real} 
     linear_term = muladd(t, v2, muladd(-t, v1, v1))
-    quadratic_correction = 0.5 * (t - 1.5)^2 * (muladd(-2, v1, v0) + v2)
-    # @show linear_term
-    # @show quadratic_correction 
+    quadratic_correction = 0.5 * (t - 0.5)^2 * (muladd(-2, v1, v0) + v2)
     return linear_term + quadratic_correction
 end
 
