@@ -12,7 +12,7 @@ where the $t$, $v_0$, and $v_1$ are graphically described below.
 
 <img src="assets/lerp.png" width="250"  />
 
-Numerically, it is more appropiately implemented as a double [fma](https://en.wikipedia.org/wiki/Multiply%E2%80%93accumulate_operation) as it is slightly more accurate than a naive implementation:
+Numerically, it is more appropriately implemented as a double [fma](https://en.wikipedia.org/wiki/Multiply%E2%80%93accumulate_operation) as it is slightly more accurate than a naive implementation:
 
 ```julia
 v_p = fma(t, v1, fma(-t, v0, v0))
@@ -22,7 +22,7 @@ Bi- and tri-linear interpolation over a rectangular or cubic cells is thus nothi
 
 N-linear interpolation is implemented in a recursive way to exploit compiler optimizations and reduce boilerplate code. Since in practical terms we will do up to tri-linear interpolation the maximum recursion depth is five, so that stack will never overflow.
 
-We can interpolate an arbitray field $F$ onto the particles with the `grid2particle` function: 
+We can interpolate an arbitrary field $F$ onto the particles with the `grid2particle` function: 
 
 ```julia
 using JustPIC, JustPIC._2D

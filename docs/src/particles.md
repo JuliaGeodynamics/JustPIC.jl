@@ -23,7 +23,7 @@ struct Particles{Backend,N,M,I,T1,T2} <: AbstractParticles
     np::I
 end
 ```
-Where `coords` is a tuple containing the coordinates of the particles; `index` is a `BitArray` where `true` if in the correspondant `CellArray` there is an active particle, otherwise false; `nxcell`, `min_xcell`, `max_xcell` are the initial, minimum and maximum number of particles per cell; and, `np` is the initial number of particles.
+Where `coords` is a tuple containing the coordinates of the particles; `index` is a `BitArray` where `true` if in the correspondent `CellArray` there is an active particle, otherwise false; `nxcell`, `min_xcell`, `max_xcell` are the initial, minimum and maximum number of particles per cell; and, `np` is the initial number of particles.
     
 ### Passive markers
 ```julia
@@ -35,7 +35,7 @@ struct MarkerChain{Backend,N,M,I,T1,T2,TV} <: AbstractParticles
     min_xcell::I
 end
 ```
-Where `coords` is a tuple containing the coordinates of the particles; `index` is an `BitArray` where `true` if in the correspondant `CellArray` there is an active particle, otherwise false; `cell_vertices` is the lower-left corner (`(x,)` in 2D, `(x,y)` in 3D) of the cell containing those particles;and, `min_xcell`, `max_xcell` are theminimum and maximum number of particles per cell.
+Where `coords` is a tuple containing the coordinates of the particles; `index` is an `BitArray` where `true` if in the correspondent `CellArray` there is an active particle, otherwise false; `cell_vertices` is the lower-left corner (`(x,)` in 2D, `(x,y)` in 3D) of the cell containing those particles;and, `min_xcell`, `max_xcell` are theminimum and maximum number of particles per cell.
 
 ### Marker chain
 ```julia
