@@ -21,7 +21,7 @@ struct Particles{Backend,N,M,I,T1,T2} <: AbstractParticles
     np::I
 end
 ```
-Where `coords` is a tuple containing the coordinates of the particles; `index` is an `BitArray` where `true` if in the correspondant `CellArray` there is an active particle, otherwise false; `nxcell`, `min_xcell`, `max_xcell` are the initial, minimum and maximum number of particles per cell; and, `np` is the initial number of particles.
+Where `coords` is a tuple containing the coordinates of the particles; `index` is a `BitArray` where `true` if in the correspondant `CellArray` there is an active particle, otherwise false; `nxcell`, `min_xcell`, `max_xcell` are the initial, minimum and maximum number of particles per cell; and, `np` is the initial number of particles.
     
 ## Passive markers
 ```julia
