@@ -23,28 +23,21 @@ end
 @parallel_indices (I...) function inject_particles!(
     args, coords, index, grid, di, min_xcell
 )
-    if mapreduce(x -> x[1] ≤ x[2], &, zip(I, size(index))) &&
-        isemptycell(index, min_xcell, I...)
-        _inject_particles!(args, coords, index, grid, di, min_xcell, I)
+    inject, particles_num = isemptycell(index, min_xcell, I...)
+    if inject
+        _inject_particles!(args, coords, index, grid, di, min_xcell, particles_num, I)
     end
     return nothing
 end
 
 function _inject_particles!(
-    args::NTuple{N,T}, coords, index, grid, di, min_xcell, idx_cell
+    args::NTuple{N,T}, coords, index, grid, di, min_xcell, particles_num , idx_cell
 ) where {N,T}
-    max_xcell = cellnum(index)
-
-    # count current number of particles inside the cell
-    particles_num = false
-    for i in 1:max_xcell
-        particles_num += @cell index[i, idx_cell...]
-    end
 
     # coordinates of the lower-left center
     xvi = corner_coordinate(grid, idx_cell)
 
-    for i in 1:max_xcell
+    for i in cellaxes(index)
         if @cell(index[i, idx_cell...]) === false
             particles_num += 1
             # add at cellcenter + small random perturbation
@@ -53,7 +46,7 @@ function _inject_particles!(
             @cell index[i, idx_cell...] = true
             # add phase to new particle
             particle_idx, min_idx = index_min_distance(coords, p_new, index, i, idx_cell...)
-            for j in 1:N
+            ntuple(Val(N)) do j
                 @cell args[j][i, idx_cell...] = @cell args[j][particle_idx, min_idx...]
             end
         end
@@ -145,22 +138,23 @@ function index_min_distance(coords, pn, index, current_cell, icell, jcell)
     px, py = coords
     nx, ny = size(px)
 
-    for j in (jcell - 1):(jcell + 1), i in (icell - 1):(icell + 1), ip in cellaxes(index)
+    for j in (jcell - 1):(jcell + 1), i in (icell - 1):(icell + 1)
+        for ip in cellaxes(index)
+            # early escape conditions
+            (i == icell) && (j == jcell) && (ip == current_cell) && continue # current injected particle
+            ((i < 1) || (j < 1)) && continue # out of the domain
+            ((i > nx) || (j > ny)) && continue # out of the domain
+            !(@cell index[ip, i, j]) && continue
 
-        # early escape conditions
-        ((i < 1) || (j < 1)) && continue # out of the domain
-        ((i > nx) || (j > ny)) && continue # out of the domain
-        (i == icell) && (j == jcell) && (ip == current_cell) && continue # current injected particle
-        !(@cell index[ip, i, j]) && continue
+            # distance from new point to the existing particle
+            pxi = @cell(px[ip, i, j]), @cell(py[ip, i, j])
+            d = distance(pxi, pn)
 
-        # distance from new point to the existing particle
-        pxi = @cell(px[ip, i, j]), @cell(py[ip, i, j])
-        d = distance(pxi, pn)
-
-        if d < dist_min
-            particle_idx_min = ip
-            i_min, j_min = i, j
-            dist_min = d
+            if d < dist_min
+                particle_idx_min = ip
+                i_min, j_min = i, j
+                dist_min = d
+            end
         end
     end
 

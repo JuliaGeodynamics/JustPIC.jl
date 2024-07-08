@@ -27,7 +27,7 @@ g(x) = Point2f(
 
 function main()
     # Initialize particles -------------------------------
-    nxcell, max_xcell, min_xcell = 24, 48, 28
+    nxcell, max_xcell, min_xcell = 24, 30, 24
     n = 256
     nx = ny = n-1
     Lx = Ly = 1.0
@@ -51,7 +51,6 @@ function main()
     V  = Vx, Vy;
 
     dt = min(dx / maximum(abs.(Array(Vx))),  dy / maximum(abs.(Array(Vy))));
-    dt *= 0.25
 
     # Advection test
     particle_args = pT, = init_cell_arrays(particles, Val(1));
@@ -61,6 +60,7 @@ function main()
 
     niter = 250
     for it in 1:niter
+        @show it
         advection!(particles, RungeKutta2(2/3), V, (grid_vx, grid_vy), dt)
         move_particles!(particles, xvi, particle_args)
         inject_particles!(particles, (pT, ), xvi)
@@ -79,3 +79,50 @@ function main()
 end
 
 main()
+
+# @b advection!($(particles, RungeKutta2(2/3), V, (grid_vx, grid_vy), dt)...)
+# @b inject_particles!($(particles, (pT, ), xvi)...)
+
+# to = TimerOutput()
+# @timeit to "advect" advection!(particles, RungeKutta2(2/3), V, (grid_vx, grid_vy), dt)
+# @timeit to "move" move_particles!(particles, xvi, particle_args)
+# @timeit to "injection" inject_particles!(particles, (pT, ), xvi)
+# to
+
+# ProfileCanvas.@profview inject_particles!(particles, (pT, ), xvi)
+
+# @inline function isemptycell2(
+#     index::AbstractArray{T,N}, min_xcell::Integer, cell_indices::Vararg{Int,N}
+# ) where {T,N}
+#     # first min_xcell particles
+#     val = 0
+#     for i in 1:min_xcell
+#         val += @inbounds @cell(index[i, cell_indices...])
+#     end
+#     # early escape
+#     val ≥ min_xcell && return false
+#     # tail
+#     n = cellnum(index)
+#     for i in (min_xcell + 1):n
+#         val += @inbounds @cell(index[i, cell_indices...])
+#     end
+#     return !(val ≥ min_xcell)
+# end
+
+
+# @inline function isemptycell3(
+#     index::AbstractArray{T,N}, min_xcell::Integer, cell_indices::Vararg{Int,N}
+# ) where {T,N}
+#     # first min_xcell particles
+#     val = 0
+#     for i in cellaxes(index)
+#         val += @inbounds @cell(index[i, cell_indices...])
+#     end
+#     return !(val ≥ min_xcell)
+# end
+
+# @b isemptycell3($(particles.index, particles.min_xcell, 20,20)...)
+# @b isemptycell2($(particles.index, particles.min_xcell, 20,20)...)
+
+# @code_warntype isemptycell2(particles.index, particles.min_xcell, 20,20)
+# @code_warntype isemptycell3(particles.index, particles.min_xcell, 20,20)
