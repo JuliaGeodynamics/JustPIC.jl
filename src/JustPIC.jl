@@ -24,6 +24,6 @@ export AbstractAdvectionIntegrator, Euler, RungeKutta2
 include("JustPIC_CPU.jl")
 
 include("CellArrays/conversion.jl")
-export Array
+export Array, copy
 
 end # module

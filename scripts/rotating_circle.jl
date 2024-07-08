@@ -1,7 +1,7 @@
 using JustPIC
 using JustPIC._2D
-# Threads is the default backend, 
-# to run on a CUDA GPU load CUDA.jl (i.e. "using CUDA"), 
+# Threads is the default backend,
+# to run on a CUDA GPU load CUDA.jl (i.e. "using CUDA"),
 # and to run on an AMD GPU load AMDGPU.jl (i.e. "using AMDGPU")
 const backend = JustPIC.CPUBackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
 
@@ -40,7 +40,7 @@ function main()
     grid_vxi = grid_vx, grid_vy
 
     particles = init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi..., dxi..., nx, ny
+        backend, nxcell, max_xcell, min_xcell, xvi...
     )
 
     # Cell fields -------------------------------
@@ -59,7 +59,7 @@ function main()
 
     particle_args = pT, = init_cell_arrays(particles, Val(1));
     grid2particle!(pT, xvi, T, particles);
-    
+
     t   = 0
     it  = 0
     t_pic = 0.0

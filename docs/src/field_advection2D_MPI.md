@@ -99,20 +99,24 @@ Now start the simulation
 ```julia
 niter = 250
 for it in 1:niter
-    advection!(particles, RungeKutta2(), V, (grid_vx, grid_vy), dt) # advect particles
-    move_particles!(particles, xvi, particle_args)                  # move particles in the memory
-    inject_particles!(particles, (pT, ), xvi)                       # inject particles if needed
-    particle2grid!(T, pT, xvi, particles)                           # interpolate particles to the grid
+    # advect particles
+    advection!(particles, RungeKutta2(), V, (grid_vx, grid_vy), dt)
+    # move particles in the memory
+    move_particles!(particles, xvi, particle_args) 
+    # inject particles if needed
+    inject_particles!(particles, (pT, ), xvi)      
+    # interpolate particles to the grid
+    particle2grid!(T, pT, xvi, particles)          
 end
 ```
 
 ## Visualization
 To visualize the results, we need to allocate a global array `T_v` and buffer arrays `T_nohalo` without the overlapping halo (here with `width = 1`)
 ```julia
-nx_v = (size(T, 1)-2)*dims[1] # global size of `T` without halos
-ny_v = (size(T, 2)-2)*dims[2] # global size of `T` without halos
-T_v  = zeros(nx_v, ny_v)      # initialize global `T`
-T_nohalo = @zeros(size(T).-2) # local `T` without overlapping halo
+nx_v     = (size(T, 1) - 2) * dims[1] # global size of `T` without halos
+ny_v     = (size(T, 2) - 2) * dims[2] # global size of `T` without halos
+T_v      = zeros(nx_v, ny_v)          # initialize global `T`
+T_nohalo = @zeros(size(T).-2)         # local `T` without overlapping halo
 ```
 
 Visualization with GLMakie.jl

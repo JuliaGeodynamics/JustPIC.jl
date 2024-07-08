@@ -1,5 +1,3 @@
-ENV["JULIA_JUSTPIC_BACKEND"] = "CPU"
-
 @static if ENV["JULIA_JUSTPIC_BACKEND"] === "AMDGPU"
     using AMDGPU
     AMDGPU.allowscalar(true)
@@ -77,10 +75,15 @@ vz_stream(x, z) = -250 * cos(π*x) * sin(π*z)
         particles_cpu = Array(particles)
         pT_cpu        = Array(pT)
         @test particles_cpu.index isa JustPIC.CellArrays.CPUCellArray
-        @test pT_cpu isa JustPIC.CellArrays.CPUCellArray
-        
+        @test pT_cpu              isa JustPIC.CellArrays.CPUCellArray
         @test particles_cpu.index.data[:] == Array(particles.index.data)[:]
-        @test pT_cpu.data[:] == Array(pT.data)[:]
+        @test pT_cpu.data[:]              == Array(pT.data)[:]
+
+        # test copy function
+        particles_copy = copy(particles)
+        pT_copy        = copy(pT)
+        @test particles_copy.index.data[:] == particles.index.data[:]
+        @test pT_copy.data[:]              == pT.data[:]
     end
 
     @testset "Particles initialization 3D" begin
@@ -129,7 +132,7 @@ vz_stream(x, z) = -250 * cos(π*x) * sin(π*z)
         particles = _3D.init_particles(
             backend, nxcell, max_xcell, min_xcell, xvi...
         )
-    
+
         arrays = _3D.SubgridDiffusionCellArrays(particles)
         # Test they are allocated in the right backend
         @test arrays.ΔT_subgrid isa TA(backend)

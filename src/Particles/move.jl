@@ -66,9 +66,12 @@ function move_kernel!(
         domain_check && continue
 
         # new cell indices
-        new_cell = ntuple(Val(N1)) do i
-            cell_index(pᵢ[i], grid[i], dxi[i])
-        end
+        # new_cell = ntuple(Val(N1)) do i
+        #     cell_index(pᵢ[i], grid[i], dxi[i])
+        # end
+
+        new_cell = cell_index_neighbour(pᵢ, corner_xi, dxi, idx)
+
         # hold particle variables
         current_args = @inbounds cache_args(args, ip, idx)
         # remove particle from child cell
@@ -86,6 +89,21 @@ function move_kernel!(
 end
 
 ## Utility functions
+
+function cell_index_neighbour(x, xc, dx, i::Integer)
+    xR = xc + dx
+    (xc ≤ x ≤ xR)        && return i 
+    (xc - dx < x < xc)   && return i - 1
+    (xR < x < xc + 2*dx) && return i + 1
+    error("Particle moved more than one cell away from the parent cell")
+end
+
+
+function cell_index_neighbour(xᵢ::NTuple{N}, xcᵢ::NTuple{N}, dxᵢ::NTuple{N}, I::NTuple{N,Integer}) where N
+    ntuple(Val(N)) do i 
+        cell_index_neighbour(xᵢ[i], xcᵢ[i], dxᵢ[i], I[i])
+    end
+end
 
 function find_free_memory(index, I::Vararg{Int,N}) where {N}
     for i in cellaxes(index)

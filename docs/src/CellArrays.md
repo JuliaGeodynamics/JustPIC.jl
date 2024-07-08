@@ -1,6 +1,7 @@
 # Working with CellArrays
 
-## Instantiating a CellArray 
+## Instantiating a `CellArray` 
+
 With the help of `ParallelStencil.jl` we can easily create a `CellArray` object. The `CellArray` object is a container that holds the data of a grid. The data is stored in small nD-arrays, and the grid is divided into cells. Each cell contains a number of elements. The `CellArray` object is used to store the data of the particles in the simulation.
 
 ```julia
@@ -24,6 +25,8 @@ julia> CA = @fill(x, ni..., celldims = ncells, eltype = Float64)
  [20.0, 20.0]  [20.0, 20.0]
  [20.0, 20.0]  [20.0, 20.0]
 ```
+
+## Indexing a `CellArray`
 
 We can access to the data of one `CellArray` by indexing a given grid cell. This will however instantiate a `StaticArray` object with the data of the cell. 
 
