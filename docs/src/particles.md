@@ -9,7 +9,7 @@ Particles stored in `CellArray`s objects from [`CellArrays.jl`](https://github.c
 There are three type of `AbstractParticles` types:
 
 - `Particles` is the basic type used to advect and track information on the whole domain of our model. The dimension of the `CellArrays` has to match the dimension of the model.
-- `PassiveMarkers` is a set of particles where their initial position is defined by the user. These particles are only advected and are not meant to have any feedback with the simulation; their purpose is to track the history of any arbitray field(s) throughout the simulation.
+- `PassiveMarkers` is a set of particles where their initial position is defined by the user. These particles are only advected and are not meant to have any feedback with the simulation; their purpose is to track the history of any arbitrary field(s) throughout the simulation.
 - `MarkerChain` is a one or two dimensional chain of particles, used to track surfaces / interfaces.
 
 ### Simulation particles
