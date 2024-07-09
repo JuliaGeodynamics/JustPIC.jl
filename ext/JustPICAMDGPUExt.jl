@@ -78,7 +78,7 @@ module _2D
         V,
         grid_vxi::NTuple{N,NTuple{N,T}},
         dt,
-    ) where {N}
+    ) where {N,T}
         return advection_LinP!(particles, method, V, grid_vxi, dt)
     end
 
@@ -88,7 +88,7 @@ module _2D
         V,
         grid_vxi::NTuple{N,NTuple{N,T}},
         dt,
-    ) where {N}
+    ) where {N,T}
         return advection_MQS!(particles, method, V, grid_vxi, dt)
     end
 
@@ -287,7 +287,7 @@ module _3D
         V,
         grid_vxi::NTuple{N,NTuple{N,T}},
         dt,
-    ) where {N}
+    ) where {N,T}
         return advection_LinP!(particles, method, V, grid_vxi, dt)
     end
 
@@ -297,7 +297,7 @@ module _3D
         V,
         grid_vxi::NTuple{N,NTuple{N,T}},
         dt,
-    ) where {N}
+    ) where {N,T}
         return advection_MQS!(particles, method, V, grid_vxi, dt)
     end
 
