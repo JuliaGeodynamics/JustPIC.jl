@@ -49,7 +49,8 @@ include("Particles/Advection/Euler.jl")
 include("Particles/Advection/RK2.jl")
 include("Particles/Advection/advection.jl")
 include("Particles/Advection/advection_LinP.jl")
-export advection!, advection_LinP! 
+include("Particles/Advection/advection_MQS.jl")
+export advection!, advection_LinP!, advection_MQS!
 
 include("Particles/injection.jl")
 export check_injection, inject_particles!, inject_particles_phase!, clean_particles!
