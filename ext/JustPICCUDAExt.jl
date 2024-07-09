@@ -84,6 +84,16 @@ module _2D
         return advection_LinP!(particles, method, V, grid_vxi, dt)
     end
     
+    function JustPIC._2D.advection_MQS!(
+        particles::Particles{CUDABackend},
+        method::AbstractAdvectionIntegrator,
+        V,
+        grid_vxi::NTuple{N,NTuple{N,T}},
+        dt,
+    ) where {N}
+        return advection_MQS!(particles, method, V, grid_vxi, dt)
+    end
+
     function JustPIC._2D.centroid2particle!(
         Fp, xci, F::CuArray, particles::Particles{CUDABackend}
     )
@@ -274,6 +284,16 @@ module _3D
         dt,
     ) where {N}
         return advection_LinP!(particles, method, V, grid_vxi, dt)
+    end
+
+    function JustPIC._3D.advection_MQS!(
+        particles::Particles{CUDABackend},
+        method::AbstractAdvectionIntegrator,
+        V,
+        grid_vxi::NTuple{N,NTuple{N,T}},
+        dt,
+    ) where {N}
+        return advection_MQS!(particles, method, V, grid_vxi, dt)
     end
 
     function JustPIC._3D.centroid2particle!(
