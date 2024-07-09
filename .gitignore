@@ -26,7 +26,6 @@ Manifest.toml
 # Application-specific folders
 out/
 
-*.jl
 *.png
 *.csv
 *.pdf
