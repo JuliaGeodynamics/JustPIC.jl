@@ -108,8 +108,9 @@ end
 
 flip_particle(x::NTuple{2}, ::Val{1}) = x
 flip_particle(x::NTuple{2}, ::Val{2}) = x[2], x[1]
+flip_particle(x::NTuple{3}, ::Val{1}) = x
 flip_particle(x::NTuple{3}, ::Val{2}) = x[2], x[1], x[3]
-flip_particle(x::NTuple{3}, ::Val{1}) = x[3], x[2], x[1]
+flip_particle(x::NTuple{3}, ::Val{3}) = x[3], x[2], x[1]
 
 # Since the cell-center grid is offset by dxᵢ/2 w.r.t the velocity grid,
 # we need to correct the index of the lower-left corner coordinate

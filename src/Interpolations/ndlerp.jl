@@ -38,5 +38,5 @@ end
     back_bot_mqs  = MQS(t[1], v[7:9]...)
     back_top_mqs  = MQS(t[1], v[10:end]...)
     v = front_bot_mqs, back_bot_mqs, front_top_mqs, back_top_mqs
-    return lerp(v, t[2], t[3])
+    return lerp(v, (t[2], t[3]))
 end
