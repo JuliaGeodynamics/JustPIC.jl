@@ -213,7 +213,7 @@ function interpolate_V_to_P(F, xi_corner, xi_particle, dxi, ::Val{N}, i, j) wher
     F11_av = (F21 + F11) * 0.5
 
     # swap is needed in the y dimension
-    # to keep things consitent
+    # to keep things consistent
     # due to the indexing convection
     @inline swap_F(F, ::Val{1}) = F
     @inline swap_F(F, ::Val{2}) = F[1], F[3], F[2], F[4] 
@@ -261,7 +261,7 @@ function interpolate_V_to_P(F, xi_corner, xi_particle, dxi, ::Val{N}, i, j, k) w
     F111_av = (F211 + F111) * 0.5
 
     # swap is needed in the y dimension
-    # to keep things consitent
+    # to keep things consistent
     # due to the indexing convection
     @inline swap_F(F, ::Val{1}) = F
     @inline swap_F(F, ::Val{N}) where N = F[1], F[3], F[2], F[4], F[5], F[7], F[6], F[8]

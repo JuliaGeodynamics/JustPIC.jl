@@ -211,7 +211,7 @@ function expand_F(F, ::Val{N}, i, j) where N
     F21 = F[clamp(i + offsetᵢ[2][3], 1, nx), clamp(j + offsetⱼ[2][3], 1, ny)]
 
     # # swap is needed in the y dimension
-    # # to keep things consitent
+    # # to keep things consistent
     # # due to the indexing convection
     # @inline swap_F(F, ::Val{1}) = F
     # @inline swap_F(F, ::Val{2}) = F[1], F[3], F[2], F[4] 
@@ -246,7 +246,7 @@ function expand_F(F, ::Val{N}, i, j, k) where N
     F211 = F[clamp(i + offsetᵢ[4][3], 1, nx), clamp(j + offsetⱼ[2][3], 1, ny), clamp(k + offsetₖ[4][3], 1, nz)]
 
     # swap is needed in the y dimension
-    # to keep things consitent
+    # to keep things consistent
     # due to the indexing convection
     # @inline swap_F(F, ::Val{1}) = F
     # @inline swap_F(F, ::Val{N}) where N = F[1], F[3], F[2], F[4], F[5], F[7], F[6], F[8]
