@@ -27,7 +27,7 @@ g(x) = Point2f(
 
 function main()
     # Initialize particles -------------------------------
-    nxcell, max_xcell, min_xcell = 24, 48, 28
+    nxcell, max_xcell, min_xcell = 24, 30, 12
     n = 256
     nx = ny = n-1
     Lx = Ly = 1.0
