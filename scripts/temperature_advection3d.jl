@@ -28,7 +28,7 @@ g(x) = Point2f(
 )
 
 function main()
-    n   = 64
+    n   = 32
     nx  = ny = nz = n-1
     Lx  = Ly = Lz = 1.0
     ni  = nx, ny, nz
@@ -46,7 +46,7 @@ function main()
     grid_vz = expand_range(xc), expand_range(yc), zv
 
     # Initialize particles -------------------------------
-    nxcell, max_xcell, min_xcell = 24, 24, 3
+    nxcell, max_xcell, min_xcell = 12, 12, 6
     particles = init_particles(
         backend, nxcell, max_xcell, min_xcell, xvi...
     )
@@ -63,22 +63,19 @@ function main()
 
     # Advection test
     particle_args = pT, = init_cell_arrays(particles, Val(1))
+    grid2particle!(pT, xvi, T, particles)
     
     niter = 100
     for _ in 1:niter
-        particle2grid!(T, pT, xvi, particles)
-        copyto!(T0, T)
-        advection!(particles, RungeKutta2(2/3), V, (grid_vx, grid_vy), dt)
-        move_particles!(particles, xvi, particle_args)
-        
+        advection!(particles, RungeKutta2(), V, (grid_vx, grid_vy, grid_vz), dt)
+        move_particles!(particles, xvi, particle_args)        
         # reseed
         inject_particles!(particles, (pT, ), xvi)
-
-        grid2particle!(pT, xvi, T, T0, particles.coords)
     end
+    particle2grid!(T, pT, xvi, particles)
 
     f, = heatmap(xvi[1], xvi[3] , Array(T[:, Int(div(n, 2)), :]), colormap=:batlow)
-    f
+    
 end
 
 f = main()

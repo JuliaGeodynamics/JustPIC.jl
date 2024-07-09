@@ -72,6 +72,26 @@ module _2D
         return advection!(particles, method, V, grid_vxi, dt)
     end
 
+    function JustPIC._2D.advection_LinP!(
+        particles::Particles{AMDGPUBackend},
+        method::AbstractAdvectionIntegrator,
+        V,
+        grid_vxi::NTuple{N,NTuple{N,T}},
+        dt,
+    ) where {N,T}
+        return advection_LinP!(particles, method, V, grid_vxi, dt)
+    end
+
+    function JustPIC._2D.advection_MQS!(
+        particles::Particles{AMDGPUBackend},
+        method::AbstractAdvectionIntegrator,
+        V,
+        grid_vxi::NTuple{N,NTuple{N,T}},
+        dt,
+    ) where {N,T}
+        return advection_MQS!(particles, method, V, grid_vxi, dt)
+    end
+
     function JustPIC._2D.centroid2particle!(
         Fp, xci, F::ROCArray, particles::Particles{AMDGPUBackend}
     )
@@ -259,6 +279,26 @@ module _3D
         dt,
     ) where {N,T}
         return advection!(particles, method, V, grid_vxi, dt)
+    end
+
+    function JustPIC._3D.advection_LinP!(
+        particles::Particles{AMDGPUBackend},
+        method::AbstractAdvectionIntegrator,
+        V,
+        grid_vxi::NTuple{N,NTuple{N,T}},
+        dt,
+    ) where {N,T}
+        return advection_LinP!(particles, method, V, grid_vxi, dt)
+    end
+
+    function JustPIC._3D.advection_MQS!(
+        particles::Particles{AMDGPUBackend},
+        method::AbstractAdvectionIntegrator,
+        V,
+        grid_vxi::NTuple{N,NTuple{N,T}},
+        dt,
+    ) where {N,T}
+        return advection_MQS!(particles, method, V, grid_vxi, dt)
     end
 
     function JustPIC._3D.centroid2particle!(
