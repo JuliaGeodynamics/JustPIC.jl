@@ -91,18 +91,24 @@ end
 ) where N
     # F and coordinates of the cell corners
     Fi, xci, indices = corner_field_nodes_LinP(F, p_i, xi_vx, dxi, idx)
-    # normalize particle coordinates
+    # # normalize particle coordinates
+    # t = normalize_coordinates(
+    #     flip_particle(p_i, Val(N)),
+    #     flip_particle(xci, Val(N)),
+    #     flip_particle(dxi, Val(N)),
+    # )
+
     t = normalize_coordinates(
-        flip_particle(p_i, Val(N)),
-        flip_particle(xci, Val(N)),
-        flip_particle(dxi, Val(N)),
+        p_i,
+        xci,
+        dxi,
     )
 
     # interpolate velocity to pressure nodes
-    FMQS = expand_F(F, Val(N), indices...)
+    # FMQS = expand_F(F, Val(N), indices...)
 
     # Interpolate field F from pressure node onto particle
-    V = MQS(FMQS, t)
+    V = MQS(F, Fi, t, indices..., Val(N))
     return V
 end
 
