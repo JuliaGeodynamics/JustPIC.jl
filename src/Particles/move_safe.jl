@@ -41,8 +41,8 @@ end
     coords, grid, dxi, index, domain_limits, args, offset_x, offset_y
 )
     nx, ny = size(index)
-    i      = 2 * (icell - 1) + offset_x
-    j      = 2 * (jcell - 1) + offset_y
+    i      = 2 * (I[1] - 1) + offset_x
+    j      = 2 * (I[2] - 1) + offset_y
 
     if (i < nx) && (j < ny)
         _move_particles!(coords, grid, dxi, index, domain_limits, I, args)
