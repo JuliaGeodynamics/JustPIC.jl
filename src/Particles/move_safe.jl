@@ -45,7 +45,7 @@ end
     j      = 2 * (I[2] - 1) + offset_y
 
     if (i < nx) && (j < ny)
-        _move_particles!(coords, grid, dxi, index, domain_limits, I, args)
+        _move_particles!(coords, grid, dxi, index, domain_limits, (i,j), args)
     end
     return nothing
 end
