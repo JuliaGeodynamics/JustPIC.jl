@@ -28,9 +28,9 @@ g(x) = Point2f(
 function main()
     # Initialize particles -------------------------------
     nxcell, max_xcell, min_xcell = 24, 30, 12
-    n = 256
+    n = 41
     nx = ny = n-1
-    Lx = Ly = 1.0
+    Lx = Ly = 100.0
     # nodal vertices
     xvi = xv, yv = range(0, Lx, length=n), range(0, Ly, length=n)
     dxi = dx, dy = xv[2] - xv[1], yv[2] - yv[1]

@@ -91,32 +91,22 @@ end
 ) where N
     # F and coordinates of the cell corners
     Fi, xci, indices = corner_field_nodes_LinP(F, p_i, xi_vx, dxi, idx)
-    # # normalize particle coordinates
-    # t = normalize_coordinates(
-    #     flip_particle(p_i, Val(N)),
-    #     flip_particle(xci, Val(N)),
-    #     flip_particle(dxi, Val(N)),
-    # )
-
+    # normalize particle coordinates
     t = normalize_coordinates(
         p_i,
         xci,
         dxi,
     )
-
-    # interpolate velocity to pressure nodes
-    # FMQS = expand_F(F, Val(N), indices...)
-
     # Interpolate field F from pressure node onto particle
     V = MQS(F, Fi, t, indices..., Val(N))
     return V
 end
 
-flip_particle(x::NTuple{2}, ::Val{1}) = x
-flip_particle(x::NTuple{2}, ::Val{2}) = x[2], x[1]
-flip_particle(x::NTuple{3}, ::Val{1}) = x
-flip_particle(x::NTuple{3}, ::Val{2}) = x[2], x[1], x[3]
-flip_particle(x::NTuple{3}, ::Val{3}) = x[3], x[2], x[1]
+# flip_particle(x::NTuple{2}, ::Val{1}) = x
+# flip_particle(x::NTuple{2}, ::Val{2}) = x[2], x[1]
+# flip_particle(x::NTuple{3}, ::Val{1}) = x
+# flip_particle(x::NTuple{3}, ::Val{2}) = x[2], x[1], x[3]
+# flip_particle(x::NTuple{3}, ::Val{3}) = x[3], x[2], x[1]
 
 # Since the cell-center grid is offset by dxᵢ/2 w.r.t the velocity grid,
 # we need to correct the index of the lower-left corner coordinate

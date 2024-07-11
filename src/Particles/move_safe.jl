@@ -18,15 +18,35 @@ function move_particles!(particles::AbstractParticles, grid, args)
     # make some space for incoming particles
     @parallel (@idx nxi) empty_particles!(coords, index, max_xcell, args)
     # move particles 
-    @parallel (@idx nxi) move_particles_ps!(coords, grid, dxi, index, domain_limits, args)
+    n_color = ntuple(Val(length(nxi))) do i
+        ceil(Int, nxi[i] * 0.5)
+    end
+    
+    if length(nxi) == 2
+        for offset_x in 1:2, offset_y in 1:2
+            @parallel (@idx n_color) move_particles_ps!(coords, grid, dxi, index, domain_limits, args, offset_x, offset_y)
+        end
+    
+    elseif length(nxi) == 3
+        # for offset_x in 1:2, offset_y in 1:2, offset_z in 1:2
+        #     @parallel (@idx n_color) move_particles_ps!(coords, grid, dxi, index, domain_limits, args, offset_x, offset_y, offset_z)
+        # end
+    
+    end
 
     return nothing
 end
 
 @parallel_indices (I...) function move_particles_ps!(
-    coords, grid, dxi, index, domain_limits, args
+    coords, grid, dxi, index, domain_limits, args, offset_x, offset_y
 )
-    _move_particles!(coords, grid, dxi, index, domain_limits, I, args)
+    nx, ny = size(index)
+    i      = 2 * (icell - 1) + offset_x
+    j      = 2 * (jcell - 1) + offset_y
+
+    if (i < nx) && (j < ny)
+        _move_particles!(coords, grid, dxi, index, domain_limits, I, args)
+    end
     return nothing
 end
 
