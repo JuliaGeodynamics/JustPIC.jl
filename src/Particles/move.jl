@@ -236,7 +236,7 @@ end
 
 # The following kernels are used in the `move_particles!` function
 # to remove a random particle from the memory location so that the
-# cell capacity is alwasy below 80% of its maximum.
+# cell capacity is always below 80% of its maximum.
 @parallel_indices (I...) function empty_particles!(coords, index, cell_length, args)
     empty_kernel!(coords, index, cell_length, args, I)
     return nothing
