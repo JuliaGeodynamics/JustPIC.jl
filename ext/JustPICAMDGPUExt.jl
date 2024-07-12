@@ -133,7 +133,7 @@ module _2D
         return nothing
     end
 
-    function JustPIC._2D.move_particles!(particles::Particles{AMDGPUBackend}, grid, args)
+    function JustPIC._2D.move_particles!(particles::Particles{AMDGPUBackend}, grid::NTuple{N}, args) where N
         return move_particles!(particles, grid, args)
     end
 
@@ -340,7 +340,7 @@ module _3D
         return nothing
     end
 
-    function JustPIC._3D.move_particles!(particles::Particles{AMDGPUBackend}, grid, args)
+    function JustPIC._3D.move_particles!(particles::Particles{AMDGPUBackend}, grid::NTuple{N}, args) where N
         return move_particles!(particles, grid, args)
     end
 
