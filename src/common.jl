@@ -30,7 +30,8 @@ export centroid2particle!, centroid2particle_flip!
 # export lerp, bilinear, trilinear
 
 include("Interpolations/ndlerp.jl")
-export lerp
+
+include("Interpolations/MQS.jl")
 
 include("Physics/subgrid_diffusion.jl")
 export SubgridDiffusionCellArrays, subgrid_diffusion!
@@ -42,7 +43,8 @@ export init_particles, init_cell_arrays
 
 include("Particles/utils.jl")
 
-include("Particles/move.jl")
+# include("Particles/move.jl")
+include("Particles/move_safe.jl")
 export move_particles!
 
 include("Particles/Advection/Euler.jl")

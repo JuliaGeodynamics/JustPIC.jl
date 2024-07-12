@@ -13,7 +13,7 @@ makedocs(;
         "Particles" =>"particles.md",
         "Interpolations" => [
             "interpolations.md",
-            "velocity_interpolations.md",
+            "velocity_interpolation.md",
         ],
         "CellArrays" =>"CellArrays.md",
         "Examples" => [
