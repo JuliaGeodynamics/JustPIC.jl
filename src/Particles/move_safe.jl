@@ -20,13 +20,13 @@ function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args) wh
     @parallel (@idx nxi) empty_particles!(coords, index, max_xcell, args)
     # move particles 
     if N == 2
-        for offsetᵢ in 1:2, offsetⱼ in 1:2
+        for offsetᵢ in 1:3, offsetⱼ in 1:3
             @parallel (@idx n_color) move_particles_ps!(
                 coords, grid, dxi, index, domain_limits, args, (offsetᵢ, offsetⱼ)
             )
         end
     elseif N == 3
-        for offsetᵢ in 1:2, offsetⱼ in 1:2, offsetₖ in 1:2
+        for offsetᵢ in 1:3, offsetⱼ in 1:3, offsetₖ in 1:3
             @parallel (@idx n_color) move_particles_ps!(
                 coords, grid, dxi, index, domain_limits, args, (offsetᵢ, offsetⱼ, offsetₖ)
             )
@@ -41,7 +41,7 @@ end
     coords, grid, dxi, index, domain_limits, args, offsets::NTuple{N}
 ) where N
     indices = ntuple(Val(N)) do i
-        2 * (I[i] - 1) + offsets[i]
+        3 * (I[i] - 1) + offsets[i]
     end
 
     if all(indices .≤ size(index))
