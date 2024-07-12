@@ -8,25 +8,45 @@ Move particles in the given `particles` container according to the provided `gri
 - `grid`: The grid used for particle movement.
 - `args`: `CellArrays`s containing particle fields.
 """
-function move_particles!(particles::AbstractParticles, grid, args)
+function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args) where N
     # implementation goes here
     dxi                          = compute_dx(grid)
     (; coords, index, max_xcell) = particles
     nxi                          = size(index)
     domain_limits                = extrema.(grid)
-
+    n_color                      = ntuple(i -> ceil(Int, nxi[i] * 0.5), Val(N))
+    
     # make some space for incoming particles
     @parallel (@idx nxi) empty_particles!(coords, index, max_xcell, args)
     # move particles 
-    @parallel (@idx nxi) move_particles_ps!(coords, grid, dxi, index, domain_limits, args)
-
+    if N == 2
+        for offsetᵢ in 1:2, offsetⱼ in 1:2
+            @parallel (@idx n_color) move_particles_ps!(
+                coords, grid, dxi, index, domain_limits, args, (offsetᵢ, offsetⱼ)
+            )
+        end
+    elseif N == 3
+        for offsetᵢ in 1:2, offsetⱼ in 1:2, offsetₖ in 1:2
+            @parallel (@idx n_color) move_particles_ps!(
+                coords, grid, dxi, index, domain_limits, args, (offsetᵢ, offsetⱼ, offsetₖ)
+            )
+        end
+    else
+        error(ThrowArgument("The dimension of the problem must be either 2 or 3"))
+    end
     return nothing
 end
 
 @parallel_indices (I...) function move_particles_ps!(
-    coords, grid, dxi, index, domain_limits, args
-)
-    _move_particles!(coords, grid, dxi, index, domain_limits, I, args)
+    coords, grid, dxi, index, domain_limits, args, offsets::NTuple{N}
+) where N
+    indices = ntuple(Val(N)) do i
+        2 * (I[i] - 1) + offsets[i]
+    end
+
+    if all(indices .≤ size(index))
+        _move_particles!(coords, grid, dxi, index, domain_limits, indices, args)
+    end
     return nothing
 end
 
