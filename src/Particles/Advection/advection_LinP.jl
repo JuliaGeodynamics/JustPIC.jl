@@ -97,14 +97,20 @@ end
     # Interpolate field F onto particle
     VL = lerp(Fi, tL)
 
-    # interpolate velocity to pressure nodes
-    FP = interpolate_V_to_P(F, xci, p_i, dxi, Val(N), indices...)
-    xci_P = correct_xci_to_pressure_point(xci, p_i, dxi, Val(N))
-    tP = normalize_coordinates(p_i, xci_P, dxi)
-    # Interpolate field F from pressure node onto particle
-    VP = lerp(FP, tP)
-    A = 2/3
-    return A * VL + (1 - A) * VP
+    V = if all(1 .< indices .< size(F).-1 )
+        # interpolate velocity to pressure nodes
+        FP = interpolate_V_to_P(F, xci, p_i, dxi, Val(N), indices...)
+        xci_P = correct_xci_to_pressure_point(xci, p_i, dxi, Val(N))
+        tP = normalize_coordinates(p_i, xci_P, dxi)
+        # Interpolate field F from pressure node onto particle
+        VP = lerp(FP, tP)
+        A = 2/3
+        A * VL + (1 - A) * VP
+    else
+        VL
+    end
+
+    return VL
 end
 
 # Since the cell-center grid is offset by dxᵢ/2 w.r.t the velocity grid,
