@@ -22,7 +22,7 @@ JustPICAMDGPUExt = "AMDGPU"
 JustPICCUDAExt = "CUDA"
 
 [compat]
-AMDGPU = "0.8"
+AMDGPU = "0.8, 0.9, 1"
 Atomix = "0.1"
 CUDA = "5"
 CellArrays = "0.2"
