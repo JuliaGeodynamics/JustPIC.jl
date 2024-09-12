@@ -212,6 +212,31 @@ module _2D
         return nothing
     end
 
+    # Phase ratio kernels
+
+    function JustPIC._2D.phase_ratios_center!(
+        phase_ratios::PhaseRatios{AMDGPUBackend}, particles, xci, phases
+    )
+        ni = size(phases)
+        di = compute_dx(xci)
+    
+        @parallel (@idx ni) phase_ratios_center_kernel!(
+            phase_ratios.center, particles.coords, xci, di, phases
+        )
+        return nothing
+    end
+
+    function JustPIC._2D.phase_ratios_vertex!(
+        phase_ratios::PhaseRatios{CUDABackend}, particles,xvi, phases
+    )
+        ni = size(phases) .+ 1
+        di = compute_dx(xvi)
+    
+        @parallel (@idx ni) phase_ratios_vertex_kernel!(
+            phase_ratios.vertex, particles.coords, xvi, di, phases
+        )
+        return nothing
+    end
 end
 
 module _3D
@@ -397,7 +422,32 @@ module _3D
         grid2particle!(Fp, xvi, F, particles)
         return nothing
     end
+    
+    # Phase ratio kernels
 
+    function JustPIC._3D.phase_ratios_center!(
+        phase_ratios::PhaseRatios{AMDGPUBackend}, particles, xci, phases
+    )
+        ni = size(phases)
+        di = compute_dx(xci)
+
+        @parallel (@idx ni) phase_ratios_center_kernel!(
+            phase_ratios.center, particles.coords, xci, di, phases
+        )
+        return nothing
+    end
+
+    function JustPIC._3D.phase_ratios_vertex!(
+        phase_ratios::PhaseRatios{CUDABackend}, particles,xvi, phases
+    )
+        ni = size(phases) .+ 1
+        di = compute_dx(xvi)
+
+        @parallel (@idx ni) phase_ratios_vertex_kernel!(
+            phase_ratios.vertex, particles.coords, xvi, di, phases
+        )
+        return nothing
+    end
 end
 
 end # module
