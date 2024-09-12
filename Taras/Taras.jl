@@ -61,8 +61,11 @@ V  = Vx, Vy
     particles = init_particles(
         backend, nxcell, max_xcell, min_xcell, xvi...,
     )
-    advection!(particles, RungeKutta2(), V, grid_vxi, dt)
-
+    # advection!(particles, RungeKutta2(), V, grid_vxi, dt)
+    # move_particles!(particles, xvi, ())
+    # pxx, pyy  = particles.coords
+    # scatter( pxx.data[:], pyy.data[:], markersize = 4)
+    
     # particle_args = pT, = init_cell_arrays(particles, Val(1));
 
     niter   = 1
@@ -204,3 +207,6 @@ scatter( pxx.data[:], pyy.data[:], markersize = 4)
 
 # # c = [sum(I) / (round(20*0.75, RoundDown)) for I in particles.index]
 
+
+p = particles.coords[1]
+pd = particles.coords[1].data
