@@ -1,14 +1,8 @@
-using CellArrays, StaticArrays
-using ParallelStencil
-@init_parallel_stencil(Threads, Float64, 2)
-
-import JustPIC._2D: @idx, compute_dx
-
 struct PhaseRatios{Backend, T}
     center::T
     vertex::T
 
-    function PhaseRatios(::Type{T}, ::Type{B}, nphases::Integer, ni::NTuple{N,Integer}) where {N, T, B<:JustPIC.AbstractBackend}
+    function PhaseRatios(::Type{T}, ::Type{B}, nphases::Integer, ni::NTuple{N,Integer}) where {N, T, B<:AbstractBackend}
 
         center = cell_array(0.0, (nphases, ), ni)
         vertex = cell_array(0.0, (nphases, ), ni.+1)
@@ -17,8 +11,8 @@ struct PhaseRatios{Backend, T}
     end
 end
 
-PhaseRatios(nphases::Integer, ni::NTuple{N,Integer}) where {N} = PhaseRatios(Float64, JustPIC.CPUBackend, nphases, ni)
-PhaseRatios(::Type{B}, nphases::Integer, ni::NTuple{N,Integer}) where {N, B<:JustPIC.AbstractBackend} = PhaseRatios(Float64, B, nphases, ni)
+PhaseRatios(nphases::Integer, ni::NTuple{N,Integer}) where {N} = PhaseRatios(Float64, CPUBackend, nphases, ni)
+PhaseRatios(::Type{B}, nphases::Integer, ni::NTuple{N,Integer}) where {N, B<:AbstractBackend} = PhaseRatios(Float64, B, nphases, ni)
 
 """
     nphases(x::PhaseRatios)
@@ -43,7 +37,7 @@ end
 ## Kernels to compute phase ratios at the centers
 
 function phase_ratios_center!(
-    phase_ratios::PhaseRatios{JustPIC.CPUBackend}, particles, xci, phases
+    phase_ratios::PhaseRatios{CPUBackend}, particles, xci, phases
 )
     ni = size(phases)
     di = compute_dx(xci)
@@ -75,7 +69,7 @@ end
 ## Kernels to compute phase ratios at the vertices
 
 function phase_ratios_vertex!(
-    phase_ratios::PhaseRatios{JustPIC.CPUBackend}, particles,xvi, phases
+    phase_ratios::PhaseRatios{CPUBackend}, particles,xvi, phases
 )
     ni = size(phases) .+ 1
     di = compute_dx(xvi)
