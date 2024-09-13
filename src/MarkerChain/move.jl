@@ -36,20 +36,20 @@ function _move_particles!(coords, grid, dxi, index, idx)
         if !(any(<(1), new_cell) || any(new_cell .> length(grid)))
             ## THE PARTICLE DID NOT ESCAPE THE DOMAIN
             # remove particle from child cell
-            @inbounds @cell index[ip, chop(idx)] = false
-            @inbounds @cell coords[1][ip, chop(idx)] = NaN
-            @inbounds @cell coords[2][ip, chop(idx)] = NaN
+            @inbounds @index index[ip, chop(idx)] = false
+            @inbounds @index coords[1][ip, chop(idx)] = NaN
+            @inbounds @index coords[2][ip, chop(idx)] = NaN
             # check whether there's empty space in parent cell
             free_idx = find_free_memory(index, new_cell...)
             free_idx == 0 && continue
             # move particle and its fields to the first free memory location
-            @inbounds @cell index[free_idx, new_cell] = true
+            @inbounds @index index[free_idx, new_cell] = true
             fill_particle!(coords, pᵢ, free_idx, new_cell)
 
         else
             ## SOMEHOW THE PARTICLE DID ESCAPE THE DOMAIN 
             ## => REMOVE IT
-            @inbounds @cell index[ip, idx...] = false
+            @inbounds @index index[ip, idx...] = false
             empty_particle!(coords, ip, idx)
         end
     end

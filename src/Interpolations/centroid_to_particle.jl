@@ -35,13 +35,13 @@ end
             # iterate over all the particles within the cells of index `idx`
             for ip in cellaxes(Fp)
                 # cache particle coordinates
-                pᵢ = ntuple(ii -> (@cell p[ii][ip, i, j]), Val(2))
+                pᵢ = ntuple(ii -> (@index p[ii][ip, i, j]), Val(2))
                 xc = xci[1][i], xci[2][j]
                 cell_index = shifted_index(pᵢ, xc, idx)
                 # skip lines below if there is no particle in this piece of memory
                 any(isnan, pᵢ) && continue
                 # Interpolate field F onto particle
-                @cell Fp[ip, i, j] = _centroid2particle(pᵢ, xci, di, F, cell_index)
+                @index Fp[ip, i, j] = _centroid2particle(pᵢ, xci, di, F, cell_index)
             end
         end
     end
@@ -62,7 +62,7 @@ end
             # iterate over all the particles within the cells of index `idx`
             for ip in cellaxes(Fp)
                 # cache particle coordinates
-                pᵢ = ntuple(ii -> (@cell p[ii][ip, i, j]), Val(2))
+                pᵢ = ntuple(ii -> (@index p[ii][ip, i, j]), Val(2))
                 xc = xci[1][i], xci[2][j]
                 cell_index = shifted_index(pᵢ, xc, idx)
                 # skip lines below if there is no particle in this piece of memory
@@ -70,7 +70,7 @@ end
                 # Interpolate field F onto particle
                 ntuple(Val(N)) do n
                     Base.@_inline_meta
-                    @cell Fp[n][ip, i, j] = _centroid2particle(
+                    @index Fp[n][ip, i, j] = _centroid2particle(
                         pᵢ, xci, di, F[n], cell_index
                     )
                 end
@@ -94,13 +94,13 @@ end
                 # iterate over all the particles within the cells of index `idx`
                 for ip in cellaxes(Fp)
                     # cache particle coordinates
-                    pᵢ = ntuple(ii -> (@cell p[ii][ip, i, j, k]), Val(3))
+                    pᵢ = ntuple(ii -> (@index p[ii][ip, i, j, k]), Val(3))
                     xc = xci[1][i], xci[2][j], xci[3][k]
                     cell_index = shifted_index(pᵢ, xc, idx)
                     # skip lines below if there is no particle in this piece of memory
                     any(isnan, pᵢ) && continue
                     # Interpolate field F onto particle
-                    @cell Fp[ip, i, j, k] = _centroid2particle(pᵢ, xci, di, F, cell_index)
+                    @index Fp[ip, i, j, k] = _centroid2particle(pᵢ, xci, di, F, cell_index)
                 end
             end
         end
@@ -124,7 +124,7 @@ end
                 # iterate over all the particles within the cells of index `idx`
                 for ip in cellaxes(Fp)
                     # cache particle coordinates
-                    pᵢ = ntuple(ii -> (@cell p[ii][ip, i, j, k]), Val(3))
+                    pᵢ = ntuple(ii -> (@index p[ii][ip, i, j, k]), Val(3))
                     xc = xci[1][i], xci[2][j], xci[3][k]
                     cell_index = shifted_index(pᵢ, xc, idx)
                     # skip lines below if there is no particle in this piece of memory
@@ -132,7 +132,7 @@ end
                     # Interpolate field F onto particle
                     ntuple(Val(N)) do n
                         Base.@_inline_meta
-                        @cell Fp[n][ip, i, j, k] = _centroid2particle(
+                        @index Fp[n][ip, i, j, k] = _centroid2particle(
                             pᵢ, xci, di, F[n], cell_index
                         )
                     end

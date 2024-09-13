@@ -60,7 +60,7 @@ end
     )
     # update phase ratios array
     for k in 1:numphases(ratio_centers)
-        @cell ratio_centers[k, I...] = w[k]
+        @index ratio_centers[k, I...] = w[k]
     end
 
     return nothing
@@ -103,7 +103,7 @@ end
         )
         # update phase ratios array
         for k in 1:numphases(ratio_vertices)
-            @cell ratio_vertices[k, I...] = w[k]
+            @index ratio_vertices[k, I...] = w[k]
         end
     end
 
@@ -133,7 +133,7 @@ end
         )
         # update phase ratios array
         for k in 1:numphases(ratio_vertices)
-            @cell ratio_vertices[k, I...] = w[k]
+            @index ratio_vertices[k, I...] = w[k]
         end
     end
 

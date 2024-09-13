@@ -59,14 +59,14 @@ function init_particles(
         for l in 1:max_xcell
             if l ≤ nxcell
                 ntuple(Val(N)) do ndim
-                    @cell pxᵢ[ndim][l, I...] =
-                        x0ᵢ[ndim] + dxᵢ[ndim] * (@cell(pxᵢ[ndim][l, I...]) * 0.9 + 0.05)
+                    @index pxᵢ[ndim][l, I...] =
+                        x0ᵢ[ndim] + dxᵢ[ndim] * (@index(pxᵢ[ndim][l, I...]) * 0.9 + 0.05)
                 end
-                @cell index[l, I...] = true
+                @index index[l, I...] = true
 
             else
                 ntuple(Val(N)) do ndim
-                    @cell pxᵢ[ndim][l, I...] = NaN
+                    @index pxᵢ[ndim][l, I...] = NaN
                 end
             end
         end
