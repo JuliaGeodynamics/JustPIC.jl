@@ -37,7 +37,7 @@ end
 ## Kernels to compute phase ratios at the centers
 
 function phase_ratios_center!(
-    phase_ratios::PhaseRatios{CPUBackend}, particles, xci, phases
+    phase_ratios::PhaseRatios, particles, xci, phases
 )
     ni = size(phases)
     di = compute_dx(xci)
@@ -69,7 +69,7 @@ end
 ## Kernels to compute phase ratios at the vertices
 
 function phase_ratios_vertex!(
-    phase_ratios::PhaseRatios{CPUBackend}, particles,xvi, phases
+    phase_ratios::PhaseRatios, particles,xvi, phases
 )
     ni = size(phases) .+ 1
     di = compute_dx(xvi)
