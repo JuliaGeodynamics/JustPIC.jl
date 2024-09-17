@@ -41,7 +41,7 @@ end
 
 @parallel_indices (I...) function memcopy_cellarray!(A, B)
     for ip in cellaxes(A)
-        @cell A[ip, I...] = @cell(B[ip, I...])
+        @index A[ip, I...] = @index(B[ip, I...])
     end
     return nothing
 end
@@ -51,13 +51,13 @@ end
         # early escape if there is no particle in this memory locations
         doskip(index, ip, I...) && continue
 
-        pT0ᵢ = @cell pT0[ip, I...]
-        pTᵢ = @cell pT[ip, I...]
+        pT0ᵢ = @index pT0[ip, I...]
+        pTᵢ = @index pT[ip, I...]
 
         # subgrid diffusion of the i-th particle
-        pΔTᵢ = (pTᵢ - pT0ᵢ) * (1 - exp(-d * dt / max(@cell(dt₀[ip, I...]), 1e-9)))
-        @cell pT0[ip, I...] = pT0ᵢ + pΔTᵢ
-        @cell pΔT[ip, I...] = pΔTᵢ
+        pΔTᵢ = (pTᵢ - pT0ᵢ) * (1 - exp(-d * dt / max(@index(dt₀[ip, I...]), 1e-9)))
+        @index pT0[ip, I...] = pT0ᵢ + pΔTᵢ
+        @index pΔT[ip, I...] = pΔTᵢ
     end
 
     return nothing
@@ -70,7 +70,7 @@ end
 
 @parallel_indices (I...) function update_particle_temperature!(pT, pT0, pΔT)
     for ip in cellaxes(pT)
-        @cell pT[ip, I...] = @cell(pT0[ip, I...]) + @cell(pΔT[ip, I...])
+        @index pT[ip, I...] = @index(pT0[ip, I...]) + @index(pΔT[ip, I...])
     end
     return nothing
 end

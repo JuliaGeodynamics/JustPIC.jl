@@ -5,13 +5,10 @@ using JustPIC
 JustPIC.TA(::Type{CUDABackend}) = CuArray
 
 module _2D
+    using CUDA
     using ImplicitGlobalGrid
     using MPI: MPI
-    using MuladdMacro
-    using ParallelStencil
-    using CellArrays
-    using StaticArrays
-    using CUDA
+    using MuladdMacro, ParallelStencil, CellArrays,CellArraysIndexing, StaticArrays
     using JustPIC
 
     @init_parallel_stencil(CUDA, Float64, 2)
@@ -237,13 +234,10 @@ module _2D
 end
 
 module _3D
+    using CUDA
     using ImplicitGlobalGrid
     using MPI: MPI
-    using MuladdMacro
-    using ParallelStencil
-    using CellArrays
-    using StaticArrays
-    using CUDA
+    using MuladdMacro, ParallelStencil, CellArrays,CellArraysIndexing, StaticArrays
     using JustPIC
 
     @init_parallel_stencil(CUDA, Float64, 3)

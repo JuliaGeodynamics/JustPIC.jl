@@ -22,14 +22,14 @@ end
     # first min_xcell particles
     val = 0
     for i in 1:min_xcell
-        val += @inbounds @cell(index[i, cell_indices...])
+        val += @inbounds @index(index[i, cell_indices...])
     end
     # early escape
     val ≥ min_xcell && return false
     # tail
     n = cellnum(index)
     for i in (min_xcell + 1):n
-        val += @inbounds @cell(index[i, cell_indices...])
+        val += @inbounds @index(index[i, cell_indices...])
     end
     return !(val ≥ min_xcell)
 end

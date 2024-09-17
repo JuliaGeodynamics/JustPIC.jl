@@ -3,7 +3,7 @@ using ImplicitGlobalGrid
 # using MPI: MPI
 using MuladdMacro
 using ParallelStencil
-using CellArrays
+using CellArrays, CellArraysIndexing, StaticArrays
 using Atomix
 using ..JustPIC
 
@@ -31,7 +31,7 @@ using ImplicitGlobalGrid
 # using MPI: MPI
 using MuladdMacro
 using ParallelStencil
-using CellArrays
+using CellArrays, CellArraysIndexing, StaticArrays
 using Atomix
 using ..JustPIC
 

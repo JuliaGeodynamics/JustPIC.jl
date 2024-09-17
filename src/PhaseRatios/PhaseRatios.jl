@@ -37,7 +37,7 @@ end
 ## Kernels to compute phase ratios at the centers
 
 function phase_ratios_center!(
-    phase_ratios::PhaseRatios{CPUBackend}, particles, xci, phases
+    phase_ratios::PhaseRatios, particles, xci, phases
 )
     ni = size(phases)
     di = compute_dx(xci)
@@ -60,7 +60,7 @@ end
     )
     # update phase ratios array
     for k in 1:numphases(ratio_centers)
-        @cell ratio_centers[k, I...] = w[k]
+        @index ratio_centers[k, I...] = w[k]
     end
 
     return nothing
@@ -69,7 +69,7 @@ end
 ## Kernels to compute phase ratios at the vertices
 
 function phase_ratios_vertex!(
-    phase_ratios::PhaseRatios{CPUBackend}, particles,xvi, phases
+    phase_ratios::PhaseRatios, particles,xvi, phases
 )
     ni = size(phases) .+ 1
     di = compute_dx(xvi)
@@ -103,7 +103,7 @@ end
         )
         # update phase ratios array
         for k in 1:numphases(ratio_vertices)
-            @cell ratio_vertices[k, I...] = w[k]
+            @index ratio_vertices[k, I...] = w[k]
         end
     end
 
@@ -133,7 +133,7 @@ end
         )
         # update phase ratios array
         for k in 1:numphases(ratio_vertices)
-            @cell ratio_vertices[k, I...] = w[k]
+            @index ratio_vertices[k, I...] = w[k]
         end
     end
 

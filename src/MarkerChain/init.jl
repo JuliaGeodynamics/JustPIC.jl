@@ -6,9 +6,9 @@ function init_markerchain(backend, nxcell, min_xcell, max_xcell, xv, initial_ele
         x0 = x[i]
         # fill index array
         for ip in 1:nxcell
-            @cell px[ip, i] = x0 + dx_chain * ip
-            @cell py[ip, i] = initial_elevation
-            @cell index[ip, i] = true
+            @index px[ip, i] = x0 + dx_chain * ip
+            @index py[ip, i] = initial_elevation
+            @index index[ip, i] = true
         end
         return nothing
     end

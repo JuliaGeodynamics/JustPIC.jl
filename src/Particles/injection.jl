@@ -38,23 +38,23 @@ function _inject_particles!(
     # count current number of particles inside the cell
     particles_num = false
     for i in 1:max_xcell
-        particles_num += @cell index[i, idx_cell...]
+        particles_num += @index index[i, idx_cell...]
     end
 
     # coordinates of the lower-left center
     xvi = corner_coordinate(grid, idx_cell)
 
     for i in 1:max_xcell
-        if @cell(index[i, idx_cell...]) === false
+        if @index(index[i, idx_cell...]) === false
             particles_num += 1
             # add at cellcenter + small random perturbation
             p_new = new_particle(xvi, di)
             fill_particle!(coords, p_new, i, idx_cell)
-            @cell index[i, idx_cell...] = true
+            @index index[i, idx_cell...] = true
             # add phase to new particle
             particle_idx, min_idx = index_min_distance(coords, p_new, index, i, idx_cell...)
             for j in 1:N
-                @cell args[j][i, idx_cell...] = @cell args[j][particle_idx, min_idx...]
+                @index args[j][i, idx_cell...] = @index args[j][particle_idx, min_idx...]
             end
         end
         particles_num == min_xcell && break
@@ -97,14 +97,14 @@ function _inject_particles_phase!(
     # count current number of particles inside the cell
     particles_num = false
     for i in cellaxes(index)
-        particles_num += @cell index[i, idx_cell...]
+        particles_num += @index index[i, idx_cell...]
     end
 
     # coordinates of the lower-left center
     xvi = corner_coordinate(grid, idx_cell)
 
     for i in cellaxes(index)
-        if !(@cell(index[i, idx_cell...]))
+        if !(@index(index[i, idx_cell...]))
             particles_num += 1
 
             # add at cellcenter + small random perturbation
@@ -113,11 +113,11 @@ function _inject_particles_phase!(
 
             # add phase to new particle
             particle_idx, min_idx = index_min_distance(coords, p_new, index, i, idx_cell...)
-            new_phase = @cell particles_phases[particle_idx, min_idx...]
-            @cell particles_phases[i, idx_cell...] = new_phase
+            new_phase = @index particles_phases[particle_idx, min_idx...]
+            @index particles_phases[i, idx_cell...] = new_phase
 
             fill_particle!(coords, p_new, i, idx_cell)
-            @cell index[i, idx_cell...] = true
+            @index index[i, idx_cell...] = true
 
             # interpolate fields into newly injected particle
             for j in eachindex(args)
@@ -126,7 +126,7 @@ function _inject_particles_phase!(
                 lower, upper = extrema(local_field)
                 tmp < lower && (tmp = lower)
                 tmp > upper && (tmp = upper)
-                @cell args[j][i, idx_cell...] = tmp
+                @index args[j][i, idx_cell...] = tmp
             end
         end
 
@@ -151,10 +151,10 @@ function index_min_distance(coords, pn, index, current_cell, icell, jcell)
         ((i < 1) || (j < 1)) && continue # out of the domain
         ((i > nx) || (j > ny)) && continue # out of the domain
         (i == icell) && (j == jcell) && (ip == current_cell) && continue # current injected particle
-        !(@cell index[ip, i, j]) && continue
+        !(@index index[ip, i, j]) && continue
 
         # distance from new point to the existing particle
-        pxi = @cell(px[ip, i, j]), @cell(py[ip, i, j])
+        pxi = @index(px[ip, i, j]), @index(py[ip, i, j])
         d = distance(pxi, pn)
 
         if d < dist_min
@@ -182,10 +182,10 @@ function index_min_distance(coords, pn, index, current_cell, icell, jcell, kcell
         ((i < 1) || (j < 1) || (k < 1)) && continue # out of the domain
         ((i > nx) || (j > ny) || (k > nz)) && continue # out of the domain
         (i == icell) && (j == jcell) && (k == kcell) && (ip == current_cell) && continue # current injected particle
-        !(@cell index[ip, i, j, k]) && continue
+        !(@index index[ip, i, j, k]) && continue
 
         # distance from new point to the existing particle
-        pxi = @cell(px[ip, i, j, k]), @cell(py[ip, i, j, k]), @cell(pz[ip, i, j, k])
+        pxi = @index(px[ip, i, j, k]), @index(py[ip, i, j, k]), @index(pz[ip, i, j, k])
         d = distance(pxi, pn)
 
         if d < dist_min

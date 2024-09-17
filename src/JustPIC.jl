@@ -2,7 +2,9 @@ module JustPIC
 
 # using ImplicitGlobalGrid
 using MPI: MPI
-using CellArrays
+using CellArrays, CellArraysIndexing
+
+export @cell, @index
 
 abstract type AbstractBackend end
 struct CPUBackend <: AbstractBackend end

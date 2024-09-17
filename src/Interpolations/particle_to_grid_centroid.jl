@@ -23,12 +23,12 @@ end
 
     # iterate over cell
     for i in cellaxes(px)
-        p_i = @cell(px[i, inode, jnode]), @cell(py[i, inode, jnode])
+        p_i = @index(px[i, inode, jnode]), @index(py[i, inode, jnode])
         # ignore lines below for unused allocations
         any(isnan, p_i) && continue
         ω_i = bilinear_weight(xvertex, p_i, di)
         ω += ω_i
-        ωxF += ω_i * @cell(Fp[i, inode, jnode])
+        ωxF += ω_i * @index(Fp[i, inode, jnode])
     end
 
     return F[inode, jnode] = ωxF / ω
@@ -43,14 +43,14 @@ end
 
     # iterate over cell
     for i in cellaxes(px)
-        p_i = @cell(px[i, inode, jnode]), @cell(py[i, inode, jnode])
+        p_i = @index(px[i, inode, jnode]), @index(py[i, inode, jnode])
         # ignore lines below for unused allocations
         any(isnan, p_i) && continue
         ω_i = bilinear_weight(xvertex, p_i, di)
         ω += ω_i
         ωxF = ntuple(Val(N)) do j
             Base.@_inline_meta
-            muladd(ω_i, @cell(Fp[j][i, inode, jnode]), ωxF[j])
+            muladd(ω_i, @index(Fp[j][i, inode, jnode]), ωxF[j])
         end
     end
 
@@ -73,14 +73,14 @@ end
     # iterate over cell
     @inbounds for ip in cellaxes(px)
         p_i = (
-            @cell(px[ip, inode, jnode, knode]),
-            @cell(py[ip, inode, jnode, knode]),
-            @cell(pz[ip, inode, jnode, knode]),
+            @index(px[ip, inode, jnode, knode]),
+            @index(py[ip, inode, jnode, knode]),
+            @index(pz[ip, inode, jnode, knode]),
         )
         isnan(p_i[1]) && continue  # ignore lines below for unused allocations
         ω_i = bilinear_weight(xvertex, p_i, di)
         ω += ω_i
-        ωF = muladd(ω_i, @cell(Fp[ip, inode, jnode, knode]), ωF)
+        ωF = muladd(ω_i, @index(Fp[ip, inode, jnode, knode]), ωF)
     end
 
     return F[inode, jnode, knode] = ωF * inv(ω)
@@ -97,16 +97,16 @@ end
     # iterate over cell
     @inbounds for ip in cellaxes(px)
         p_i = (
-            @cell(px[ip, inode, jnode, knode]),
-            @cell(py[ip, inode, jnode, knode]),
-            @cell(pz[ip, inode, jnode, knode]),
+            @index(px[ip, inode, jnode, knode]),
+            @index(py[ip, inode, jnode, knode]),
+            @index(pz[ip, inode, jnode, knode]),
         )
         any(isnan, p_i) && continue  # ignore lines below for unused allocations
         ω_i = bilinear_weight(xvertex, p_i, di)
         ω += ω_i
         ωxF = ntuple(Val(N)) do j
             Base.@_inline_meta
-            muladd(ω_i, @cell(Fp[j][ip, inode, jnode, knode]), ωxF[j])
+            muladd(ω_i, @index(Fp[j][ip, inode, jnode, knode]), ωxF[j])
         end
     end
 

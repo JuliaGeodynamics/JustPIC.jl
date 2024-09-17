@@ -42,7 +42,7 @@ function resample_cell!(
         # fill index array
         for ip in 1:np_new
             # x query point
-            @cell px[ip, I] = xq = cell_vertex + dx_chain * ip
+            @index px[ip, I] = xq = cell_vertex + dx_chain * ip
             # interpolated y coordinated
             yq = if 1 < I < length(index)
                 # inner cells; this is true (ncells-2) consecutive times
@@ -54,14 +54,14 @@ function resample_cell!(
             if isnan(yq)
                 @show I, y_cell
             end
-            @cell py[ip, I] = yq
-            @cell index[ip, I] = true
+            @index py[ip, I] = yq
+            @index index[ip, I] = true
         end
         # fill empty memory locations
         for ip in (np_new + 1):max_xcell
-            @cell px[ip, I] = NaN
-            @cell py[ip, I] = NaN
-            @cell index[ip, I] = false
+            @index px[ip, I] = NaN
+            @index py[ip, I] = NaN
+            @index index[ip, I] = false
         end
     end
     return nothing
