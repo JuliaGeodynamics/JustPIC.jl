@@ -7,7 +7,7 @@ const USE_MPI  = false
 using JustPIC, JustPIC._2D
 const backend = JustPIC.CPUBackend 
 
-ALE    = false
+const ALE    = false
 
 using ParallelStencil
 using ParallelStencil.FiniteDifferences2D
