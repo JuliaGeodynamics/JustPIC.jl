@@ -21,13 +21,13 @@ end
 @parallel_indices (I...) function InitialFieldsParticles!( phases, px, py, index)
     @inbounds for ip in cellaxes(phases)
         # quick escape
-        @cell(index[ip, I...]) == 0 && continue
-        x = @cell px[ip, I...]
-        y = @cell py[ip, I...]
+        @index(index[ip, I...]) == 0 && continue
+        x = @index px[ip, I...]
+        y = @index py[ip, I...]
         if x<y
-            @cell phases[ip, I...] = 1.0
+            @index phases[ip, I...] = 1.0
         else
-            @cell phases[ip, I...] = 2.0
+            @index phases[ip, I...] = 2.0
         end
     end
     return nothing
