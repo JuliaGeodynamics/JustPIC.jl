@@ -108,17 +108,18 @@ end
 
 # Pure shear in 2D
 
-An example of two-dimenensional pure shear flow is provided in this [script](scripts/pureshear_ALE.jl).
+An example of two-dimensional pure shear flow is provided in this [script](../../scripts/pureshear_ALE.jl).
 The velocity field is set to:
 
 $$
-\begin{align}
-v_{x} &= \dot{\varepsilon}_\text{BG} x \\
-v_{y} &= -\dot{\varepsilon}_\text{BG} y, \\
-\end{align}
+v_{x} = \dot{\varepsilon} x
 $$
 
-where $\dot{\varepsilon}_\text{BG}$ is the pure shear strain rate applied at the boundaries. A positive value of $\dot{\varepsilon}_\text{BG}$ leads to horizontal extension, while negative values correspond to horizontal compression.
+$$
+v_{y} = -\dot{\varepsilon} y
+$$
+
+where $\dot{\varepsilon}$ is the pure shear strain rate applied at the boundaries. A positive value of $\dot{\varepsilon}$ leads to horizontal extension, while negative values correspond to horizontal compression.
 
 The `ALE` switch (Arbitrary Lagrangian Eulerian) allows to activate, or not, model box deformation. If  `ALE=false`, the model dimension remains constant over time. If `ALE=true`, the model domain is deformed with the background pure shear rate.
   
