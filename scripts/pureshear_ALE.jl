@@ -7,19 +7,19 @@ const USE_MPI  = false
 using JustPIC, JustPIC._2D
 const backend = JustPIC.CPUBackend 
 
-const ALE    = false
+const ALE    = true
 
 using ParallelStencil
 using ParallelStencil.FiniteDifferences2D
 @static if USE_GPU
-    @init_parallel_stencil(CUDA, Float64, 3)
+    @init_parallel_stencil(CUDA, Float64, 2)
     CUDA.device!(GPU_ID) # select GPU
 else
-    @init_parallel_stencil(Threads, Float64, 3)
+    @init_parallel_stencil(Threads, Float64, 2)
 end
 
-@parallel_indices (I...) function InitialFieldsParticles!( phases, px, py, index)
-    @inbounds for ip in cellaxes(phases)
+@parallel_indices (I...) function InitialFieldsParticles!(phases, px, py, index)
+    for ip in cellaxes(phases)
         # quick escape
         @index(index[ip, I...]) == 0 && continue
         x = @index px[ip, I...]
@@ -40,11 +40,12 @@ function main()
     Nc = (x=40, y=40 )
     Nv = (x=Nc.x+1,   y=Nc.y+1   )
     Δ  = (x=L.x/Nc.x, y=L.y/Nc.y )
-    Nt   = 50
+    Nt   = 200
     Nout = 1
     C    = 0.25
 
     verts     = (x=LinRange(-L.x/2, L.x/2, Nv.x), y=LinRange(-L.y/2, L.y/2, Nv.y))
+    cents     = (x=LinRange(-Δ.x/2+L.x/2, L.x/2-Δ.x/2, Nc.x), y=LinRange(-Δ.y/2+L.y/2, L.y+Δ.y/2-L.y/2, Nc.y))
     cents_ext = (x=LinRange(-Δ.x/2-L.x/2, L.x/2+Δ.x/2, Nc.x+2), y=LinRange(-Δ.y/2-L.y/2, L.y+Δ.y/2+L.y/2, Nc.y+2))
 
     size_x = (Nc.x+1, Nc.y+2)
@@ -82,6 +83,16 @@ function main()
 
     @parallel InitialFieldsParticles!(phases, particles.coords..., particles.index)
 
+    phase_ratios = JustPIC._2D.PhaseRatios(backend, 2, values(Nc));
+    phase_ratios_vertex!(phase_ratios, particles, values(verts), phases) 
+    phase_ratios_center!(phase_ratios, particles, values(verts), phases) 
+
+    println(" 
+    it => 0
+        extrema phase ratio @ vertices = $(extrema(sum(phase_ratios.vertex.data, dims=2)))
+        extrema phase ratio @ centers = $(extrema(sum(phase_ratios.center.data, dims=2)))
+    ")
+
     # Time step
     t  = 0.
     Δt = C * min(Δ...) / max(maximum(abs.(V.x)), maximum(abs.(V.y)))
@@ -104,6 +115,14 @@ function main()
         move_particles!(particles, values(verts), particle_args)        
         # inject_particles!(particles, particle_args, values(verts)) 
 
+        phase_ratios_vertex!(phase_ratios, particles, values(verts), phases) 
+        phase_ratios_center!(phase_ratios, particles, values(verts), phases)     
+        println(" 
+        it => $it
+            extrema phase ratio @ vertices = $(extrema(sum(phase_ratios.vertex.data, dims=2)))
+            extrema phase ratio @ centers = $(extrema(sum(phase_ratios.center.data, dims=2)))
+        ")
+    
         if ALE
             @show L  = (x=1.0+ε̇bg*t, y=1.0-ε̇bg*t)
             Δ  = (x=L.x/Nc.x, y=L.y/Nc.y )
