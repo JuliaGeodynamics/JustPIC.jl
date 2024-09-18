@@ -2,7 +2,7 @@ struct PhaseRatios{Backend, T}
     center::T
     vertex::T
 
-    function PhaseRatios(::Type{T}, ::Type{B}, nphases::Integer, ni::NTuple{N,Integer}) where {N, T, B<:AbstractBackend}
+    function PhaseRatios(::Type{T}, ::Type{B}, nphases::Integer, ni::NTuple{N,Integer}) where {N, T, B}
 
         center = cell_array(0.0, (nphases, ), ni)
         vertex = cell_array(0.0, (nphases, ), ni.+1)

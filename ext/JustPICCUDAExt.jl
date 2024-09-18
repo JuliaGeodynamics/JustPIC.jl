@@ -2,6 +2,7 @@ module JustPICCUDAExt
 
 using CUDA
 using JustPIC
+
 JustPIC.TA(::Type{CUDABackend}) = CuArray
 
 module _2D
@@ -206,6 +207,18 @@ module _2D
     end
 
     # Phase ratio kernels
+
+    function JustPIC._2D.PhaseRatios(::Type{CUDABackend}, nphases::Integer, ni::NTuple{N,Integer}) where {N} 
+        return PhaseRatios(Float64, CUDABackend, nphases, ni)
+    end
+
+    function JustPIC._2D.PhaseRatios(::Type{T}, ::Type{CUDABackend}, nphases::Integer, ni::NTuple{N,Integer}) where {N, T}
+
+        center = cell_array(0.0, (nphases, ), ni)
+        vertex = cell_array(0.0, (nphases, ), ni.+1)
+
+        new{B, typeof(center)}(center, vertex)
+    end
 
     function JustPIC._2D.phase_ratios_center!(
         phase_ratios::PhaseRatios{CUDABackend}, particles, xci, phases
@@ -415,6 +428,18 @@ module _3D
     end
 
     # Phase ratio kernels
+
+    function JustPIC._3D.PhaseRatios(::Type{CUDABackend}, nphases::Integer, ni::NTuple{N,Integer}) where {N} 
+        return PhaseRatios(Float64, CUDABackend, nphases, ni)
+    end
+
+    function JustPIC._3D.PhaseRatios(::Type{T}, ::Type{CUDABackend}, nphases::Integer, ni::NTuple{N,Integer}) where {N, T}
+
+        center = cell_array(0.0, (nphases, ), ni)
+        vertex = cell_array(0.0, (nphases, ), ni.+1)
+
+        new{B, typeof(center)}(center, vertex)
+    end
 
     function JustPIC._3D.phase_ratios_center!(
         phase_ratios::PhaseRatios{CUDABackend}, particles, xci, phases
