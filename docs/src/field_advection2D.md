@@ -108,16 +108,12 @@ end
 
 # Pure shear in 2D
 
-An example of two-dimensional pure shear flow is provided in this [script](../../scripts/pureshear_ALE.jl).
+An example of two-dimensional pure shear flow is provided in this [script](https://github.com/JuliaGeodynamics/JustPIC.jl/blob/main/scripts/pureshear_ALE.jl).
 The velocity field is set to:
 
-$$
-v_{x} = \dot{\varepsilon} x
-$$
+$v_{x} = \dot{\varepsilon} x$
 
-$$
-v_{y} = -\dot{\varepsilon} y
-$$
+$v_{y} = -\dot{\varepsilon} y$
 
 where $\dot{\varepsilon}$ is the pure shear strain rate applied at the boundaries. A positive value of $\dot{\varepsilon}$ leads to horizontal extension, while negative values correspond to horizontal compression.
 

@@ -1,8 +1,11 @@
 module JustPICAMDGPUExt
 
-using JustPIC
 using AMDGPU
-JustPIC.TA(::Type{JustPIC.AMDGPUBackend}) = ROCArray
+using JustPIC
+
+import JustPIC: AbstractBackend, AMDGPUBackend
+
+JustPIC.TA(::Type{AMDGPUBackend}) = ROCArray
 
 module _2D
     using AMDGPU
@@ -211,6 +214,18 @@ module _2D
 
     # Phase ratio kernels
 
+    function JustPIC._2D.PhaseRatios(::Type{AMDGPUBackend}, nphases::Integer, ni::NTuple{N,Integer}) where {N} 
+        return PhaseRatios(Float64, CUDABackend, nphases, ni)
+    end
+
+    function JustPIC._2D.PhaseRatios(::Type{T}, ::Type{AMDGPUBackend}, nphases::Integer, ni::NTuple{N,Integer}) where {N, T}
+
+        center = cell_array(0.0, (nphases, ), ni)
+        vertex = cell_array(0.0, (nphases, ), ni.+1)
+
+        new{B, typeof(center)}(center, vertex)
+    end
+
     function JustPIC._2D.phase_ratios_center!(
         phase_ratios::PhaseRatios{AMDGPUBackend}, particles, xci, phases
     )
@@ -224,7 +239,7 @@ module _2D
     end
 
     function JustPIC._2D.phase_ratios_vertex!(
-        phase_ratios::PhaseRatios{CUDABackend}, particles,xvi, phases
+        phase_ratios::PhaseRatios{AMDGPUBackend}, particles,xvi, phases
     )
         ni = size(phases) .+ 1
         di = compute_dx(xvi)
@@ -419,6 +434,18 @@ module _3D
     
     # Phase ratio kernels
 
+    function JustPIC._3D.PhaseRatios(::Type{AMDGPUBackend}, nphases::Integer, ni::NTuple{N,Integer}) where {N} 
+        return PhaseRatios(Float64, CUDABackend, nphases, ni)
+    end
+
+    function JustPIC._3D.PhaseRatios(::Type{T}, ::Type{AMDGPUBackend}, nphases::Integer, ni::NTuple{N,Integer}) where {N, T}
+
+        center = cell_array(0.0, (nphases, ), ni)
+        vertex = cell_array(0.0, (nphases, ), ni.+1)
+
+        new{B, typeof(center)}(center, vertex)
+    end
+
     function JustPIC._3D.phase_ratios_center!(
         phase_ratios::PhaseRatios{AMDGPUBackend}, particles, xci, phases
     )
@@ -432,7 +459,7 @@ module _3D
     end
 
     function JustPIC._3D.phase_ratios_vertex!(
-        phase_ratios::PhaseRatios{CUDABackend}, particles,xvi, phases
+        phase_ratios::PhaseRatios{AMDGPUBackend}, particles,xvi, phases
     )
         ni = size(phases) .+ 1
         di = compute_dx(xvi)
