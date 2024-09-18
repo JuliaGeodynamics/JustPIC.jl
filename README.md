@@ -8,9 +8,6 @@
 
 Particle-in-Cell advection ready to rock the GPU  :rocket:
 
-> [!WARNING]  
-> This package is still under development and the API is not stable yet.
- 
 # Example:
 The first step is to chose whether we want to run our simulation on the CPU or Nvidia or AMD GPUs. This is done by setting the `backend` variable to either `CUDABackend`, `AMDGPUBackend` or `CPUBackend`. In the following we will assume that we are running on a Nvidia GPU.
 
