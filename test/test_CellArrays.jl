@@ -46,13 +46,14 @@ end
         backend, nxcell, max_xcell, min_xcell, xvi...,
     );
     
+    nphases      = 5
     phases,      = JustPIC._2D.init_cell_arrays(particles, Val(1));
-    phases.data .= 1;
+    phases.data .= rand(1:nphases, size(phases.data));
     
-    phase_ratios = JustPIC._2D.PhaseRatios(backend, 2, ni);
+    phase_ratios = JustPIC._2D.PhaseRatios(backend, nphases, ni);
     
     JustPIC._2D.phase_ratios_vertex!(phase_ratios, particles, xvi, phases) 
-    JustPIC._2D.phase_ratios_center!(phase_ratios, particles, xvi, phases) 
+    JustPIC._2D.phase_ratios_center!(phase_ratios, particles, xci, phases) 
     
     @test sum(phase_ratios.vertex.data) == prod(ni.+1)
     @test sum(phase_ratios.center.data) == prod(ni)
@@ -105,10 +106,11 @@ end
         backend, nxcell, max_xcell, min_xcell, xvi...,
     );
     
+    nphases      = 5
     phases,      = JustPIC._3D.init_cell_arrays(particles, Val(1));
-    phases.data .= 1;
-    
-    phase_ratios = JustPIC._3D.PhaseRatios(backend, 2, ni);
+    phases.data .= rand(1:nphases, size(phases.data));
+
+    phase_ratios = JustPIC._3D.PhaseRatios(backend, nphases, ni);
     
     JustPIC._3D.phase_ratios_vertex!(phase_ratios, particles, xvi, phases) 
     JustPIC._3D.phase_ratios_center!(phase_ratios, particles, xci, phases) 
