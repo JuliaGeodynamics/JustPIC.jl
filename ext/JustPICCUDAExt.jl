@@ -233,7 +233,7 @@ module _2D
     end
 
     function JustPIC._2D.phase_ratios_center!(
-        phase_ratios::PhaseRatios{CUDABackend}, particles, xci, phases
+        phase_ratios::JustPIC.PhaseRatios{CUDABackend}, particles, xci, phases
     )
         ni = size(phases)
         di = compute_dx(xci)
@@ -245,7 +245,7 @@ module _2D
     end
 
     function JustPIC._2D.phase_ratios_vertex!(
-        phase_ratios::PhaseRatios{CUDABackend}, particles, xvi, phases
+        phase_ratios::JustPIC.PhaseRatios{CUDABackend}, particles, xvi, phases
     )
         ni = size(phases) .+ 1
         di = compute_dx(xvi)
@@ -466,7 +466,7 @@ module _3D
     end
 
     function JustPIC._3D.phase_ratios_center!(
-        phase_ratios::PhaseRatios{CUDABackend}, particles, xci, phases
+        phase_ratios::JustPIC.PhaseRatios{CUDABackend}, particles, xci, phases
     )
         ni = size(phases)
         di = compute_dx(xci)
@@ -478,7 +478,7 @@ module _3D
     end
 
     function JustPIC._3D.phase_ratios_vertex!(
-        phase_ratios::PhaseRatios{CUDABackend}, particles, xvi, phases
+        phase_ratios::JustPIC.PhaseRatios{CUDABackend}, particles, xvi, phases
     )
         ni = size(phases) .+ 1
         di = compute_dx(xvi)
