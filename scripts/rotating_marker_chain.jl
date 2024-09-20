@@ -18,7 +18,7 @@ end
 # Analytical flow solution
 vi_stream(x) =  π*1e-5 * (x - 0.5)
 
-# function main()
+function main()
 
     # Initialize particles -------------------------------
     # nxcell, max_xcell, min_xcell = 9, 9, 1
