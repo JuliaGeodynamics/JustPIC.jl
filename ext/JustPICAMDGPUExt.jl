@@ -11,7 +11,7 @@ module _2D
     using AMDGPU
     using ImplicitGlobalGrid
     using MPI: MPI
-    using MuladdMacro, ParallelStencil, CellArrays,CellArraysIndexing, StaticArrays
+    using MuladdMacro, ParallelStencil, CellArrays, CellArraysIndexing, StaticArrays
     using JustPIC
 
     @init_parallel_stencil(AMDGPU, Float64, 2)
@@ -36,7 +36,14 @@ module _2D
     include(joinpath(@__DIR__, "../src/common.jl"))
     include(joinpath(@__DIR__, "../src/AMDGPUExt/CellArrays.jl"))
 
-    function JustPIC._2D.Particles(coords, index::CellArray{StaticArraysCore.SVector{N1, Bool}, 2, 0, ROCArray{Bool, N2}}, nxcell, max_xcell, min_xcell, np) where {N1,N2}
+    function JustPIC._2D.Particles(
+        coords,
+        index::CellArray{StaticArraysCore.SVector{N1,Bool},2,0,ROCArray{Bool,N2}},
+        nxcell,
+        max_xcell,
+        min_xcell,
+        np,
+    ) where {N1,N2}
         return Particles(AMDGPUBackend, coords, index, nxcell, max_xcell, min_xcell, np)
     end
 
@@ -133,7 +140,9 @@ module _2D
         return nothing
     end
 
-    function JustPIC._2D.move_particles!(particles::Particles{AMDGPUBackend}, grid::NTuple{N}, args) where N
+    function JustPIC._2D.move_particles!(
+        particles::Particles{AMDGPUBackend}, grid::NTuple{N}, args
+    ) where {N}
         return move_particles!(particles, grid, args)
     end
 
@@ -214,16 +223,19 @@ module _2D
 
     # Phase ratio kernels
 
-    function JustPIC._2D.PhaseRatios(::Type{AMDGPUBackend}, nphases::Integer, ni::NTuple{N,Integer}) where {N} 
+    function JustPIC._2D.PhaseRatios(
+        ::Type{AMDGPUBackend}, nphases::Integer, ni::NTuple{N,Integer}
+    ) where {N}
         return PhaseRatios(Float64, CUDABackend, nphases, ni)
     end
 
-    function JustPIC._2D.PhaseRatios(::Type{T}, ::Type{AMDGPUBackend}, nphases::Integer, ni::NTuple{N,Integer}) where {N, T}
+    function JustPIC._2D.PhaseRatios(
+        ::Type{T}, ::Type{AMDGPUBackend}, nphases::Integer, ni::NTuple{N,Integer}
+    ) where {N,T}
+        center = cell_array(0.0, (nphases,), ni)
+        vertex = cell_array(0.0, (nphases,), ni .+ 1)
 
-        center = cell_array(0.0, (nphases, ), ni)
-        vertex = cell_array(0.0, (nphases, ), ni.+1)
-
-        new{B, typeof(center)}(center, vertex)
+        return new{B,typeof(center)}(center, vertex)
     end
 
     function JustPIC._2D.phase_ratios_center!(
@@ -231,7 +243,7 @@ module _2D
     )
         ni = size(phases)
         di = compute_dx(xci)
-    
+
         @parallel (@idx ni) phase_ratios_center_kernel!(
             phase_ratios.center, particles.coords, xci, di, phases
         )
@@ -239,11 +251,11 @@ module _2D
     end
 
     function JustPIC._2D.phase_ratios_vertex!(
-        phase_ratios::PhaseRatios{AMDGPUBackend}, particles,xvi, phases
+        phase_ratios::PhaseRatios{AMDGPUBackend}, particles, xvi, phases
     )
         ni = size(phases) .+ 1
         di = compute_dx(xvi)
-    
+
         @parallel (@idx ni) phase_ratios_vertex_kernel!(
             phase_ratios.vertex, particles.coords, xvi, di, phases
         )
@@ -255,7 +267,7 @@ module _3D
     using AMDGPU
     using ImplicitGlobalGrid
     using MPI: MPI
-    using MuladdMacro, ParallelStencil, CellArrays,CellArraysIndexing, StaticArrays
+    using MuladdMacro, ParallelStencil, CellArrays, CellArraysIndexing, StaticArrays
     using JustPIC
 
     @init_parallel_stencil(AMDGPU, Float64, 3)
@@ -279,7 +291,14 @@ module _3D
     include(joinpath(@__DIR__, "../src/common.jl"))
     include(joinpath(@__DIR__, "../src/AMDGPUExt/CellArrays.jl"))
 
-    function JustPIC._3D.Particles(coords, index::CellArray{StaticArraysCore.SVector{N1, Bool}, 3, 0, ROCArray{Bool, N2}}, nxcell, max_xcell, min_xcell, np) where {N1,N2}
+    function JustPIC._3D.Particles(
+        coords,
+        index::CellArray{StaticArraysCore.SVector{N1,Bool},3,0,ROCArray{Bool,N2}},
+        nxcell,
+        max_xcell,
+        min_xcell,
+        np,
+    ) where {N1,N2}
         return Particles(AMDGPUBackend, coords, index, nxcell, max_xcell, min_xcell, np)
     end
 
@@ -374,7 +393,9 @@ module _3D
         return nothing
     end
 
-    function JustPIC._3D.move_particles!(particles::Particles{AMDGPUBackend}, grid::NTuple{N}, args) where N
+    function JustPIC._3D.move_particles!(
+        particles::Particles{AMDGPUBackend}, grid::NTuple{N}, args
+    ) where {N}
         return move_particles!(particles, grid, args)
     end
 
@@ -431,19 +452,22 @@ module _3D
         grid2particle!(Fp, xvi, F, particles)
         return nothing
     end
-    
+
     # Phase ratio kernels
 
-    function JustPIC._3D.PhaseRatios(::Type{AMDGPUBackend}, nphases::Integer, ni::NTuple{N,Integer}) where {N} 
+    function JustPIC._3D.PhaseRatios(
+        ::Type{AMDGPUBackend}, nphases::Integer, ni::NTuple{N,Integer}
+    ) where {N}
         return PhaseRatios(Float64, CUDABackend, nphases, ni)
     end
 
-    function JustPIC._3D.PhaseRatios(::Type{T}, ::Type{AMDGPUBackend}, nphases::Integer, ni::NTuple{N,Integer}) where {N, T}
+    function JustPIC._3D.PhaseRatios(
+        ::Type{T}, ::Type{AMDGPUBackend}, nphases::Integer, ni::NTuple{N,Integer}
+    ) where {N,T}
+        center = cell_array(0.0, (nphases,), ni)
+        vertex = cell_array(0.0, (nphases,), ni .+ 1)
 
-        center = cell_array(0.0, (nphases, ), ni)
-        vertex = cell_array(0.0, (nphases, ), ni.+1)
-
-        new{B, typeof(center)}(center, vertex)
+        return new{B,typeof(center)}(center, vertex)
     end
 
     function JustPIC._3D.phase_ratios_center!(
@@ -459,7 +483,7 @@ module _3D
     end
 
     function JustPIC._3D.phase_ratios_vertex!(
-        phase_ratios::PhaseRatios{AMDGPUBackend}, particles,xvi, phases
+        phase_ratios::PhaseRatios{AMDGPUBackend}, particles, xvi, phases
     )
         ni = size(phases) .+ 1
         di = compute_dx(xvi)

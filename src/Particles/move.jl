@@ -10,10 +10,10 @@ Move particles in the given `particles` container according to the provided `gri
 """
 function move_particles!(particles::AbstractParticles, grid, args)
     # implementation goes here
-    dxi                          = compute_dx(grid)
+    dxi = compute_dx(grid)
     (; coords, index, max_xcell) = particles
-    nxi                          = size(index)
-    domain_limits                = extrema.(grid)
+    nxi = size(index)
+    domain_limits = extrema.(grid)
 
     # make some space for incoming particles
     @parallel (@idx nxi) empty_particles!(coords, index, max_xcell, args)
@@ -95,14 +95,16 @@ end
 
 function cell_index_neighbour(x, xc, dx, i::Integer)
     xR = xc + dx
-    (xc ≤ x ≤ xR)          && return i 
-    (xc - dx < x < xc)     && return i - 1
+    (xc ≤ x ≤ xR) && return i
+    (xc - dx < x < xc) && return i - 1
     (xR < x < xc + 2 * dx) && return i + 1
-    error("Particle moved more than one cell away from the parent cell")
+    return error("Particle moved more than one cell away from the parent cell")
 end
 
-function cell_index_neighbour(xᵢ::NTuple{N}, xcᵢ::NTuple{N}, dxᵢ::NTuple{N}, I::NTuple{N,Integer}) where N
-    ntuple(Val(N)) do i 
+function cell_index_neighbour(
+    xᵢ::NTuple{N}, xcᵢ::NTuple{N}, dxᵢ::NTuple{N}, I::NTuple{N,Integer}
+) where {N}
+    ntuple(Val(N)) do i
         cell_index_neighbour(xᵢ[i], xcᵢ[i], dxᵢ[i], I[i])
     end
 end
@@ -233,7 +235,6 @@ function global_domain_limits(origin::NTuple{N,Any}, dxi::NTuple{N,Any}) where {
     return lims
 end
 
-
 # The following kernels are used in the `move_particles!` function
 # to remove a random particle from the memory location so that the
 # cell capacity is always below 80% of its maximum.
@@ -243,12 +244,8 @@ end
 end
 
 function empty_kernel!(
-    coords,
-    index,
-    cell_length,
-    args::NTuple{N2},
-    I::NTuple{N1,Int64},
-) where {N1, N2}
+    coords, index, cell_length, args::NTuple{N2}, I::NTuple{N1,Int64}
+) where {N1,N2}
 
     # count number of active particles inside I-th cell
     number_of_particles = count_particles(index, I...)
@@ -258,7 +255,8 @@ function empty_kernel!(
     number_of_particles < max_particles_allowed && return nothing
 
     # else we randomly remove particles until we are below 80% capacity
-    number_of_particles_to_remove = number_of_particles - round(Int, max_particles_allowed, RoundDown)
+    number_of_particles_to_remove =
+        number_of_particles - round(Int, max_particles_allowed, RoundDown)
     counter = 0
     while counter < number_of_particles_to_remove
         # randomly select a particle to remove

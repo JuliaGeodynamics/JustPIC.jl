@@ -5,7 +5,8 @@ import Base: Array, copy
 # detect if we are on the CPU (`Val{false}`) or GPU (`Val{true}`)
 @inline isdevice(::Type{Array}) = Val(false)
 @inline isdevice(::Type{T}) where {T<:AbstractArray} = Val(true) # this is a big assumption but still
-@inline isdevice(::T) where T = throw(ArgumentError("$(T) is not a supported CellArray type."))
+@inline isdevice(::T) where {T} =
+    throw(ArgumentError("$(T) is not a supported CellArray type."))
 
 # Copies CellArray to CPU if it is on a GPU device
 Array(CA::CellArray) = Array(isdevice(typeof(CA).parameters[end]), CA)
@@ -13,10 +14,10 @@ Array(::Val{false}, CA::CellArray) = CA
 
 # inner kernel doing the actual copy of the `CellArray`
 function Array(::Val{true}, CA::CellArray)
-    dims     = size(CA)
+    dims = size(CA)
     T_SArray = first(typeof(CA).parameters)
-    CA_cpu   = CPUCellArray{T_SArray}(undef, dims)
-    tmp      = Array(CA.data)
+    CA_cpu = CPUCellArray{T_SArray}(undef, dims)
+    tmp = Array(CA.data)
     copyto!(CA_cpu.data, tmp)
     return CA_cpu
 end
@@ -33,9 +34,9 @@ function Array(x::T) where {T<:AbstractParticles}
 end
 
 _Array(::Nothing) = nothing
-_Array(::T) where T = T
+_Array(::T) where {T} = T
 _Array(x::AbstractArray) = Array(x)
-_Array(x::NTuple{N, T}) where {N, T} = ntuple(i-> _Array(x[i]), Val(N))
+_Array(x::NTuple{N,T}) where {N,T} = ntuple(i -> _Array(x[i]), Val(N))
 
 # recursively copy the data from `AbstractParticles` to CPU arrays
 function copy(x::T) where {T<:AbstractParticles}
@@ -50,5 +51,5 @@ end
 
 _copy(::Nothing) = nothing
 _copy(x::AbstractArray) = copy(x)
-_copy(x::NTuple{N, T}) where {N, T} = ntuple(i-> _copy(x[i]), Val(N))
-_copy(x::T) where T = x
+_copy(x::NTuple{N,T}) where {N,T} = ntuple(i -> _copy(x[i]), Val(N))
+_copy(x::T) where {T} = x
