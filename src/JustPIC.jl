@@ -2,7 +2,7 @@ module JustPIC
 
 # using ImplicitGlobalGrid
 using MPI: MPI
-using CellArrays, CellArraysIndexing
+using CellArrays, CellArraysIndexing, StaticArrays
 
 export @cell, @index
 
@@ -16,6 +16,9 @@ function CA end
 
 TA() = Array
 TA(::Type{CPUBackend}) = Array
+
+include("PhaseRatios/PhaseRatios.jl")
+export nphases, numphases
 
 include("particles.jl")
 export AbstractParticles, Particles, MarkerChain, PassiveMarkers, cell_index, cell_length
