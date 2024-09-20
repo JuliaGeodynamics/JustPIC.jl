@@ -85,16 +85,21 @@ end
 ) where {T}
 
     # index corresponding to the cell center
-    cell_vertex = ntuple(i -> xvi[i][I[i]], Val(3))
+    cell_vertex = xvi[1][I[1]], xvi[2][I[2]], xvi[3][I[3]]
     ni = size(phases)
     NC = nphases(ratio_vertices)
     w = ntuple(_ -> zero(T), NC)
 
     for offsetᵢ in -1:0, offsetⱼ in -1:0, offsetₖ in -1:0
-        offsets = offsetᵢ, offsetⱼ, offsetₖ
-        cell_index = ntuple(Val(3)) do i
-            clamp(I[i] + offsets[i], 1, ni[i])
-        end
+
+        i_cell = I[1] + offsetᵢ
+        !(0 < i_cell < ni[1]+1) && continue
+        j_cell = I[2] + offsetⱼ
+        !(0 < j_cell < ni[2]+1) && continue
+        k_cell = I[3] + offsetₖ
+        !(0 < k_cell < ni[3]+1) && continue
+
+        cell_index = i_cell, j_cell, k_cell
 
         for ip in cellaxes(phases)
             p = @index(pxi[1][ip, cell_index...]), @index(pxi[2][ip, cell_index...]), @index(pxi[3][ip, cell_index...])
@@ -119,16 +124,18 @@ end
 ) where {T}
 
     # index corresponding to the cell center
-    cell_vertex = ntuple(i -> xvi[i][I[i]], Val(2))
+    cell_vertex = xvi[1][I[1]], xvi[2][I[2]]
     ni = size(phases)
     NC = nphases(ratio_vertices)
     w = ntuple(_ -> zero(T), NC)
 
     for offsetᵢ in -1:0, offsetⱼ in -1:0
-        offsets = offsetᵢ, offsetⱼ
-        cell_index = ntuple(Val(2)) do i
-            clamp(I[i] + offsets[i], 1, ni[i])
-        end
+        i_cell = I[1] + offsetᵢ
+        !(0 < i_cell < ni[1]+1) && continue
+        j_cell = I[2] + offsetⱼ
+        !(0 < j_cell < ni[2]+1) && continue
+        
+        cell_index = i_cell, j_cell
 
         for ip in cellaxes(phases)
             p = @index(pxi[1][ip, cell_index...]), @index(pxi[2][ip, cell_index...])
@@ -147,7 +154,6 @@ end
 
     return nothing
 end
-
 
 ## interpolation kernels
 
