@@ -229,7 +229,7 @@ module _2D
         center = cell_array(0.0, (nphases,), ni)
         vertex = cell_array(0.0, (nphases,), ni .+ 1)
 
-        return new{B,typeof(center)}(center, vertex)
+        return PhaseRatios{B,typeof(center)}(center, vertex)
     end
 
     function JustPIC._2D.phase_ratios_center!(
@@ -462,7 +462,7 @@ module _3D
         center = cell_array(0.0, (nphases,), ni)
         vertex = cell_array(0.0, (nphases,), ni .+ 1)
 
-        return new{B,typeof(center)}(center, vertex)
+        return PhaseRatios{B,typeof(center)}(center, vertex)
     end
 
     function JustPIC._3D.phase_ratios_center!(
