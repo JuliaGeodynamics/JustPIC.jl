@@ -2,15 +2,18 @@
 @static if ENV["JULIA_JUSTPIC_BACKEND"] === "AMDGPU"
     using AMDGPU
     AMDGPU.allowscalar(true)
-    using ParallelStencil
-    @init_parallel_stencil(AMDGPU, Float64, 2)
 elseif ENV["JULIA_JUSTPIC_BACKEND"] === "CUDA"
     using CUDA
     CUDA.allowscalar(true)
-    using ParallelStencil
+end
+
+using ParallelStencil
+
+@static if ENV["JULIA_JUSTPIC_BACKEND"] === "AMDGPU"
+    @init_parallel_stencil(AMDGPU, Float64, 2)
+elseif ENV["JULIA_JUSTPIC_BACKEND"] === "CUDA"
     @init_parallel_stencil(CUDA, Float64, 2)
 else
-    using ParallelStencil
     @init_parallel_stencil(Threads, Float64, 2)
 end
 

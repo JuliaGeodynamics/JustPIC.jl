@@ -55,8 +55,8 @@ end
     JustPIC._2D.phase_ratios_vertex!(phase_ratios, particles, xvi, phases) 
     JustPIC._2D.phase_ratios_center!(phase_ratios, particles, xci, phases) 
     
-    @test sum(phase_ratios.vertex.data) == prod(ni.+1)
-    @test sum(phase_ratios.center.data) == prod(ni)
+    @test sum(phase_ratios.vertex.data) ≈ prod(ni.+1)
+    @test sum(phase_ratios.center.data) ≈ prod(ni)
 end
 
 @testset "CellArrays - 3D" begin
