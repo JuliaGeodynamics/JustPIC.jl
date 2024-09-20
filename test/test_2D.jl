@@ -243,7 +243,7 @@ end
 
     year = 365*3600*24
     L    = (x=1., y=1.)
-    Nc   = (x=41, y=41 )
+    Nc   = (x=256, y=256 )
     Nv   = (x=Nc.x+1,   y=Nc.y+1   )
     Δ    = (x=L.x/Nc.x, y=L.y/Nc.y )
     Nt   = 200

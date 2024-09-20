@@ -31,7 +31,7 @@ end
 
 @testset "Phase ratios - 2D" begin
     nxcell, max_xcell, min_xcell = 6, 6, 6
-    n = 128
+    n = 256
     nx = ny = n-1
     ni = nx, ny
     Lx = Ly = 1.0
@@ -89,7 +89,7 @@ end
 end
 
 @testset "Phase ratios - 3D" begin
-    n = 32
+    n = 256
     nx  = ny = nz = n-1
     Lx  = Ly = Lz = 1.0
     ni  = nx, ny, nz
