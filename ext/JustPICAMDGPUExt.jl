@@ -226,7 +226,7 @@ module _2D
     function JustPIC._2D.PhaseRatios(
         ::Type{AMDGPUBackend}, nphases::Integer, ni::NTuple{N,Integer}
     ) where {N}
-        return PhaseRatios(Float64, CUDABackend, nphases, ni)
+        return PhaseRatios(Float64, AMDGPUBackend, nphases, ni)
     end
 
     function JustPIC._2D.PhaseRatios(
@@ -458,7 +458,7 @@ module _3D
     function JustPIC._3D.PhaseRatios(
         ::Type{AMDGPUBackend}, nphases::Integer, ni::NTuple{N,Integer}
     ) where {N}
-        return PhaseRatios(Float64, CUDABackend, nphases, ni)
+        return PhaseRatios(Float64, AMDGPUBackend, nphases, ni)
     end
 
     function JustPIC._3D.PhaseRatios(
