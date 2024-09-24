@@ -32,7 +32,7 @@ end
         # cache particle coordinates
         pᵢ = get_particle_coords(p, ip, i, j)
         # Interpolate field F onto particle
-        @cell Fp[ip, i, j] = _grid2particle(pᵢ, xvi, di, Fi, (i, j))
+        @index Fp[ip, i, j] = _grid2particle(pᵢ, xvi, di, Fi, (i, j))
     end
 end
 
@@ -50,7 +50,7 @@ end
                 # cache particle coordinates
                 pᵢ = get_particle_coords(p, ip, idx...)
                 # Interpolate field F onto particle
-                @cell Fp[ip, idx...] = _grid2particle(pᵢ, xi_corner, di, Fi)
+                @index Fp[ip, idx...] = _grid2particle(pᵢ, xi_corner, di, Fi)
             end
         end
     end
@@ -73,7 +73,7 @@ end
         # Interpolate field F onto particle
         ntuple(Val(N1)) do i
             Base.@_inline_meta
-            @cell Fp[i][ip, idx...] = _grid2particle(pᵢ, xvi, di, F[i], idx)
+            @index Fp[i][ip, idx...] = _grid2particle(pᵢ, xvi, di, F[i], idx)
         end
     end
 end
@@ -117,12 +117,12 @@ end
         # # skip lines below if there is no particle in this piece of memory
         # any(isnan, pᵢ) && continue
 
-        Fᵢ = @cell Fp[ip, idx...]
+        Fᵢ = @index Fp[ip, idx...]
         F_pic, F0_pic = _grid2particle(pᵢ, xvi, di, (Fi, F0i), idx)
         ΔF = F_pic - F0_pic
         F_flip = Fᵢ + ΔF
         # Interpolate field F onto particle
-        @cell Fp[ip, idx...] = muladd(F_pic, α, F_flip * (1.0 - α))
+        @index Fp[ip, idx...] = muladd(F_pic, α, F_flip * (1.0 - α))
     end
 end
 
@@ -143,19 +143,19 @@ end
         doskip(index, ip, idx...) && continue
 
         # cache particle coordinates
-        pᵢ = ntuple(i -> (@cell p[i][ip, idx...]), Val(N2))
+        pᵢ = ntuple(i -> (@index p[i][ip, idx...]), Val(N2))
 
         # skip lines below if there is no particle in this piece of memory
         # any(isnan, pᵢ) && continue
 
         ntuple(Val(N1)) do i
             Base.@_inline_meta
-            Fᵢ = @cell Fp[i][ip, idx...]
+            Fᵢ = @index Fp[i][ip, idx...]
             F_pic, F0_pic = _grid2particle(pᵢ, xvi, di, (F[i], F0[i]), idx)
             ΔF = F_pic - F0_pic
             F_flip = Fᵢ + ΔF
             # Interpolate field F onto particle
-            @cell Fp[i][ip, idx...] = muladd(F_pic, α, F_flip * (1.0 - α))
+            @index Fp[i][ip, idx...] = muladd(F_pic, α, F_flip * (1.0 - α))
         end
     end
 end

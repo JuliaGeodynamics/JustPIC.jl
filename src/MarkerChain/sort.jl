@@ -24,9 +24,9 @@ end
             permutationᵢ = permutations[ip]
             @assert permutationᵢ ≤ length(permutations)
 
-            @cell coords[1][ip, I...] = particle_xᵢ[1][permutationᵢ]
-            @cell coords[2][ip, I...] = particle_xᵢ[2][permutationᵢ]
-            @cell index[ip, I...] = indexᵢ[permutationᵢ]
+            @index coords[1][ip, I...] = particle_xᵢ[1][permutationᵢ]
+            @index coords[2][ip, I...] = particle_xᵢ[2][permutationᵢ]
+            @index index[ip, I...] = indexᵢ[permutationᵢ]
         end
     end
 

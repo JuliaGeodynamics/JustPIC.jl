@@ -55,7 +55,7 @@ end
         pᵢ_new = advect_particle_markerchain(method, pᵢ, V, grid, local_limits, dxi, dt)
         # update particle coordinates
         for k in 1:N
-            @inbounds @cell p[k][ipart, I...] = pᵢ_new[k]
+            @inbounds @index p[k][ipart, I...] = pᵢ_new[k]
         end
     end
 

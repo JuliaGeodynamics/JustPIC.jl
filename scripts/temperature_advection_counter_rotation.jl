@@ -18,17 +18,17 @@ function expand_range(x::AbstractRange)
 end
 
 # Analytical flow solution
-vx_stream(x, y) =  250 * sin(π*x) * cos(π*y)
-vy_stream(x, y) = -250 * cos(π*x) * sin(π*y)
+vx_stream(x, y, r) = ((x-0.5)^2+(y-0.5)^2 > r^2 ?  250 * sin(π*x) * cos(π*y) : -250 * sin(π*x) * cos(π*y))
+vy_stream(x, y, r) = ((x-0.5)^2+(y-0.5)^2 > r^2 ? -250 * cos(π*x) * sin(π*y) : 250 * cos(π*x) * sin(π*y)) 
 g(x) = Point2f(
-    vx_stream(x[1], x[2]),
-    vy_stream(x[1], x[2])
+    vx_stream(x[1], x[2], 0.25),
+    vy_stream(x[1], x[2], 0.25)
 )
 
 function main()
     # Initialize particles -------------------------------
-    nxcell, max_xcell, min_xcell = 24, 30, 12
-    n = 256
+    nxcell, max_xcell, min_xcell = 4, 30, 2
+    n = 41
     nx = ny = n-1
     Lx = Ly = 1.0
     # nodal vertices
@@ -45,26 +45,24 @@ function main()
     )
 
     # Cell fields -------------------------------
-    Vx = TA(backend)([vx_stream(x, y) for x in grid_vx[1], y in grid_vx[2]]);
-    Vy = TA(backend)([vy_stream(x, y) for x in grid_vy[1], y in grid_vy[2]]);
+    Vx = TA(backend)([vx_stream(x, y, 0.25) for x in grid_vx[1], y in grid_vx[2]]);
+    Vy = TA(backend)([vy_stream(x, y, 0.25) for x in grid_vy[1], y in grid_vy[2]]);
     T  = TA(backend)([y for x in xv, y in yv]);
     V  = Vx, Vy;
 
-    dt = min(dx / maximum(abs.(Array(Vx))),  dy / maximum(abs.(Array(Vy))));
-    dt *= 0.25
-
+    dt  = min(dx / maximum(abs.(Array(Vx))),  dy / maximum(abs.(Array(Vy))));
+    dt *= 0.1 
     # Advection test
     particle_args = pT, = init_cell_arrays(particles, Val(1));
     grid2particle!(pT, xvi, T, particles);
     
     !isdir("figs") && mkdir("figs")
 
-    niter = 250
+    niter = 1000
     for it in 1:niter
-        advection!(particles, RungeKutta2(2/3), V, (grid_vx, grid_vy), dt)
+        advection!(particles, RungeKutta2(), V, (grid_vx, grid_vy), dt)
         move_particles!(particles, xvi, particle_args)
         inject_particles!(particles, (pT, ), xvi)
-
         particle2grid!(T, pT, xvi, particles)
 
         if rem(it, 10) == 0
@@ -79,3 +77,4 @@ function main()
 end
 
 main()
+ 

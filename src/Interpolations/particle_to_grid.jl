@@ -35,11 +35,11 @@ function _particle2grid!(F, Fp, inode, jnode, xi::NTuple{2,T}, p, index, di) whe
                 # early exit if particle is not in the cell
                 doskip(index, ip, ivertex, jvertex) && continue
 
-                p_i = @cell(px[ip, ivertex, jvertex]), @cell(py[ip, ivertex, jvertex])
+                p_i = @index(px[ip, ivertex, jvertex]), @index(py[ip, ivertex, jvertex])
                 ω_i = distance_weight(xvertex, p_i; order=1)
                 # ω_i = bilinear_weight(xvertex, p_i, di) 
                 ω += ω_i
-                ωxF = fma(ω_i, @cell(Fp[ip, ivertex, jvertex]), ωxF)
+                ωxF = fma(ω_i, @index(Fp[ip, ivertex, jvertex]), ωxF)
             end
         end
     end
@@ -68,13 +68,13 @@ end
                     # ignore lines below for unused allocations
                     doskip(index, i, ivertex, jvertex) && continue
 
-                    p_i = @cell(px[i, ivertex, jvertex]), @cell(py[i, ivertex, jvertex])
+                    p_i = @index(px[i, ivertex, jvertex]), @index(py[i, ivertex, jvertex])
                     ω_i = distance_weight(xvertex, p_i; order=1)
                     # ω_i = bilinear_weight(xvertex, p_i, di)
                     ω += ω_i
                     ωxF = ntuple(Val(N)) do j
                         Base.@_inline_meta
-                        muladd(ω_i, @cell(Fp[j][i, ivertex, jvertex]), ωxF[j])
+                        muladd(ω_i, @index(Fp[j][i, ivertex, jvertex]), ωxF[j])
                     end
                 end
             end
@@ -113,14 +113,14 @@ end
                         doskip(index, ip, ivertex, jvertex, kvertex) && continue
 
                         p_i = (
-                            @cell(px[ip, ivertex, jvertex, kvertex]),
-                            @cell(py[ip, ivertex, jvertex, kvertex]),
-                            @cell(pz[ip, ivertex, jvertex, kvertex]),
+                            @index(px[ip, ivertex, jvertex, kvertex]),
+                            @index(py[ip, ivertex, jvertex, kvertex]),
+                            @index(pz[ip, ivertex, jvertex, kvertex]),
                         )
                         ω_i = distance_weight(xvertex, p_i; order=1)
                         # ω_i = bilinear_weight(xvertex, p_i, di)
                         ω += ω_i
-                        ωF = muladd(ω_i, @cell(Fp[ip, ivertex, jvertex, kvertex]), ωF)
+                        ωF = muladd(ω_i, @index(Fp[ip, ivertex, jvertex, kvertex]), ωF)
                     end
                 end
             end
@@ -154,16 +154,16 @@ end
                         doskip(index, ip, ivertex, jvertex, kvertex) && continue
 
                         p_i = (
-                            @cell(px[ip, ivertex, jvertex, kvertex]),
-                            @cell(py[ip, ivertex, jvertex, kvertex]),
-                            @cell(pz[ip, ivertex, jvertex, kvertex]),
+                            @index(px[ip, ivertex, jvertex, kvertex]),
+                            @index(py[ip, ivertex, jvertex, kvertex]),
+                            @index(pz[ip, ivertex, jvertex, kvertex]),
                         )
                         ω_i = distance_weight(xvertex, p_i; order=1)
                         # ω_i = bilinear_weight(xvertex, p_i, di)
                         ω += ω_i
                         ωxF = ntuple(Val(N)) do j
                             Base.@_inline_meta
-                            muladd(ω_i, @cell(Fp[j][i, ivertex, jvertex, kvertex]), ωxF[j])
+                            muladd(ω_i, @index(Fp[j][i, ivertex, jvertex, kvertex]), ωxF[j])
                         end
                     end
                 end

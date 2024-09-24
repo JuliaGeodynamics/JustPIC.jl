@@ -11,7 +11,10 @@ makedocs(;
     pages    = [
         "Home" => "index.md",
         "Particles" =>"particles.md",
-        "Interpolations" =>"particles.md",
+        "Interpolations" => [
+            "interpolations.md",
+            "velocity_interpolation.md",
+        ],
         "CellArrays" =>"CellArrays.md",
         "Examples" => [
             "field_advection2D.md",

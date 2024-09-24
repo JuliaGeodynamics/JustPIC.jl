@@ -56,7 +56,7 @@ end
         pᵢ_new = advect_particle(method, pᵢ, V, grid, local_limits, dxi, dt, I)
         # update particle coordinates
         for k in 1:N
-            @inbounds @cell p[k][ipart, I...] = pᵢ_new[k]
+            @inbounds @index p[k][ipart, I...] = pᵢ_new[k]
         end
     end
 
@@ -92,6 +92,7 @@ end
     ti = normalize_coordinates(p_i, xci, dxi)
     # Interpolate field F onto particle
     Fp = lerp(Fi, ti)
+    # return interpolated field
     return Fp
 end
 

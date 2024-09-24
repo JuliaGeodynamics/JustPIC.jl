@@ -105,3 +105,17 @@ for it in 1:niter
     particle2grid!(T, pT, xvi, particles)                           # interpolate particles to the grid
 end
 ```
+
+# Pure shear in 2D
+
+An example of two-dimensional pure shear flow is provided in this [script](https://github.com/JuliaGeodynamics/JustPIC.jl/blob/main/scripts/pureshear_ALE.jl).
+The velocity field is set to:
+
+$v_{x} = \dot{\varepsilon} x$
+
+$v_{y} = -\dot{\varepsilon} y$
+
+where $\dot{\varepsilon}$ is the pure shear strain rate applied at the boundaries. A positive value of $\dot{\varepsilon}$ leads to horizontal extension, while negative values correspond to horizontal compression.
+
+The `ALE` switch (Arbitrary Lagrangian Eulerian) allows to activate, or not, model box deformation. If  `ALE=false`, the model dimension remains constant over time. If `ALE=true`, the model domain is deformed with the background pure shear rate.
+  

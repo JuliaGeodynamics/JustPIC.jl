@@ -26,11 +26,9 @@ export grid2particle!, grid2particle_flip!
 include("Interpolations/centroid_to_particle.jl")
 export centroid2particle!, centroid2particle_flip!
 
-# include("Interpolations/kernels.jl")
-# export lerp, bilinear, trilinear
-
 include("Interpolations/ndlerp.jl")
-export lerp
+
+include("Interpolations/MQS.jl")
 
 include("Physics/subgrid_diffusion.jl")
 export SubgridDiffusionCellArrays, subgrid_diffusion!
@@ -42,13 +40,16 @@ export init_particles, init_cell_arrays
 
 include("Particles/utils.jl")
 
-include("Particles/move.jl")
+# include("Particles/move.jl")
+include("Particles/move_safe.jl")
 export move_particles!
 
 include("Particles/Advection/Euler.jl")
 include("Particles/Advection/RK2.jl")
 include("Particles/Advection/advection.jl")
-export advection!
+include("Particles/Advection/advection_LinP.jl")
+include("Particles/Advection/advection_MQS.jl")
+export advection!, advection_LinP!, advection_MQS!
 
 include("Particles/injection.jl")
 export check_injection, inject_particles!, inject_particles_phase!, clean_particles!
@@ -87,3 +88,9 @@ export grid2particle!
 
 include("PassiveMarkers/particle_to_grid.jl")
 export particle2grid!
+
+include("PhaseRatios/constructors.jl")
+export PhaseRatios
+
+include("PhaseRatios/kernels.jl")
+export phase_ratios_center!, phase_ratios_vertex!
