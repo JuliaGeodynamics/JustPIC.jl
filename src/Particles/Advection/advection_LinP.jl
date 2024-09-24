@@ -15,10 +15,9 @@ function advection_LinP!(
     particles::Particles,
     method::AbstractAdvectionIntegrator,
     V,
-    grid_vi::NTuple{N, NTuple{N}},
+    grid_vi::NTuple{N,NTuple{N}},
     dt,
 ) where {N}
-
     interpolation_fn = interp_velocity2particle_LinP
 
     dxi = compute_dx(first(grid_vi))
@@ -57,7 +56,9 @@ end
         # extract particle coordinates
         pᵢ = get_particle_coords(p, ipart, I...)
         # # advect particle
-        pᵢ_new = advect_particle(method, pᵢ, V, grid, local_limits, dxi, dt, interpolation_fn, I)
+        pᵢ_new = advect_particle(
+            method, pᵢ, V, grid, local_limits, dxi, dt, interpolation_fn, I
+        )
         # update particle coordinates
         for k in 1:N
             @inbounds @index p[k][ipart, I...] = pᵢ_new[k]
@@ -68,12 +69,7 @@ end
 end
 
 @inline function interp_velocity2particle_LinP(
-    particle_coords::NTuple{N},
-    grid_vi,
-    local_limits,
-    dxi,
-    V::NTuple{N},
-    idx::NTuple{N},
+    particle_coords::NTuple{N}, grid_vi, local_limits, dxi, V::NTuple{N}, idx::NTuple{N}
 ) where {N}
     return ntuple(Val(N)) do i
         Base.@_inline_meta
@@ -88,7 +84,7 @@ end
 
 @inline function interp_velocity2particle_LinP(
     p_i::Union{SVector,NTuple}, xi_vx::NTuple, dxi::NTuple, F::AbstractArray, ::Val{N}, idx
-) where N
+) where {N}
     # F and coordinates of the cell corners
     Fi, xci, indices = corner_field_nodes_LinP(F, p_i, xi_vx, dxi, idx)
 
@@ -97,14 +93,14 @@ end
     # Interpolate field F onto particle
     VL = lerp(Fi, tL)
 
-    V = if all(1 .< indices .< size(F).-1 )
+    V = if all(1 .< indices .< size(F) .- 1)
         # interpolate velocity to pressure nodes
         FP = interpolate_V_to_P(F, xci, p_i, dxi, Val(N), indices...)
         xci_P = correct_xci_to_pressure_point(xci, p_i, dxi, Val(N))
         tP = normalize_coordinates(p_i, xci_P, dxi)
         # Interpolate field F from pressure node onto particle
         VP = lerp(FP, tP)
-        A = 2/3
+        A = 2 / 3
         A * VL + (1 - A) * VP
     else
         VL
@@ -126,29 +122,39 @@ end
 #     (x-1/2,y)       (i,j)       (x+1/2,y)
 
 # 2D corner correction for x-dim
-@inline function correct_xci_to_pressure_point(xci::NTuple{2}, pxi::NTuple{2}, dxi::NTuple{2}, ::Val{1}) 
+@inline function correct_xci_to_pressure_point(
+    xci::NTuple{2}, pxi::NTuple{2}, dxi::NTuple{2}, ::Val{1}
+)
     offset = 1 - 2 * (pxi[1] < xci[1] + dxi[1] * 0.5)
     return xci[1] + offset * dxi[1] * 0.5, xci[2]
 end
 # 2D corner correction for y-dim
-@inline function correct_xci_to_pressure_point(xci::NTuple{2}, pxi::NTuple{2}, dxi::NTuple{2}, ::Val{2}) 
+@inline function correct_xci_to_pressure_point(
+    xci::NTuple{2}, pxi::NTuple{2}, dxi::NTuple{2}, ::Val{2}
+)
     offset = 1 - 2 * (pxi[2] < xci[2] + dxi[2] * 0.5)
     return xci[1], xci[2] + offset * dxi[2] * 0.5
 end
 # 3D corner correction for x-dim
-@inline function correct_xci_to_pressure_point(xci::NTuple{3}, pxi::NTuple{3}, dxi::NTuple{3}, ::Val{1}) 
+@inline function correct_xci_to_pressure_point(
+    xci::NTuple{3}, pxi::NTuple{3}, dxi::NTuple{3}, ::Val{1}
+)
     offset = 1 - 2 * (pxi[1] < xci[1] + dxi[1] * 0.5)
     return xci[1] + offset * dxi[1] * 0.5, xci[2], xci[3]
 end
 # 3D corner correction for y-dim
-@inline function correct_xci_to_pressure_point(xci::NTuple{3}, pxi::NTuple{3}, dxi::NTuple{3}, ::Val{2}) 
+@inline function correct_xci_to_pressure_point(
+    xci::NTuple{3}, pxi::NTuple{3}, dxi::NTuple{3}, ::Val{2}
+)
     offset = 1 - 2 * (pxi[2] < xci[2] + dxi[2] * 0.5)
     return xci[1], xci[2] + offset * dxi[2] * 0.5, xci[3]
 end
 # 3D corner correction for z-dim
-@inline function correct_xci_to_pressure_point(xci::NTuple{3}, pxi::NTuple{3}, dxi::NTuple{3}, ::Val{3}) 
+@inline function correct_xci_to_pressure_point(
+    xci::NTuple{3}, pxi::NTuple{3}, dxi::NTuple{3}, ::Val{3}
+)
     offset = 1 - 2 * (pxi[3] < xci[3] + dxi[3] * 0.5)
-    return xci[1], xci[2], xci[3]+ offset * dxi[3] * 0.5
+    return xci[1], xci[2], xci[3] + offset * dxi[3] * 0.5
 end
 
 @generated function corner_field_nodes_LinP(
@@ -176,7 +182,7 @@ end
 
             # # F at the four centers
             Fi = @inbounds extract_field_corners(F, indices...)
-           
+
             return Fi, cells, indices
         end
     end
@@ -194,7 +200,7 @@ end
 #  x------□------x------□------x
 # V[i-1,j]     V[i,j]       V[i+1,j]
 #      P[i,j]         P[i+1,j]         
-function interpolate_V_to_P(F, xi_corner, xi_particle, dxi, ::Val{N}, i, j) where N
+function interpolate_V_to_P(F, xi_corner, xi_particle, dxi, ::Val{N}, i, j) where {N}
     # this is the dimension we are dealing with
     # 1 => x
     # 2 => y
@@ -203,7 +209,7 @@ function interpolate_V_to_P(F, xi_corner, xi_particle, dxi, ::Val{N}, i, j) wher
     # +0 or +1 offset to find the pressure corner
     i += offset_LinP_x(VN, xi_corner, xi_particle, dxi)
     j += offset_LinP_y(VN, xi_corner, xi_particle, dxi)
-    offsetᵢ, offsetⱼ,  = augment_offset(VN)
+    offsetᵢ, offsetⱼ, = augment_offset(VN)
 
     # velocity at velocity corners
     F00 = F[clamp(i + offsetᵢ[1][1], 1, nx), clamp(j + offsetⱼ[1][1], 1, ny)]
@@ -222,14 +228,14 @@ function interpolate_V_to_P(F, xi_corner, xi_particle, dxi, ::Val{N}, i, j) wher
     # to keep things consistent
     # due to the indexing convection
     @inline swap_F(F, ::Val{1}) = F
-    @inline swap_F(F, ::Val{2}) = F[1], F[3], F[2], F[4] 
-    
+    @inline swap_F(F, ::Val{2}) = F[1], F[3], F[2], F[4]
+
     F_av = swap_F((F00_av, F10_av, F01_av, F11_av), VN)
-    
+
     return F_av
 end
 
-function interpolate_V_to_P(F, xi_corner, xi_particle, dxi, ::Val{N}, i, j, k) where N
+function interpolate_V_to_P(F, xi_corner, xi_particle, dxi, ::Val{N}, i, j, k) where {N}
     # this is the dimension we are dealing with
     # 1 => x
     # 2 => y
@@ -244,18 +250,66 @@ function interpolate_V_to_P(F, xi_corner, xi_particle, dxi, ::Val{N}, i, j, k) w
     offsetᵢ, offsetⱼ, offsetₖ = augment_offset(VN)
 
     # velocity at velocity corners
-    F000 = F[clamp(i + offsetᵢ[1][1], 1, nx), clamp(j + offsetⱼ[1][1], 1, ny), clamp(k + offsetₖ[1][1], 1, nz)]
-    F100 = F[clamp(i + offsetᵢ[1][2], 1, nx), clamp(j + offsetⱼ[1][2], 1, ny), clamp(k + offsetₖ[1][2], 1, nz)]
-    F200 = F[clamp(i + offsetᵢ[1][3], 1, nx), clamp(j + offsetⱼ[1][3], 1, ny), clamp(k + offsetₖ[1][3], 1, nz)]
-    F010 = F[clamp(i + offsetᵢ[2][1], 1, nx), clamp(j + offsetⱼ[2][1], 1, ny), clamp(k + offsetₖ[2][1], 1, nz)]
-    F110 = F[clamp(i + offsetᵢ[2][2], 1, nx), clamp(j + offsetⱼ[2][2], 1, ny), clamp(k + offsetₖ[2][2], 1, nz)]
-    F210 = F[clamp(i + offsetᵢ[2][3], 1, nx), clamp(j + offsetⱼ[2][3], 1, ny), clamp(k + offsetₖ[2][3], 1, nz)]
-    F001 = F[clamp(i + offsetᵢ[3][1], 1, nx), clamp(j + offsetⱼ[1][1], 1, ny), clamp(k + offsetₖ[3][1], 1, nz)]
-    F101 = F[clamp(i + offsetᵢ[3][2], 1, nx), clamp(j + offsetⱼ[1][2], 1, ny), clamp(k + offsetₖ[3][2], 1, nz)]
-    F201 = F[clamp(i + offsetᵢ[3][3], 1, nx), clamp(j + offsetⱼ[1][3], 1, ny), clamp(k + offsetₖ[3][3], 1, nz)]
-    F011 = F[clamp(i + offsetᵢ[4][1], 1, nx), clamp(j + offsetⱼ[2][1], 1, ny), clamp(k + offsetₖ[4][1], 1, nz)]
-    F111 = F[clamp(i + offsetᵢ[4][2], 1, nx), clamp(j + offsetⱼ[2][2], 1, ny), clamp(k + offsetₖ[4][2], 1, nz)]
-    F211 = F[clamp(i + offsetᵢ[4][3], 1, nx), clamp(j + offsetⱼ[2][3], 1, ny), clamp(k + offsetₖ[4][3], 1, nz)]
+    F000 = F[
+        clamp(i + offsetᵢ[1][1], 1, nx),
+        clamp(j + offsetⱼ[1][1], 1, ny),
+        clamp(k + offsetₖ[1][1], 1, nz),
+    ]
+    F100 = F[
+        clamp(i + offsetᵢ[1][2], 1, nx),
+        clamp(j + offsetⱼ[1][2], 1, ny),
+        clamp(k + offsetₖ[1][2], 1, nz),
+    ]
+    F200 = F[
+        clamp(i + offsetᵢ[1][3], 1, nx),
+        clamp(j + offsetⱼ[1][3], 1, ny),
+        clamp(k + offsetₖ[1][3], 1, nz),
+    ]
+    F010 = F[
+        clamp(i + offsetᵢ[2][1], 1, nx),
+        clamp(j + offsetⱼ[2][1], 1, ny),
+        clamp(k + offsetₖ[2][1], 1, nz),
+    ]
+    F110 = F[
+        clamp(i + offsetᵢ[2][2], 1, nx),
+        clamp(j + offsetⱼ[2][2], 1, ny),
+        clamp(k + offsetₖ[2][2], 1, nz),
+    ]
+    F210 = F[
+        clamp(i + offsetᵢ[2][3], 1, nx),
+        clamp(j + offsetⱼ[2][3], 1, ny),
+        clamp(k + offsetₖ[2][3], 1, nz),
+    ]
+    F001 = F[
+        clamp(i + offsetᵢ[3][1], 1, nx),
+        clamp(j + offsetⱼ[1][1], 1, ny),
+        clamp(k + offsetₖ[3][1], 1, nz),
+    ]
+    F101 = F[
+        clamp(i + offsetᵢ[3][2], 1, nx),
+        clamp(j + offsetⱼ[1][2], 1, ny),
+        clamp(k + offsetₖ[3][2], 1, nz),
+    ]
+    F201 = F[
+        clamp(i + offsetᵢ[3][3], 1, nx),
+        clamp(j + offsetⱼ[1][3], 1, ny),
+        clamp(k + offsetₖ[3][3], 1, nz),
+    ]
+    F011 = F[
+        clamp(i + offsetᵢ[4][1], 1, nx),
+        clamp(j + offsetⱼ[2][1], 1, ny),
+        clamp(k + offsetₖ[4][1], 1, nz),
+    ]
+    F111 = F[
+        clamp(i + offsetᵢ[4][2], 1, nx),
+        clamp(j + offsetⱼ[2][2], 1, ny),
+        clamp(k + offsetₖ[4][2], 1, nz),
+    ]
+    F211 = F[
+        clamp(i + offsetᵢ[4][3], 1, nx),
+        clamp(j + offsetⱼ[2][3], 1, ny),
+        clamp(k + offsetₖ[4][3], 1, nz),
+    ]
     # average velocity at pressure nodes
     F000_av = (F000 + F100) * 0.5
     F100_av = (F200 + F100) * 0.5
@@ -270,9 +324,11 @@ function interpolate_V_to_P(F, xi_corner, xi_particle, dxi, ::Val{N}, i, j, k) w
     # to keep things consistent
     # due to the indexing convection
     @inline swap_F(F, ::Val{1}) = F
-    @inline swap_F(F, ::Val{N}) where N = F[1], F[3], F[2], F[4], F[5], F[7], F[6], F[8]
-    F_av = swap_F((F000_av, F100_av, F010_av, F110_av, F001_av, F101_av, F011_av, F111_av), VN)
-    
+    @inline swap_F(F, ::Val{N}) where {N} = F[1], F[3], F[2], F[4], F[5], F[7], F[6], F[8]
+    F_av = swap_F(
+        (F000_av, F100_av, F010_av, F110_av, F001_av, F101_av, F011_av, F111_av), VN
+    )
+
     return F_av
 end
 
@@ -283,10 +339,14 @@ end
 for (i, fn) in enumerate((:offset_LinP_x, :offset_LinP_y, :offset_LinP_z))
     # Val(i) => ith-direction
     @eval begin
-        @inline function ($fn)(::Val{$i}, xi_corner::NTuple{N}, xi_particle::NTuple{N}, dxi::NTuple{N}) where N
-            offset_LinP(xi_corner[$i], xi_particle[$i], dxi[$i])
+        @inline function ($fn)(
+            ::Val{$i}, xi_corner::NTuple{N}, xi_particle::NTuple{N}, dxi::NTuple{N}
+        ) where {N}
+            return offset_LinP(xi_corner[$i], xi_particle[$i], dxi[$i])
         end
-        @inline ($fn)(::Val{I}, xi_corner::NTuple{N}, xi_particle::NTuple{N}, dxi::NTuple{N}) where {N, I} = 0
+        @inline ($fn)(
+            ::Val{I}, xi_corner::NTuple{N}, xi_particle::NTuple{N}, dxi::NTuple{N}
+        ) where {N,I} = 0
     end
 end
 

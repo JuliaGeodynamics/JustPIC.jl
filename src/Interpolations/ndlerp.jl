@@ -8,10 +8,11 @@ This function is specialized for tuples of length `nD`.
 - `v`: The value to be interpolated.
 - `t`: The tuple of values to interpolate between.
 """
-@inline lerp(v, t::NTuple{nD,T})              where {nD,T}    = lerp(v, t, 0, Val(nD - 1))
-@inline lerp(v, t::NTuple{nD,T}, i, ::Val{N}) where {nD,N,T}  = lerp(t[N + 1], lerp(v, t, i, Val(N - 1)), lerp(v, t, i + 2^N, Val(N - 1)))
-@inline lerp(v, t::NTuple{nD,T}, i, ::Val{0}) where {nD,T}    = lerp(t[1], v[i + 1], v[i + 2])
-@inline lerp(t::T, v0::T, v1::T)              where {T<:Real} = muladd(t, v1, muladd(-t, v0, v0))
+@inline lerp(v, t::NTuple{nD,T}) where {nD,T} = lerp(v, t, 0, Val(nD - 1))
+@inline lerp(v, t::NTuple{nD,T}, i, ::Val{N}) where {nD,N,T} =
+    lerp(t[N + 1], lerp(v, t, i, Val(N - 1)), lerp(v, t, i + 2^N, Val(N - 1)))
+@inline lerp(v, t::NTuple{nD,T}, i, ::Val{0}) where {nD,T} = lerp(t[1], v[i + 1], v[i + 2])
+@inline lerp(t::T, v0::T, v1::T) where {T<:Real} = muladd(t, v1, muladd(-t, v0, v0))
 
 """
     MQS(v, t::NTuple{nD,T}) where {nD,T}
@@ -41,7 +42,6 @@ This function is specialized for tuples of length `nD`.
 #     return lerp(v, (t[2], t[3]))
 # end
 
-
 # @inline function MQS(F, v::NTuple{4}, t::NTuple{2}, i, j, ::Val{1})
 #     t1, t2 = t
 #     nx, ny = size(F)
@@ -55,7 +55,7 @@ This function is specialized for tuples of length `nD`.
 #     end
 #     correction_bot = 0.5 * (t1 - 0.5)^2 * (muladd(-2, v1, v0) + v2)
 #     # correction_bot = 0.5 * (t1 - 0.5)^2 * (v0 - 2*v1 + v2)
-    
+
 #     v0, v1, v2 = if t[1] < 0.5
 #         F[i-1, j+1], v[3], v[4]
 #     else
@@ -69,7 +69,6 @@ This function is specialized for tuples of length `nD`.
 
 #     return lerp((v0_MQS, v1_MQS), (t2,))
 # end
-
 
 # # 2D MQS-y
 # @inline function MQS(F, v::NTuple{4}, t::NTuple{2}, i, j, ::Val{2})

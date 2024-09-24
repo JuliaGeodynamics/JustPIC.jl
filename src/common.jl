@@ -89,5 +89,8 @@ export grid2particle!
 include("PassiveMarkers/particle_to_grid.jl")
 export particle2grid!
 
-include("PhaseRatios/PhaseRatios.jl")
-export PhaseRatios, nphases, numphases, phase_ratios_center!, phase_ratios_vertex!
+include("PhaseRatios/constructors.jl")
+export PhaseRatios
+
+include("PhaseRatios/kernels.jl")
+export phase_ratios_center!, phase_ratios_vertex!
