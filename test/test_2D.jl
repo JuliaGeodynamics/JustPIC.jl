@@ -305,8 +305,8 @@ end
 
     for it=1:Nt
         advection_MQS!(particles, RungeKutta2(), values(V), (grid_vx, grid_vy), Δt)
-        move_particles!(particles, values(verts), particle_args)        
-        inject_particles!(particles, particle_args, values(verts)) 
+        move_particles!(particles, values(verts), particle_args)
+        inject_particles_phase!(particles, phases, (), (), values(verts))
 
         phase_ratios_vertex!(phase_ratios, particles, values(verts), phases) 
         phase_ratios_center!(phase_ratios, particles, values(verts), phases)     

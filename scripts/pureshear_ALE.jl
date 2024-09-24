@@ -111,14 +111,9 @@ function main()
         advection_MQS!(particles, RungeKutta2(), values(V), (grid_vx, grid_vy), Δt);
         move_particles!(particles, values(verts), particle_args);
         inject_particles_phase!(particles, phases, (), (), values(verts))
-
         phase_ratios_vertex!(phase_ratios, particles, values(verts), phases);
         phase_ratios_center!(phase_ratios, particles, values(verts), phases);    
-        println(" 
-            extrema phase ratio @ vertices = $(extrema(sum(phase_ratios.vertex.data, dims=2)))
-            extrema phase ratio @ centers = $(extrema(sum(phase_ratios.center.data, dims=2)))
-        ")
-    1
+  
         if ALE
             @show L  = (x=1.0+ε̇bg*t, y=1.0-ε̇bg*t)
             Δ  = (x=L.x/Nc.x, y=L.y/Nc.y )
