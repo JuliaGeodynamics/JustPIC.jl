@@ -1,7 +1,7 @@
 using JustPIC, Test, StaticArrays
 
 @testset "CellArrays - 2D" begin
-    x = 1e0
+    x  = 1e0
     ni = (2, 2)
 
     ## Test a 2x2 grid with 2x1 CellArrays per grid cell
@@ -48,13 +48,13 @@ end
     
     nphases      = 5
     phases,      = JustPIC._2D.init_cell_arrays(particles, Val(1));
-    phases.data .= rand(1:nphases, size(phases.data));
+    T            = typeof(phases.data)
+    phases.data .= T(rand(1:nphases, size(phases.data)));
     
     phase_ratios = JustPIC._2D.PhaseRatios(backend, nphases, ni);
     
-    JustPIC._2D.phase_ratios_vertex!(phase_ratios, particles, xvi, phases) 
-    JustPIC._2D.phase_ratios_center!(phase_ratios, particles, xci, phases) 
-    
+    JustPIC._2D.update_phase_ratios!(phase_ratios, particles, xci, xvi, phases)
+
     @test sum(phase_ratios.vertex.data) ≈ prod(ni.+1)
     @test sum(phase_ratios.center.data) ≈ prod(ni)
 end
@@ -108,12 +108,12 @@ end
     
     nphases      = 5
     phases,      = JustPIC._3D.init_cell_arrays(particles, Val(1));
-    phases.data .= rand(1:nphases, size(phases.data));
+    T            = typeof(phases.data)
+    phases.data .= T(rand(1:nphases, size(phases.data)));
 
     phase_ratios = JustPIC._3D.PhaseRatios(backend, nphases, ni);
     
-    JustPIC._3D.phase_ratios_vertex!(phase_ratios, particles, xvi, phases) 
-    JustPIC._3D.phase_ratios_center!(phase_ratios, particles, xci, phases) 
+    JustPIC._3D.update_phase_ratios!(phase_ratios, particles, xci, xvi, phases)
     
     @test sum(phase_ratios.vertex.data) ≈ prod(ni.+1)
     @test sum(phase_ratios.center.data) ≈ prod(ni)

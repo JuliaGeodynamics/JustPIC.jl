@@ -217,6 +217,12 @@ module _2D
 
     # Phase ratio kernels
 
+    function JustPIC._2D.update_phase_ratios!(phase_ratios::JustPIC.PhaseRatios{CUDABackend}, particles, xci, xvi, phases)
+        phase_ratios_center!(phase_ratios, particles, xci, phases)
+        phase_ratios_vertex!(phase_ratios, particles, xvi, phases)
+        return nothing
+    end
+
     function JustPIC._2D.PhaseRatios(
         ::Type{CUDABackend}, nphases::Integer, ni::NTuple{N,Integer}
     ) where {N}
@@ -450,6 +456,12 @@ module _3D
 
     # Phase ratio kernels
 
+    function JustPIC._3D.update_phase_ratios!(phase_ratios::JustPIC.PhaseRatios{CUDABackend}, particles, xci, xvi, phases)
+        phase_ratios_center!(phase_ratios, particles, xci, phases)
+        phase_ratios_vertex!(phase_ratios, particles, xvi, phases)
+        return nothing
+    end
+    
     function JustPIC._3D.PhaseRatios(
         ::Type{CUDABackend}, nphases::Integer, ni::NTuple{N,Integer}
     ) where {N}
