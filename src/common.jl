@@ -93,4 +93,4 @@ include("PhaseRatios/constructors.jl")
 export PhaseRatios
 
 include("PhaseRatios/kernels.jl")
-export phase_ratios_center!, phase_ratios_vertex!
+export update_phase_ratios!, phase_ratios_center!, phase_ratios_vertex!
