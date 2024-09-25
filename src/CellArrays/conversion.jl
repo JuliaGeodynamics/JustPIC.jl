@@ -3,7 +3,7 @@ import Base: Array, copy
 @inline remove_parameters(::T) where {T} = Base.typename(T).wrapper
 
 # detect if we are on the CPU (`Val{false}`) or GPU (`Val{true}`)
-@inline isdevice(::Type{Array}) = Val(false)
+@inline isdevice(::Type{Array{T, N}}) where {T,N} = Val(false)
 @inline isdevice(::Type{T}) where {T<:AbstractArray} = Val(true) # this is a big assumption but still
 @inline isdevice(::T) where {T} =
     throw(ArgumentError("$(T) is not a supported CellArray type."))
@@ -33,8 +33,8 @@ function Array(x::T) where {T<:AbstractParticles}
     return T_clean(CPUBackend, cpu_fields...)
 end
 
+_Array(x) = x
 _Array(::Nothing) = nothing
-_Array(::T) where {T} = T
 _Array(x::AbstractArray) = Array(x)
 _Array(x::NTuple{N,T}) where {N,T} = ntuple(i -> _Array(x[i]), Val(N))
 

@@ -17,11 +17,11 @@ function CA end
 TA() = Array
 TA(::Type{CPUBackend}) = Array
 
-include("PhaseRatios/PhaseRatios.jl")
-export nphases, numphases
-
 include("particles.jl")
 export AbstractParticles, Particles, MarkerChain, PassiveMarkers, cell_index, cell_length
+
+include("PhaseRatios/PhaseRatios.jl")
+export nphases, numphases
 
 include("Advection/types.jl")
 export AbstractAdvectionIntegrator, Euler, RungeKutta2
