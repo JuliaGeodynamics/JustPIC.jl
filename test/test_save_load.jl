@@ -13,7 +13,6 @@ using JLD2, JustPIC, JustPIC._2D
     particles    = init_particles(backend, nxcell, max_xcell, min_xcell, xvi...,);
     phases,      = init_cell_arrays(particles, Val(1));
     phase_ratios = PhaseRatios(backend, 2, ni);
-    phase_ratios = PhaseRatios(JustPIC.CPUBackend, 2, ni);
 
     jldsave(
         "particles.jld2"; 
@@ -42,6 +41,7 @@ using JLD2, JustPIC, JustPIC._2D
         @test particles_cuda    isa JustPIC.Particles{CUDABackend} 
         @test phase_ratios_cuda isa JustPIC.PhaseRatios{CUDABackend} 
         @test phases_cuda       isa CuArray
+        @test typeof(phases_cuda) == typeof(phases)
 
     elseif isdefined(Main, :AMDGPU)
         particles_amdgpu    = ROCArray(particles2)
@@ -51,6 +51,7 @@ using JLD2, JustPIC, JustPIC._2D
         @test particles_amdgpu    isa JustPIC.Particles{AMDGPUBackend} 
         @test phase_ratios_amdgpu isa JustPIC.PhaseRatios{AMDGPUBackend} 
         @test phases_amdgpu       isa ROCArray
+        @test typeof(phases_amdgpu) == typeof(phases)
 
     end
 end
