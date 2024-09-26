@@ -24,7 +24,7 @@ function AMDGPU.ROCArray(CA::CellArray)
     Cell   = eltype(CA)
     CA_ROC = ROCCellArray{Cell}(undef, ni...)
     # copy data to the CUDA CellArray
-    copy!(CA_ROC.data, ROCArray(CA.data))
+    copyto!(CA_ROC.data, ROCArray(CA.data))
     return CA_ROC
 end
 

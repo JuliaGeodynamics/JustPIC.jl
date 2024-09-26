@@ -22,7 +22,7 @@ function CUDA.CuArray(CA::CellArray)
     Cell    = eltype(CA)
     CA_CUDA = CuCellArray{Cell}(undef, ni...)
     # copy data to the CUDA CellArray
-    copy!(CA_CUDA.data, CuArray(CA.data))
+    copyto!(CA_CUDA.data, CuArray(CA.data))
     return CA_CUDA
 end
 
