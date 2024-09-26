@@ -18,6 +18,16 @@ function AMDGPU.ROCArray(phase_ratios::JustPIC.PhaseRatios{JustPIC.AMDGPUBackend
     return JustPIC.PhaseRatios(CUDABackend, CuArray(vertex), CuArray(center))
 end
 
+function AMDGPU.ROCArray(CA::CellArray) 
+    ni     = size(CA)
+    # Array initializations
+    Cell   = eltype(CA)
+    CA_ROC = ROCCellArray{Cell}(undef, ni...)
+    # copy data to the CUDA CellArray
+    copy!(CA_ROC.data, ROCArray(CA.data))
+    return CA_ROC
+end
+
 module _2D
     using AMDGPU
     using ImplicitGlobalGrid

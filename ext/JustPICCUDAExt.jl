@@ -1,7 +1,7 @@
 module JustPICCUDAExt
 
 using CUDA
-using JustPIC
+using JustPIC, CellArrays, StaticArrays
 
 JustPIC.TA(::Type{CUDABackend}) = CuArray
 
@@ -14,6 +14,16 @@ end
 function CUDA.CuArray(phase_ratios::JustPIC.PhaseRatios{JustPIC.CPUBackend}) 
     (; vertex, center) = phase_ratios
     return JustPIC.PhaseRatios(CUDABackend, CuArray(vertex), CuArray(center))
+end
+
+function CUDA.CuArray(CA::CellArray)
+    ni      = size(CA)
+    # Array initializations
+    Cell    = eltype(CA)
+    CA_CUDA = CuCellArray{Cell}(undef, ni...)
+    # copy data to the CUDA CellArray
+    copy!(CA_CUDA.data, CuArray(CA.data))
+    return CA_CUDA
 end
 
 module _2D
