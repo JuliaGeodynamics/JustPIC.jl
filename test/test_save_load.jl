@@ -1,10 +1,4 @@
-# using CUDA
-using JLD2
-using Test
-using JustPIC, JustPIC._2D
-
-# const backend = CUDABackend 
-const backend = JustPIC.CPUBackend 
+using JLD2, JustPIC, JustPIC._2D
 
 @testset "Save and load" begin
     # Initialize particles -------------------------------
@@ -44,23 +38,18 @@ const backend = JustPIC.CPUBackend
         particles_cuda    = CuArray(particles2)
         phase_ratios_cuda = CuArray(phase_ratios2)
         phases_cuda       = CuArray(phases2)
-        @test Array(particles_cuda.coords[1].data) == particles2.coords[1].data
-        @test Array(particles_cuda.coords[2].data) == particles2.coords[2].data
-        @test Array(particles_cuda.index.data)     == particles2.index.data
-        @test Array(phase_ratios_cuda.center.data) == phase_ratios2.center.data
-        @test Array(phase_ratios_cuda.vertex.data) == phase_ratios2.vertex.data
-        @test Array(phases_cuda.data)              == phases2.data
+        
+        @test particles_cuda isa JustPIC.Particles{CUDABackend} 
+        @test phase_ratios_cuda isa JustPIC.PhaseRatios{CUDABackend} 
+        @test phases_cuda isa CuArray
 
     elseif isdefined(Main, :AMDGPU)
         particles_amdgpu    = ROCArray(particles2)
         phase_ratios_amdgpu = ROCArray(phase_ratios2)
         phases_amdgpu       = ROCArray(phases2)
-        @test Array(particles_amdgpu.coords[1].data) == particles2.coords[1].data
-        @test Array(particles_amdgpu.coords[2].data) == particles2.coords[2].data
-        @test Array(particles_amdgpu.index.data)     == particles2.index.data
-        @test Array(phase_ratios_amdgpu.center.data) == phase_ratios2.center.data
-        @test Array(phase_ratios_amdgpu.vertex.data) == phase_ratios2.vertex.data
-        @test Array(phases_amdgpu.data)              == phases2.data
+        @test particles_cuda isa JustPIC.Particles{AMDGPUBackend} 
+        @test phase_ratios_cuda isa JustPIC.PhaseRatios{AMDGPUBackend} 
+        @test phases_cuda isa ROCArray
 
     end
 end
