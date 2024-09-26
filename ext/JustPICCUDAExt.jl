@@ -5,6 +5,17 @@ using JustPIC
 
 JustPIC.TA(::Type{CUDABackend}) = CuArray
 
+function CUDA.CuArray(particles::JustPIC.Particles{JustPIC.CPUBackend}) 
+    (; coords, index, nxcell, max_xcell, min_xcell, np) = particles
+    coords_gpu = CuArray.(coords);
+    return Particles(CUDABackend, coords_gpu, CuArray(index), nxcell, max_xcell, min_xcell, np)
+end
+
+function CUDA.CuArray(phase_ratios::JustPIC.PhaseRatios{JustPIC.CPUBackend}) 
+    (; vertex, center) = phase_ratios
+    return JustPIC.PhaseRatios(CUDABackend, CuArray(vertex), CuArray(center))
+end
+
 module _2D
     using CUDA
     using ImplicitGlobalGrid
@@ -35,6 +46,8 @@ module _2D
 
     include(joinpath(@__DIR__, "../src/common.jl"))
     include(joinpath(@__DIR__, "../src/CUDAExt/CellArrays.jl"))
+
+    # Conversions 
 
     function JustPIC._2D.Particles(
         coords,
@@ -226,7 +239,7 @@ module _2D
     function JustPIC._2D.PhaseRatios(
         ::Type{CUDABackend}, nphases::Integer, ni::NTuple{N,Integer}
     ) where {N}
-        return PhaseRatios(Float64, CUDABackend, nphases, ni)
+        return JustPIC._2D.PhaseRatios(Float64, CUDABackend, nphases, ni)
     end
 
     function JustPIC._2D.PhaseRatios(
@@ -235,7 +248,7 @@ module _2D
         center = cell_array(0.0, (nphases,), ni)
         vertex = cell_array(0.0, (nphases,), ni .+ 1)
 
-        return PhaseRatios{B,typeof(center)}(center, vertex)
+        return JustPIC.PhaseRatios(CUDABackend, center, vertex)
     end
 
     function JustPIC._2D.phase_ratios_center!(
@@ -291,6 +304,8 @@ module _3D
 
     include(joinpath(@__DIR__, "../src/common.jl"))
     include(joinpath(@__DIR__, "../src/CUDAExt/CellArrays.jl"))
+    
+    # Conversions 
 
     function JustPIC._3D.Particles(
         coords,
@@ -465,7 +480,7 @@ module _3D
     function JustPIC._3D.PhaseRatios(
         ::Type{CUDABackend}, nphases::Integer, ni::NTuple{N,Integer}
     ) where {N}
-        return PhaseRatios(Float64, CUDABackend, nphases, ni)
+        return JustPIC._3D.PhaseRatios(Float64, CUDABackend, nphases, ni)
     end
 
     function JustPIC._3D.PhaseRatios(
@@ -474,7 +489,7 @@ module _3D
         center = cell_array(0.0, (nphases,), ni)
         vertex = cell_array(0.0, (nphases,), ni .+ 1)
 
-        return PhaseRatios{B,typeof(center)}(center, vertex)
+        return JustPIC.PhaseRatios(CUDABackend, center, vertex)
     end
 
     function JustPIC._3D.phase_ratios_center!(
