@@ -48,9 +48,9 @@ using JLD2, JustPIC, JustPIC._2D
         phase_ratios_amdgpu = ROCArray(phase_ratios2)
         phases_amdgpu       = ROCArray(phases2)
 
-        @test particles_cuda    isa JustPIC.Particles{AMDGPUBackend} 
-        @test phase_ratios_cuda isa JustPIC.PhaseRatios{AMDGPUBackend} 
-        @test phases_cuda       isa ROCArray
+        @test particles_amdgpu    isa JustPIC.Particles{AMDGPUBackend} 
+        @test phase_ratios_amdgpu isa JustPIC.PhaseRatios{AMDGPUBackend} 
+        @test phases_amdgpu       isa ROCArray
 
     end
 end
