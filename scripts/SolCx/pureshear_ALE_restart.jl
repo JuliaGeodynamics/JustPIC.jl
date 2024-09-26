@@ -126,7 +126,7 @@ function main()
 
     phase_ratios = JustPIC._2D.PhaseRatios(backend, 2, values(Nc));
     phase_ratios_vertex!(phase_ratios, particles, values(verts), phases) 
-    phase_ratios_center!(phase_ratios, particles, values(verts), phases) 
+    phase_ratios_center!(phase_ratios, particles, values(cents), phases) 
     Npart = sum(particles.index.data)  
 
     println(" 
