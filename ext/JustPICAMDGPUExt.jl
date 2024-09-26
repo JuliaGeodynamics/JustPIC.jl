@@ -1,7 +1,7 @@
 module JustPICAMDGPUExt
 
 using AMDGPU
-using JustPIC
+using JustPIC, CellArrays, StaticArrays
 
 import JustPIC: AbstractBackend, AMDGPUBackend
 
