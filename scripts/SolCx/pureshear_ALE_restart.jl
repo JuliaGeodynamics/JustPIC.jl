@@ -49,18 +49,18 @@ function main()
 
     # Load Breakpoint data
     if restart
-        file  = @sprintf("./Breakpoint%05d.jld2", last_step)
-        data  = load(file)
+        file          = @sprintf("./Breakpoint%05d.jld2", last_step)
+        data          = load(file)
         particles     = data["particles"]
         phases        = data["phases"]   
         phase_ratios  = data["phase_ratios"]
         particle_args = data["particle_args"]
-        xlims = data["xlims"]
-        ylims = data["ylims"]
-        t     = data["t"]
-        Nt    = last_step + 100
-        it0   = last_step + 1
-        ε̇bg   = -1.
+        xlims         = data["xlims"]
+        ylims         = data["ylims"]
+        t             = data["t"]
+        Nt            = last_step + 100
+        it0           = last_step + 1
+        ε̇bg           = -1.
     else
         xlims = [-0.5 , 0.5]
         ylims = [-0.5 , 0.5]
