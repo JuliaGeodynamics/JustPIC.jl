@@ -39,17 +39,18 @@ using JLD2, JustPIC, JustPIC._2D
         phase_ratios_cuda = CuArray(phase_ratios2)
         phases_cuda       = CuArray(phases2)
         
-        @test particles_cuda isa JustPIC.Particles{CUDABackend} 
+        @test particles_cuda    isa JustPIC.Particles{CUDABackend} 
         @test phase_ratios_cuda isa JustPIC.PhaseRatios{CUDABackend} 
-        @test phases_cuda isa CuArray
+        @test phases_cuda       isa CuArray
 
     elseif isdefined(Main, :AMDGPU)
         particles_amdgpu    = ROCArray(particles2)
         phase_ratios_amdgpu = ROCArray(phase_ratios2)
         phases_amdgpu       = ROCArray(phases2)
-        @test particles_cuda isa JustPIC.Particles{AMDGPUBackend} 
+
+        @test particles_cuda    isa JustPIC.Particles{AMDGPUBackend} 
         @test phase_ratios_cuda isa JustPIC.PhaseRatios{AMDGPUBackend} 
-        @test phases_cuda isa ROCArray
+        @test phases_cuda       isa ROCArray
 
     end
 end
