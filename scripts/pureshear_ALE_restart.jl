@@ -5,10 +5,6 @@ const USE_GPU  = false
 using JustPIC, JustPIC._2D
 const backend = JustPIC.CPUBackend 
 
-const ALE    = true
-last_step    = 100
-restart      = false
-
 using ParallelStencil
 using ParallelStencil.FiniteDifferences2D
 @static if USE_GPU
@@ -43,13 +39,13 @@ return nothing
 end
 
 
-function main()
+function main(ALE, restart, last_step)
 
     @printf("Running on %d thread(s)\n", nthreads())
 
-    # Load Breakpoint data
+    # Load checkpoint data
     if restart
-        file          = @sprintf("./Breakpoint%05d.jld2", last_step)
+        file          = @sprintf("./Checkpoint%05d.jld2", last_step)
         data          = load(file)
         particles     = data["particles"]
         phases        = data["phases"]   
@@ -135,11 +131,8 @@ function main()
     @show Δt
 
     # Create necessary tuples
-    grid_vx = (verts.x, cents_ext.y)
-    grid_vy = (cents_ext.x, verts.y)
-    Vxc     = 0.5*(V.x[1:end-1,2:end-1] .+ V.x[2:end-0,2:end-1])
-    Vyc     = 0.5*(V.y[2:end-1,1:end-1] .+ V.y[2:end-1,2:end-0])
-    Vmag    = sqrt.(Vxc.^2 .+ Vyc.^2)
+    grid_vx = verts.x, cents_ext.y
+    grid_vy = cents_ext.x, verts.y
 
     for it=it0:Nt
 
@@ -190,16 +183,16 @@ function main()
             clr  = phases.data[:]
             idxv = particles.index.data[:]
             f = Figure()
-            ax = Axis(f[1, 1], title="Particles", aspect=L.x/L.y)
+            ax = Axis(f[1, 1], title="Particles", aspect=L.x/L.y, xlabel="x", ylabel="y")
             scatter!(ax, Array(pxv[idxv]), Array(pyv[idxv]), color=Array(clr[idxv]), colormap=:roma, markersize=2)
             xlims!(ax, verts.x[1], verts.x[end])
             ylims!(ax, verts.y[1], verts.y[end])
             display(f)
         end       
 
-        # Save breakpoint
+        # Save checkpoint
         if it==100
-            @show file = @sprintf("./Breakpoint%05d.jld2", Nt)
+            @show file = @sprintf("./Checkpoint%05d.jld2", Nt)
             jldsave(file; particles, phases, phase_ratios, particle_args, xlims, ylims, t)
         end
     end
@@ -207,4 +200,10 @@ function main()
     return nothing
 end 
 
-main()
+###################################
+
+ALE       = true
+last_step = 100
+restart   = false
+
+main(ALE, restart, last_step)
