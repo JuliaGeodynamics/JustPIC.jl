@@ -129,11 +129,6 @@ function main()
     phase_ratios_center!(phase_ratios, particles, values(cents), phases) 
     Npart = sum(particles.index.data)  
 
-    println(" 
-    it => 0
-        extrema phase ratio @ vertices = $(extrema(sum(phase_ratios.vertex.data, dims=2)))
-        extrema phase ratio @ centers = $(extrema(sum(phase_ratios.center.data, dims=2)))
-    ")
 
     # Time step
     Δt = C * min(Δ...) / max(maximum(abs.(V.x)), maximum(abs.(V.y)))
