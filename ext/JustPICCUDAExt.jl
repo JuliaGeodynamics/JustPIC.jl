@@ -5,6 +5,9 @@ using JustPIC, CellArrays, StaticArrays
 
 JustPIC.TA(::Type{CUDABackend}) = CuArray
 
+CuCellArray(::Type{T}, ::UndefInitializer, dims::NTuple{N,Int}) where {T<:CellArrays.Cell,N} = CellArrays.CellArray{T,N,0,CUDA.CuArray{eltype(T),3}}(undef, dims)
+CuCellArray(::Type{T}, ::UndefInitializer, dims::Int...) where {T<:CellArrays.Cell} = CuCellArray(T, undef, dims)
+
 function CUDA.CuArray(particles::JustPIC.Particles{JustPIC.CPUBackend}) 
     (; coords, index, nxcell, max_xcell, min_xcell, np) = particles
     coords_gpu = CuArray.(coords);
@@ -19,8 +22,7 @@ end
 function CUDA.CuArray(CA::CellArray)
     ni      = size(CA)
     # Array initializations
-    Cell    = eltype(CA)
-    CA_CUDA = CuCellArray{Cell}(undef, ni...)
+    CA_CUDA = CuCellArray(eltype(CA), undef, ni...)
     # copy data to the CUDA CellArray
     copyto!(CA_CUDA.data, CuArray(CA.data))
     return CA_CUDA

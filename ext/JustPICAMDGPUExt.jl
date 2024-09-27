@@ -7,6 +7,9 @@ import JustPIC: AbstractBackend, AMDGPUBackend
 
 JustPIC.TA(::Type{AMDGPUBackend}) = ROCArray
 
+ROCCellArray(::Type{T}, ::UndefInitializer, dims::NTuple{N,Int}) where {T<:CellArrays.Cell,N} = CellArrays.CellArray{T,N,0,CUDA.ROCCellArrayArray{eltype(T),3}}(undef, dims)
+ROCCellArray(::Type{T}, ::UndefInitializer, dims::Int...) where {T<:CellArrays.Cell} = ROCCellArray(T, undef, dims)
+
 function AMDGPU.ROCArray(particles::JustPIC.Particles{JustPIC.AMDGPUBackend}) 
     (; coords, index, nxcell, max_xcell, min_xcell, np) = particles
     coords_gpu = CuArray.(coords);
@@ -23,7 +26,7 @@ function AMDGPU.ROCArray(CA::CellArray)
     # Array initializations
     Cell   = eltype(CA)
     CA_ROC = ROCCellArray{Cell}(undef, ni...)
-    # copy data to the CUDA CellArray
+    # copy data to the ROC CellArray
     copyto!(CA_ROC.data, ROCArray(CA.data))
     return CA_ROC
 end
