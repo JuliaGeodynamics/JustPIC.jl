@@ -12,13 +12,13 @@ ROCCellArray(::Type{T}, ::UndefInitializer, dims::Int...) where {T<:CellArrays.C
 
 function AMDGPU.ROCArray(particles::JustPIC.Particles{JustPIC.AMDGPUBackend}) 
     (; coords, index, nxcell, max_xcell, min_xcell, np) = particles
-    coords_gpu = CuArray.(coords);
-    return Particles(CUDABackend, coords_gpu, CuArray(index), nxcell, max_xcell, min_xcell, np)
+    coords_gpu = ROCArray.(coords);
+    return Particles(CUDABackend, coords_gpu, ROCArray(index), nxcell, max_xcell, min_xcell, np)
 end
 
 function AMDGPU.ROCArray(phase_ratios::JustPIC.PhaseRatios{JustPIC.AMDGPUBackend}) 
     (; vertex, center) = phase_ratios
-    return JustPIC.PhaseRatios(CUDABackend, CuArray(vertex), CuArray(center))
+    return JustPIC.PhaseRatios(CUDABackend, ROCArray(center), ROCArray(vertex))
 end
 
 function AMDGPU.ROCArray(CA::CellArray) 

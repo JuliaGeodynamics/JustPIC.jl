@@ -16,7 +16,7 @@ end
 
 function CUDA.CuArray(phase_ratios::JustPIC.PhaseRatios{JustPIC.CPUBackend}) 
     (; vertex, center) = phase_ratios
-    return JustPIC.PhaseRatios(CUDABackend, CuArray(vertex), CuArray(center))
+    return JustPIC.PhaseRatios(CUDABackend, CuArray(center), CuArray(vertex))
 end
 
 function CUDA.CuArray(CA::CellArray)
