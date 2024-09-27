@@ -8,6 +8,10 @@ import Base: Array, copy
 @inline isdevice(::T) where {T} =
     throw(ArgumentError("$(T) is not a supported CellArray type."))
 
+@inline CPU_CellArray(::Type{T}, ::UndefInitializer, dims::NTuple{N,Int}) where {T<:CellArrays.Cell,N} = CellArrays.CellArray{T,N, 1, Array{eltype(T),3}}(undef, dims)
+@inline CPU_CellArray(::Type{T}, ::UndefInitializer, dims::Int...) where {T<:CellArrays.Cell} = CPU_CellArray(T, undef, dims)
+
+
 # Copies CellArray to CPU if it is on a GPU device
 Array(CA::CellArray) = Array(isdevice(typeof(CA).parameters[end]), CA)
 Array(::Val{false}, CA::CellArray) = CA
@@ -16,7 +20,7 @@ Array(::Val{false}, CA::CellArray) = CA
 function Array(::Val{true}, CA::CellArray)
     dims = size(CA)
     T_SArray = first(typeof(CA).parameters)
-    CA_cpu = CPUCellArray{T_SArray}(undef, dims)
+    CA_cpu = CPU_CellArray(T_SArray, undef, dims)
     tmp = Array(CA.data)
     copyto!(CA_cpu.data, tmp)
     return CA_cpu
