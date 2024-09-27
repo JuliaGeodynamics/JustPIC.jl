@@ -1,9 +1,12 @@
 module JustPICCUDAExt
 
 using CUDA
-using JustPIC
+using JustPIC, CellArrays, StaticArrays
 
 JustPIC.TA(::Type{CUDABackend}) = CuArray
+
+CuCellArray(::Type{T}, ::UndefInitializer, dims::NTuple{N,Int}) where {T<:CellArrays.Cell,N} = CellArrays.CellArray{T,N,0,CUDA.CuArray{eltype(T),3}}(undef, dims)
+CuCellArray(::Type{T}, ::UndefInitializer, dims::Int...) where {T<:CellArrays.Cell} = CuCellArray(T, undef, dims)
 
 function CUDA.CuArray(particles::JustPIC.Particles{JustPIC.CPUBackend}) 
     (; coords, index, nxcell, max_xcell, min_xcell, np) = particles
@@ -13,7 +16,16 @@ end
 
 function CUDA.CuArray(phase_ratios::JustPIC.PhaseRatios{JustPIC.CPUBackend}) 
     (; vertex, center) = phase_ratios
-    return JustPIC.PhaseRatios(CUDABackend, CuArray(vertex), CuArray(center))
+    return JustPIC.PhaseRatios(CUDABackend, CuArray(center), CuArray(vertex))
+end
+
+function CUDA.CuArray(CA::CellArray)
+    ni      = size(CA)
+    # Array initializations
+    CA_CUDA = CuCellArray(eltype(CA), undef, ni...)
+    # copy data to the CUDA CellArray
+    copyto!(CA_CUDA.data, CuArray(CA.data))
+    return CA_CUDA
 end
 
 module _2D

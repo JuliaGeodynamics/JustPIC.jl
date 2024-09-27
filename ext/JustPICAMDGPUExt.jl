@@ -1,21 +1,34 @@
 module JustPICAMDGPUExt
 
 using AMDGPU
-using JustPIC
+using JustPIC, CellArrays, StaticArrays
 
 import JustPIC: AbstractBackend, AMDGPUBackend
 
 JustPIC.TA(::Type{AMDGPUBackend}) = ROCArray
 
+ROCCellArray(::Type{T}, ::UndefInitializer, dims::NTuple{N,Int}) where {T<:CellArrays.Cell,N} = CellArrays.CellArray{T,N,0,CUDA.ROCCellArrayArray{eltype(T),3}}(undef, dims)
+ROCCellArray(::Type{T}, ::UndefInitializer, dims::Int...) where {T<:CellArrays.Cell} = ROCCellArray(T, undef, dims)
+
 function AMDGPU.ROCArray(particles::JustPIC.Particles{JustPIC.AMDGPUBackend}) 
     (; coords, index, nxcell, max_xcell, min_xcell, np) = particles
-    coords_gpu = CuArray.(coords);
-    return Particles(CUDABackend, coords_gpu, CuArray(index), nxcell, max_xcell, min_xcell, np)
+    coords_gpu = ROCArray.(coords);
+    return Particles(CUDABackend, coords_gpu, ROCArray(index), nxcell, max_xcell, min_xcell, np)
 end
 
 function AMDGPU.ROCArray(phase_ratios::JustPIC.PhaseRatios{JustPIC.AMDGPUBackend}) 
     (; vertex, center) = phase_ratios
-    return JustPIC.PhaseRatios(CUDABackend, CuArray(vertex), CuArray(center))
+    return JustPIC.PhaseRatios(CUDABackend, ROCArray(center), ROCArray(vertex))
+end
+
+function AMDGPU.ROCArray(CA::CellArray) 
+    ni     = size(CA)
+    # Array initializations
+    Cell   = eltype(CA)
+    CA_ROC = ROCCellArray{Cell}(undef, ni...)
+    # copy data to the ROC CellArray
+    copyto!(CA_ROC.data, ROCArray(CA.data))
+    return CA_ROC
 end
 
 module _2D
