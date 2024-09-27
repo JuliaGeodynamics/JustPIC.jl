@@ -1,7 +1,13 @@
 @inline _interp1D(xq, x0, x1, y0, y1) = fma((xq - x0), (y1 - y0) * inv(x1 - x0), y0)
 
 function interp1D_extremas(xq, x, y)
-    last_I = findlast(!isnan, x)
+    last_I = 1
+    for i in length(x):2
+        if !isnan(x[i]) 
+            last_I = i
+            break
+        end 
+    end
     x_lo, x_hi = x[1], x[last_I]
     @inbounds for j in eachindex(x)[1:(end - 1)]
         x0, x1 = x[j], x[j + 1]
@@ -29,9 +35,15 @@ function interp1D_extremas(xq, x, y)
 end
 
 function interp1D_inner(xq, x, y, cell_coords, I::Integer)
-    last_I = findlast(!isnan, x)
+    last_I = 1
+    for i in length(x):2
+        if !isnan(x[i]) 
+            last_I = i
+            break
+        end 
+    end
     x_lo, x_hi = x[1], x[last_I]
-    @inbounds for j in 1:last_I
+    @inbounds for j in 1:last_I 
         x0, x1 = x[j], x[j + 1]
 
         # interpolation
@@ -54,7 +66,6 @@ function interp1D_inner(xq, x, y, cell_coords, I::Integer)
             return _interp1D(xq, x0, x1, y0, y1)
         end
     end
-    @show x_lo, x_hi, xq, I
     return error("xq outside domain")
 end
 

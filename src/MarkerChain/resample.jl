@@ -52,7 +52,7 @@ function resample_cell!(
                 interp1D_extremas(xq, x_cell, y_cell)
             end
             if isnan(yq)
-                @show I, y_cell
+                error("BOOM")
             end
             @index py[ip, I] = yq
             @index index[ip, I] = true
