@@ -31,6 +31,12 @@ using JLD2, JustPIC, JustPIC._2D
     @test Array(phase_ratios.center.data) == phase_ratios2.center.data
     @test Array(phase_ratios.vertex.data) == phase_ratios2.vertex.data
     @test Array(phases.data)              == phases2.data
+    @test size(particles.coords[1].data)  == size(particles2.coords[1].data)
+    @test size(particles.coords[2].data)  == size(particles2.coords[2].data)
+    @test size(particles.index.data)      == size(particles2.index.data)
+    @test size(phase_ratios.center.data)  == size(phase_ratios2.center.data)
+    @test size(phase_ratios.vertex.data)  == size(phase_ratios2.vertex.data)
+    @test size(phases.data)               == size(phases2.data)
 
     if last(typeof(phases).parameters) <: CuArray
         particles_cuda    = CuArray(particles2)
@@ -42,6 +48,13 @@ using JLD2, JustPIC, JustPIC._2D
         @test last(typeof(phases_cuda).parameters) <: CuArray{Float64, 3}
         @test typeof(phases_cuda)                  == typeof(phases)
 
+        @test size(particles_cuda.coords[1].data)  == size(particles2.coords[1].data)
+        @test size(particles_cuda.coords[2].data)  == size(particles2.coords[2].data)
+        @test size(particles_cuda.index.data)      == size(particles2.index.data)
+        @test size(phase_ratios_cuda.center.data)  == size(phase_ratios2.center.data)
+        @test size(phase_ratios_cuda.vertex.data)  == size(phase_ratios2.vertex.data)
+        @test size(phases_cuda.data)               == size(phases2.data)
+
     elseif last(typeof(phases).parameters) <: ROCArray
         particles_amdgpu    = ROCArray(particles2)
         phase_ratios_amdgpu = ROCArray(phase_ratios2)
@@ -51,6 +64,11 @@ using JLD2, JustPIC, JustPIC._2D
         @test phase_ratios_amdgpu                    isa JustPIC.PhaseRatios{AMDGPUBackend} 
         @test last(typeof(phases_amdgpu).parameters) <: ROCArray{Float64, 3}
         @test typeof(phases_amdgpu)                  == typeof(phases)
-
+        @test size(particles_amdgpu.coords[1].data)  == size(particles2.coords[1].data)
+        @test size(particles_amdgpu.coords[2].data)  == size(particles2.coords[2].data)
+        @test size(particles_amdgpu.index.data)      == size(particles2.index.data)
+        @test size(phase_ratios_amdgpu.center.data)  == size(phase_ratios2.center.data)
+        @test size(phase_ratios_amdgpu.vertex.data)  == size(phase_ratios2.vertex.data)
+        @test size(phases_amdgpu.data)               == size(phases2.data)
     end
 end
