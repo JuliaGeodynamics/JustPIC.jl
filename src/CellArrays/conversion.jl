@@ -13,34 +13,41 @@ import Base: Array, copy
 
 
 # Copies CellArray to CPU if it is on a GPU device
-Array(CA::CellArray) = Array(isdevice(typeof(CA).parameters[end]), CA)
-Array(::Val{false}, CA::CellArray) = CA
+Array(CA::CellArray) = Array(Float64, CA) 
+Array(::Type{T}, CA::CellArray) where {T<:Number} = Array(isdevice(typeof(CA).parameters[end]), T, CA)
+Array(::Val{false}, ::Type{T}, CA::CellArray) where {T<:Number} = Array(Val(true), T, CA)
+Array(::Val{false}, ::Type{T}, CA::CellArray{CPUCellArray{SVector{N, T}}}) where {N, T<:Number} = CA
 
 # inner kernel doing the actual copy of the `CellArray`
-function Array(::Val{true}, CA::CellArray)
+function Array(::Val{true}, ::Type{T}, CA::CellArray) where {T<:Number}
     dims = size(CA)
-    T_SArray = first(typeof(CA).parameters)
-    CA_cpu = CPU_CellArray(T_SArray, undef, dims)
+    T_SArray = eltype(CA)
+    CA_cpu = CPU_CellArray(SVector{length(T_SArray), T}, undef, dims)
     tmp = Array(CA.data)
     copyto!(CA_cpu.data, tmp)
     return CA_cpu
 end
 
 # recursively convert the data from `AbstractParticles` to CPU arrays
-function Array(x::T) where {T<:AbstractParticles}
-    nfields = fieldcount(T)
+function Array(::Type{T}, x::P) where {T<:Number, P<:AbstractParticles}
+    nfields = fieldcount(P)
     cpu_fields = ntuple(Val(nfields)) do i
         Base.@_inline_meta
-        _Array(getfield(x, i))
+        _Array(T, getfield(x, i))
     end
     T_clean = remove_parameters(x)
     return T_clean(CPUBackend, cpu_fields...)
 end
+Array(x::T) where {T<:AbstractParticles} = Array(Float64, x)
 
-_Array(x) = x
-_Array(::Nothing) = nothing
-_Array(x::AbstractArray) = Array(x)
-_Array(x::NTuple{N,T}) where {N,T} = ntuple(i -> _Array(x[i]), Val(N))
+_Array(x)                                                          = x
+_Array(::Nothing)                                                  = nothing
+_Array(x::AbstractArray)                                           = Array(x)
+_Array(x::NTuple{N,T}) where {N,T}                                 = ntuple(i -> _Array(x[i]), Val(N))
+_Array(::Type{T}, ::Nothing) where {T<:Number}                     = nothing
+_Array(::Type{T}, x) where  {T<:Number}                            = x
+_Array(::Type{T}, x::AbstractArray{TA,N}) where {T<:Number, N, TA} = Array(T, x)
+_Array(::Type{T}, x::NTuple{N,TA}) where {T<:Number, N, TA}        = ntuple(i -> _Array(T,x[i]), Val(N))
 
 # recursively copy the data from `AbstractParticles` to CPU arrays
 function copy(x::T) where {T<:AbstractParticles}
