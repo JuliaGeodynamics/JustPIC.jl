@@ -1,4 +1,4 @@
-function init_markerchain(backend, nxcell, min_xcell, max_xcell, xv, initial_elevation)
+function init_markerchain(::Type{JustPIC.CPUBackend}, nxcell, min_xcell, max_xcell, xv, initial_elevation)
     nx = length(xv) - 1
     dx = xv[2] - xv[1]
     dx_chain = dx / (nxcell + 1)
@@ -9,7 +9,7 @@ function init_markerchain(backend, nxcell, min_xcell, max_xcell, xv, initial_ele
         px, py, index, xv, initial_elevation, dx_chain, nxcell, max_xcell
     )
 
-    return MarkerChain(backend, (px, py), index, xv, min_xcell, max_xcell)
+    return MarkerChain(JustPIC.CPUBackend, (px, py), index, xv, min_xcell, max_xcell)
 end
 
 @parallel_indices (i) function fill_markerchain_coords_index!(

@@ -60,6 +60,10 @@ function resample_cell!(
                 # inner cells; this is true (ncells-2) consecutive times
                 yq = interp1D_inner(xq, x_cell, y_cell, coords, I)
                 if isnan(yq)
+                    @show xq
+                    @show x_cell
+                    @show y_cell
+                    @show I
                     error("BOOM 1")
                 end
                 yq

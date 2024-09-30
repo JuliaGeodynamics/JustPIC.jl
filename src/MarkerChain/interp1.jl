@@ -2,7 +2,7 @@
 
 function interp1D_extremas(xq, x, y)
     last_I = 1
-    for i in length(x):2
+    for i in length(x):-1:2
         if !isnan(x[i]) 
             last_I = i
             break
@@ -36,7 +36,7 @@ end
 
 function interp1D_inner(xq, x, y, cell_coords, I::Integer)
     last_I = 1
-    for i in length(x):2
+    for i in length(x):-1:2
         if !isnan(x[i]) 
             last_I = i
             break
@@ -74,7 +74,14 @@ end
 
 @inline function left_cell_right_particle(cell_coords, I)
     px = cell_coords[1][I - 1]
-    ip = findlast(!isnan, px)
+    ip = 1
+    for i in length(x):-1:2
+        if !isnan(px[i]) 
+            ip = i
+            break
+        end 
+    end
+
     return px[ip], @index(cell_coords[2][ip, I - 1])
 end
 
