@@ -22,13 +22,25 @@ function resample_cell!(
 ) where {T}
 
     # cell particles coordinates
-    x_cell, y_cell = coords[1][I], coords[2][I]
+    index_I = @cell index[I]
     px, py = coords[1], coords[2]
+    x_cell = @cell px[I]
+    y_cell = @cell py[I]
+
+    # sort particles in the cell
+    perms = sortperm(x_cell)
+    x_cell = x_cell[perms]
+    y_cell = y_cell[perms]
+    index_I = index_I[perms]
+
+    @cell index[I] = index_I
+    @cell px[I] = x_cell
+    @cell py[I] = y_cell
 
     # lower-left corner of the cell
     cell_vertex = cell_vertices[I]
     # number of particles in the cell
-    np = count(index[I])
+    np = count(index_I)
     # dx of the new chain
     dx_chain = dx_cells / (np + 1)
     # resample the cell if the number of particles is
@@ -46,10 +58,19 @@ function resample_cell!(
             # interpolated y coordinated
             yq = if 1 < I < length(index)
                 # inner cells; this is true (ncells-2) consecutive times
-                interp1D_inner(xq, x_cell, y_cell, coords, I)
+                yq = interp1D_inner(xq, x_cell, y_cell, coords, I)
+                if isnan(yq)
+                    error("BOOM 1")
+                end
+                yq
             else
                 # first and last cells
-                interp1D_extremas(xq, x_cell, y_cell)
+                yq = interp1D_extremas(xq, x_cell, y_cell)
+                if isnan(yq)
+                    error("BOOM 1")
+                end
+
+                yq
             end
             if isnan(yq)
                 error("BOOM")
