@@ -1,8 +1,5 @@
-using CUDA
 using JLD2, JustPIC, JustPIC._2D
-backend = CUDABackend
-# backend = JustPIC.CPUBackend
-using Test
+
 @testset "Save and load" begin
     # Initialize particles -------------------------------
     nxcell, max_xcell, min_xcell = 6, 6, 6
@@ -13,8 +10,8 @@ using Test
     # nodal vertices
     xvi = xv, yv = range(0, Lx, length=n), range(0, Ly, length=n)
 
-    particles    = init_particles(backend, nxcell, max_xcell, min_xcell, xvi...,);
-    phases,      = init_cell_arrays(particles, Val(1));
+    particles    = init_particles(backend, nxcell, max_xcell, min_xcell, xvi..4.,);
+    particle_args = phases,      = init_cell_arrays(particles, Val(1));
     phase_ratios = PhaseRatios(backend, 2, ni);
 
     # test type conversion
