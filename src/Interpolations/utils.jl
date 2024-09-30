@@ -6,12 +6,16 @@
 end
 
 # dimension-agnostic fully unrolled euclidean distance
-@generated function distance(a::NTuple{N,T}, b::NTuple{N,T}) where {N,T}
-    ex = zero(T)
-    @inbounds for i in 1:N
-        ex = :((a[$i] - b[$i])^2 + $ex)
-    end
-    return :(√($ex))
+@inline function distance(a::NTuple{N,T}, b::NTuple{N,T}) where {N,T}
+    distance((a[1] - b[1])^2, Base.tail(a), Base.tail(b))
+end
+
+@inline function distance(s::Number, a::NTuple{N,T}, b::NTuple{N,T}) where {N,T}
+    distance(s + (a[1] - b[1])^2, Base.tail(a), Base.tail(b))
+end
+
+@inline function distance(s::Number, a::NTuple{1,T}, b::NTuple{1,T}) where {N,T}
+    √(s + (a[1] - b[1])^2 )
 end
 
 # check whether particle is inside the grid (includes boundary)
