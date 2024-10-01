@@ -10,7 +10,7 @@ JustPIC.TA(::Type{AMDGPUBackend}) = ROCArray
 ROCCellArray(::Type{T}, ::UndefInitializer, dims::NTuple{N,Int}) where {T<:CellArrays.Cell,N} = CellArrays.CellArray{T,N,0,CUDA.ROCCellArrayArray{eltype(T),3}}(undef, dims)
 ROCCellArray(::Type{T}, ::UndefInitializer, dims::Int...) where {T<:CellArrays.Cell} = ROCCellArray(T, undef, dims)
 
-function AMDGPU.ROCArray(::Type{T},particles::JustPIC.Particles) where {T<:Number}
+function AMDGPU.ROCArray(::Type{T}, particles::JustPIC.Particles) where {T<:Number}
     (; coords, index, nxcell, max_xcell, min_xcell, np) = particles
     coords_gpu = ntuple(i->ROCArray(T, coords[i]), Val(length(coords))) 
     return Particles(CUDABackend, coords_gpu, ROCArray(T, index), nxcell, max_xcell, min_xcell, np)
@@ -19,6 +19,17 @@ end
 function AMDGPU.ROCArray(::Type{T}, phase_ratios::JustPIC.PhaseRatios) where {T<:Number}
     (; vertex, center) = phase_ratios
     return JustPIC.PhaseRatios(CUDABackend, ROCArray(T, center), ROCArray(T, vertex))
+end
+
+function AMDGPU.ROCArray(particles::JustPIC.Particles)
+    (; coords, index, nxcell, max_xcell, min_xcell, np) = particles
+    coords_gpu = ntuple(i->ROCArray(coords[i]), Val(length(coords))) 
+    return Particles(CUDABackend, coords_gpu, ROCArray(index), nxcell, max_xcell, min_xcell, np)
+end
+
+function AMDGPU.ROCArray(phase_ratios::JustPIC.PhaseRatios)
+    (; vertex, center) = phase_ratios
+    return JustPIC.PhaseRatios(CUDABackend, ROCArray(center), ROCArray(vertex))
 end
 
 function AMDGPU.ROCArray(CA::CellArray) 
@@ -36,11 +47,9 @@ function AMDGPU.ROCArray(CA::CellArray)
     return CA_ROC
 end
 
-AMDGPU.ROCArray(particles::JustPIC.Particles{JustPIC.CPUBackend})         = AMDGPU.ROCArray(Float64, particles)
-AMDGPU.ROCArray(phase_ratios::JustPIC.PhaseRatios{JustPIC.CPUBackend})    = AMDGPU.ROCArray(Float64, phase_ratios)
 AMDGPU.ROCArray(particles::JustPIC.Particles{JustPIC.AMDGPUBackend})      = particles
 AMDGPU.ROCArray(phase_ratios::JustPIC.PhaseRatios{JustPIC.AMDGPUBackend}) = phase_ratios
-AMDGPU.ROCArray(CA::CellArray)                                            = AMDGPU.ROCArray(Float64, CA)
+AMDGPU.ROCArray(CA::CellArray)                                            = AMDGPU.ROCArray(eltype(eltype(CA)), CA)
 
 module _2D
     using AMDGPU
