@@ -59,26 +59,26 @@ function resample_cell!(
             yq = if 1 < I < length(index)
                 # inner cells; this is true (ncells-2) consecutive times
                 yq = interp1D_inner(xq, x_cell, y_cell, coords, I)
-                if isnan(yq)
-                    @show xq
-                    @show x_cell
-                    @show y_cell
-                    @show I
-                    error("BOOM 1")
-                end
-                yq
+                # if isnan(yq)
+                #     @show xq
+                #     @show x_cell
+                #     @show y_cell
+                #     @show I
+                #     error("BOOM 1")
+                # end
+                # yq
             else
                 # first and last cells
                 yq = interp1D_extremas(xq, x_cell, y_cell)
-                if isnan(yq)
-                    error("BOOM 1")
-                end
+                # if isnan(yq)
+                #     error("BOOM 1")
+                # end
 
-                yq
+                # yq
             end
-            if isnan(yq)
-                error("BOOM")
-            end
+            # if isnan(yq)
+            #     error("BOOM")
+            # end
             @index py[ip, I] = yq
             @index index[ip, I] = true
         end

@@ -31,7 +31,8 @@ function interp1D_extremas(xq, x, y)
             return _interp1D(xq, x0, x1, y0, y1)
         end
     end
-    return error("xq outside domain")
+    # return error("xq outside domain")
+    return Nan
 end
 
 function interp1D_inner(xq, x, y, cell_coords, I::Integer)
@@ -66,7 +67,8 @@ function interp1D_inner(xq, x, y, cell_coords, I::Integer)
             return _interp1D(xq, x0, x1, y0, y1)
         end
     end
-    return error("xq outside domain")
+    # return error("xq outside domain")
+    return Nan
 end
 
 @inline right_cell_left_particle(cell_coords, I::Int) =
