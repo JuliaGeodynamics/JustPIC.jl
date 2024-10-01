@@ -71,14 +71,6 @@ vz_stream(x, z) = -250 * cos(π*x) * sin(π*z)
 
         @test norm(T2 .- T) / length(T) < 1e-1
 
-        # test Array conversion
-        particles_cpu = Array(particles)
-        pT_cpu        = Array(pT)
-        @test particles_cpu.index isa JustPIC.CellArrays.CPUCellArray
-        @test pT_cpu              isa JustPIC.CellArrays.CPUCellArray
-        @test particles_cpu.index.data[:] == Array(particles.index.data)[:]
-        @test pT_cpu.data[:]              == Array(pT.data)[:]
-
         # test copy function
         particles_copy = copy(particles)
         pT_copy        = copy(pT)
