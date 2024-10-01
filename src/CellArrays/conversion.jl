@@ -23,7 +23,11 @@ function Array(::Val{true}, ::Type{T}, CA::CellArray) where {T<:Number}
     dims = size(CA)
     T_SArray = eltype(CA)
     CA_cpu = CPU_CellArray(SVector{length(T_SArray), T}, undef, dims)
-    tmp = Array(CA.data)
+    tmp = if size(CA.data) != size(CA_cpu.data)
+        Array(permutedims(CA.data, (3, 2, 1)))
+    else
+        Array(CA.data)
+    end
     copyto!(CA_cpu.data, tmp)
     return CA_cpu
 end

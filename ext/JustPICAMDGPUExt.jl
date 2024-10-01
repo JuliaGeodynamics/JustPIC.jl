@@ -27,17 +27,20 @@ function AMDGPU.ROCArray(CA::CellArray)
     T_SArray = eltype(CA)
     CA_ROC = ROCCellArray(SVector{length(T_SArray), T}, undef, ni...)
     # copy data to the ROC CellArray
-    copyto!(CA_ROC.data, ROCArray(CA.data))
+    tmp = if size(CA.data) != size(CA_ROC.data)
+        ROCArray(permutedims(CA.data, (3, 2, 1)))
+    else
+        ROCArray(CA.data)
+    end
+    copyto!(CA_ROC.data, tmp)
     return CA_ROC
 end
 
-JustPIC.AMDGPUBackend
 AMDGPU.ROCArray(particles::JustPIC.Particles{JustPIC.CPUBackend})         = AMDGPU.ROCArray(Float64, particles)
 AMDGPU.ROCArray(phase_ratios::JustPIC.PhaseRatios{JustPIC.CPUBackend})    = AMDGPU.ROCArray(Float64, phase_ratios)
 AMDGPU.ROCArray(particles::JustPIC.Particles{JustPIC.AMDGPUBackend})      = particles
 AMDGPU.ROCArray(phase_ratios::JustPIC.PhaseRatios{JustPIC.AMDGPUBackend}) = phase_ratios
 AMDGPU.ROCArray(CA::CellArray)                                            = AMDGPU.ROCArray(Float64, CA)
-
 
 module _2D
     using AMDGPU

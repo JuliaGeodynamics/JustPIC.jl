@@ -25,7 +25,12 @@ function CUDA.CuArray(::Type{T}, CA::CellArray) where {T<:Number}
     T_SArray = eltype(CA)
     CA_CUDA = CuCellArray(SVector{length(T_SArray), T}, undef, ni...)
     # copy data to the CUDA CellArray
-    copyto!(CA_CUDA.data, CuArray(CA.data))
+    tmp = if size(CA.data) != size(CA_CUDA.data)
+        CuArray(permutedims(CA.data, (3, 2, 1)))
+    else
+        CuArray(CA.data)
+    end
+    copyto!(CA_CUDA.data, tmp)
     return CA_CUDA
 end
 

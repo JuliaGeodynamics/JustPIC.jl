@@ -1,12 +1,10 @@
 using JLD2, JustPIC
 import JustPIC._2D as JP2
 import JustPIC._3D as JP3
-
-backend = JustPIC.CPUBackend
 @testset "Save and load 2D" begin
     # Initialize particles -------------------------------
     nxcell, max_xcell, min_xcell = 6, 6, 6
-    n  = 16
+    n  = 64
     nx = ny = n-1
     ni = nx, ny
     Lx = Ly = 1.0
@@ -16,6 +14,8 @@ backend = JustPIC.CPUBackend
     particles    = JP2.init_particles(backend, nxcell, max_xcell, min_xcell, xvi...,);
     phases,      = JP2.init_cell_arrays(particles, Val(1));
     phase_ratios = JP2.PhaseRatios(backend, 2, ni);
+    @views particles.index.data[:, 1:3, 1] .= 1.0
+    @views particles.index.data[:, 4:6, 1] .= 0.0
 
     # test type conversion
     @test eltype(eltype(JP2.Array(phases)))                            === Float64
@@ -54,9 +54,9 @@ backend = JustPIC.CPUBackend
     @test size(JP2.Array(phases).data)               == size(phases2.data)
 
     if isdefined(Main, :CUDA)
-        particles_cuda    = JP2.CuArray(particles2)
-        phase_ratios_cuda = JP2.CuArray(phase_ratios2)
-        phases_cuda       = JP2.CuArray(phases2);
+        particles_cuda    = CuArray(particles2)
+        phase_ratios_cuda = CuArray(phase_ratios2)
+        phases_cuda       = CuArray(phases2);
 
         @test particles_cuda                       isa JustPIC.Particles{CUDABackend} 
         @test phase_ratios_cuda                    isa JustPIC.PhaseRatios{CUDABackend} 
@@ -70,20 +70,20 @@ backend = JustPIC.CPUBackend
         @test size(phases_cuda.data)               == size(phases.data)
 
         # test type conversion
-        @test eltype(eltype(JP2.CuArray(phases)))                            === Float64
-        @test eltype(eltype(JP2.CuArray(Float64, phases)))                   === Float64
-        @test eltype(eltype(JP2.CuArray(Float32, phases)))                   === Float32
-        @test eltype(eltype(JP2.CuArray(particles).coords[1].data))          === Float64
-        @test eltype(eltype(JP2.CuArray(Float64, particles).coords[1].data)) === Float64
-        @test eltype(eltype(JP2.CuArray(Float32, particles).coords[1].data)) === Float32
-        @test eltype(eltype(JP2.CuArray(phase_ratios).vertex.data))          === Float64
-        @test eltype(eltype(JP2.CuArray(Float64, phase_ratios).vertex.data)) === Float64
-        @test eltype(eltype(JP2.CuArray(Float32, phase_ratios).vertex.data)) === Float32
+        @test eltype(eltype(CuArray(phases)))                            === Float64
+        @test eltype(eltype(CuArray(Float64, phases)))                   === Float64
+        @test eltype(eltype(CuArray(Float32, phases)))                   === Float32
+        @test eltype(eltype(CuArray(particles).coords[1].data))          === Float64
+        @test eltype(eltype(CuArray(Float64, particles).coords[1].data)) === Float64
+        @test eltype(eltype(CuArray(Float32, particles).coords[1].data)) === Float32
+        @test eltype(eltype(CuArray(phase_ratios).vertex.data))          === Float64
+        @test eltype(eltype(CuArray(Float64, phase_ratios).vertex.data)) === Float64
+        @test eltype(eltype(CuArray(Float32, phase_ratios).vertex.data)) === Float32
 
     elseif isdefined(Main, :AMDGPU)
-        particles_amdgpu    = JP2.ROCArray(particles2)
-        phase_ratios_amdgpu = JP2.ROCArray(phase_ratios2)
-        phases_amdgpu       = JP2.ROCArray(phases2)
+        particles_amdgpu    = ROCArray(particles2)
+        phase_ratios_amdgpu = ROCArray(phase_ratios2)
+        phases_amdgpu       = ROCArray(phases2)
 
         @test particles_amdgpu                       isa JustPIC.Particles{AMDGPUBackend} 
         @test phase_ratios_amdgpu                    isa JustPIC.PhaseRatios{AMDGPUBackend} 
@@ -97,15 +97,15 @@ backend = JustPIC.CPUBackend
         @test size(phases_amdgpu.data)               == size(phases.data)
 
         # test type conversion
-        @test eltype(eltype(JP2.ROCArrayArray(phases)))                            === Float64
-        @test eltype(eltype(JP2.ROCArrayArray(Float64, phases)))                   === Float64
-        @test eltype(eltype(JP2.ROCArrayArray(Float32, phases)))                   === Float32
-        @test eltype(eltype(JP2.ROCArrayArray(particles).coords[1].data))          === Float64
-        @test eltype(eltype(JP2.ROCArrayArray(Float64, particles).coords[1].data)) === Float64
-        @test eltype(eltype(JP2.ROCArrayArray(Float32, particles).coords[1].data)) === Float32
-        @test eltype(eltype(JP2.ROCArrayArray(phase_ratios).vertex.data))          === Float64
-        @test eltype(eltype(JP2.ROCArrayArray(Float64, phase_ratios).vertex.data)) === Float64
-        @test eltype(eltype(JP2.ROCArrayArray(Float32, phase_ratios).vertex.data)) === Float32
+        @test eltype(eltype(ROCArrayArray(phases)))                            === Float64
+        @test eltype(eltype(ROCArrayArray(Float64, phases)))                   === Float64
+        @test eltype(eltype(ROCArrayArray(Float32, phases)))                   === Float32
+        @test eltype(eltype(ROCArrayArray(particles).coords[1].data))          === Float64
+        @test eltype(eltype(ROCArrayArray(Float64, particles).coords[1].data)) === Float64
+        @test eltype(eltype(ROCArrayArray(Float32, particles).coords[1].data)) === Float32
+        @test eltype(eltype(ROCArrayArray(phase_ratios).vertex.data))          === Float64
+        @test eltype(eltype(ROCArrayArray(Float64, phase_ratios).vertex.data)) === Float64
+        @test eltype(eltype(ROCArrayArray(Float32, phase_ratios).vertex.data)) === Float32
     end
     
     rm("particles.jld2") # cleanup
@@ -114,7 +114,7 @@ end
 @testset "Save and load 3D" begin
     # Initialize particles -------------------------------
     nxcell, max_xcell, min_xcell = 6, 6, 6
-    n  = 16
+    n  = 64
     nx = ny = nz = n-1
     ni = nx, ny, nz
     Lx = Ly = Lz = 1.0
@@ -135,6 +135,9 @@ end
     @test eltype(eltype(JP3.Array(phase_ratios).vertex.data))          === Float64
     @test eltype(eltype(JP3.Array(Float64, phase_ratios).vertex.data)) === Float64
     @test eltype(eltype(JP3.Array(Float32, phase_ratios).vertex.data)) === Float32
+
+    particles.index.data[:, 1:3, 1] .= 1.0
+    particles.index.data[:, 4:6, 1] .= 0.0
 
     jldsave(
         "particles.jld2"; 
@@ -162,9 +165,9 @@ end
     @test size(JP3.Array(phases).data)               == size(phases2.data)
 
     if isdefined(Main, :CUDA)
-        particles_cuda    = JP3.CuArray(particles2)
-        phase_ratios_cuda = JP3.CuArray(phase_ratios2)
-        phases_cuda       = JP3.CuArray(phases2);
+        particles_cuda    = CuArray(particles2)
+        phase_ratios_cuda = CuArray(phase_ratios2)
+        phases_cuda       = CuArray(phases2);
 
         @test particles_cuda                       isa JustPIC.Particles{CUDABackend} 
         @test phase_ratios_cuda                    isa JustPIC.PhaseRatios{CUDABackend} 
@@ -178,15 +181,15 @@ end
         @test size(phases_cuda.data)               == size(phases.data)
 
         # test type conversion
-        @test eltype(eltype(JP3.CuArray(phases)))                            === Float64
-        @test eltype(eltype(JP3.CuArray(Float64, phases)))                   === Float64
-        @test eltype(eltype(JP3.CuArray(Float32, phases)))                   === Float32
-        @test eltype(eltype(JP3.CuArray(particles).coords[1].data))          === Float64
-        @test eltype(eltype(JP3.CuArray(Float64, particles).coords[1].data)) === Float64
-        @test eltype(eltype(JP3.CuArray(Float32, particles).coords[1].data)) === Float32
-        @test eltype(eltype(JP3.CuArray(phase_ratios).vertex.data))          === Float64
-        @test eltype(eltype(JP3.CuArray(Float64, phase_ratios).vertex.data)) === Float64
-        @test eltype(eltype(JP3.CuArray(Float32, phase_ratios).vertex.data)) === Float32
+        @test eltype(eltype(CuArray(phases)))                            === Float64
+        @test eltype(eltype(CuArray(Float64, phases)))                   === Float64
+        @test eltype(eltype(CuArray(Float32, phases)))                   === Float32
+        @test eltype(eltype(CuArray(particles).coords[1].data))          === Float64
+        @test eltype(eltype(CuArray(Float64, particles).coords[1].data)) === Float64
+        @test eltype(eltype(CuArray(Float32, particles).coords[1].data)) === Float32
+        @test eltype(eltype(CuArray(phase_ratios).vertex.data))          === Float64
+        @test eltype(eltype(CuArray(Float64, phase_ratios).vertex.data)) === Float64
+        @test eltype(eltype(CuArray(Float32, phase_ratios).vertex.data)) === Float32
 
     elseif isdefined(Main, :AMDGPU)
         particles_amdgpu    = JP3.ROCArray(particles2)
