@@ -11,7 +11,7 @@ CuCellArray(::Type{T}, ::UndefInitializer, dims::Int...) where {T<:CellArrays.Ce
 function CUDA.CuArray(::Type{T}, particles::JustPIC.Particles) where {T<:Number}
     (; coords, index, nxcell, max_xcell, min_xcell, np) = particles
     coords_gpu = ntuple(i->CuArray(T, coords[i]), Val(length(coords))) 
-    return Particles(CUDABackend, coords_gpu, CuArray(T, index), nxcell, max_xcell, min_xcell, np)
+    return Particles(CUDABackend, coords_gpu, CuArray(Bool, index), nxcell, max_xcell, min_xcell, np)
 end
 
 function CUDA.CuArray(::Type{T}, phase_ratios::JustPIC.PhaseRatios) where {T<:Number}

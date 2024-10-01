@@ -37,7 +37,11 @@ function Array(::Type{T}, x::P) where {T<:Number, P<:AbstractParticles}
     nfields = fieldcount(P)
     cpu_fields = ntuple(Val(nfields)) do i
         Base.@_inline_meta
-        _Array(T, getfield(x, i))
+        if fieldname(P, i) === :index
+            _Array(Bool, getfield(x, i))
+        else
+            _Array(T, getfield(x, i))
+        end
     end
     T_clean = remove_parameters(x)
     return T_clean(CPUBackend, cpu_fields...)
