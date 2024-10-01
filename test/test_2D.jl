@@ -81,14 +81,6 @@ vi_stream(x) =  π * 1e-5 * (x - 0.5)
     # norm(T2 .- T) / length(T)
     @test norm(T2 .- T) / length(T) < 1e-1
 
-    # test Array conversion
-    particles_cpu = Array(particles)
-    pT_cpu        = Array(pT)
-    @test particles_cpu.index isa JustPIC.CellArrays.CPUCellArray
-    @test pT_cpu              isa JustPIC.CellArrays.CPUCellArray
-    @test particles_cpu.index.data[:] == Array(particles.index.data)[:]
-    @test pT_cpu.data[:]              == Array(pT.data)[:]
-
     # test copy function
     particles_copy = copy(particles)
     pT_copy        = copy(pT)

@@ -13,7 +13,7 @@ import Base: Array, copy
 
 
 # Copies CellArray to CPU if it is on a GPU device
-Array(CA::CellArray) = Array(Float64, CA) 
+Array(CA::CellArray) = Array(eltype(eltype(CA)), CA) 
 Array(::Type{T}, CA::CellArray) where {T<:Number} = Array(isdevice(typeof(CA).parameters[end]), T, CA)
 Array(::Val{false}, ::Type{T}, CA::CellArray) where {T<:Number} = Array(Val(true), T, CA)
 Array(::Val{false}, ::Type{T}, CA::CellArray{CPUCellArray{SVector{N, T}}}) where {N, T<:Number} = CA
@@ -23,7 +23,11 @@ function Array(::Val{true}, ::Type{T}, CA::CellArray) where {T<:Number}
     dims = size(CA)
     T_SArray = eltype(CA)
     CA_cpu = CPU_CellArray(SVector{length(T_SArray), T}, undef, dims)
-    tmp = Array(CA.data)
+    tmp = if size(CA.data) != size(CA_cpu.data)
+        Array(permutedims(CA.data, (3, 2, 1)))
+    else
+        Array(CA.data)
+    end
     copyto!(CA_cpu.data, tmp)
     return CA_cpu
 end
@@ -33,12 +37,27 @@ function Array(::Type{T}, x::P) where {T<:Number, P<:AbstractParticles}
     nfields = fieldcount(P)
     cpu_fields = ntuple(Val(nfields)) do i
         Base.@_inline_meta
-        _Array(T, getfield(x, i))
+        if fieldname(P, i) === :index
+            _Array(Bool, getfield(x, i))
+        else
+            _Array(T, getfield(x, i))
+        end
     end
     T_clean = remove_parameters(x)
     return T_clean(CPUBackend, cpu_fields...)
 end
-Array(x::T) where {T<:AbstractParticles} = Array(Float64, x)
+
+function Array(x::P) where {P<:AbstractParticles}
+    nfields = fieldcount(P)
+    cpu_fields = ntuple(Val(nfields)) do i
+        Base.@_inline_meta
+        A = getfield(x, i)
+        _Array(A)
+    end
+    T_clean = remove_parameters(x)
+    return T_clean(CPUBackend, cpu_fields...)
+end
+# Array(x::T) where {T<:AbstractParticles} = Array(Float64, x)
 
 _Array(x)                                                          = x
 _Array(::Nothing)                                                  = nothing

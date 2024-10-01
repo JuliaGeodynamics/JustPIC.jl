@@ -8,15 +8,26 @@ JustPIC.TA(::Type{CUDABackend}) = CuArray
 CuCellArray(::Type{T}, ::UndefInitializer, dims::NTuple{N,Int}) where {T<:CellArrays.Cell,N} = CellArrays.CellArray{T,N,0,CUDA.CuArray{eltype(T),3}}(undef, dims)
 CuCellArray(::Type{T}, ::UndefInitializer, dims::Int...) where {T<:CellArrays.Cell} = CuCellArray(T, undef, dims)
 
-function CUDA.CuArray(::Type{T},particles::JustPIC.Particles) where {T<:Number}
+function CUDA.CuArray(::Type{T}, particles::JustPIC.Particles) where {T<:Number}
     (; coords, index, nxcell, max_xcell, min_xcell, np) = particles
     coords_gpu = ntuple(i->CuArray(T, coords[i]), Val(length(coords))) 
-    return Particles(CUDABackend, coords_gpu, CuArray(T, index), nxcell, max_xcell, min_xcell, np)
+    return Particles(CUDABackend, coords_gpu, CuArray(Bool, index), nxcell, max_xcell, min_xcell, np)
 end
 
 function CUDA.CuArray(::Type{T}, phase_ratios::JustPIC.PhaseRatios) where {T<:Number}
     (; vertex, center) = phase_ratios
     return JustPIC.PhaseRatios(CUDABackend, CuArray(T, center), CuArray(T, vertex))
+end
+
+function CUDA.CuArray(particles::JustPIC.Particles)
+    (; coords, index, nxcell, max_xcell, min_xcell, np) = particles
+    coords_gpu = ntuple(i->CuArray(coords[i]), Val(length(coords))) 
+    return Particles(CUDABackend, coords_gpu, CuArray(index), nxcell, max_xcell, min_xcell, np)
+end
+
+function CUDA.CuArray(phase_ratios::JustPIC.PhaseRatios)
+    (; vertex, center) = phase_ratios
+    return JustPIC.PhaseRatios(CUDABackend, CuArray(center), CuArray(vertex))
 end
 
 function CUDA.CuArray(::Type{T}, CA::CellArray) where {T<:Number}
@@ -25,15 +36,18 @@ function CUDA.CuArray(::Type{T}, CA::CellArray) where {T<:Number}
     T_SArray = eltype(CA)
     CA_CUDA = CuCellArray(SVector{length(T_SArray), T}, undef, ni...)
     # copy data to the CUDA CellArray
-    copyto!(CA_CUDA.data, CuArray(CA.data))
+    tmp = if size(CA.data) != size(CA_CUDA.data)
+        CuArray(permutedims(CA.data, (3, 2, 1)))
+    else
+        CuArray(CA.data)
+    end
+    copyto!(CA_CUDA.data, tmp)
     return CA_CUDA
 end
 
-CUDA.CuArray(particles::JustPIC.Particles{JustPIC.CPUBackend})      = CUDA.CuArray(Float64, particles)
-CUDA.CuArray(phase_ratios::JustPIC.PhaseRatios{JustPIC.CPUBackend}) = CUDA.CuArray(Float64, phase_ratios)
-CUDA.CuArray(particles::JustPIC.Particles{CUDABackend})             = particles
-CUDA.CuArray(phase_ratios::JustPIC.PhaseRatios{CUDABackend})        = phase_ratios
-CUDA.CuArray(CA::CellArray)                                         = CUDA.CuArray(Float64, CA)
+CUDA.CuArray(particles::JustPIC.Particles{CUDABackend})      = particles
+CUDA.CuArray(phase_ratios::JustPIC.PhaseRatios{CUDABackend}) = phase_ratios
+CUDA.CuArray(CA::CellArray)                                  = CUDA.CuArray(eltype(eltype(CA)), CA)
 
 module _2D
     using CUDA
@@ -537,3 +551,4 @@ module _3D
 end
 
 end # module
+
