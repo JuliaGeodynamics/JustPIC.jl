@@ -6,12 +6,13 @@ It is customary to employ [checkpointing](https://en.wikipedia.org/wiki/Applicat
 Moreover, checkpoint files may occupy a lost of disk space. Here is how to write essential particle information in a checkpoint file in [jld2 format](https://github.com/JuliaIO/JLD2.jl):
 
 ```julia
- jldsave("my_file.jld2"; 
-            particles     = Array( particles), 
-            phases        = Array( phases), 
-            phase_ratios  = Array( phase_ratios), 
-            particle_args = Array.( particle_args),
- )
+jldsave(
+    "my_file.jld2"; 
+    particles     = Array(particles), 
+    phases        = Array(phases), 
+    phase_ratios  = Array(phase_ratios), 
+    particle_args = Array.(particle_args),
+)
 ```
 This will save particle information to the file `my_file.jld2`, which can be reused in order to restart a simulation.
 
