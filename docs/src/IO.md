@@ -33,10 +33,10 @@ jldsave(
 In order to restart a simulation, one needs to load the checkpoint file of interest. This is how to read the particle information from the checkpoint file `my_file.jld2`:
 
 ```julia
-    data          = load("my_file.jld2")
-    particles     = TA(backend)(Float64, data["particles"])
-    phases        = TA(backend)(Float64, data["phases"])
-    phase_ratios  = TA(backend)(Float64, data["phase_ratios"])
-    particle_args = TA(backend).(Float64, data["particle_args"])
+data          = load("my_file.jld2")
+particles     = TA(backend)(Float64, data["particles"])
+phases        = TA(backend)(Float64, data["phases"])
+phase_ratios  = TA(backend)(Float64, data["phase_ratios"])
+particle_args = TA(backend).(Float64, data["particle_args"])
 ```
 The function `TA(backend)` will automatically cast the data to the appropriate type, depending on the requested backend.  
