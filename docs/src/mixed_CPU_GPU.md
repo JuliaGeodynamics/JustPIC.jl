@@ -17,10 +17,10 @@ where `N_phases` is the number of different material phases and `@zeros()` alloc
 Similarly, GPU arrays must be copied to CPU memory:
 ```julia
 V_CPU = (
-        x      = zeros(Nc.x+1, Nc.y+2, Nc.z+2),
-        y      = zeros(Nc.x+2, Nc.y+1, Nc.z+2),
-        z      = zeros(Nc.x+2, Nc.y+2, Nc.z+1),
-    )
+    x = zeros(nx+1, ny+2, nz+2),
+    y = zeros(nx+2, ny+1, nz+2),
+    z = zeros(nx+2, ny+2, nz+1),
+)
 ```
 where `zeros()` allocates on the CPU memory.
 
