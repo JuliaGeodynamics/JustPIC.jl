@@ -10,7 +10,7 @@ const backend = JustPIC.CPUBackend
 
 2) *At memory allocation stage*. A copy of relevant CPU arrays must be allocated on the GPU memory. For example, phase ratios on mesh vertices:
 ```julia
-phv_GPU = @zeros(Nc.x+1, Nc.y+1, Nc.z+1, celldims=(N_phases))
+phv_GPU = @zeros(nx+1, ny+1, nz+1, celldims=(N_phases))
 ```
 where `N_phases` is the number of different material phases and `@zeros()` allocates on the GPU.
 
