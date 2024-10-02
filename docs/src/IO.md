@@ -19,12 +19,13 @@ This will save particle information to the file `my_file.jld2`, which can be reu
 If file size are huge, on may cast all the fields from particle structures into `Float32`. While this will spare disk space, it may hinder the reproducibility at restart. 
 
 ```julia
- jldsave("my_file.jld2"; 
-            particles     = Array( Float32, particles), 
-            phases        = Array( Float32, phases), 
-            phase_ratios  = Array( Float32, phase_ratios), 
-            particle_args = Array.( Float32, particle_args),
- )
+jldsave(
+    "my_file.jld2"; 
+    particles     = Array(Float32, particles), 
+    phases        = Array(Float32, phases), 
+    phase_ratios  = Array(Float32, phase_ratios), 
+    particle_args = Array.(Float32, particle_args),
+)
 ```
 
 ## Loading a checkpoint file
