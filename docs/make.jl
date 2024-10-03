@@ -21,6 +21,8 @@ makedocs(;
             "field_advection2D_MPI.md",
             "field_advection3D.md",
         ],
+        "I/O" =>"IO.md",
+        "Mixed GPU/CPU" =>"mixed_CPU_GPU.md",
         "Public API" => "API.md"
     ],
 )
