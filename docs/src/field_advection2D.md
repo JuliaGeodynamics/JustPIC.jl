@@ -32,8 +32,8 @@ n  = 256        # number of nodes
 nx = ny = n-1   # number of cells in x and y
 Lx = Ly = 1.0   # domain size
 xvi = xv, yv = range(0, Lx, length=n), range(0, Ly, length=n) # cell vertices
-xci = xc, yc = range(0+dx/2, Lx-dx/2, length=n-1), range(0+dy/2, Ly-dy/2, length=n-1) # cell centers
 dxi = dx, dy = xv[2] - xv[1], yv[2] - yv[1] # cell size
+xci = xc, yc = range(0+dx/2, Lx-dx/2, length=n-1), range(0+dy/2, Ly-dy/2, length=n-1) # cell centers
 ```
 
 JustPIC uses staggered grids for the velocity field, so we need to define the staggered grid for Vx and Vy. We

@@ -1,3 +1,9 @@
+function update_phase_ratios!(phase_ratios::JustPIC.PhaseRatios, particles, xci, xvi, phases)
+    phase_ratios_center!(phase_ratios, particles, xci, phases)
+    phase_ratios_vertex!(phase_ratios, particles, xvi, phases)
+    return nothing
+end
+
 ## Kernels to compute phase ratios at the centers
 
 function phase_ratios_center!(phase_ratios::JustPIC.PhaseRatios, particles, xci, phases)

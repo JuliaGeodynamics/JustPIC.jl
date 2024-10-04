@@ -1,11 +1,55 @@
 module JustPICAMDGPUExt
 
 using AMDGPU
-using JustPIC
+using JustPIC, CellArrays, StaticArrays
 
 import JustPIC: AbstractBackend, AMDGPUBackend
 
 JustPIC.TA(::Type{AMDGPUBackend}) = ROCArray
+
+ROCCellArray(::Type{T}, ::UndefInitializer, dims::NTuple{N,Int}) where {T<:CellArrays.Cell,N} = CellArrays.CellArray{T,N,0,CUDA.ROCCellArrayArray{eltype(T),3}}(undef, dims)
+ROCCellArray(::Type{T}, ::UndefInitializer, dims::Int...) where {T<:CellArrays.Cell} = ROCCellArray(T, undef, dims)
+
+function AMDGPU.ROCArray(::Type{T}, particles::JustPIC.Particles) where {T<:Number}
+    (; coords, index, nxcell, max_xcell, min_xcell, np) = particles
+    coords_gpu = ntuple(i->ROCArray(T, coords[i]), Val(length(coords))) 
+    return Particles(CUDABackend, coords_gpu, ROCArray(Bool, index), nxcell, max_xcell, min_xcell, np)
+end
+
+function AMDGPU.ROCArray(::Type{T}, phase_ratios::JustPIC.PhaseRatios) where {T<:Number}
+    (; vertex, center) = phase_ratios
+    return JustPIC.PhaseRatios(CUDABackend, ROCArray(T, center), ROCArray(T, vertex))
+end
+
+function AMDGPU.ROCArray(particles::JustPIC.Particles)
+    (; coords, index, nxcell, max_xcell, min_xcell, np) = particles
+    coords_gpu = ntuple(i->ROCArray(coords[i]), Val(length(coords))) 
+    return Particles(CUDABackend, coords_gpu, ROCArray(index), nxcell, max_xcell, min_xcell, np)
+end
+
+function AMDGPU.ROCArray(phase_ratios::JustPIC.PhaseRatios)
+    (; vertex, center) = phase_ratios
+    return JustPIC.PhaseRatios(CUDABackend, ROCArray(center), ROCArray(vertex))
+end
+
+function AMDGPU.ROCArray(CA::CellArray) 
+    ni     = size(CA)
+    # Array initializations
+    T_SArray = eltype(CA)
+    CA_ROC = ROCCellArray(SVector{length(T_SArray), T}, undef, ni...)
+    # copy data to the ROC CellArray
+    tmp = if size(CA.data) != size(CA_ROC.data)
+        ROCArray(permutedims(CA.data, (3, 2, 1)))
+    else
+        ROCArray(CA.data)
+    end
+    copyto!(CA_ROC.data, tmp)
+    return CA_ROC
+end
+
+AMDGPU.ROCArray(particles::JustPIC.Particles{JustPIC.AMDGPUBackend})      = particles
+AMDGPU.ROCArray(phase_ratios::JustPIC.PhaseRatios{JustPIC.AMDGPUBackend}) = phase_ratios
+AMDGPU.ROCArray(CA::CellArray)                                            = AMDGPU.ROCArray(eltype(eltype(CA)), CA)
 
 module _2D
     using AMDGPU
@@ -35,6 +79,7 @@ module _2D
 
     include(joinpath(@__DIR__, "../src/common.jl"))
     include(joinpath(@__DIR__, "../src/AMDGPUExt/CellArrays.jl"))
+
 
     function JustPIC._2D.Particles(
         coords,
@@ -223,10 +268,16 @@ module _2D
 
     # Phase ratio kernels
 
+    function JustPIC._2D.update_phase_ratios!(phase_ratios::JustPIC.PhaseRatios{AMDGPUBackend}, particles, xci, xvi, phases)
+        phase_ratios_center!(phase_ratios, particles, xci, phases)
+        phase_ratios_vertex!(phase_ratios, particles, xvi, phases)
+        return nothing
+    end
+
     function JustPIC._2D.PhaseRatios(
         ::Type{AMDGPUBackend}, nphases::Integer, ni::NTuple{N,Integer}
     ) where {N}
-        return PhaseRatios(Float64, AMDGPUBackend, nphases, ni)
+        return JustPIC._2D.PhaseRatios(Float64, AMDGPUBackend, nphases, ni)
     end
 
     function JustPIC._2D.PhaseRatios(
@@ -235,7 +286,7 @@ module _2D
         center = cell_array(0.0, (nphases,), ni)
         vertex = cell_array(0.0, (nphases,), ni .+ 1)
 
-        return PhaseRatios{B,typeof(center)}(center, vertex)
+        return JustPIC.PhaseRatios(AMDGPUBackend, center, vertex)
     end
 
     function JustPIC._2D.phase_ratios_center!(
@@ -291,6 +342,7 @@ module _3D
     include(joinpath(@__DIR__, "../src/common.jl"))
     include(joinpath(@__DIR__, "../src/AMDGPUExt/CellArrays.jl"))
 
+    
     function JustPIC._3D.Particles(
         coords,
         index::CellArray{StaticArraysCore.SVector{N1,Bool},3,0,ROCArray{Bool,N2}},
@@ -455,10 +507,16 @@ module _3D
 
     # Phase ratio kernels
 
+    function JustPIC._3D.update_phase_ratios!(phase_ratios::JustPIC.PhaseRatios{AMDGPUBackend}, particles, xci, xvi, phases)
+        phase_ratios_center!(phase_ratios, particles, xci, phases)
+        phase_ratios_vertex!(phase_ratios, particles, xvi, phases)
+        return nothing
+    end
+
     function JustPIC._3D.PhaseRatios(
         ::Type{AMDGPUBackend}, nphases::Integer, ni::NTuple{N,Integer}
     ) where {N}
-        return PhaseRatios(Float64, AMDGPUBackend, nphases, ni)
+        return JustPIC._3D.PhaseRatios(Float64, AMDGPUBackend, nphases, ni)
     end
 
     function JustPIC._3D.PhaseRatios(
@@ -467,7 +525,7 @@ module _3D
         center = cell_array(0.0, (nphases,), ni)
         vertex = cell_array(0.0, (nphases,), ni .+ 1)
 
-        return PhaseRatios{B,typeof(center)}(center, vertex)
+        return JustPIC.PhaseRatios(AMDGPUBackend, center, vertex)
     end
 
     function JustPIC._3D.phase_ratios_center!(
