@@ -174,7 +174,7 @@ module _2D
         return grid2particle_flip!(Fp, xvi, F, F0, particles; α=α)
     end
 
-    function JustPIC._2D.inject_particles!(particles::Particles{AMDGPUBackend}, args, grid)
+    function JustPIC._2D.inject_particles!(particles::Particles{AMDGPUBackend}, args, grid::NTuple{N}) where N
         return inject_particles!(particles, args, grid)
     end
 
@@ -434,7 +434,7 @@ module _3D
         return grid2particle_flip!(Fp, xvi, F, F0, particles; α=α)
     end
 
-    function JustPIC._3D.inject_particles!(particles::Particles{AMDGPUBackend}, args, grid)
+    function JustPIC._3D.inject_particles!(particles::Particles{AMDGPUBackend}, args, grid::NTuple{N}) where N
         return inject_particles!(particles, args, grid)
     end
 
