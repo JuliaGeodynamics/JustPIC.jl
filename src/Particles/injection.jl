@@ -54,7 +54,15 @@ function _inject_particles!(
             # add phase to new particle
             particle_idx, min_idx = index_min_distance(coords, p_new, index, i, idx_cell...)
             for j in 1:N
-                @index args[j][i, idx_cell...] = @index args[j][particle_idx, min_idx...]
+                new_value = @index args[j][particle_idx, min_idx...]
+                # px_copy = @index coords[1][particle_idx, min_idx...]
+                # py_copy = @index coords[2][particle_idx, min_idx...]
+                # index_copy = @index index[particle_idx, min_idx...]
+
+                # if isnan(new_value)
+                #     @show particle_idx, min_idx, px_copy, py_copy
+                # end
+                @index args[j][i, idx_cell...] = new_value
             end
         end
         particles_num == min_xcell && break
@@ -145,7 +153,8 @@ function index_min_distance(coords, pn, index, current_cell, icell, jcell)
     px, py = coords
     nx, ny = size(px)
 
-    for j in (jcell - 1):(jcell + 1), i in (icell - 1):(icell + 1), ip in cellaxes(index)
+    for j in (jcell):(jcell), i in (icell):(icell), ip in cellaxes(index)
+        # for j in (jcell - 1):(jcell + 1), i in (icell - 1):(icell + 1), ip in cellaxes(index)
 
         # early escape conditions
         ((i < 1) || (j < 1)) && continue # out of the domain
@@ -155,13 +164,22 @@ function index_min_distance(coords, pn, index, current_cell, icell, jcell)
 
         # distance from new point to the existing particle
         pxi = @index(px[ip, i, j]), @index(py[ip, i, j])
+
+        any(isnan, pxi) && continue
+
         d = distance(pxi, pn)
+        # if isnan(d) 
+        #     @show @index(index[ip, i, j]), pxi, d
+        # end
 
         if d < dist_min
             particle_idx_min = ip
             i_min, j_min = i, j
             dist_min = d
         end
+        # if isnan(d) 
+        #     @show @index(index[ip, i, j]), pxi, d, dist_min
+        # end
     end
 
     return particle_idx_min, (i_min, j_min)
