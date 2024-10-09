@@ -1,20 +1,20 @@
 ## LAUNCHERS
 
-function particle2grid_centroid!(F, Fp, xci::NTuple, particles::Particles)
+function particle2centroid!(F, Fp, xci::NTuple, particles::Particles)
     (; coords) = particles
     dxi = grid_size(xci)
-    @parallel (@idx size(coords[1])) _particle2grid_centroid!(F, Fp, xci, coords, dxi)
+    @parallel (@idx size(coords[1])) _particle2centroid!(F, Fp, xci, coords, dxi)
     return nothing
 end
 
-@parallel_indices (I...) function _particle2grid_centroid!(F, Fp, xci, coords, di)
-    _particle2grid_centroid!(F, Fp, I..., xci, coords, di)
+@parallel_indices (I...) function _particle2centroid!(F, Fp, xci, coords, di)
+    _particle2centroid!(F, Fp, I..., xci, coords, di)
     return nothing
 end
 
 ## INTERPOLATION KERNEL 2D
 
-@inbounds function _particle2grid_centroid!(
+@inbounds function _particle2centroid!(
     F, Fp, inode, jnode, xci::NTuple{2,T}, p, di
 ) where {T}
     px, py = p # particle coordinates
@@ -36,7 +36,7 @@ end
     return F[inode, jnode] = ωxF / ω
 end
 
-@inbounds function _particle2grid_centroid!(
+@inbounds function _particle2centroid!(
     F::NTuple{N,T1}, Fp::NTuple{N,T2}, inode, jnode, xci::NTuple{2,T3}, p, di
 ) where {N,T1,T2,T3}
     px, py = p # particle coordinates
@@ -67,7 +67,7 @@ end
 
 ## INTERPOLATION KERNEL 3D
 
-@inbounds function _particle2grid_centroid!(
+@inbounds function _particle2centroid!(
     F, Fp, inode, jnode, knode, xci::NTuple{3,T}, p, di
 ) where {T}
     px, py, pz = p # particle coordinates
@@ -90,7 +90,7 @@ end
     return F[inode, jnode, knode] = ωF * inv(ω)
 end
 
-@inbounds function _particle2grid_centroid!(
+@inbounds function _particle2centroid!(
     F::NTuple{N,T1}, Fp::NTuple{N,T2}, inode, jnode, knode, xci::NTuple{3,T3}, p, di
 ) where {N,T1,T2,T3}
     px, py, pz = p # particle coordinates
