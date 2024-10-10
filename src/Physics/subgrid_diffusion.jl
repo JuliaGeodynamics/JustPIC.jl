@@ -7,9 +7,9 @@ struct SubgridDiffusionCellArrays{CA,T}
     function SubgridDiffusionCellArrays(particles::Particles; loc=:vertex)
         pΔT, pT0, dt₀ = init_cell_arrays(particles, Val(3))
         ni = if loc === :vertex
-            size(pΔT)
-        elseif loc === :center
             size(pΔT) .+ 1
+        elseif loc === :center
+            size(pΔT)
         end
         ΔT = @zeros(ni...)
         CA = typeof(pΔT)
