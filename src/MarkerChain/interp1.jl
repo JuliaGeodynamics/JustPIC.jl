@@ -59,12 +59,12 @@ function interp1D_inner(xq, x, y, cell_coords, I::Integer)
 end
 
 @inline right_cell_left_particle(cell_coords, I::Int) =
-    @cell(cell_coords[1][1, I + 1]), @cell(cell_coords[2][1, I + 1])
+    @index(cell_coords[1][1, I + 1]), @index(cell_coords[2][1, I + 1])
 
 @inline function left_cell_right_particle(cell_coords, I)
     px = cell_coords[1][I - 1]
     ip = findlast(!isnan, px)
-    return px[ip], @cell(cell_coords[2][ip, I - 1])
+    return px[ip], @index(cell_coords[2][ip, I - 1])
 end
 
 @inline function is_above_surface(xq, yq, coords, cell_vertices)

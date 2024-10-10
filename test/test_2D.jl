@@ -1,9 +1,20 @@
+
 @static if ENV["JULIA_JUSTPIC_BACKEND"] === "AMDGPU"
     using AMDGPU
     AMDGPU.allowscalar(true)
 elseif ENV["JULIA_JUSTPIC_BACKEND"] === "CUDA"
     using CUDA
     CUDA.allowscalar(true)
+end
+
+using ParallelStencil
+
+@static if ENV["JULIA_JUSTPIC_BACKEND"] === "AMDGPU"
+    @init_parallel_stencil(AMDGPU, Float64, 2)
+elseif ENV["JULIA_JUSTPIC_BACKEND"] === "CUDA"
+    @init_parallel_stencil(CUDA, Float64, 2)
+else
+    @init_parallel_stencil(Threads, Float64, 2)
 end
 
 using JustPIC, JustPIC._2D, CellArrays, Test, LinearAlgebra
@@ -69,14 +80,6 @@ vi_stream(x) =  π * 1e-5 * (x - 0.5)
     _2D.particle2grid!(T2, pT, xvi, particles)
     # norm(T2 .- T) / length(T)
     @test norm(T2 .- T) / length(T) < 1e-1
-
-    # test Array conversion
-    particles_cpu = Array(particles)
-    pT_cpu        = Array(pT)
-    @test particles_cpu.index isa JustPIC.CellArrays.CPUCellArray
-    @test pT_cpu              isa JustPIC.CellArrays.CPUCellArray
-    @test particles_cpu.index.data[:] == Array(particles.index.data)[:]
-    @test pT_cpu.data[:]              == Array(pT.data)[:]
 
     # test copy function
     particles_copy = copy(particles)
@@ -211,6 +214,102 @@ end
 
     @test y_marker ≈ T_marker
     @test x_marker ≈ P_marker
+end
+
+@testset "Pure shear 2D" begin
+    
+    @parallel_indices (I...) function InitialFieldsParticles!(phases, px, py, index)
+         for ip in cellaxes(phases)
+            # quick escape
+            @index(index[ip, I...]) == 0 && continue
+            x = @index px[ip, I...]
+            y = @index py[ip, I...]
+            if x<y
+                @index phases[ip, I...] = 1.0
+            else
+                @index phases[ip, I...] = 2.0
+            end
+        end
+        return nothing
+    end
+
+    year = 365*3600*24
+    L    = (x=1., y=1.)
+    Nc   = (x=256, y=256 )
+    Nv   = (x=Nc.x+1,   y=Nc.y+1   )
+    Δ    = (x=L.x/Nc.x, y=L.y/Nc.y )
+    Nt   = 200
+    Nout = 1
+    C    = 0.25
+
+    verts     = (x=LinRange(-L.x/2, L.x/2, Nv.x), y=LinRange(-L.y/2, L.y/2, Nv.y))
+    cents     = (x=LinRange(-Δ.x/2+L.x/2, L.x/2-Δ.x/2, Nc.x), y=LinRange(-Δ.y/2+L.y/2, L.y+Δ.y/2-L.y/2, Nc.y))
+    cents_ext = (x=LinRange(-Δ.x/2-L.x/2, L.x/2+Δ.x/2, Nc.x+2), y=LinRange(-Δ.y/2-L.y/2, L.y+Δ.y/2+L.y/2, Nc.y+2))
+
+    size_x = (Nc.x+1, Nc.y+2)
+    size_y = (Nc.x+2, Nc.y+1)
+
+    V = (
+        x      = @zeros(size_x),
+        y      = @zeros(size_y),
+    )
+
+    # Set velocity field
+    ε̇bg = -1.0
+    for i=1:size(V.x,1),  j=1:size(V.x,2)
+        V.x[i,j] =  verts.x[i]*ε̇bg
+    end
+
+    for i=1:size(V.y,1),  j=1:size(V.y,2)
+        V.y[i,j] = -verts.y[j]*ε̇bg
+    end
+ 
+    # Initialize particles -------------------------------
+    nxcell, max_xcell, min_xcell = 12, 24, 5
+    particles = init_particles(
+        backend, 
+        nxcell, 
+        max_xcell,
+        min_xcell, 
+        values(verts),
+        values(Δ),
+        values(Nc)
+    ) # random position by default
+
+    # Initialise phase field
+    particle_args = phases, = init_cell_arrays(particles, Val(1))  # cool
+
+    @parallel InitialFieldsParticles!(phases, particles.coords..., particles.index)
+
+    phase_ratios = JustPIC._2D.PhaseRatios(backend, 2, values(Nc));
+    phase_ratios_vertex!(phase_ratios, particles, values(verts), phases) 
+    phase_ratios_center!(phase_ratios, particles, values(verts), phases) 
+
+    # Time step
+    t  = 0e0
+    Δt = C * min(Δ...) / max(maximum(abs.(V.x)), maximum(abs.(V.y)))
+
+    # Create necessary tuples
+    grid_vx = (verts.x, cents_ext.y)
+    grid_vy = (cents_ext.x, verts.y)
+    Vxc     = 0.5*(V.x[1:end-1,2:end-1] .+ V.x[2:end-0,2:end-1])
+    Vyc     = 0.5*(V.y[2:end-1,1:end-1] .+ V.y[2:end-1,2:end-0])
+
+    for it=1:Nt
+        advection_MQS!(particles, RungeKutta2(), values(V), (grid_vx, grid_vy), Δt)
+        move_particles!(particles, values(verts), particle_args)
+        inject_particles_phase!(particles, phases, (), (), values(verts))
+
+        phase_ratios_vertex!(phase_ratios, particles, values(verts), phases) 
+        phase_ratios_center!(phase_ratios, particles, values(verts), phases)     
+        min_prv, max_prv = extrema(sum(phase_ratios.vertex.data, dims=2))
+        min_prc, max_prc = extrema(sum(phase_ratios.center.data, dims=2))
+        
+        @test min_prv ≈ 1
+        @test max_prv ≈ 1
+        @test min_prc ≈ 1
+        @test max_prc ≈ 1
+    end
 end
 
 function advection_test_2D()

@@ -6,7 +6,7 @@ First we load JustPIC
 using JustPIC
 ```
 
-and the correspondent 3D module
+and the corresponding 3D module
 
 ```julia
 using JustPIC._3D

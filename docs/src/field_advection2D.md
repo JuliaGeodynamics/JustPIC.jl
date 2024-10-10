@@ -32,8 +32,8 @@ n  = 256        # number of nodes
 nx = ny = n-1   # number of cells in x and y
 Lx = Ly = 1.0   # domain size
 xvi = xv, yv = range(0, Lx, length=n), range(0, Ly, length=n) # cell vertices
-xci = xc, yc = range(0+dx/2, Lx-dx/2, length=n-1), range(0+dy/2, Ly-dy/2, length=n-1) # cell centers
 dxi = dx, dy = xv[2] - xv[1], yv[2] - yv[1] # cell size
+xci = xc, yc = range(0+dx/2, Lx-dx/2, length=n-1), range(0+dy/2, Ly-dy/2, length=n-1) # cell centers
 ```
 
 JustPIC uses staggered grids for the velocity field, so we need to define the staggered grid for Vx and Vy. We
@@ -105,3 +105,17 @@ for it in 1:niter
     particle2grid!(T, pT, xvi, particles)                           # interpolate particles to the grid
 end
 ```
+
+# Pure shear in 2D
+
+An example of two-dimensional pure shear flow is provided in this [script](https://github.com/JuliaGeodynamics/JustPIC.jl/blob/main/scripts/pureshear_ALE.jl).
+The velocity field is set to:
+
+$v_{x} = \dot{\varepsilon} x$
+
+$v_{y} = -\dot{\varepsilon} y$
+
+where $\dot{\varepsilon}$ is the pure shear strain rate applied at the boundaries. A positive value of $\dot{\varepsilon}$ leads to horizontal extension, while negative values correspond to horizontal compression.
+
+The `ALE` switch (Arbitrary Lagrangian Eulerian) allows to activate, or not, model box deformation. If  `ALE=false`, the model dimension remains constant over time. If `ALE=true`, the model domain is deformed with the background pure shear rate.
+  

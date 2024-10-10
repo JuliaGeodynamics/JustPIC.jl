@@ -18,16 +18,13 @@ include("Interpolations/particle_to_grid.jl")
 export particle2grid!
 
 include("Interpolations/particle_to_grid_centroid.jl")
-export particle2grid_centroid!
+export particle2centroid!
 
 include("Interpolations/grid_to_particle.jl")
 export grid2particle!, grid2particle_flip!
 
 include("Interpolations/centroid_to_particle.jl")
 export centroid2particle!, centroid2particle_flip!
-
-# include("Interpolations/kernels.jl")
-# export lerp, bilinear, trilinear
 
 include("Interpolations/ndlerp.jl")
 
@@ -91,3 +88,9 @@ export grid2particle!
 
 include("PassiveMarkers/particle_to_grid.jl")
 export particle2grid!
+
+include("PhaseRatios/constructors.jl")
+export PhaseRatios
+
+include("PhaseRatios/kernels.jl")
+export update_phase_ratios!, phase_ratios_center!, phase_ratios_vertex!

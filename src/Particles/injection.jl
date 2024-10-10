@@ -10,22 +10,37 @@ Injects particles if the number of particles in a given cell is such that `n < p
 - `args`: `CellArrays`s containing particle fields.
 - `grid`: The grid cell vertices.
 """
-function inject_particles!(particles::Particles, args, grid)
+function inject_particles!(particles::Particles, args, grid::NTuple{N}) where N
     # function implementation goes here
     # unpack
     (; coords, index, min_xcell) = particles
     ni = size(index)
     di = compute_dx(grid)
+    n_color = ntuple(i -> ceil(Int, ni[i] * 0.5), Val(N))
 
-    @parallel (@idx ni) inject_particles!(args, coords, index, grid, di, min_xcell)
+    if N == 2
+        for offsetᵢ in 1:3, offsetⱼ in 1:3        
+            @parallel (@idx n_color) inject_particles!(args, coords, index, grid, di, min_xcell, (offsetᵢ, offsetⱼ))
+        end
+    elseif N == 3
+        for offsetᵢ in 1:3, offsetⱼ in 1:3, offsetₖ in 1:3
+            @parallel (@idx n_color) inject_particles!(args, coords, index, grid, di, min_xcell, (offsetᵢ, offsetⱼ, offsetₖ))
+        end
+    else
+        error(ThrowArgument("The dimension of the problem must be either 2 or 3"))
+    end
 end
 
 @parallel_indices (I...) function inject_particles!(
-    args, coords, index, grid, di, min_xcell
-)
-    if mapreduce(x -> x[1] ≤ x[2], &, zip(I, size(index))) &&
-        isemptycell(index, min_xcell, I...)
-        _inject_particles!(args, coords, index, grid, di, min_xcell, I)
+    args, coords, index, grid, di, min_xcell, offsets::NTuple{N}
+) where N
+    indices = ntuple(Val(N)) do i
+        3 * (I[i] - 1) + offsets[i]
+    end
+
+    if mapreduce(x -> x[1] ≤ x[2], &, zip(indices, size(index))) &&
+        isemptycell(index, min_xcell, indices...)
+        _inject_particles!(args, coords, index, grid, di, min_xcell, indices)
     end
     return nothing
 end
@@ -38,23 +53,24 @@ function _inject_particles!(
     # count current number of particles inside the cell
     particles_num = false
     for i in 1:max_xcell
-        particles_num += @cell index[i, idx_cell...]
+        particles_num += @index index[i, idx_cell...]
     end
 
     # coordinates of the lower-left center
     xvi = corner_coordinate(grid, idx_cell)
 
     for i in 1:max_xcell
-        if @cell(index[i, idx_cell...]) === false
+        if @index(index[i, idx_cell...]) === false
             particles_num += 1
             # add at cellcenter + small random perturbation
             p_new = new_particle(xvi, di)
             fill_particle!(coords, p_new, i, idx_cell)
-            @cell index[i, idx_cell...] = true
+            @index index[i, idx_cell...] = true
             # add phase to new particle
             particle_idx, min_idx = index_min_distance(coords, p_new, index, i, idx_cell...)
             for j in 1:N
-                @cell args[j][i, idx_cell...] = @cell args[j][particle_idx, min_idx...]
+                new_value = @index args[j][particle_idx, min_idx...]
+                @index args[j][i, idx_cell...] = new_value
             end
         end
         particles_num == min_xcell && break
@@ -65,27 +81,47 @@ end
 
 # Injection of particles when multiple phases are present
 
-function inject_particles_phase!(particles::Particles, particles_phases, args, fields, grid)
+function inject_particles_phase!(particles::Particles, particles_phases, args, fields, grid::NTuple{N}) where N
     # unpack
     (; coords, index, min_xcell) = particles
     # linear to cartesian object
     ni = size(index)
     di = compute_dx(grid)
+    n_color = ntuple(i -> ceil(Int, ni[i] * 0.5), Val(N))
 
-    @parallel (@idx ni) inject_particles_phase!(
-        particles_phases, args, fields, coords, index, grid, di, min_xcell
-    )
+    if N == 2
+        for offsetᵢ in 1:3, offsetⱼ in 1:3        
+            @parallel (@idx ni) inject_particles_phase!(
+                particles_phases, args, fields, coords, index, grid, di, min_xcell, (offsetᵢ, offsetⱼ)
+            )            
+        end
+    elseif N == 3
+        for offsetᵢ in 1:3, offsetⱼ in 1:3, offsetₖ in 1:3
+            @parallel (@idx ni) inject_particles_phase!(
+                particles_phases, args, fields, coords, index, grid, di, min_xcell, (offsetᵢ, offsetⱼ, offsetₖ)
+            )
+        end
+    else
+        error(ThrowArgument("The dimension of the problem must be either 2 or 3"))
+    end
+
 end
 
 @parallel_indices (I...) function inject_particles_phase!(
-    particles_phases, args, fields, coords, index, grid, di, min_xcell
-)
-    if mapreduce(x -> x[1] ≤ x[2], &, zip(I, size(index))) &&
-        isemptycell(index, min_xcell, I...)
-        _inject_particles_phase!(
-            particles_phases, args, fields, coords, index, grid, di, min_xcell, I
-        )
+    particles_phases, args, fields, coords, index, grid, di, min_xcell, offsets::NTuple{N}
+) where N
+
+    indices = ntuple(Val(N)) do i
+        3 * (I[i] - 1) + offsets[i]
     end
+
+    if mapreduce(x -> x[1] ≤ x[2], &, zip(indices, size(index))) &&
+        isemptycell(index, min_xcell, indices...)
+        _inject_particles_phase!(
+            particles_phases, args, fields, coords, index, grid, di, min_xcell, indices
+        )    
+    end
+   
     return nothing
 end
 
@@ -97,14 +133,14 @@ function _inject_particles_phase!(
     # count current number of particles inside the cell
     particles_num = false
     for i in cellaxes(index)
-        particles_num += @cell index[i, idx_cell...]
+        particles_num += @index index[i, idx_cell...]
     end
 
     # coordinates of the lower-left center
     xvi = corner_coordinate(grid, idx_cell)
 
     for i in cellaxes(index)
-        if !(@cell(index[i, idx_cell...]))
+        if !(@index(index[i, idx_cell...]))
             particles_num += 1
 
             # add at cellcenter + small random perturbation
@@ -113,11 +149,11 @@ function _inject_particles_phase!(
 
             # add phase to new particle
             particle_idx, min_idx = index_min_distance(coords, p_new, index, i, idx_cell...)
-            new_phase = @cell particles_phases[particle_idx, min_idx...]
-            @cell particles_phases[i, idx_cell...] = new_phase
+            new_phase = @index particles_phases[particle_idx, min_idx...]
+            @index particles_phases[i, idx_cell...] = new_phase
 
             fill_particle!(coords, p_new, i, idx_cell)
-            @cell index[i, idx_cell...] = true
+            @index index[i, idx_cell...] = true
 
             # interpolate fields into newly injected particle
             for j in eachindex(args)
@@ -126,7 +162,7 @@ function _inject_particles_phase!(
                 lower, upper = extrema(local_field)
                 tmp < lower && (tmp = lower)
                 tmp > upper && (tmp = upper)
-                @cell args[j][i, idx_cell...] = tmp
+                @index args[j][i, idx_cell...] = tmp
             end
         end
 
@@ -136,7 +172,7 @@ function _inject_particles_phase!(
     return nothing
 end
 
-@inline distance2(x, y) = sqrt(mapreduce(x -> (x[1] - x[2])^2, +, zip(x, y)))
+@inline distance2(x, y) = √(mapreduce(x -> (x[1] - x[2])^2, +, zip(x, y)))
 
 # find index of the closest particle w.r.t the new particle
 function index_min_distance(coords, pn, index, current_cell, icell, jcell)
@@ -151,10 +187,13 @@ function index_min_distance(coords, pn, index, current_cell, icell, jcell)
         ((i < 1) || (j < 1)) && continue # out of the domain
         ((i > nx) || (j > ny)) && continue # out of the domain
         (i == icell) && (j == jcell) && (ip == current_cell) && continue # current injected particle
-        !(@cell index[ip, i, j]) && continue
+        !(@index index[ip, i, j]) && continue
 
         # distance from new point to the existing particle
-        pxi = @cell(px[ip, i, j]), @cell(py[ip, i, j])
+        pxi = @index(px[ip, i, j]), @index(py[ip, i, j])
+
+        any(isnan, pxi) && continue
+
         d = distance(pxi, pn)
 
         if d < dist_min
@@ -162,6 +201,7 @@ function index_min_distance(coords, pn, index, current_cell, icell, jcell)
             i_min, j_min = i, j
             dist_min = d
         end
+
     end
 
     return particle_idx_min, (i_min, j_min)
@@ -182,10 +222,10 @@ function index_min_distance(coords, pn, index, current_cell, icell, jcell, kcell
         ((i < 1) || (j < 1) || (k < 1)) && continue # out of the domain
         ((i > nx) || (j > ny) || (k > nz)) && continue # out of the domain
         (i == icell) && (j == jcell) && (k == kcell) && (ip == current_cell) && continue # current injected particle
-        !(@cell index[ip, i, j, k]) && continue
+        !(@index index[ip, i, j, k]) && continue
 
         # distance from new point to the existing particle
-        pxi = @cell(px[ip, i, j, k]), @cell(py[ip, i, j, k]), @cell(pz[ip, i, j, k])
+        pxi = @index(px[ip, i, j, k]), @index(py[ip, i, j, k]), @index(pz[ip, i, j, k])
         d = distance(pxi, pn)
 
         if d < dist_min

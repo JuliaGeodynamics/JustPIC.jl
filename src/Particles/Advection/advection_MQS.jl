@@ -15,10 +15,9 @@ function advection_MQS!(
     particles::Particles,
     method::AbstractAdvectionIntegrator,
     V,
-    grid_vi::NTuple{N, NTuple{N}},
+    grid_vi::NTuple{N,NTuple{N}},
     dt,
 ) where {N}
-
     interpolation_fn = interp_velocity2particle_MQS
 
     dxi = compute_dx(first(grid_vi))
@@ -57,10 +56,12 @@ end
         # extract particle coordinates
         pᵢ = get_particle_coords(p, ipart, I...)
         # # advect particle
-        pᵢ_new = advect_particle(method, pᵢ, V, grid, local_limits, dxi, dt, interpolation_fn, I)
+        pᵢ_new = advect_particle(
+            method, pᵢ, V, grid, local_limits, dxi, dt, interpolation_fn, I
+        )
         # update particle coordinates
         for k in 1:N
-            @inbounds @cell p[k][ipart, I...] = pᵢ_new[k]
+            @inbounds @index p[k][ipart, I...] = pᵢ_new[k]
         end
     end
 
@@ -68,12 +69,7 @@ end
 end
 
 @inline function interp_velocity2particle_MQS(
-    particle_coords::NTuple{N},
-    grid_vi,
-    local_limits,
-    dxi,
-    V::NTuple{N},
-    idx::NTuple{N},
+    particle_coords::NTuple{N}, grid_vi, local_limits, dxi, V::NTuple{N}, idx::NTuple{N}
 ) where {N}
     return ntuple(Val(N)) do i
         Base.@_inline_meta
@@ -88,13 +84,13 @@ end
 
 @inline function interp_velocity2particle_MQS(
     p_i::Union{SVector,NTuple}, xi_vx::NTuple, dxi::NTuple, F::AbstractArray, ::Val{N}, idx
-) where N
+) where {N}
     # F and coordinates of the cell corners
     Fi, xci, indices = corner_field_nodes_LinP(F, p_i, xi_vx, dxi, idx)
     # normalize particle coordinates
     t = normalize_coordinates(p_i, xci, dxi)
     # Interpolate field F from pressure node onto particle
-    V = if all(x-> 1 < x[1] < x[2]-1, zip(indices, size(F)))
+    V = if all(x -> 1 < x[1] < x[2] - 1, zip(indices, size(F)))
         MQS(F, Fi, t, indices..., Val(N))
     else
         lerp(Fi, t)

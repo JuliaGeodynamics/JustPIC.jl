@@ -10,10 +10,10 @@ Move particles in the given `particles` container according to the provided `gri
 """
 function move_particles!(particles::AbstractParticles, grid, args)
     # implementation goes here
-    dxi                          = compute_dx(grid)
+    dxi = compute_dx(grid)
     (; coords, index, max_xcell) = particles
-    nxi                          = size(index)
-    domain_limits                = extrema.(grid)
+    nxi = size(index)
+    domain_limits = extrema.(grid)
 
     # make some space for incoming particles
     @parallel (@idx nxi) empty_particles!(coords, index, max_xcell, args)
@@ -62,7 +62,7 @@ function move_kernel!(
         # particle went of of the domain, get rid of it
         domain_check = !(indomain(pᵢ, domain_limits))
         if domain_check
-            @cell index[ip, idx...] = false
+            @index index[ip, idx...] = false
             empty_particle!(coords, ip, idx)
             empty_particle!(args, ip, idx)
         end
@@ -78,14 +78,14 @@ function move_kernel!(
         # hold particle variables
         current_args = @inbounds cache_args(args, ip, idx)
         # remove particle from child cell
-        @inbounds @cell index[ip, idx...] = false
+        @inbounds @index index[ip, idx...] = false
         empty_particle!(coords, ip, idx)
         empty_particle!(args, ip, idx)
         # check whether there's empty space in parent cell
         free_idx = find_free_memory(index, new_cell...)
         free_idx == 0 && continue
         # move particle and its fields to the first free memory location
-        @inbounds @cell index[free_idx, new_cell...] = true
+        @inbounds @index index[free_idx, new_cell...] = true
         fill_particle!(coords, pᵢ, free_idx, new_cell)
         fill_particle!(args, current_args, free_idx, new_cell)
     end
@@ -95,21 +95,23 @@ end
 
 function cell_index_neighbour(x, xc, dx, i::Integer)
     xR = xc + dx
-    (xc ≤ x ≤ xR)          && return i 
-    (xc - dx < x < xc)     && return i - 1
+    (xc ≤ x ≤ xR) && return i
+    (xc - dx < x < xc) && return i - 1
     (xR < x < xc + 2 * dx) && return i + 1
-    error("Particle moved more than one cell away from the parent cell")
+    return error("Particle moved more than one cell away from the parent cell")
 end
 
-function cell_index_neighbour(xᵢ::NTuple{N}, xcᵢ::NTuple{N}, dxᵢ::NTuple{N}, I::NTuple{N,Integer}) where N
-    ntuple(Val(N)) do i 
+function cell_index_neighbour(
+    xᵢ::NTuple{N}, xcᵢ::NTuple{N}, dxᵢ::NTuple{N}, I::NTuple{N,Integer}
+) where {N}
+    ntuple(Val(N)) do i
         cell_index_neighbour(xᵢ[i], xcᵢ[i], dxᵢ[i], I[i])
     end
 end
 
 function find_free_memory(index, I::Vararg{Int,N}) where {N}
     for i in cellaxes(index)
-        !(@cell(index[i, I...])) && return i
+        !(@index(index[i, I...])) && return i
     end
     return 0
 end
@@ -141,7 +143,7 @@ end
 end
 
 @inline function cache_args(args::NTuple{N1,T}, ip, I::NTuple{N2,Int64}) where {T,N1,N2}
-    return ntuple(i -> @cell(args[i][ip, I...]), Val(N1))
+    return ntuple(i -> @index(args[i][ip, I...]), Val(N1))
 end
 
 @inline function cache_particle(p::NTuple{N1,T}, ip, I::NTuple{N2,Int64}) where {T,N1,N2}
@@ -157,7 +159,7 @@ end
 ) where {N1,N2,T}
     quote
         Base.@_inline_meta
-        Base.Cartesian.@nexprs $N1 i -> @cell p[i][ip, I...] = NaN
+        Base.Cartesian.@nexprs $N1 i -> @index p[i][ip, I...] = NaN
     end
 end
 
@@ -174,7 +176,7 @@ end
         Base.Cartesian.@nexprs $N1 i -> begin
             Base.@_inline_meta
             tmp = p[i]
-            @cell tmp[ip, I...] = field[i]
+            @index tmp[ip, I...] = field[i]
         end
         return nothing
     end
@@ -210,10 +212,10 @@ function clean_kernel!(
     for ip in cellaxes(index)
         pᵢ = cache_particle(particle_coords, ip, cell_indices)
 
-        if @cell index[ip, cell_indices...] # true if memory allocation is filled with a particle
+        if @index index[ip, cell_indices...] # true if memory allocation is filled with a particle
             if !(isincell(pᵢ, corner_xi, dxi))
                 # remove particle from child cell
-                @cell index[ip, cell_indices...] = false
+                @index index[ip, cell_indices...] = false
                 empty_particle!(particle_coords, ip, cell_indices)
                 empty_particle!(args, ip, cell_indices)
             end
@@ -233,7 +235,6 @@ function global_domain_limits(origin::NTuple{N,Any}, dxi::NTuple{N,Any}) where {
     return lims
 end
 
-
 # The following kernels are used in the `move_particles!` function
 # to remove a random particle from the memory location so that the
 # cell capacity is always below 80% of its maximum.
@@ -243,12 +244,8 @@ end
 end
 
 function empty_kernel!(
-    coords,
-    index,
-    cell_length,
-    args::NTuple{N2},
-    I::NTuple{N1,Int64},
-) where {N1, N2}
+    coords, index, cell_length, args::NTuple{N2}, I::NTuple{N1,Int64}
+) where {N1,N2}
 
     # count number of active particles inside I-th cell
     number_of_particles = count_particles(index, I...)
@@ -258,7 +255,8 @@ function empty_kernel!(
     number_of_particles < max_particles_allowed && return nothing
 
     # else we randomly remove particles until we are below 80% capacity
-    number_of_particles_to_remove = number_of_particles - round(Int, max_particles_allowed, RoundDown)
+    number_of_particles_to_remove =
+        number_of_particles - round(Int, max_particles_allowed, RoundDown)
     counter = 0
     while counter < number_of_particles_to_remove
         # randomly select a particle to remove
@@ -266,7 +264,7 @@ function empty_kernel!(
         # check if a particle is actually in that memory location
         doskip(index, index_to_remove, I...) && continue
         # great, lets get rid of it
-        @cell index[index_to_remove, I...] = false
+        @index index[index_to_remove, I...] = false
         empty_particle!(coords, index_to_remove, I)
         empty_particle!(args, index_to_remove, I)
         counter += 1
@@ -277,7 +275,7 @@ end
 function count_particles(index, I::Vararg{Int,N}) where {N}
     count = 0
     for i in cellaxes(index)
-        @inbounds count += @cell index[i, I...]
+        @inbounds count += @index index[i, I...]
     end
     return count
 end
