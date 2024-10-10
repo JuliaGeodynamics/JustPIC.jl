@@ -176,8 +176,8 @@ module _2D
     end
 
     function JustPIC._2D.inject_particles_phase!(
-        particles::Particles{CUDABackend}, particles_phases, args, fields, grid
-    )
+        particles::Particles{CUDABackend}, particles_phases, args, fields, grid::NTuple{N}
+    ) where {N}
         inject_particles_phase!(particles::Particles, particles_phases, args, fields, grid)
         return nothing
     end
@@ -436,8 +436,8 @@ module _3D
     end
 
     function JustPIC._3D.inject_particles_phase!(
-        particles::Particles{CUDABackend}, particles_phases, args, fields, grid
-    )
+        particles::Particles{CUDABackend}, particles_phases, args, fields, grid::NTuple{N}
+    ) where N
         inject_particles_phase!(particles::Particles, particles_phases, args, fields, grid)
         return nothing
     end
