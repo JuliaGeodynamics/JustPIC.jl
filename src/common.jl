@@ -18,7 +18,7 @@ include("Interpolations/particle_to_grid.jl")
 export particle2grid!
 
 include("Interpolations/particle_to_grid_centroid.jl")
-export particle2grid_centroid!
+export particle2centroid!
 
 include("Interpolations/grid_to_particle.jl")
 export grid2particle!, grid2particle_flip!

@@ -156,10 +156,10 @@ module _2D
         return grid2particle!(Fp, xvi, F, particles)
     end
 
-    function JustPIC._2D.particle2grid_centroid!(
+    function JustPIC._2D.particle2centroid!(
         F::ROCArray, Fp, xi::NTuple, particles::Particles{AMDGPUBackend}
     )
-        return particle2grid_centroid!(F, Fp, xi, particles)
+        return particle2centroid!(F, Fp, xi, particles)
     end
 
     function JustPIC._2D.particle2grid!(
@@ -174,13 +174,13 @@ module _2D
         return grid2particle_flip!(Fp, xvi, F, F0, particles; α=α)
     end
 
-    function JustPIC._2D.inject_particles!(particles::Particles{AMDGPUBackend}, args, grid)
+    function JustPIC._2D.inject_particles!(particles::Particles{AMDGPUBackend}, args, grid::NTuple{N}) where N
         return inject_particles!(particles, args, grid)
     end
 
     function JustPIC._2D.inject_particles_phase!(
-        particles::Particles{AMDGPUBackend}, particles_phases, args, fields, grid
-    )
+        particles::Particles{AMDGPUBackend}, particles_phases, args, fields, grid::NTuple{N}
+    ) where {N}
         inject_particles_phase!(particles::Particles, particles_phases, args, fields, grid)
         return nothing
     end
@@ -418,10 +418,10 @@ module _3D
         return grid2particle!(Fp, xvi, F, particles)
     end
 
-    function JustPIC._3D.particle2grid_centroid!(
+    function JustPIC._3D.particle2centroid!(
         F::ROCArray, Fp, xi::NTuple, particles::Particles{AMDGPUBackend}
     )
-        return particle2grid_centroid!(F, Fp, xi, particles)
+        return particle2centroid!(F, Fp, xi, particles)
     end
 
     function JustPIC._3D.particle2grid!(
@@ -434,13 +434,13 @@ module _3D
         return grid2particle_flip!(Fp, xvi, F, F0, particles; α=α)
     end
 
-    function JustPIC._3D.inject_particles!(particles::Particles{AMDGPUBackend}, args, grid)
+    function JustPIC._3D.inject_particles!(particles::Particles{AMDGPUBackend}, args, grid::NTuple{N}) where N
         return inject_particles!(particles, args, grid)
     end
 
     function JustPIC._3D.inject_particles_phase!(
-        particles::Particles{AMDGPUBackend}, particles_phases, args, fields, grid
-    )
+        particles::Particles{AMDGPUBackend}, particles_phases, args, fields, grid::NTuple{N}
+    ) where {N}
         inject_particles_phase!(particles::Particles, particles_phases, args, fields, grid)
         return nothing
     end
