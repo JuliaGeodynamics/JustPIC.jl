@@ -4,10 +4,14 @@ struct SubgridDiffusionCellArrays{CA,T}
     dt₀::CA # characteristic timescale `dt₀` of the local cell := ρCp / (K * (2/Δx^2 + 2/Δy^2))
     ΔT_subgrid::T # subgrid temperature increment
 
-    function SubgridDiffusionCellArrays(particles::Particles)
+    function SubgridDiffusionCellArrays(particles::Particles; loc=:vertex)
         pΔT, pT0, dt₀ = init_cell_arrays(particles, Val(3))
-        ni = size(pΔT)
-        ΔT = @zeros(ni .+ 1)
+        ni = if loc === :vertex
+            size(pΔT)
+        elseif loc === :center
+            size(pΔT) .+ 1
+        end
+        ΔT = @zeros(ni...)
         CA = typeof(pΔT)
         T = typeof(ΔT)
         return new{CA,T}(pT0, pΔT, dt₀, ΔT)
