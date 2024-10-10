@@ -209,6 +209,21 @@ module _2D
         return nothing
     end
 
+    function JustPIC._2D.subgrid_diffusion_centroid!(
+        pT,
+        T_grid,
+        ΔT_grid,
+        subgrid_arrays,
+        particles::Particles{CUDABackend},
+        xvi,
+        di,
+        dt;
+        d=1.0,
+    )
+        subgrid_diffusion_centroid(pT, T_grid, ΔT_grid, subgrid_arrays, particles, xvi, di, dt; d=d)
+        return nothing
+    end
+
     ## MakerChain
 
     function JustPIC._2D.advect_markerchain!(
@@ -466,6 +481,21 @@ module _3D
         d=1.0,
     )
         subgrid_diffusion!(pT, T_grid, ΔT_grid, subgrid_arrays, particles, xvi, di, dt; d=d)
+        return nothing
+    end
+
+    function JustPIC._3D.subgrid_diffusion_centroid!(
+        pT,
+        T_grid,
+        ΔT_grid,
+        subgrid_arrays,
+        particles::Particles{CUDABackend},
+        xvi,
+        di,
+        dt;
+        d=1.0,
+    )
+        subgrid_diffusion_centroid(pT, T_grid, ΔT_grid, subgrid_arrays, particles, xvi, di, dt; d=d)
         return nothing
     end
 

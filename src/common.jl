@@ -31,7 +31,7 @@ include("Interpolations/ndlerp.jl")
 include("Interpolations/MQS.jl")
 
 include("Physics/subgrid_diffusion.jl")
-export SubgridDiffusionCellArrays, subgrid_diffusion!
+export SubgridDiffusionCellArrays, subgrid_diffusion!, subgrid_diffusion_centroid!
 
 # PARTICLES RELATED FILES
 
