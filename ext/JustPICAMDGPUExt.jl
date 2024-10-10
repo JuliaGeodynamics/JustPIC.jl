@@ -92,8 +92,8 @@ module _2D
         return Particles(AMDGPUBackend, coords, index, nxcell, max_xcell, min_xcell, np)
     end
 
-    function JustPIC._2D.SubgridDiffusionCellArrays(particles::Particles{AMDGPUBackend})
-        return SubgridDiffusionCellArrays(particles)
+    function JustPIC._2D.SubgridDiffusionCellArrays(particles::Particles{AMDGPUBackend}; loc=:vertex)
+        return SubgridDiffusionCellArrays(particles; loc=loc)
     end
 
     function JustPIC._2D.init_particles(
@@ -369,8 +369,8 @@ module _3D
         return Particles(AMDGPUBackend, coords, index, nxcell, max_xcell, min_xcell, np)
     end
 
-    function JustPIC._3D.SubgridDiffusionCellArrays(particles::Particles{AMDGPUBackend})
-        return SubgridDiffusionCellArrays(particles)
+    function JustPIC._3D.SubgridDiffusionCellArrays(particles::Particles{AMDGPUBackend}; loc=:vertex)
+        return SubgridDiffusionCellArrays(particles; loc=loc)
     end
 
     function JustPIC._3D.init_particles(
