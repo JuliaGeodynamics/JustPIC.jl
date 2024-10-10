@@ -93,7 +93,7 @@ module _2D
         return Particles(CUDABackend, coords, index, nxcell, max_xcell, min_xcell, np)
     end
 
-    function JustPIC._2D.SubgridDiffusionCellArrays(particles::Particles{CUDABackend}; loc=:vertex)
+    function JustPIC._2D.SubgridDiffusionCellArrays(particles::Particles{CUDABackend}; loc::Symbol=:vertex)
         return SubgridDiffusionCellArrays(particles; loc=loc)
     end
 
@@ -366,7 +366,7 @@ module _3D
         return Particles(CUDABackend, coords, index, nxcell, max_xcell, min_xcell, np)
     end
 
-    function JustPIC._3D.SubgridDiffusionCellArrays(particles::Particles{CUDABackend}; loc=:vertex)
+    function JustPIC._3D.SubgridDiffusionCellArrays(particles::Particles{CUDABackend}; loc::Symbol=:vertex)
         return SubgridDiffusionCellArrays(particles; loc=loc)
     end
 
