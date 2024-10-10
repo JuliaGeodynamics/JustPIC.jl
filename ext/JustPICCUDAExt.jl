@@ -220,7 +220,7 @@ module _2D
         dt;
         d=1.0,
     )
-        subgrid_diffusion_centroid(pT, T_grid, ΔT_grid, subgrid_arrays, particles, xvi, di, dt; d=d)
+        subgrid_diffusion_centroid!(pT, T_grid, ΔT_grid, subgrid_arrays, particles, xvi, di, dt; d=d)
         return nothing
     end
 
@@ -495,7 +495,7 @@ module _3D
         dt;
         d=1.0,
     )
-        subgrid_diffusion_centroid(pT, T_grid, ΔT_grid, subgrid_arrays, particles, xvi, di, dt; d=d)
+        subgrid_diffusion_centroid!(pT, T_grid, ΔT_grid, subgrid_arrays, particles, xvi, di, dt; d=d)
         return nothing
     end
 
