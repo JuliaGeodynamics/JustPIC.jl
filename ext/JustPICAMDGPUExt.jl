@@ -12,7 +12,7 @@ ROCCellArray(::Type{T}, ::UndefInitializer, dims::Int...) where {T<:CellArrays.C
 
 function AMDGPU.ROCArray(::Type{T}, particles::JustPIC.Particles) where {T<:Number}
     (; coords, index, nxcell, max_xcell, min_xcell, np) = particles
-    coords_gpu = ntuple(i->ROCArray(T, coords[i]), Val(length(coords))) 
+    coords_gpu = ntuple(i->ROCArray(T, coords[i]), Val(length(coords)))
     return Particles(CUDABackend, coords_gpu, ROCArray(Bool, index), nxcell, max_xcell, min_xcell, np)
 end
 
@@ -23,7 +23,7 @@ end
 
 function AMDGPU.ROCArray(particles::JustPIC.Particles)
     (; coords, index, nxcell, max_xcell, min_xcell, np) = particles
-    coords_gpu = ntuple(i->ROCArray(coords[i]), Val(length(coords))) 
+    coords_gpu = ntuple(i->ROCArray(coords[i]), Val(length(coords)))
     return Particles(CUDABackend, coords_gpu, ROCArray(index), nxcell, max_xcell, min_xcell, np)
 end
 
@@ -32,7 +32,7 @@ function AMDGPU.ROCArray(phase_ratios::JustPIC.PhaseRatios)
     return JustPIC.PhaseRatios(CUDABackend, ROCArray(center), ROCArray(vertex))
 end
 
-function AMDGPU.ROCArray(CA::CellArray) 
+function AMDGPU.ROCArray(::Type{T}, CA::CellArray) where {T<:Number}
     ni     = size(CA)
     # Array initializations
     T_SArray = eltype(CA)
@@ -342,7 +342,7 @@ module _3D
     include(joinpath(@__DIR__, "../src/common.jl"))
     include(joinpath(@__DIR__, "../src/AMDGPUExt/CellArrays.jl"))
 
-    
+
     function JustPIC._3D.Particles(
         coords,
         index::CellArray{StaticArraysCore.SVector{N1,Bool},3,0,ROCArray{Bool,N2}},
