@@ -182,8 +182,7 @@ end
     F::AbstractArray{T,2}, idx::NTuple{2,Integer}
 ) where {T}
     ni = nx, ny = size(F)
-    idx2 = @inline ntuple(i -> clamp(idx[i], 1, ni[i]), Val(2))
-    i, j = idx2
+    i, j   = @inline ntuple(i -> clamp(idx[i], 1, ni[i]), Val(2))
     i1, j1 = clamp(i + 1, 1, nx), clamp(j + 1, 1, ny)
     # optimal order for memory access
     F00 = F[i, j]
@@ -222,7 +221,7 @@ end
         Base.@_inline_meta
         j = idx[i]
         xc = if j < 1 # set cellcenter coordinates outside the domain otherwise
-            -di[i] * 0.5
+            xi[i][1] - di[i]
         else
             xi[i][j]
         end

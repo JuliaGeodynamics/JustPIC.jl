@@ -8,25 +8,46 @@ JustPIC.TA(::Type{CUDABackend}) = CuArray
 CuCellArray(::Type{T}, ::UndefInitializer, dims::NTuple{N,Int}) where {T<:CellArrays.Cell,N} = CellArrays.CellArray{T,N,0,CUDA.CuArray{eltype(T),3}}(undef, dims)
 CuCellArray(::Type{T}, ::UndefInitializer, dims::Int...) where {T<:CellArrays.Cell} = CuCellArray(T, undef, dims)
 
-function CUDA.CuArray(particles::JustPIC.Particles{JustPIC.CPUBackend}) 
+function CUDA.CuArray(::Type{T}, particles::JustPIC.Particles) where {T<:Number}
     (; coords, index, nxcell, max_xcell, min_xcell, np) = particles
-    coords_gpu = CuArray.(coords);
+    coords_gpu = ntuple(i->CuArray(T, coords[i]), Val(length(coords))) 
+    return Particles(CUDABackend, coords_gpu, CuArray(Bool, index), nxcell, max_xcell, min_xcell, np)
+end
+
+function CUDA.CuArray(::Type{T}, phase_ratios::JustPIC.PhaseRatios) where {T<:Number}
+    (; vertex, center) = phase_ratios
+    return JustPIC.PhaseRatios(CUDABackend, CuArray(T, center), CuArray(T, vertex))
+end
+
+function CUDA.CuArray(particles::JustPIC.Particles)
+    (; coords, index, nxcell, max_xcell, min_xcell, np) = particles
+    coords_gpu = ntuple(i->CuArray(coords[i]), Val(length(coords))) 
     return Particles(CUDABackend, coords_gpu, CuArray(index), nxcell, max_xcell, min_xcell, np)
 end
 
-function CUDA.CuArray(phase_ratios::JustPIC.PhaseRatios{JustPIC.CPUBackend}) 
+function CUDA.CuArray(phase_ratios::JustPIC.PhaseRatios)
     (; vertex, center) = phase_ratios
     return JustPIC.PhaseRatios(CUDABackend, CuArray(center), CuArray(vertex))
 end
 
-function CUDA.CuArray(CA::CellArray)
+function CUDA.CuArray(::Type{T}, CA::CellArray) where {T<:Number}
     ni      = size(CA)
     # Array initializations
-    CA_CUDA = CuCellArray(eltype(CA), undef, ni...)
+    T_SArray = eltype(CA)
+    CA_CUDA = CuCellArray(SVector{length(T_SArray), T}, undef, ni...)
     # copy data to the CUDA CellArray
-    copyto!(CA_CUDA.data, CuArray(CA.data))
+    tmp = if size(CA.data) != size(CA_CUDA.data)
+        CuArray(permutedims(CA.data, (3, 2, 1)))
+    else
+        CuArray(CA.data)
+    end
+    copyto!(CA_CUDA.data, tmp)
     return CA_CUDA
 end
+
+CUDA.CuArray(particles::JustPIC.Particles{CUDABackend})      = particles
+CUDA.CuArray(phase_ratios::JustPIC.PhaseRatios{CUDABackend}) = phase_ratios
+CUDA.CuArray(CA::CellArray)                                  = CUDA.CuArray(eltype(eltype(CA)), CA)
 
 module _2D
     using CUDA
@@ -136,10 +157,10 @@ module _2D
         return grid2particle!(Fp, xvi, F, particles)
     end
 
-    function JustPIC._2D.particle2grid_centroid!(
+    function JustPIC._2D.particle2centroid!(
         F::CuArray, Fp, xi::NTuple, particles::Particles{CUDABackend}
     )
-        return particle2grid_centroid!(F, Fp, xi, particles)
+        return particle2centroid!(F, Fp, xi, particles)
     end
 
     function JustPIC._2D.particle2grid!(F::CuArray, Fp, xi, particles)
@@ -150,13 +171,13 @@ module _2D
         return grid2particle_flip!(Fp, xvi, F, F0, particles; α=α)
     end
 
-    function JustPIC._2D.inject_particles!(particles::Particles{CUDABackend}, args, grid)
+    function JustPIC._2D.inject_particles!(particles::Particles{CUDABackend}, args, grid::NTuple{N}) where N
         return inject_particles!(particles, args, grid)
     end
 
     function JustPIC._2D.inject_particles_phase!(
-        particles::Particles{CUDABackend}, particles_phases, args, fields, grid
-    )
+        particles::Particles{CUDABackend}, particles_phases, args, fields, grid::NTuple{N}
+    ) where {N}
         inject_particles_phase!(particles::Particles, particles_phases, args, fields, grid)
         return nothing
     end
@@ -408,10 +429,10 @@ module _3D
         return grid2particle!(Fp, xvi, F, particles)
     end
 
-    function JustPIC._3D.particle2grid_centroid!(
+    function JustPIC._3D.particle2centroid!(
         F::CuArray, Fp, xi::NTuple, particles::Particles{CUDABackend}
     )
-        return particle2grid_centroid!(F, Fp, xi, particles)
+        return particle2centroid!(F, Fp, xi, particles)
     end
 
     function JustPIC._3D.particle2grid!(
@@ -424,13 +445,13 @@ module _3D
         return grid2particle_flip!(Fp, xvi, F, F0, particles; α=α)
     end
 
-    function JustPIC._3D.inject_particles!(particles::Particles{CUDABackend}, args, grid)
+    function JustPIC._3D.inject_particles!(particles::Particles{CUDABackend}, args, grid::NTuple{N}) where N
         return inject_particles!(particles, args, grid)
     end
 
     function JustPIC._3D.inject_particles_phase!(
-        particles::Particles{CUDABackend}, particles_phases, args, fields, grid
-    )
+        particles::Particles{CUDABackend}, particles_phases, args, fields, grid::NTuple{N}
+    ) where N
         inject_particles_phase!(particles::Particles, particles_phases, args, fields, grid)
         return nothing
     end
@@ -544,3 +565,4 @@ module _3D
 end
 
 end # module
+
