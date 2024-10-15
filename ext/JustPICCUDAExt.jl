@@ -10,7 +10,7 @@ CuCellArray(::Type{T}, ::UndefInitializer, dims::Int...) where {T<:CellArrays.Ce
 
 function CUDA.CuArray(::Type{T}, particles::JustPIC.Particles) where {T<:Number}
     (; coords, index, nxcell, max_xcell, min_xcell, np) = particles
-    coords_gpu = ntuple(i->CuArray(T, coords[i]), Val(length(coords))) 
+    coords_gpu = ntuple(i->CuArray(T, coords[i]), Val(length(coords)))
     return Particles(CUDABackend, coords_gpu, CuArray(Bool, index), nxcell, max_xcell, min_xcell, np)
 end
 
@@ -21,7 +21,7 @@ end
 
 function CUDA.CuArray(particles::JustPIC.Particles)
     (; coords, index, nxcell, max_xcell, min_xcell, np) = particles
-    coords_gpu = ntuple(i->CuArray(coords[i]), Val(length(coords))) 
+    coords_gpu = ntuple(i->CuArray(coords[i]), Val(length(coords)))
     return Particles(CUDABackend, coords_gpu, CuArray(index), nxcell, max_xcell, min_xcell, np)
 end
 
@@ -80,7 +80,7 @@ module _2D
     include(joinpath(@__DIR__, "../src/common.jl"))
     include(joinpath(@__DIR__, "../src/CUDAExt/CellArrays.jl"))
 
-    # Conversions 
+    # Conversions
 
     function JustPIC._2D.Particles(
         coords,
@@ -308,6 +308,10 @@ module _2D
         return nothing
     end
 
+    function update_cell_halo!(x::Vararg{CuCellArray})
+        return update_cell_halo!(x)
+    end
+
 end
 
 module _3D
@@ -337,8 +341,8 @@ module _3D
 
     include(joinpath(@__DIR__, "../src/common.jl"))
     include(joinpath(@__DIR__, "../src/CUDAExt/CellArrays.jl"))
-    
-    # Conversions 
+
+    # Conversions
 
     function JustPIC._3D.Particles(
         coords,
@@ -509,7 +513,7 @@ module _3D
         phase_ratios_vertex!(phase_ratios, particles, xvi, phases)
         return nothing
     end
-    
+
     function JustPIC._3D.PhaseRatios(
         ::Type{CUDABackend}, nphases::Integer, ni::NTuple{N,Integer}
     ) where {N}
@@ -548,7 +552,11 @@ module _3D
         )
         return nothing
     end
+
+    function update_cell_halo!(x::Vararg{CuCellArray})
+        return update_cell_halo!(x)
+    end
+
 end
 
 end # module
-
