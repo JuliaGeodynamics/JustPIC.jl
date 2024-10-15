@@ -314,7 +314,7 @@ module _2D
     end
 
 
-    function update_cell_halo!(x::Vararg{ROCArray})
+    function JustPIC._2D.update_cell_halo!(x::Vararg{ROCArray,N}) where {N}
         return update_cell_halo!(x)
     end
 end
@@ -557,7 +557,7 @@ module _3D
         return nothing
     end
 
-    function update_cell_halo!(x::Vararg{ROCArray})
+    function JustPIC._3D.update_cell_halo!(x::Vararg{ROCArray,N}) where {N}
         return update_cell_halo!(x)
     end
 

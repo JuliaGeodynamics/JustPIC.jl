@@ -308,7 +308,7 @@ module _2D
         return nothing
     end
 
-    function update_cell_halo!(x::Vararg{CuCellArray})
+    function JustPIC._2D.update_cell_halo!(x::Vararg{CuCellArray,N}) where {N}
         return update_cell_halo!(x)
     end
 
@@ -553,7 +553,7 @@ module _3D
         return nothing
     end
 
-    function update_cell_halo!(x::Vararg{CuCellArray})
+    function JustPIC._3D.update_cell_halo!(x::Vararg{CuCellArray,N}) where {N}
         return update_cell_halo!(x)
     end
 
