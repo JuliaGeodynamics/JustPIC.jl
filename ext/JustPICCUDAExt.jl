@@ -80,6 +80,9 @@ module _2D
     include(joinpath(@__DIR__, "../src/common.jl"))
     include(joinpath(@__DIR__, "../src/CUDAExt/CellArrays.jl"))
 
+    # halo update
+    JustPIC._2D.update_cell_halo!(x::Vararg{CuCellArray,N}) where {N} = update_cell_halo!(x...)
+
     # Conversions 
 
     function JustPIC._2D.Particles(
@@ -338,6 +341,9 @@ module _3D
     include(joinpath(@__DIR__, "../src/common.jl"))
     include(joinpath(@__DIR__, "../src/CUDAExt/CellArrays.jl"))
     
+    # halo update
+    JustPIC._3D.update_cell_halo!(x::Vararg{CuCellArray,N}) where {N} = update_cell_halo!(x...)
+
     # Conversions 
 
     function JustPIC._3D.Particles(

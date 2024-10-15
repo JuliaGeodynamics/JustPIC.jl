@@ -7,29 +7,29 @@ import JustPIC: AbstractBackend, AMDGPUBackend
 
 JustPIC.TA(::Type{AMDGPUBackend}) = ROCArray
 
-ROCCellArray(::Type{T}, ::UndefInitializer, dims::NTuple{N,Int}) where {T<:CellArrays.Cell,N} = CellArrays.CellArray{T,N,0,CUDA.ROCCellArrayArray{eltype(T),3}}(undef, dims)
+ROCCellArray(::Type{T}, ::UndefInitializer, dims::NTuple{N,Int}) where {T<:CellArrays.Cell,N} = CellArrays.CellArray{T,N,0,AMDGPU.ROCCellArrayArray{eltype(T),3}}(undef, dims)
 ROCCellArray(::Type{T}, ::UndefInitializer, dims::Int...) where {T<:CellArrays.Cell} = ROCCellArray(T, undef, dims)
 
 function AMDGPU.ROCArray(::Type{T}, particles::JustPIC.Particles) where {T<:Number}
     (; coords, index, nxcell, max_xcell, min_xcell, np) = particles
     coords_gpu = ntuple(i->ROCArray(T, coords[i]), Val(length(coords)))
-    return Particles(CUDABackend, coords_gpu, ROCArray(Bool, index), nxcell, max_xcell, min_xcell, np)
+    return Particles(AMDGPUBackend, coords_gpu, ROCArray(Bool, index), nxcell, max_xcell, min_xcell, np)
 end
 
 function AMDGPU.ROCArray(::Type{T}, phase_ratios::JustPIC.PhaseRatios) where {T<:Number}
     (; vertex, center) = phase_ratios
-    return JustPIC.PhaseRatios(CUDABackend, ROCArray(T, center), ROCArray(T, vertex))
+    return JustPIC.PhaseRatios(AMDGPUBackend, ROCArray(T, center), ROCArray(T, vertex))
 end
 
 function AMDGPU.ROCArray(particles::JustPIC.Particles)
     (; coords, index, nxcell, max_xcell, min_xcell, np) = particles
     coords_gpu = ntuple(i->ROCArray(coords[i]), Val(length(coords)))
-    return Particles(CUDABackend, coords_gpu, ROCArray(index), nxcell, max_xcell, min_xcell, np)
+    return Particles(AMDGPUBackend, coords_gpu, ROCArray(index), nxcell, max_xcell, min_xcell, np)
 end
 
 function AMDGPU.ROCArray(phase_ratios::JustPIC.PhaseRatios)
     (; vertex, center) = phase_ratios
-    return JustPIC.PhaseRatios(CUDABackend, ROCArray(center), ROCArray(vertex))
+    return JustPIC.PhaseRatios(AMDGPUBackend, ROCArray(center), ROCArray(vertex))
 end
 
 function AMDGPU.ROCArray(::Type{T}, CA::CellArray) where {T<:Number}
@@ -80,6 +80,8 @@ module _2D
     include(joinpath(@__DIR__, "../src/common.jl"))
     include(joinpath(@__DIR__, "../src/AMDGPUExt/CellArrays.jl"))
 
+    # halo update
+    JustPIC._2D.update_cell_halo!(x::Vararg{ROCCellArray,N}) where {N} = update_cell_halo!(x...)
 
     function JustPIC._2D.Particles(
         coords,
@@ -342,6 +344,8 @@ module _3D
     include(joinpath(@__DIR__, "../src/common.jl"))
     include(joinpath(@__DIR__, "../src/AMDGPUExt/CellArrays.jl"))
 
+    # halo update
+    JustPIC._3D.update_cell_halo!(x::Vararg{ROCCellArray,N}) where {N} = update_cell_halo!(x...)
 
     function JustPIC._3D.Particles(
         coords,
