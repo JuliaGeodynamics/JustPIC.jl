@@ -59,6 +59,7 @@ module _2D
     using JustPIC
 
     @init_parallel_stencil(AMDGPU, Float64, 2)
+    @define_ROCCellArray
 
     import JustPIC: Euler, RungeKutta2, AbstractAdvectionIntegrator
     import JustPIC._2D.CA
@@ -324,6 +325,7 @@ module _3D
     using JustPIC
 
     @init_parallel_stencil(AMDGPU, Float64, 3)
+    @define_ROCCellArray
 
     import JustPIC:
         Euler, RungeKutta2, AbstractAdvectionIntegrator, Particles, PassiveMarkers
