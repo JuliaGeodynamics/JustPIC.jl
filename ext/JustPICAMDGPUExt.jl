@@ -59,7 +59,7 @@ module _2D
     using JustPIC
 
     @init_parallel_stencil(AMDGPU, Float64, 2)
-    @define_ROCCellArray
+    
 
     import JustPIC: Euler, RungeKutta2, AbstractAdvectionIntegrator
     import JustPIC._2D.CA
@@ -82,7 +82,7 @@ module _2D
     include(joinpath(@__DIR__, "../src/AMDGPUExt/CellArrays.jl"))
 
     # halo update
-    JustPIC._2D.update_cell_halo!(x::Vararg{ROCCellArray,N}) where {N} = update_cell_halo!(x...)
+    JustPIC._2D.update_cell_halo!(x::Vararg{CellArray{S, N, D, ROCArray{T, nD}}, NA}) where {NA, S, N, D, T, nD} = update_cell_halo!(x...)
 
     function JustPIC._2D.Particles(
         coords,
@@ -325,7 +325,7 @@ module _3D
     using JustPIC
 
     @init_parallel_stencil(AMDGPU, Float64, 3)
-    @define_ROCCellArray
+    
 
     import JustPIC:
         Euler, RungeKutta2, AbstractAdvectionIntegrator, Particles, PassiveMarkers
@@ -347,7 +347,7 @@ module _3D
     include(joinpath(@__DIR__, "../src/AMDGPUExt/CellArrays.jl"))
 
     # halo update
-    JustPIC._3D.update_cell_halo!(x::Vararg{ROCCellArray,N}) where {N} = update_cell_halo!(x...)
+    JustPIC._3D.update_cell_halo!(x::Vararg{CellArray{S, N, D, ROCArray{T, nD}}, NA}) where {NA, S, N, D, T, nD} = update_cell_halo!(x...)
 
     function JustPIC._3D.Particles(
         coords,

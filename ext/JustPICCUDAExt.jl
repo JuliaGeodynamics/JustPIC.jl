@@ -57,7 +57,7 @@ module _2D
     using JustPIC
 
     @init_parallel_stencil(CUDA, Float64, 2)
-    @define_CuCellArray
+    
 
     import JustPIC: Euler, RungeKutta2, AbstractAdvectionIntegrator
     import JustPIC._2D.CA
@@ -82,7 +82,7 @@ module _2D
     include(joinpath(@__DIR__, "../src/CUDAExt/CellArrays.jl"))
 
     # halo update
-    JustPIC._2D.update_cell_halo!(x::Vararg{CuCellArray,N}) where {N} = update_cell_halo!(x...)
+    JustPIC._2D.update_cell_halo!(x::Vararg{CellArray{S, N, D, CuArray{T, nD}}, NA}) where {NA, S, N, D, T, nD} = update_cell_halo!(x...)
 
     # Conversions 
 
@@ -322,7 +322,7 @@ module _3D
     using JustPIC
 
     @init_parallel_stencil(CUDA, Float64, 3)
-    @define_CuCellArray
+    
 
     macro myatomic(expr)
         return esc(
@@ -344,7 +344,7 @@ module _3D
     include(joinpath(@__DIR__, "../src/CUDAExt/CellArrays.jl"))
     
     # halo update
-    JustPIC._3D.update_cell_halo!(x::Vararg{CuCellArray,N}) where {N} = update_cell_halo!(x...)
+    JustPIC._3D.update_cell_halo!(x::Vararg{CellArray{S, N, D, CuArray{T, nD}}, NA}) where {NA, S, N, D, T, nD} = update_cell_halo!(x...)
 
     # Conversions 
 
