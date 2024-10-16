@@ -124,7 +124,7 @@ end
 
     # Grid to centroid test
     JP3.centroid2particle!(pT, xci, Tc, particles)
-    @test all(pT[2,2,2] .≈ particles.coords[3][2,2,2])
+    @test all(pT .≈ particles.coords[3])
     
     # Particle to centroid test
     Tc2 = similar(Tc)
@@ -133,8 +133,8 @@ end
     @test norm(Tc2 .- Tc) / length(Tc) < 1e-1
 
     # test copy function
-    particles_copy = copy(particles)
-    pT_copy        = copy(pT)
+    particles_copy                     =  copy(particles)
+    pT_copy                            =  copy(pT)
     @test particles_copy.index.data[:] == particles.index.data[:]
     @test pT_copy.data[:]              == pT.data[:]
 end
