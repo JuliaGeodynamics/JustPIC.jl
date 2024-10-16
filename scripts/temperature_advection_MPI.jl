@@ -1,4 +1,4 @@
-# using CUDA
+using CUDA
 # import Pkg
 # Pkg.resolve(); Pkg.update()
 using JustPIC, JustPIC._2D
@@ -6,8 +6,8 @@ using JustPIC, JustPIC._2D
 # Threads is the default backend, 
 # to run on a CUDA GPU load CUDA.jl (i.e. "using CUDA"), 
 # and to run on an AMD GPU load AMDGPU.jl (i.e. "using AMDGPU")
-const backend = JustPIC.CPUBackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
-# const backend = CUDABackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
+# const backend = JustPIC.CPUBackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
+const backend = CUDABackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
 
 using GLMakie
 using ImplicitGlobalGrid
@@ -93,13 +93,9 @@ function main()
         move_particles!(particles, xvi, particle_args)
         # interpolate T from particle to grid
         particle2grid!(T, pT, xvi, particles)
-        # T0 .= deepcopy(T) 
 
-        # f, ax, = heatmap(T)
-        # save("figs/T_MPI_$(me)_$(iter).png", f)
-
-        @views T_nohalo .= Array(T[2:end-1, 2:end-1])
-        gather!(T_nohalo, T_v)
+        @views T_nohalo .= T[2:end-1, 2:end-1]
+        gather!(Array(T_nohalo), T_v)
 
         if me == 0 && iter % 1 == 0
             x_global = range(0, Lx, length=size(T_v,1))
