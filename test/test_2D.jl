@@ -43,51 +43,6 @@ vy_stream(x, y) = -250 * cos(π*x) * sin(π*y)
 # Analytical flow solution
 vi_stream(x) =  π * 1e-5 * (x - 0.5)
 
-@testset "Interpolations 2D" begin
-    nxcell, max_xcell, min_xcell = 5, 5, 1
-    n = 5 # number of vertices
-    nx = ny = n - 1
-    Lx = Ly = 1.0
-    # nodal vertices
-    xvi = xv, yv = LinRange(0, Lx, n), LinRange(0, Ly, n)
-    dxi = dx, dy = xv[2] - xv[1], yv[2] - yv[1]
-    # nodal centers
-    xci = xc, yc = LinRange(0+dx/2, Lx-dx/2, n-1), LinRange(0+dy/2, Ly-dy/2, n-1)
-    # staggered grid velocity nodal locations
-
-    # Initialize particles & particle fields
-    particles = _2D.init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi...,
-    )
-    pT, = _2D.init_cell_arrays(particles, Val(1))
-
-    # Linear field at the vertices
-    T  = TA(backend)([y for x in xv, y in yv])
-    T0 = TA(backend)([y for x in xv, y in yv])
-
-    # Grid to particle test
-    _2D.grid2particle!(pT, xvi, T, particles)
-
-    @test pT == particles.coords[2]
-
-    # Grid to particle test
-    _2D.grid2particle_flip!(pT, xvi, T, T0, particles)
-
-    @test pT == particles.coords[2]
-
-    # Particle to grid test
-    T2 = similar(T)
-    _2D.particle2grid!(T2, pT, xvi, particles)
-    # norm(T2 .- T) / length(T)
-    @test norm(T2 .- T) / length(T) < 1e-1
-
-    # test copy function
-    particles_copy = copy(particles)
-    pT_copy        = copy(pT)
-    @test particles_copy.index.data[:] == particles.index.data[:]
-    @test pT_copy.data[:]              == pT.data[:]
-end
-
 @testset "Subgrid diffusion 2D" begin
     nxcell, max_xcell, min_xcell = 12, 12, 1
     n = 5 # number of vertices

@@ -1,52 +1,7 @@
-"""
-    lerp(v, t::NTuple{nD,T}) where {nD,T}
-
-Linearly interpolates the value `v` between the elements of the tuple `t`.
-This function is specialized for tuples of length `nD`.
-
-# Arguments
-- `v`: The value to be interpolated.
-- `t`: The tuple of values to interpolate between.
-"""
-@inline lerp(v, t::NTuple{nD,T})              where {nD,T}    = lerp(v, t, 0, Val(nD - 1))
-@inline lerp(v, t::NTuple{nD,T}, i, ::Val{N}) where {nD,N,T}  = lerp(t[N + 1], lerp(v, t, i, Val(N - 1)), lerp(v, t, i + 2^N, Val(N - 1)))
-@inline lerp(v, t::NTuple{nD,T}, i, ::Val{0}) where {nD,T}    = lerp(t[1], v[i + 1], v[i + 2])
-@inline lerp(t::T, v0::T, v1::T)              where {T<:Real} = fma(t, v1, fma(-t, v0, v0))
-
-# """
-#     MQS(v, t::NTuple{nD,T}) where {nD,T}
-
-# Modified Quadratic Spline interpolation of the value `v` between the elements of the tuple `t`.
-# This function is specialized for tuples of length `nD`.
-
-# # Arguments
-# - `v`: The value to be interpolated.
-# - `t`: The tuple of values to interpolate between.
-# """
-@inline MQS(v, t::NTuple{nD,T})              where {nD,T}    = MQS(v, t, 0, Val(nD - 1))
-@inline MQS(v, t::NTuple{nD,T}, i, ::Val{N}) where {nD,N,T}  = lerp(t[N + 1], MQS(v, t, i, Val(N - 1)), MQS(v, t, i + 2^N + 1, Val(N - 1)))
-@inline MQS(v, t::NTuple{nD,T}, i, ::Val{0}) where {nD,T}    = MQS(t[1], v[i + 1], v[i + 2], v[i + 3])
-@inline function MQS(t::T, v0::T, v1::T, v2::T) where {T<:Real} 
-    linear_term = muladd(t, v2, muladd(-t, v1, v1))
-    quadratic_correction = 0.5 * (t - 1.5)^2 * (muladd(-2, v1, v0) + v2)
-    # @show linear_term
-    # @show quadratic_correction 
-    return linear_term + quadratic_correction
-end
-
-function MQS(v::NTuple{12}, t::NTuple{3})
-    front_bot_mqs = MQS(t[1], v[1:3]...)
-    front_top_mqs = MQS(t[1], v[4:6]...)
-    back_bot_mqs  = MQS(t[1], v[7:9]...)
-    back_top_mqs  = MQS(t[1], v[10:end]...)    
-    v = front_bot_mqs, back_bot_mqs, front_top_mqs, back_top_mqs
-    lerp(v, t[2:3])
-end
-
-####
 using Test
 using JustPIC, JustPIC._2D
-import JustPIC._2D: lerp, MQS
+using LinearAlgebra
+import JustPIC._2D: lerp
 
 @testset "Interpolation kernels" begin
     @testset "lerp" begin
@@ -63,24 +18,123 @@ import JustPIC._2D: lerp, MQS
         v3D = 1e0, 2e0, 1e0, 2e0, 1e0, 2e0, 1e0, 2e0
         @test lerp(v3D, t3D) == 1.5
     end
+end
 
-    @testset "MQS" begin
-        t2D = 0.5, 0.5 
-        v2D = 0e0, 1e0, 2e0, 0e0, 1e0, 2e0
-        @test MQS(v2D, t2D) == 1.5
+@testset "Interpolations 2D" begin
+    nxcell, max_xcell, min_xcell = 5, 5, 1
+    n = 5 # number of vertices
+    nx = ny = n - 1
+    Lx = Ly = 1.0
+    # nodal vertices
+    xvi = xv, yv = LinRange(0, Lx, n), LinRange(0, Ly, n)
+    dxi = dx, dy = xv[2] - xv[1], yv[2] - yv[1]
+    # nodal centers
+    xci = xc, yc = LinRange(0+dx/2, Lx-dx/2, n-1), LinRange(0+dy/2, Ly-dy/2, n-1)
+    # staggered grid velocity nodal locations
 
-        bot_mqs = MQS(t2D[1], v2D[1:3]...)
-        top_mqs = MQS(t2D[1], v2D[4:6]...)
-        @test lerp(t2D[1], bot_mqs, top_mqs) == mqs
+    # Initialize particles & particle fields
+    particles = _2D.init_particles(
+        backend, nxcell, max_xcell, min_xcell, xvi...,
+    )
+    pT, = _2D.init_cell_arrays(particles, Val(1))
 
-        t3D = 0.5, 0.5, 0.5 
-        v3D = (
-            0e0, 1e0, 2e0,
-            0e0, 1e0, 2e0,
-            0e0, 1e0, 2e0,
-            0e0, 1e0, 2e0,
-        )
+    # Linear field at the vertices
+    T  = TA(backend)([y for x in xv, y in yv])
+    T0 = TA(backend)([y for x in xv, y in yv])
+    # Linear field at the centroids
+    Tc = TA(backend)([y for x in xc, y in yc])
 
-        @test MQS(v3D, t3D) == 1.5
-    end
+    # Grid to particle test
+    _2D.grid2particle!(pT, xvi, T, particles)
+
+    @test pT == particles.coords[2]
+
+    # Grid to particle test
+    _2D.grid2particle_flip!(pT, xvi, T, T0, particles)
+
+    @test pT == particles.coords[2]
+
+    # Particle to grid test
+    T2 = similar(T)
+    _2D.particle2grid!(T2, pT, xvi, particles)
+    # norm(T2 .- T) / length(T)
+    @test norm(T2 .- T) / length(T) < 1e-1
+
+    # Grid to centroid test
+    _2D.centroid2particle!(pT, xci, Tc, particles)
+
+    @test all(pT[2,2] .≈ particles.coords[2][2,2])
+    
+    # Particle to centroid test
+    Tc2 = similar(Tc)
+    _2D.particle2centroid!(Tc2, pT, xvi, particles)
+    # norm(T2 .- T) / length(T)
+    @test norm(Tc2 .- Tc) / length(Tc) < 1e-1
+
+    # test copy function
+    particles_copy = copy(particles)
+    pT_copy        = copy(pT)
+    @test particles_copy.index.data[:] == particles.index.data[:]
+    @test pT_copy.data[:]              == pT.data[:]
+end
+
+@testset "Interpolations 3D" begin
+
+    import JustPIC._3D as JP3
+
+    nxcell, max_xcell, min_xcell = 12, 12, 1
+    n   = 5 # number of vertices
+    nx  = ny = nz = n-1
+    ni  = nx, ny, nz
+    Lx  = Ly = Lz = 1.0
+    Li  = Lx, Ly, Lz
+    # nodal vertices
+    xvi = xv, yv, zv = ntuple(i -> LinRange(0, Li[i], n), Val(3))
+    # grid spacing
+    dxi = dx, dy, dz = ntuple(i -> xvi[i][2] - xvi[i][1], Val(3))
+    # nodal centers
+    xci = xc, yc, zc = ntuple(i -> LinRange(0+dxi[i]/2, Li[i]-dxi[i]/2, ni[i]), Val(3))
+
+    # Initialize particles -------------------------------
+    particles = JP3.init_particles(
+        backend, nxcell, max_xcell, min_xcell, xvi...
+    )
+    pT, = JP3.init_cell_arrays(particles, Val(1))
+
+    # Linear field at the vertices
+    T  = TA(backend)([z for x in xv, y in yv, z in zv])
+    T0 = TA(backend)([z for x in xv, y in yv, z in zv])
+    # Linear field at the centroids
+    Tc = TA(backend)([z for x in xc, y in yc, z in zc])
+
+    # Grid to particle test
+    JP3.grid2particle!(pT, xvi, T, particles)
+
+    @test pT ≈ particles.coords[3]
+
+    # Grid to particle test
+    JP3.grid2particle_flip!(pT, xvi, T, T0, particles)
+
+    @test pT ≈ particles.coords[3]
+
+    # Particle to grid test
+    T2 = similar(T)
+    JP3.particle2grid!(T2, pT, xvi, particles)
+    @test norm(T2 .- T) / length(T) < 1e-1
+
+    # Grid to centroid test
+    JP3.centroid2particle!(pT, xci, Tc, particles)
+    @test all(pT[2,2,2] .≈ particles.coords[3][2,2,2])
+    
+    # Particle to centroid test
+    Tc2 = similar(Tc)
+    JP3.particle2centroid!(Tc2, pT, xvi, particles)
+    # norm(T2 .- T) / length(T)
+    @test norm(Tc2 .- Tc) / length(Tc) < 1e-1
+
+    # test copy function
+    particles_copy = copy(particles)
+    pT_copy        = copy(pT)
+    @test particles_copy.index.data[:] == particles.index.data[:]
+    @test pT_copy.data[:]              == pT.data[:]
 end
