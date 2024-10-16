@@ -1,9 +1,11 @@
+using CUDA
 using JustPIC, JustPIC._2D
 
 # Threads is the default backend, 
 # to run on a CUDA GPU load CUDA.jl (i.e. "using CUDA"), 
 # and to run on an AMD GPU load AMDGPU.jl (i.e. "using AMDGPU")
-const backend = JustPIC.CPUBackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
+# const backend = JustPIC.CPUBackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
+const backend = CUDABackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
 
 using ParallelStencil
 @init_parallel_stencil(Threads, Float64, 2)
@@ -20,6 +22,15 @@ g(x) = Point2f(
     vy_stream(x[1], x[2])
 )
 
+function expand_range(x::AbstractRange)
+    dx = x[2] - x[1]
+    n = length(x)
+    x1, x2 = extrema(x)
+    xI = round(x1-dx; sigdigits=5)
+    xF = round(x2+dx; sigdigits=5)
+    LinRange(xI, xF, n+2)
+end
+
 function main()
     # Initialize particles -------------------------------
     nxcell, max_xcell, min_xcell = 25, 40, 15 
@@ -31,22 +42,21 @@ function main()
     # nodal vertices
     xvi = xv, yv = let
         dummy = zeros(n, n) 
-        xv  = TA(backend)([x_g(i, dx, dummy) for i in axes(dummy, 1)])
-        yv  = TA(backend)([y_g(i, dx, dummy) for i in axes(dummy, 2)])
-        xv, yv
+        xv  = [x_g(i, dx, dummy) for i in axes(dummy, 1)]
+        yv  = [y_g(i, dx, dummy) for i in axes(dummy, 2)]
+        LinRange(first(xv), last(xv), n), LinRange(first(yv), last(yv), n)
     end
     # nodal centers
     xci = xc, yc = let
         dummy = zeros(nx, ny) 
-        xc  = @zeros(nx) 
-        xc .= TA(backend)([x_g(i, dx, dummy) for i in axes(dummy, 1)])
-        yc  = TA(backend)([y_g(i, dx, dummy) for i in axes(dummy, 2)])
-        xc, yc
+        xc  = [x_g(i, dx, dummy) for i in axes(dummy, 1)]
+        yc  = [y_g(i, dx, dummy) for i in axes(dummy, 2)]
+        LinRange(first(xc), last(xv), n), LinRange(first(yc), last(yv), n)
     end
 
     # staggered grid for the velocity components
-    grid_vx = xv, add_ghost_nodes(yc, dy, (0.0, Ly))
-    grid_vy = add_ghost_nodes(xc, dx, (0.0, Lx)), yv
+    grid_vx = xv, expand_range(yc)
+    grid_vy = expand_range(xc), yv
     
     particles = init_particles(
         backend, nxcell, max_xcell, min_xcell, xvi...
@@ -64,7 +74,7 @@ function main()
     T_v  = zeros(nx_v, ny_v)
     T_nohalo = @zeros(size(T).-2)
 
-    dt = mapreduce(x -> x[1] / MPI.Allreduce(maximum(abs.(x[2])), MPI.MAX, MPI.COMM_WORLD), min, zip(dxi, V))
+    dt = mapreduce(x -> x[1] / MPI.Allreduce(maximum(abs.(x[2])), MPI.MAX, MPI.COMM_WORLD), min, zip(dxi, V)) / 2
 
     # Advection test
     particle_args = pT, = init_cell_arrays(particles, Val(1))
@@ -86,7 +96,7 @@ function main()
         particle2grid!(T, pT, xvi, particles)
         # T0 .= deepcopy(T) 
 
-        @views T_nohalo .= T[2:end-1, 2:end-1]
+        @views T_nohalo .= Array(T[2:end-1, 2:end-1])
         gather!(T_nohalo, T_v)
 
         if me == 0 && iter % 10 == 0
