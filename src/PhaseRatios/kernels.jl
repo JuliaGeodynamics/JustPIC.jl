@@ -142,7 +142,7 @@ function phase_ratio_weights(
         # sumw += x # reduce
         ph_local = ph[i]
         # this is doing sum(w * δij(i, phase)), where δij is the Kronecker delta
-        w = ntuple(j -> (ph_local == j) * x[i] + w[i], Val(NC))
+        w = w .+ x .* ntuple(j -> (ph_local == j), Val(NC))
     end
     w = w .* inv(sum(w))
     return w
