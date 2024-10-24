@@ -40,7 +40,8 @@ function init_particles(
     min_xcell,
     coords::NTuple{N,AbstractArray},
     dxᵢ::NTuple{N,T},
-    nᵢ::NTuple{N,I},
+    nᵢ::NTuple{N,I}; 
+    buffer = 0.9
 ) where {N,T,I}
     ncells = prod(nᵢ)
     np = max_xcell * ncells
@@ -48,7 +49,7 @@ function init_particles(
     index = @fill(false, nᵢ..., celldims = (max_xcell,), eltype = Bool)
 
     @parallel_indices (I...) function fill_coords_index(
-        pxᵢ::NTuple{N,T}, index, coords, dxᵢ, nxcell, max_xcell
+        pxᵢ::NTuple{N,T}, index, coords, dxᵢ, nxcell, max_xcell, buffer
     ) where {N,T}
         # lower-left corner of the cell
         x0ᵢ = ntuple(Val(N)) do ndim
@@ -60,7 +61,7 @@ function init_particles(
             if l ≤ nxcell
                 ntuple(Val(N)) do ndim
                     @index pxᵢ[ndim][l, I...] =
-                        x0ᵢ[ndim] + dxᵢ[ndim] * (@index(pxᵢ[ndim][l, I...]) * 0.9 + 0.05)
+                        x0ᵢ[ndim] + dxᵢ[ndim] * (@index(pxᵢ[ndim][l, I...]) * buffer + (1-buffer)/2)
                 end
                 @index index[l, I...] = true
 
@@ -73,7 +74,7 @@ function init_particles(
         return nothing
     end
 
-    @parallel (@idx nᵢ) fill_coords_index(pxᵢ, index, coords, dxᵢ, nxcell, max_xcell)
+    @parallel (@idx nᵢ) fill_coords_index(pxᵢ, index, coords, dxᵢ, nxcell, max_xcell, buffer)
 
     return Particles(backend, pxᵢ, index, nxcell, max_xcell, min_xcell, np)
 end
