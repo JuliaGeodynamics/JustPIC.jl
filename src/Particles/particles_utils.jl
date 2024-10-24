@@ -61,7 +61,7 @@ function init_particles(
             if l ≤ nxcell
                 ntuple(Val(N)) do ndim
                     @index pxᵢ[ndim][l, I...] =
-                        x0ᵢ[ndim] + dxᵢ[ndim] * (@index(pxᵢ[ndim][l, I...]) * buffer + (1-buffer)/2)
+                        x0ᵢ[ndim] + dxᵢ[ndim] * (@index(pxᵢ[ndim][l, I...]) * buffer) + (1-buffer)/2
                 end
                 @index index[l, I...] = true
 
