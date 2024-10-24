@@ -315,6 +315,12 @@ module _2D
         )
         return nothing
     end
+
+    function JustPIC._2D.phase_ratios_midpoint!(phase_midpoint, particles::Particles{AMDGPUBackend}, xci::NTuple{N}, phases, dimension) where N
+        phase_ratios_midpoint!(phase_midpoint, particles, xci, phases, dimension)
+        return nothing
+    end
+
 end
 
 module _3D
@@ -555,6 +561,11 @@ module _3D
         @parallel (@idx ni) phase_ratios_vertex_kernel!(
             phase_ratios.vertex, particles.coords, xvi, di, phases
         )
+        return nothing
+    end
+
+    function JustPIC._3D.phase_ratios_midpoint!(phase_midpoint, particles::Particles{AMDGPUBackend}, xci::NTuple{N}, phases, dimension) where N
+        phase_ratios_midpoint!(phase_midpoint, particles, xci, phases, dimension)
         return nothing
     end
 end
