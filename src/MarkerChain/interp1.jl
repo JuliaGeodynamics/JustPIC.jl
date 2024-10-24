@@ -3,10 +3,10 @@
 function interp1D_extremas(xq, x, y)
     last_I = 1
     for i in length(x):-1:2
-        if !isnan(x[i]) 
+        if !isnan(x[i])
             last_I = i
             break
-        end 
+        end
     end
     x_lo, x_hi = x[1], x[last_I]
     @inbounds for j in eachindex(x)[1:(end - 1)]
@@ -32,19 +32,19 @@ function interp1D_extremas(xq, x, y)
         end
     end
     # return error("xq outside domain")
-    return Nan
+    return NaN
 end
 
 function interp1D_inner(xq, x, y, cell_coords, I::Integer)
     last_I = 1
     for i in length(x):-1:2
-        if !isnan(x[i]) 
+        if !isnan(x[i])
             last_I = i
             break
-        end 
+        end
     end
     x_lo, x_hi = x[1], x[last_I]
-    @inbounds for j in 1:last_I 
+    @inbounds for j in 1:last_I
         x0, x1 = x[j], x[j + 1]
 
         # interpolation
@@ -68,7 +68,7 @@ function interp1D_inner(xq, x, y, cell_coords, I::Integer)
         end
     end
     # return error("xq outside domain")
-    return Nan
+    return NaN
 end
 
 @inline right_cell_left_particle(cell_coords, I::Int) =
@@ -77,11 +77,11 @@ end
 @inline function left_cell_right_particle(cell_coords, I)
     px = cell_coords[1][I - 1]
     ip = 1
-    for i in length(x):-1:2
-        if !isnan(px[i]) 
+    for i in length(px):-1:2
+        if !isnan(px[i])
             ip = i
             break
-        end 
+        end
     end
 
     return px[ip], @index(cell_coords[2][ip, I - 1])

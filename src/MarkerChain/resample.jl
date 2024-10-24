@@ -28,6 +28,7 @@ function resample_cell!(
     y_cell = @cell py[I]
 
     # sort particles in the cell
+    @show typeof(x_cell)
     perms = sortperm(x_cell)
     x_cell = x_cell[perms]
     y_cell = y_cell[perms]
@@ -58,27 +59,11 @@ function resample_cell!(
             # interpolated y coordinated
             yq = if 1 < I < length(index)
                 # inner cells; this is true (ncells-2) consecutive times
-                yq = interp1D_inner(xq, x_cell, y_cell, coords, I)
-                # if isnan(yq)
-                #     @show xq
-                #     @show x_cell
-                #     @show y_cell
-                #     @show I
-                #     error("BOOM 1")
-                # end
-                # yq
+                interp1D_inner(xq, x_cell, y_cell, coords, I)
             else
                 # first and last cells
-                yq = interp1D_extremas(xq, x_cell, y_cell)
-                # if isnan(yq)
-                #     error("BOOM 1")
-                # end
-
-                # yq
+                interp1D_extremas(xq, x_cell, y_cell)
             end
-            # if isnan(yq)
-            #     error("BOOM")
-            # end
             @index py[ip, I] = yq
             @index index[ip, I] = true
         end
