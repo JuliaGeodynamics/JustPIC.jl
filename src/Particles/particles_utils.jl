@@ -40,7 +40,8 @@ function init_particles(
     min_xcell,
     coords::NTuple{N,AbstractArray},
     dxᵢ::NTuple{N,T},
-    nᵢ::NTuple{N,I}
+    nᵢ::NTuple{N,I}; 
+    buffer = 0.9
 ) where {N,T,I}
     ncells = prod(nᵢ)
     np = max_xcell * ncells
@@ -60,7 +61,7 @@ function init_particles(
             if l ≤ nxcell
                 ntuple(Val(N)) do ndim
                     @index pxᵢ[ndim][l, I...] =
-                        x0ᵢ[ndim] + dxᵢ[ndim] * (@index(pxᵢ[ndim][l, I...]) )#* buffer + (1-buffer)/2)
+                        x0ᵢ[ndim] + dxᵢ[ndim] * (@index(pxᵢ[ndim][l, I...]) * buffer + (1-buffer)/2)
                 end
                 @index index[l, I...] = true
 
