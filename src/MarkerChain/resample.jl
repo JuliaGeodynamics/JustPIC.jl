@@ -28,7 +28,6 @@ function resample_cell!(
     y_cell = @cell py[I]
 
     # sort particles in the cell
-    @show typeof(x_cell)
     perms = sortperm(x_cell)
     x_cell = x_cell[perms]
     y_cell = y_cell[perms]
