@@ -9,7 +9,7 @@ function phase_ratios_midpoint!(phase_midpoint, particles, xci::NTuple{N}, phase
         elseif dimension === :y
             (0, 1)
         else
-            throw("Unknown dimensions. Valid dimenions are :x, :y")
+            throw("Unknown dimensions. Valid dimensions are :x, :y")
         end
     elseif N == 3
         offsets = if dimension === :x
@@ -19,7 +19,7 @@ function phase_ratios_midpoint!(phase_midpoint, particles, xci::NTuple{N}, phase
         elseif dimension === :z
             (0, 0, 1)
         else
-            throw("Unknown dimensions. Valid dimenions are :x, :y, :z")
+            throw("Unknown dimensions. Valid dimensions are :x, :y, :z")
         end
     end
 
