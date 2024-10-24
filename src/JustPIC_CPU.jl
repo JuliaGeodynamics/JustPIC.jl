@@ -9,7 +9,10 @@ using ..JustPIC
 
 import ..JustPIC: AbstractBackend, CPUBackend
 
-@init_parallel_stencil(Threads, Float64, 2)
+function __init__()
+    @init_parallel_stencil(Threads, Float64, 2)
+    return nothing
+end
 
 export CA
 
@@ -37,7 +40,10 @@ using ..JustPIC
 
 import ..JustPIC: AbstractBackend, CPUBackend
 
-@init_parallel_stencil(Threads, Float64, 3)
+function __init__()
+    @init_parallel_stencil(Threads, Float64, 3)
+    return nothing
+end
 
 export CA
 
