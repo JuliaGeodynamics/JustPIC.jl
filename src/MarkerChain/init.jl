@@ -13,7 +13,7 @@ function init_markerchain(::Type{JustPIC.CPUBackend}, nxcell, min_xcell, max_xce
 end
 
 @parallel_indices (i) function fill_markerchain_coords_index!(
-    px, py, index, x, initial_elevation, dx_chain, nxcell, max_xcell
+    px, py, index, x, initial_elevation::Number, dx_chain, nxcell, max_xcell
 )
     # lower-left corner of the cell
     x0 = x[i]
@@ -21,6 +21,20 @@ end
     for ip in 1:nxcell
         @index px[ip, i] = x0 + dx_chain * ip
         @index py[ip, i] = initial_elevation
+        @index index[ip, i] = true
+    end
+    return nothing
+end
+
+@parallel_indices (i) function fill_markerchain_coords_index!(
+    px, py, index, x, initial_elevation::Array{2, T}, dx_chain, nxcell, max_xcell
+) where {T}
+    # lower-left corner of the cell
+    x0 = x[i]
+    # fill index array
+    for ip in 1:nxcell
+        @index px[ip, i] = x0 + dx_chain * ip
+        @index py[ip, i] = initial_elevation[i]
         @index index[ip, i] = true
     end
     return nothing
