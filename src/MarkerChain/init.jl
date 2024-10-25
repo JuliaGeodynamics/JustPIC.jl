@@ -27,7 +27,7 @@ end
 end
 
 @parallel_indices (i) function fill_markerchain_coords_index!(
-    px, py, index, x, initial_elevation::Array{2, T}, dx_chain, nxcell, max_xcell
+    px, py, index, x, initial_elevation::AbstractArray{T, 1}, dx_chain, nxcell, max_xcell
 ) where {T}
     # lower-left corner of the cell
     x0 = x[i]
