@@ -41,7 +41,7 @@ end
     w = ntuple(_ -> zero(T), NC)
 
     # general case
-    for offsetsᵢ in zip(ntuple(_->0, Val(N)), (offsets))
+    for offsetsᵢ in (ntuple(_->0, Val(N)), offsets)
         cell_index = min.(I .+ offsetsᵢ, ni)
         all(@. 0 < cell_index < ni + 1) || continue
 
