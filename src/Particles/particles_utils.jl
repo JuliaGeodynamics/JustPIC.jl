@@ -41,7 +41,7 @@ function init_particles(
     coords::NTuple{N,AbstractArray},
     dxᵢ::NTuple{N,T},
     nᵢ::NTuple{N,I}; 
-    buffer = 0.95
+    buffer = 0.9
 ) where {N,T,I}
     ncells = prod(nᵢ)
     np = max_xcell * ncells
