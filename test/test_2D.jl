@@ -1,4 +1,3 @@
-
 @static if ENV["JULIA_JUSTPIC_BACKEND"] === "AMDGPU"
     using AMDGPU
     AMDGPU.allowscalar(true)
@@ -265,7 +264,7 @@ end
     end
  
     # Initialize particles -------------------------------
-    nxcell, max_xcell, min_xcell = 12, 24, 5
+    nxcell, max_xcell, min_xcell = 30, 40, 20
     particles = init_particles(
         backend, 
         nxcell, 
