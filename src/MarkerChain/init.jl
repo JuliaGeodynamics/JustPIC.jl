@@ -25,3 +25,18 @@ end
     end
     return nothing
 end
+
+@parallel_indices (i) function fill_markerchain_coords_index!(
+    px, py, index, x, initial_elevation::AbstractArray{T, 1}, dx_chain, nxcell, max_xcell
+) where {T}
+    # lower-left corner of the cell
+    x0 = x[i]
+    initial_elevation0 = initial_elevation[i]
+    # fill index array
+    for ip in 1:nxcell
+        @index px[ip, i] = x0 + dx_chain * ip
+        @index py[ip, i] = initial_elevation0
+        @index index[ip, i] = true
+    end
+    return nothing
+end
