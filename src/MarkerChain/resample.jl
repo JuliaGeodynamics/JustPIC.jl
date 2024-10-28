@@ -12,6 +12,10 @@ function resample!(chain::MarkerChain)
     nx = length(index)
     dx_cells = cell_length(chain)
 
+    # sort marker chain - can't be done at the cell level because
+    # SA can't be sorted inside a GPU kernel
+    _sort_chain!(chain)
+
     # call kernel
     @parallel (1:nx) resample!(coords, cell_vertices, index, min_xcell, max_xcell, dx_cells)
     return nothing
@@ -27,16 +31,6 @@ function resample_cell!(
     x_cell = @cell px[I]
     y_cell = @cell py[I]
 
-    # sort particles in the cell
-    perms = sortperm(x_cell)
-    x_cell = x_cell[perms]
-    y_cell = y_cell[perms]
-    index_I = index_I[perms]
-
-    @cell index[I] = index_I
-    @cell px[I] = x_cell
-    @cell py[I] = y_cell
-
     # lower-left corner of the cell
     cell_vertex = cell_vertices[I]
     # number of particles in the cell
@@ -47,48 +41,48 @@ function resample_cell!(
     # less than min_xcell or it is too distorted
     do_resampling = (np < min_xcell) || isdistorded(x_cell, dx_chain)
 
-    np_new = max(min_xcell, np)
-    dx_chain = dx_cells / (np_new + 1)
-    if do_resampling
-        # @show I
-        # fill index array
-        for ip in 1:np_new
-            # x query point
-            @index px[ip, I] = xq = cell_vertex + dx_chain * ip
-            # interpolated y coordinated
-            yq = if 1 < I < length(index)
-                # inner cells; this is true (ncells-2) consecutive times
-                yq = interp1D_inner(xq, x_cell, y_cell, coords, I)
-                # if isnan(yq)
-                #     @show xq
-                #     @show x_cell
-                #     @show y_cell
-                #     @show I
-                #     error("BOOM 1")
-                # end
-                # yq
-            else
-                # first and last cells
-                yq = interp1D_extremas(xq, x_cell, y_cell)
-                # if isnan(yq)
-                #     error("BOOM 1")
-                # end
+    # np_new = max(min_xcell, np)
+    # dx_chain = dx_cells / (np_new + 1)
+    # if do_resampling
+    #     # @show I
+    #     # fill index array
+    #     for ip in 1:np_new
+    #         # x query point
+    #         @index px[ip, I] = xq = cell_vertex + dx_chain * ip
+    #         # interpolated y coordinated
+    #         yq = if 1 < I < length(index)
+    #             # inner cells; this is true (ncells-2) consecutive times
+    #             yq = interp1D_inner(xq, x_cell, y_cell, coords, I)
+    #             # if isnan(yq)
+    #             #     @show xq
+    #             #     @show x_cell
+    #             #     @show y_cell
+    #             #     @show I
+    #             #     error("BOOM 1")
+    #             # end
+    #             # yq
+    #         else
+    #             # first and last cells
+    #             yq = interp1D_extremas(xq, x_cell, y_cell)
+    #             # if isnan(yq)
+    #             #     error("BOOM 1")
+    #             # end
 
-                # yq
-            end
-            # if isnan(yq)
-            #     error("BOOM")
-            # end
-            @index py[ip, I] = yq
-            @index index[ip, I] = true
-        end
-        # fill empty memory locations
-        for ip in (np_new + 1):max_xcell
-            @index px[ip, I] = NaN
-            @index py[ip, I] = NaN
-            @index index[ip, I] = false
-        end
-    end
+    #             # yq
+    #         end
+    #         # if isnan(yq)
+    #         #     error("BOOM")
+    #         # end
+    #         @index py[ip, I] = yq
+    #         @index index[ip, I] = true
+    #     end
+    #     # fill empty memory locations
+    #     for ip in (np_new + 1):max_xcell
+    #         @index px[ip, I] = NaN
+    #         @index py[ip, I] = NaN
+    #         @index index[ip, I] = false
+    #     end
+    # end
     return nothing
 end
 
@@ -116,4 +110,20 @@ function isdistorded(x_cell, dx_ideal)
         end
     end
     return false
+end
+
+# sort marker chain cells
+function _sort_chain!(chain::MarkerChain{T}) where T
+
+    @inline sort_dimension(::Type{JustPIC.CPUBackend}) = 3
+    @inline sort_dimension(::T) where T = 1
+
+    (; coords, index) = chain
+    # sort permutations of each cell
+    perms = similar(coords[1].data, Int64)
+    sortperm!(perms, coords[1].data; dims=sort_dimension(T))
+    coords[2].data .= @views coords[2].data[perms]
+    index.data .= @views index.data[perms]
+
+   return nothing
 end
