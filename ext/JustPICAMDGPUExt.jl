@@ -97,8 +97,8 @@ module _2D
         return Particles(AMDGPUBackend, coords, index, nxcell, max_xcell, min_xcell, np)
     end
 
-    function JustPIC._2D.SubgridDiffusionCellArrays(particles::Particles{AMDGPUBackend})
-        return SubgridDiffusionCellArrays(particles)
+    function JustPIC._2D.SubgridDiffusionCellArrays(particles::Particles{AMDGPUBackend}; loc::Symbol=:vertex)
+        return SubgridDiffusionCellArrays(particles; loc=loc)
     end
 
     function JustPIC._2D.init_particles(
@@ -214,6 +214,21 @@ module _2D
         d=1.0,
     )
         subgrid_diffusion!(pT, T_grid, ΔT_grid, subgrid_arrays, particles, xvi, di, dt; d=d)
+        return nothing
+    end
+
+    function JustPIC._2D.subgrid_diffusion_centroid!(
+        pT,
+        T_grid,
+        ΔT_grid,
+        subgrid_arrays,
+        particles::Particles{AMDGPUBackend},
+        xvi,
+        di,
+        dt;
+        d=1.0,
+    )
+        subgrid_diffusion_centroid!(pT, T_grid, ΔT_grid, subgrid_arrays, particles, xvi, di, dt; d=d)
         return nothing
     end
 
@@ -378,8 +393,8 @@ module _3D
         return Particles(AMDGPUBackend, coords, index, nxcell, max_xcell, min_xcell, np)
     end
 
-    function JustPIC._3D.SubgridDiffusionCellArrays(particles::Particles{AMDGPUBackend})
-        return SubgridDiffusionCellArrays(particles)
+    function JustPIC._3D.SubgridDiffusionCellArrays(particles::Particles{AMDGPUBackend}; loc::Symbol=:vertex)
+        return SubgridDiffusionCellArrays(particles; loc=loc)
     end
 
     function JustPIC._3D.init_particles(
@@ -493,6 +508,21 @@ module _3D
         d=1.0,
     )
         subgrid_diffusion!(pT, T_grid, ΔT_grid, subgrid_arrays, particles, xvi, di, dt; d=d)
+        return nothing
+    end
+
+    function JustPIC._3D.subgrid_diffusion_centroid!(
+        pT,
+        T_grid,
+        ΔT_grid,
+        subgrid_arrays,
+        particles::Particles{AMDGPUBackend},
+        xvi,
+        di,
+        dt;
+        d=1.0,
+    )
+        subgrid_diffusion_centroid!(pT, T_grid, ΔT_grid, subgrid_arrays, particles, xvi, di, dt; d=d)
         return nothing
     end
 
