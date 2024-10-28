@@ -67,10 +67,11 @@ end
         cell_index = i_cell, j_cell, k_cell
 
         for ip in cellaxes(phases)
-            p = @index(pxi[1][ip, cell_index...]),
-            @index(pxi[2][ip, cell_index...]),
-            @index(pxi[3][ip, cell_index...])
+            p = @index(pxi[1][ip, cell_index...]), @index(pxi[2][ip, cell_index...]), @index(pxi[3][ip, cell_index...])
             any(isnan, p) && continue
+            # check if it's within half cell
+            prod(x -> abs(x[1] - x[2]) ≥ x[3] / 2, zip(p, cell_vertex, di)) && continue
+
             x = @inline bilinear_weight(cell_vertex, p, di)
             ph_local = @index phases[ip, cell_index...]
             # this is doing sum(w * δij(i, phase)), where δij is the Kronecker delta
@@ -107,6 +108,8 @@ end
         for ip in cellaxes(phases)
             p = @index(pxi[1][ip, cell_index...]), @index(pxi[2][ip, cell_index...])
             any(isnan, p) && continue
+            # check if it's within half cell
+            prod(x -> abs(x[1] - x[2]) ≤ x[3] / 2, zip(p, cell_vertex, di)) && continue
             x = @inline bilinear_weight(cell_vertex, p, di)
             ph_local = @index phases[ip, cell_index...]
             # this is doing sum(w * δij(i, phase)), where δij is the Kronecker delta
