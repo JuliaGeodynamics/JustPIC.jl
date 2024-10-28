@@ -51,10 +51,10 @@ function resample_cell!(
             # interpolated y coordinated
             yq = if 1 < I < length(index)
                 # inner cells; this is true (ncells-2) consecutive times
-                yq = interp1D_inner(xq, x_cell, y_cell, coords, I)
+                interp1D_inner(xq, x_cell, y_cell, coords, I)
             else
                 # first and last cells
-                yq = interp1D_extremas(xq, x_cell, y_cell)
+                interp1D_extremas(xq, x_cell, y_cell)
             end
             @index px[ip, I] = xq
             @index py[ip, I] = yq
