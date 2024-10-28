@@ -12,6 +12,10 @@ function resample!(chain::MarkerChain)
     nx = length(index)
     dx_cells = cell_length(chain)
 
+    # sort marker chain - can't be done at the cell level because
+    # SA can't be sorted inside a GPU kernel
+    sort_chain!(chain)
+
     # call kernel
     @parallel (1:nx) resample!(coords, cell_vertices, index, min_xcell, max_xcell, dx_cells)
     return nothing
@@ -22,13 +26,15 @@ function resample_cell!(
 ) where {T}
 
     # cell particles coordinates
-    x_cell, y_cell = coords[1][I], coords[2][I]
+    index_I = @cell index[I]
     px, py = coords[1], coords[2]
+    x_cell = @cell px[I]
+    y_cell = @cell py[I]
 
     # lower-left corner of the cell
     cell_vertex = cell_vertices[I]
-    # number of particles in the cell
-    np = count(index[I])
+    # number of p`articles in the cell
+    np = count(index_I)
     # dx of the new chain
     dx_chain = dx_cells / (np + 1)
     # resample the cell if the number of particles is
@@ -38,11 +44,10 @@ function resample_cell!(
     np_new = max(min_xcell, np)
     dx_chain = dx_cells / (np_new + 1)
     if do_resampling
-        # @show I
         # fill index array
         for ip in 1:np_new
             # x query point
-            @index px[ip, I] = xq = cell_vertex + dx_chain * ip
+            xq = cell_vertex + dx_chain * ip
             # interpolated y coordinated
             yq = if 1 < I < length(index)
                 # inner cells; this is true (ncells-2) consecutive times
@@ -51,9 +56,7 @@ function resample_cell!(
                 # first and last cells
                 interp1D_extremas(xq, x_cell, y_cell)
             end
-            if isnan(yq)
-                @show I, y_cell
-            end
+            @index px[ip, I] = xq
             @index py[ip, I] = yq
             @index index[ip, I] = true
         end
@@ -91,4 +94,17 @@ function isdistorded(x_cell, dx_ideal)
         end
     end
     return false
+end
+
+# sort marker chain cells
+function sort_chain!(chain::MarkerChain{T}) where T
+
+    (; coords, index) = chain
+    # sort permutations of each cell
+    perms = sortperm(coords[1].data; dims=2)
+    coords[1].data .= @views coords[1].data[perms]
+    coords[2].data .= @views coords[2].data[perms]
+    index.data .= @views index.data[perms]
+
+   return nothing
 end

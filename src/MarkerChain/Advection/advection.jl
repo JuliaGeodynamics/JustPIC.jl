@@ -1,3 +1,4 @@
+
 function advect_markerchain!(
     chain::MarkerChain, method::AbstractAdvectionIntegrator, V, grid_vxi, dt
 )
@@ -9,16 +10,16 @@ end
 
 # Two-step Runge-Kutta advection scheme for marker chains
 function advection!(
-    particles::MarkerChain,
+    chain::MarkerChain,
     method::AbstractAdvectionIntegrator,
     V,
     grid_vi::NTuple{N,NTuple{N,T}},
     dt,
 ) where {N,T}
-    (; coords, index) = particles
+    (; coords, index) = chain
 
     # compute some basic stuff
-    ni = size(index)
+    ni = size(index, 1)
     dxi = compute_dx(first(grid_vi))
     # Need to transpose grid_vy and Vy to reuse interpolation kernels
 
@@ -34,7 +35,7 @@ end
 # DIMENSION AGNOSTIC KERNELS
 
 # ParallelStencil function Runge-Kuttaadvection function for 3D staggered grids
-@parallel_indices (I...) function advection_markerchain_kernel!(
+@parallel_indices (i) function advection_markerchain_kernel!(
     p,
     method::AbstractAdvectionIntegrator,
     V::NTuple{N,T},
@@ -45,17 +46,17 @@ end
     dt,
 ) where {N,T}
     for ipart in cellaxes(index)
-        doskip(index, ipart, I...) && continue
+        doskip(index, ipart, i) && continue
 
         # skip if particle does not exist in this memory location
-        doskip(index, ipart, I...) && continue
+        doskip(index, ipart, i) && continue
         # extract particle coordinates
-        pᵢ = get_particle_coords(p, ipart, I...)
+        pᵢ = get_particle_coords(p, ipart, i)
         # advect particle
         pᵢ_new = advect_particle_markerchain(method, pᵢ, V, grid, local_limits, dxi, dt)
         # update particle coordinates
         for k in 1:N
-            @inbounds @index p[k][ipart, I...] = pᵢ_new[k]
+            @inbounds @index p[k][ipart, i] = pᵢ_new[k]
         end
     end
 

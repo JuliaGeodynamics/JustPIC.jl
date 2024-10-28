@@ -64,9 +64,6 @@ export move_particles!
 
 include("MarkerChain/interp1.jl")
 
-include("MarkerChain/sort.jl")
-export sort_chain!
-
 include("MarkerChain/resample.jl")
 export resample!
 

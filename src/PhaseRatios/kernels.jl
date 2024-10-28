@@ -58,11 +58,11 @@ end
 
     for offsetᵢ in -1:0, offsetⱼ in -1:0, offsetₖ in -1:0
         i_cell = I[1] + offsetᵢ
-        !(0 < i_cell < ni[1] + 1) && continue
+        0 < i_cell < ni[1] + 1 || continue
         j_cell = I[2] + offsetⱼ
-        !(0 < j_cell < ni[2] + 1) && continue
+        0 < j_cell < ni[2] + 1 || continue
         k_cell = I[3] + offsetₖ
-        !(0 < k_cell < ni[3] + 1) && continue
+        0 < k_cell < ni[3] + 1 || continue
 
         cell_index = i_cell, j_cell, k_cell
 
@@ -142,7 +142,7 @@ function phase_ratio_weights(
         # sumw += x # reduce
         ph_local = ph[i]
         # this is doing sum(w * δij(i, phase)), where δij is the Kronecker delta
-        w = w .+ x .* ntuple(j -> (ph_local == j), Val(NC))
+        w = w .+ x .* ntuple(j -> (ph_local == j), NC)
     end
     w = w .* inv(sum(w))
     return w
