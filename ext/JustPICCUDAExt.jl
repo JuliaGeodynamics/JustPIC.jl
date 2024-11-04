@@ -269,9 +269,12 @@ module _2D
 
     # Phase ratio kernels
 
-    function JustPIC._2D.update_phase_ratios!(phase_ratios::JustPIC.PhaseRatios{CUDABackend}, particles, xci, xvi, phases)
+    function JustPIC._2D.update_phase_ratios!(phase_ratios::JustPIC.PhaseRatios{CUDABackend, T}, particles, xci, xvi, phases) where {T<:AbstractMatrix}
         phase_ratios_center!(phase_ratios, particles, xci, phases)
         phase_ratios_vertex!(phase_ratios, particles, xvi, phases)
+        # velocity nodes
+        phase_ratios_face!(phase_ratios.Vx, particles, xci, phases, :x)
+        phase_ratios_face!(phase_ratios.Vy, particles, xci, phases, :y)
         return nothing
     end
 
@@ -520,9 +523,17 @@ module _3D
 
     # Phase ratio kernels
 
-    function JustPIC._3D.update_phase_ratios!(phase_ratios::JustPIC.PhaseRatios{CUDABackend}, particles, xci, xvi, phases)
+    function JustPIC._3D.update_phase_ratios!(phase_ratios::JustPIC.PhaseRatios{CUDABackend, T}, particles, xci, xvi, phases) where {T<:AbstractArray}
         phase_ratios_center!(phase_ratios, particles, xci, phases)
         phase_ratios_vertex!(phase_ratios, particles, xvi, phases)
+        # velocity nodes
+        phase_ratios_face!(phase_ratios.Vx, particles, xci, phases, :x)
+        phase_ratios_face!(phase_ratios.Vy, particles, xci, phases, :y)
+        phase_ratios_face!(phase_ratios.Vz, particles, xci, phases, :z)
+        # shear stress nodes
+        phase_ratios_midpoint!(phase_ratios.xy, particles, xci, phases, :xy)
+        phase_ratios_midpoint!(phase_ratios.yz, particles, xci, phases, :yz)
+        phase_ratios_midpoint!(phase_ratios.xz, particles, xci, phases, :xz)
         return nothing
     end
     
