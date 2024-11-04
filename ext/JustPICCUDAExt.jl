@@ -323,7 +323,7 @@ module _2D
         Vy     = cell_array(zero(T), (nphases,), (nx, ny + 1))
         dummy  = cell_array(zero(T), (nphases,), (1, 1)) # because it cant be a Union{T, Nothing} type on the GPU....
    
-        return JustPIC.PhaseRatios(B, center, vertex, Vx, Vy, dummy, dummy, dummy, dummy)
+        return JustPIC.PhaseRatios(CUDABackend, center, vertex, Vx, Vy, dummy, dummy, dummy, dummy)
     end
 
     function JustPIC._2D.phase_ratios_center!(
@@ -593,7 +593,7 @@ module _3D
 
     function JustPIC._3D.PhaseRatios(
         ::Type{T}, ::Type{CUDABackend}, nphases::Integer, ni::NTuple{3,Integer}
-    ) where {T,B}
+    ) where {T}
         nx, ny, nz  = ni
         
         center = cell_array(zero(T), (nphases,), ni)
@@ -605,7 +605,7 @@ module _3D
         xz     = cell_array(zero(T), (nphases,), (nx + 1, ny, nz + 1))
         xy     = cell_array(zero(T), (nphases,), (nx + 1, ny + 1, nz))
     
-        return JustPIC.PhaseRatios(B, center, vertex, Vx, Vy, Vz, yz, xz, xy)
+        return JustPIC.PhaseRatios(CUDABackend, center, vertex, Vx, Vy, Vz, yz, xz, xy)
     end
 
     function JustPIC._3D.phase_ratios_center!(
