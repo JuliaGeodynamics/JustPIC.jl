@@ -92,8 +92,6 @@ end
 
 ## MIDPOINTS: AKA SHEAR STRESS-NODES (ONLY IN 3D)
 
-# const MASK_3D = ((1, 0, 0), (0, 1, 0), (0, 0, 1), (1, 1, 1))
-
 function phase_ratios_midpoint!(phase_midpoint, particles, xci::NTuple{N}, phases, dimension) where N
     ni      = size(phases)
     di      = compute_dx(xci)
