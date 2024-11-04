@@ -320,6 +320,7 @@ module _2D
     function JustPIC._2D.PhaseRatios(
         ::Type{T}, ::Type{AMDGPUBackend}, nphases::Integer, ni::NTuple{2,Integer}
     ) where {T}
+        nx, ny = ni
         
         center = cell_array(zero(T), (nphases,), ni)
         vertex = cell_array(zero(T), (nphases,), ni .+ 1)
