@@ -1,5 +1,15 @@
 @inline _interp1D(xq, x0, x1, y0, y1) = muladd((xq - x0), (y1 - y0) * inv(x1 - x0), y0)
 
+function find_last_particle(x)
+    for i in length(x):-1:2
+        # if !isnan(x[i]) 
+        #     return i
+        # end 
+        isnan(x[i]) || return i
+    end
+    return 1
+end
+
 function interp1D_extremas(xq, x, y)
     last_I = 1
     for i in length(x):-1:2

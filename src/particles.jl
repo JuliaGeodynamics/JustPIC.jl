@@ -41,9 +41,11 @@ function Particles(coords, index::CPUCellArray, nxcell, max_xcell, min_xcell, np
     return Particles(CPUBackend, coords, index, nxcell, max_xcell, min_xcell, np)
 end
 
-struct MarkerChain{Backend,N,M,I,T1,T2,TV} <: AbstractParticles
+struct MarkerChain{Backend,N,M,I,T1,T2,T3,T4,TV} <: AbstractParticles
     coords::NTuple{N,T1}
     index::T2
+    intersections::T3
+    average_height::T4
     cell_vertices::TV # x-coord in 2D, (x,y)-coords in 3D
     max_xcell::I
     min_xcell::I
@@ -52,19 +54,25 @@ struct MarkerChain{Backend,N,M,I,T1,T2,TV} <: AbstractParticles
         backend,
         coords::NTuple{N,T1},
         index::T2,
+        intersections::T3,
+        average_height::T4,
         cell_vertices::TV,
         min_xcell::I,
         max_xcell::I,
-    ) where {N,I,T1,T2,TV}
-        return new{backend,N,max_xcell,I,T1,T2,TV}(
-            coords, index, cell_vertices, max_xcell, min_xcell
+    ) where {N,I,T1,T2,T3,T4,TV}
+        return new{backend,N,max_xcell,I,T1,T2,T3,T4,TV}(
+            coords, index, intersections, average_height, cell_vertices, max_xcell, min_xcell
         )
     end
 end
 
-function MarkerChain(coords, index::CPUCellArray, cell_vertices, min_xcell, max_xcell)
-    return MarkerChain(CPUBackend, coords, index, cell_vertices, min_xcell, max_xcell)
+function MarkerChain(coords, index::CPUCellArray, intersections, average_height, cell_vertices, min_xcell, max_xcell)
+    return MarkerChain(CPUBackend, coords, index, intersections, average_height, cell_vertices, min_xcell, max_xcell)
 end
+
+Base.length(chain::MarkerChain) = size(chain.index,1)
+
+## 
 
 struct PassiveMarkers{Backend,T} <: AbstractParticles
     coords::T
