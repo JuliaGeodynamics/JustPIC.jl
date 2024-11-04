@@ -22,11 +22,11 @@ end
 
     for offsetᵢ in -1:0, offsetⱼ in -1:0, offsetₖ in -1:0
         i_cell = I[1] + offsetᵢ
-        !(0 < i_cell < ni[1] + 1) && continue
+        0 < i_cell < ni[1] + 1 || continue
         j_cell = I[2] + offsetⱼ
-        !(0 < j_cell < ni[2] + 1) && continue
+        0 < j_cell < ni[2] + 1 || continue
         k_cell = I[3] + offsetₖ
-        !(0 < k_cell < ni[3] + 1) && continue
+        0 < k_cell < ni[3] + 1 || continue
 
         cell_index = i_cell, j_cell, k_cell
 
@@ -87,4 +87,39 @@ end
     end
 
     return nothing
+end
+
+## interpolation kernels
+
+function phase_ratio_weights(
+    pxi::NTuple{NP,C}, ph::SVector{N1,T}, cell_center, di, ::Val{NC}
+) where {N1,NC,NP,T,C}
+
+    # Initiaze phase ratio weights (note: can't use ntuple() here because of the @generated function)
+    w = ntuple(_ -> zero(T), Val(NC))
+    # sumw = zero(T)
+
+    for i in eachindex(ph)
+        p = getindex.(pxi, i)
+        isnan(first(p)) && continue
+        x = @inline bilinear_weight(cell_center, p, di)
+        # sumw += x # reduce
+        ph_local = ph[i]
+        # this is doing sum(w * δij(i, phase)), where δij is the Kronecker delta
+        w = w .+ x .* ntuple(j -> (ph_local == j), NC)
+    end
+    w = w .* inv(sum(w))
+    return w
+end
+
+@generated function bilinear_weight(
+    a::NTuple{N,T}, b::NTuple{N,T}, di::NTuple{N,T}
+) where {N,T}
+    quote
+        Base.@_inline_meta
+        val = one($T)
+        Base.Cartesian.@nexprs $N i ->
+            @inbounds val *= muladd(-abs(a[i] - b[i]), inv(di[i]), one($T))
+        return val
+    end
 end

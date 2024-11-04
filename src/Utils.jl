@@ -39,6 +39,13 @@ end
     end
 end
 
+function get_particle_coords(p::NTuple{N,CellArray}, ip, idx::Integer) where {N}
+    ntuple(Val(N)) do i
+        Base.@_inline_meta
+        @inbounds @index p[i][ip, idx]
+    end
+end
+
 function get_particle_coords(p::NTuple{N,T}, ip) where {N,T}
     ntuple(Val(N)) do i
         Base.@_inline_meta

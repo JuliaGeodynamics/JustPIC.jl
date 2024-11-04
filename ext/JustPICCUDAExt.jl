@@ -99,8 +99,8 @@ module _2D
         return Particles(CUDABackend, coords, index, nxcell, max_xcell, min_xcell, np)
     end
 
-    function JustPIC._2D.SubgridDiffusionCellArrays(particles::Particles{CUDABackend})
-        return SubgridDiffusionCellArrays(particles)
+    function JustPIC._2D.SubgridDiffusionCellArrays(particles::Particles{CUDABackend}; loc::Symbol=:vertex)
+        return SubgridDiffusionCellArrays(particles; loc=loc)
     end
 
     function JustPIC._2D.init_particles(
@@ -215,7 +215,36 @@ module _2D
         return nothing
     end
 
+    function JustPIC._2D.subgrid_diffusion_centroid!(
+        pT,
+        T_grid,
+        ΔT_grid,
+        subgrid_arrays,
+        particles::Particles{CUDABackend},
+        xvi,
+        di,
+        dt;
+        d=1.0,
+    )
+        subgrid_diffusion_centroid!(pT, T_grid, ΔT_grid, subgrid_arrays, particles, xvi, di, dt; d=d)
+        return nothing
+    end
+
     ## MakerChain
+
+    function JustPIC._2D.init_markerchain(::Type{CUDABackend}, nxcell, min_xcell, max_xcell, xv, initial_elevation)
+        nx = length(xv) - 1
+        dx = xv[2] - xv[1]
+        dx_chain = dx / (nxcell + 1)
+        px, py = ntuple(_ -> @fill(NaN, (nx,), celldims = (max_xcell,)), Val(2))
+        index = @fill(false, (nx,), celldims = (max_xcell,), eltype = Bool)
+    
+        @parallel (1:nx) fill_markerchain_coords_index!(
+            px, py, index, xv, initial_elevation, dx_chain, nxcell, max_xcell
+        )
+    
+        return MarkerChain(CUDABackend, (px, py), index, xv, min_xcell, max_xcell)
+    end
 
     function JustPIC._2D.advect_markerchain!(
         chain::MarkerChain{CUDABackend},
@@ -370,8 +399,8 @@ module _3D
         return Particles(CUDABackend, coords, index, nxcell, max_xcell, min_xcell, np)
     end
 
-    function JustPIC._3D.SubgridDiffusionCellArrays(particles::Particles{CUDABackend})
-        return SubgridDiffusionCellArrays(particles)
+    function JustPIC._3D.SubgridDiffusionCellArrays(particles::Particles{CUDABackend}; loc::Symbol=:vertex)
+        return SubgridDiffusionCellArrays(particles; loc=loc)
     end
 
     function JustPIC._3D.init_particles(
@@ -485,6 +514,21 @@ module _3D
         d=1.0,
     )
         subgrid_diffusion!(pT, T_grid, ΔT_grid, subgrid_arrays, particles, xvi, di, dt; d=d)
+        return nothing
+    end
+
+    function JustPIC._3D.subgrid_diffusion_centroid!(
+        pT,
+        T_grid,
+        ΔT_grid,
+        subgrid_arrays,
+        particles::Particles{CUDABackend},
+        xvi,
+        di,
+        dt;
+        d=1.0,
+    )
+        subgrid_diffusion_centroid!(pT, T_grid, ΔT_grid, subgrid_arrays, particles, xvi, di, dt; d=d)
         return nothing
     end
 
