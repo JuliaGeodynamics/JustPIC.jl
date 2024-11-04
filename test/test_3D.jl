@@ -226,7 +226,7 @@ function test_advection_3D()
     T  = TA(backend)([z for x in xv, y in yv, z in zv])
     T0 = deepcopy(T)
     V  = Vx, Vy, Vz
-    dt = min(dx / maximum(abs.(Vx)), dy / maximum(abs.(Vy)), dz / maximum(abs.(Vz))) / 2
+    dt = min(dx / maximum(abs.(Vx)), dy / maximum(abs.(Vy)), dz / maximum(abs.(Vz))) / 4
     
     # Initialize particles -------------------------------
     nxcell, max_xcell, min_xcell = 125, 150, 100
