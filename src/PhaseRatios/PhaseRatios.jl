@@ -1,12 +1,21 @@
 struct PhaseRatios{Backend,T} <: AbstractParticles
     center::T
     vertex::T
+    Vx::T
+    Vy::T
+    Vz::T
+    yz::T
+    xz::T
+    xy::T
 
-    function PhaseRatios(::Type{B}, center::T, vertex::T) where {B, T}
-        return new{B, T}(center, vertex)
+    function PhaseRatios(::Type{B}, center::T, vertex::T, Vx::T, Vy::T, Vz::T, yz::T, xz::T, xy::T) where {B, T}
+        return new{B, T}(center, vertex, Vx, Vy, Vz, yz, xz, xy)
     end
 end
 
+@inline dimension(::Type{PhaseRatios{Any, AbstractVector}}) = 1
+@inline dimension(::Type{PhaseRatios{Any, AbstractMatrix}}) = 2
+@inline dimension(::Type{PhaseRatios{Any, AbstractArray}})  = 3
 
 """
     nphases(x::PhaseRatios)

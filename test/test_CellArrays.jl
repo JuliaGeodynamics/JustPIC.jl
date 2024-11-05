@@ -30,7 +30,7 @@ using JustPIC, Test, StaticArrays
 end
 
 @testset "Phase ratios - 2D" begin
-    nxcell, max_xcell, min_xcell = 6, 6, 6
+    nxcell, max_xcell, min_xcell = 50, 50, 50
     n = 256
     nx = ny = n-1
     ni = nx, ny
@@ -55,8 +55,10 @@ end
     
     JustPIC._2D.update_phase_ratios!(phase_ratios, particles, xci, xvi, phases)
 
-    @test sum(phase_ratios.vertex.data) ≈ prod(ni.+1)
-    @test sum(phase_ratios.center.data) ≈ prod(ni)
+    @test all(extrema([sum(p) for p in phase_ratios.vertex]).≈ 1)
+    @test all(extrema([sum(p) for p in phase_ratios.center]).≈ 1)
+    @test all(extrema([sum(p) for p in phase_ratios.Vx])    .≈ 1)
+    @test all(extrema([sum(p) for p in phase_ratios.Vy])    .≈ 1)
 end
 
 @testset "CellArrays - 3D" begin
@@ -89,7 +91,7 @@ end
 end
 
 @testset "Phase ratios - 3D" begin
-    n = 256
+    n   = 32
     nx  = ny = nz = n-1
     Lx  = Ly = Lz = 1.0
     ni  = nx, ny, nz
@@ -101,7 +103,7 @@ end
     # nodal centers
     xci = xc, yc, zc = ntuple(i -> range(0+dxi[i]/2, Li[i]-dxi[i]/2, length=ni[i]), Val(3))
 
-    nxcell, max_xcell, min_xcell = 6, 6, 6
+    nxcell, max_xcell, min_xcell = 125, 125, 125
     particles = JustPIC._3D.init_particles(
         backend, nxcell, max_xcell, min_xcell, xvi...,
     );
@@ -111,10 +113,16 @@ end
     T            = typeof(phases.data)
     phases.data .= T(rand(1:nphases, size(phases.data)));
 
-    phase_ratios = JustPIC._3D.PhaseRatios(backend, nphases, ni);
+    phase_ratios = JustPIC._3D.PhaseRatios(backend, nphases, ni);|
     
     JustPIC._3D.update_phase_ratios!(phase_ratios, particles, xci, xvi, phases)
     
-    @test sum(phase_ratios.vertex.data) ≈ prod(ni.+1)
-    @test sum(phase_ratios.center.data) ≈ prod(ni)
+    @test all(extrema([sum(p) for p in phase_ratios.vertex]).≈ 1)
+    @test all(extrema([sum(p) for p in phase_ratios.center]).≈ 1)
+    @test all(extrema([sum(p) for p in phase_ratios.Vx])    .≈ 1)
+    @test all(extrema([sum(p) for p in phase_ratios.Vy])    .≈ 1)
+    @test all(extrema([sum(p) for p in phase_ratios.Vz])    .≈ 1)
+    @test all(extrema([sum(p) for p in phase_ratios.xz])    .≈ 1)
+    @test all(extrema([sum(p) for p in phase_ratios.yz])    .≈ 1)
+    @test all(extrema([sum(p) for p in phase_ratios.xy])    .≈ 1)
 end

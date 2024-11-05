@@ -298,9 +298,12 @@ module _2D
 
     # Phase ratio kernels
 
-    function JustPIC._2D.update_phase_ratios!(phase_ratios::JustPIC.PhaseRatios{CUDABackend}, particles, xci, xvi, phases)
+    function JustPIC._2D.update_phase_ratios!(phase_ratios::JustPIC.PhaseRatios{CUDABackend, T}, particles, xci, xvi, phases) where {T<:AbstractMatrix}
         phase_ratios_center!(phase_ratios, particles, xci, phases)
         phase_ratios_vertex!(phase_ratios, particles, xvi, phases)
+        # velocity nodes
+        phase_ratios_face!(phase_ratios.Vx, particles, xci, phases, :x)
+        phase_ratios_face!(phase_ratios.Vy, particles, xci, phases, :y)
         return nothing
     end
 
@@ -311,12 +314,17 @@ module _2D
     end
 
     function JustPIC._2D.PhaseRatios(
-        ::Type{T}, ::Type{CUDABackend}, nphases::Integer, ni::NTuple{N,Integer}
-    ) where {N,T}
-        center = cell_array(0.0, (nphases,), ni)
-        vertex = cell_array(0.0, (nphases,), ni .+ 1)
-
-        return JustPIC.PhaseRatios(CUDABackend, center, vertex)
+        ::Type{T}, ::Type{CUDABackend}, nphases::Integer, ni::NTuple{2,Integer}
+    ) where {T}
+        nx, ny = ni
+        
+        center = cell_array(zero(T), (nphases,), ni)
+        vertex = cell_array(zero(T), (nphases,), ni .+ 1)
+        Vx     = cell_array(zero(T), (nphases,), (nx + 1, ny))
+        Vy     = cell_array(zero(T), (nphases,), (nx, ny + 1))
+        dummy  = cell_array(zero(T), (nphases,), (1, 1)) # because it cant be a Union{T, Nothing} type on the GPU....
+   
+        return JustPIC.PhaseRatios(CUDABackend, center, vertex, Vx, Vy, dummy, dummy, dummy, dummy)
     end
 
     function JustPIC._2D.phase_ratios_center!(
@@ -343,6 +351,10 @@ module _2D
         return nothing
     end
 
+    function JustPIC._2D.phase_ratios_midpoint!(phase_midpoint, particles::Particles{CUDABackend}, xci::NTuple{N}, phases, dimension) where N
+        phase_ratios_midpoint!(phase_midpoint, particles, xci, phases, dimension)
+        return nothing
+    end
 end
 
 module _3D
@@ -560,9 +572,17 @@ module _3D
 
     # Phase ratio kernels
 
-    function JustPIC._3D.update_phase_ratios!(phase_ratios::JustPIC.PhaseRatios{CUDABackend}, particles, xci, xvi, phases)
+    function JustPIC._3D.update_phase_ratios!(phase_ratios::JustPIC.PhaseRatios{CUDABackend, T}, particles, xci, xvi, phases) where {T<:AbstractArray}
         phase_ratios_center!(phase_ratios, particles, xci, phases)
         phase_ratios_vertex!(phase_ratios, particles, xvi, phases)
+        # velocity nodes
+        phase_ratios_face!(phase_ratios.Vx, particles, xci, phases, :x)
+        phase_ratios_face!(phase_ratios.Vy, particles, xci, phases, :y)
+        phase_ratios_face!(phase_ratios.Vz, particles, xci, phases, :z)
+        # shear stress nodes
+        phase_ratios_midpoint!(phase_ratios.xy, particles, xci, phases, :xy)
+        phase_ratios_midpoint!(phase_ratios.yz, particles, xci, phases, :yz)
+        phase_ratios_midpoint!(phase_ratios.xz, particles, xci, phases, :xz)
         return nothing
     end
     
@@ -573,12 +593,20 @@ module _3D
     end
 
     function JustPIC._3D.PhaseRatios(
-        ::Type{T}, ::Type{CUDABackend}, nphases::Integer, ni::NTuple{N,Integer}
-    ) where {N,T}
-        center = cell_array(0.0, (nphases,), ni)
-        vertex = cell_array(0.0, (nphases,), ni .+ 1)
-
-        return JustPIC.PhaseRatios(CUDABackend, center, vertex)
+        ::Type{T}, ::Type{CUDABackend}, nphases::Integer, ni::NTuple{3,Integer}
+    ) where {T}
+        nx, ny, nz  = ni
+        
+        center = cell_array(zero(T), (nphases,), ni)
+        vertex = cell_array(zero(T), (nphases,), ni .+ 1)
+        Vx     = cell_array(zero(T), (nphases,), (nx + 1, ny, nz))
+        Vy     = cell_array(zero(T), (nphases,), (nx, ny + 1, nz))
+        Vz     = cell_array(zero(T), (nphases,), (nx, ny, nz + 1))
+        yz     = cell_array(zero(T), (nphases,), (nx, ny + 1, nz + 1))
+        xz     = cell_array(zero(T), (nphases,), (nx + 1, ny, nz + 1))
+        xy     = cell_array(zero(T), (nphases,), (nx + 1, ny + 1, nz))
+    
+        return JustPIC.PhaseRatios(CUDABackend, center, vertex, Vx, Vy, Vz, yz, xz, xy)
     end
 
     function JustPIC._3D.phase_ratios_center!(
@@ -602,6 +630,11 @@ module _3D
         @parallel (@idx ni) phase_ratios_vertex_kernel!(
             phase_ratios.vertex, particles.coords, xvi, di, phases
         )
+        return nothing
+    end
+
+    function JustPIC._3D.phase_ratios_midpoint!(phase_midpoint, particles::Particles{CUDABackend}, xci::NTuple{N}, phases, dimension) where N
+        phase_ratios_midpoint!(phase_midpoint, particles, xci, phases, dimension)
         return nothing
     end
 end
