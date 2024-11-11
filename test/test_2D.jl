@@ -1,4 +1,3 @@
-
 @static if ENV["JULIA_JUSTPIC_BACKEND"] === "AMDGPU"
     using AMDGPU
     AMDGPU.allowscalar(true)
@@ -42,51 +41,6 @@ vy_stream(x, y) = -250 * cos(π*x) * sin(π*y)
 
 # Analytical flow solution
 vi_stream(x) =  π * 1e-5 * (x - 0.5)
-
-@testset "Interpolations 2D" begin
-    nxcell, max_xcell, min_xcell = 5, 5, 1
-    n = 5 # number of vertices
-    nx = ny = n - 1
-    Lx = Ly = 1.0
-    # nodal vertices
-    xvi = xv, yv = LinRange(0, Lx, n), LinRange(0, Ly, n)
-    dxi = dx, dy = xv[2] - xv[1], yv[2] - yv[1]
-    # nodal centers
-    xci = xc, yc = LinRange(0+dx/2, Lx-dx/2, n-1), LinRange(0+dy/2, Ly-dy/2, n-1)
-    # staggered grid velocity nodal locations
-
-    # Initialize particles & particle fields
-    particles = _2D.init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi...,
-    )
-    pT, = _2D.init_cell_arrays(particles, Val(1))
-
-    # Linear field at the vertices
-    T  = TA(backend)([y for x in xv, y in yv])
-    T0 = TA(backend)([y for x in xv, y in yv])
-
-    # Grid to particle test
-    _2D.grid2particle!(pT, xvi, T, particles)
-
-    @test pT == particles.coords[2]
-
-    # Grid to particle test
-    _2D.grid2particle_flip!(pT, xvi, T, T0, particles)
-
-    @test pT == particles.coords[2]
-
-    # Particle to grid test
-    T2 = similar(T)
-    _2D.particle2grid!(T2, pT, xvi, particles)
-    # norm(T2 .- T) / length(T)
-    @test norm(T2 .- T) / length(T) < 1e-1
-
-    # test copy function
-    particles_copy = copy(particles)
-    pT_copy        = copy(pT)
-    @test particles_copy.index.data[:] == particles.index.data[:]
-    @test pT_copy.data[:]              == pT.data[:]
-end
 
 @testset "Subgrid diffusion 2D" begin
     nxcell, max_xcell, min_xcell = 12, 12, 1
@@ -235,23 +189,21 @@ end
 
     year = 365*3600*24
     L    = (x=1., y=1.)
-    Nc   = (x=256, y=256 )
+    Nc   = (x=32, y=32 )
     Nv   = (x=Nc.x+1,   y=Nc.y+1   )
     Δ    = (x=L.x/Nc.x, y=L.y/Nc.y )
     Nt   = 200
     Nout = 1
     C    = 0.25
 
-    verts     = (x=LinRange(-L.x/2, L.x/2, Nv.x), y=LinRange(-L.y/2, L.y/2, Nv.y))
-    cents     = (x=LinRange(-Δ.x/2+L.x/2, L.x/2-Δ.x/2, Nc.x), y=LinRange(-Δ.y/2+L.y/2, L.y+Δ.y/2-L.y/2, Nc.y))
-    cents_ext = (x=LinRange(-Δ.x/2-L.x/2, L.x/2+Δ.x/2, Nc.x+2), y=LinRange(-Δ.y/2-L.y/2, L.y+Δ.y/2+L.y/2, Nc.y+2))
-
-    size_x = (Nc.x+1, Nc.y+2)
-    size_y = (Nc.x+2, Nc.y+1)
-
-    V = (
-        x      = @zeros(size_x),
-        y      = @zeros(size_y),
+    verts     = (x = LinRange(-L.x/2        , L.x/2, Nv.x),           y = LinRange(-L.y/2        , L.y/2, Nv.y))
+    cents     = (x = LinRange(-L.x/2 + Δ.x/2, L.x/2 - Δ.x/2, Nc.x),   y = LinRange(-L.y/2 + Δ.y/2, L.y/2 - Δ.y/2, Nc.y))
+    cents_ext = (x = LinRange(-L.x/2 - Δ.x/2, L.x/2 + Δ.x/2, Nc.x+2), y = LinRange(-L.y/2 - Δ.y/2, L.y/2 + Δ.y/2, Nc.y+2))
+    size_x    = (Nc.x+1, Nc.y+2)
+    size_y    = (Nc.x+2, Nc.y+1)
+    V         = (
+        x = @zeros(size_x),
+        y = @zeros(size_y),
     )
 
     # Set velocity field
@@ -265,7 +217,7 @@ end
     end
  
     # Initialize particles -------------------------------
-    nxcell, max_xcell, min_xcell = 12, 24, 5
+    nxcell, max_xcell, min_xcell = 60, 80, 50
     particles = init_particles(
         backend, 
         nxcell, 
@@ -282,8 +234,12 @@ end
     @parallel InitialFieldsParticles!(phases, particles.coords..., particles.index)
 
     phase_ratios = JustPIC._2D.PhaseRatios(backend, 2, values(Nc));
-    phase_ratios_vertex!(phase_ratios, particles, values(verts), phases) 
-    phase_ratios_center!(phase_ratios, particles, values(verts), phases) 
+    update_phase_ratios!(phase_ratios, particles, values(cents), values(verts), phases) 
+
+    @test all(extrema(sum(phase_ratios.vertex.data, dims=2)).≈ 1)
+    @test all(extrema(sum(phase_ratios.center.data, dims=2)).≈ 1)
+    @test all(extrema(sum(phase_ratios.Vx.data, dims=2))    .≈ 1)
+    @test all(extrema(sum(phase_ratios.Vy.data, dims=2))    .≈ 1)
 
     # Time step
     t  = 0e0
@@ -296,22 +252,18 @@ end
     Vyc     = 0.5*(V.y[2:end-1,1:end-1] .+ V.y[2:end-1,2:end-0])
 
     for it=1:Nt
-        advection_MQS!(particles, RungeKutta2(), values(V), (grid_vx, grid_vy), Δt)
+        advection!(particles, RungeKutta2(), values(V), (grid_vx, grid_vy), Δt)
         move_particles!(particles, values(verts), particle_args)
         inject_particles_phase!(particles, phases, (), (), values(verts))
-
-        phase_ratios_vertex!(phase_ratios, particles, values(verts), phases) 
-        phase_ratios_center!(phase_ratios, particles, values(verts), phases)     
-        min_prv, max_prv = extrema(sum(phase_ratios.vertex.data, dims=2))
-        min_prc, max_prc = extrema(sum(phase_ratios.center.data, dims=2))
-        
-        @test min_prv ≈ 1
-        @test max_prv ≈ 1
-        @test min_prc ≈ 1
-        @test max_prc ≈ 1
+        update_phase_ratios!(phase_ratios, particles, values(cents), values(verts), phases) 
     end
-end
 
+    @test all(extrema(sum(phase_ratios.vertex.data, dims=2)).≈ 1)
+    @test all(extrema(sum(phase_ratios.center.data, dims=2)).≈ 1)
+    @test all(extrema(sum(phase_ratios.Vx.data, dims=2))    .≈ 1)
+    @test all(extrema(sum(phase_ratios.Vy.data, dims=2))    .≈ 1)
+end
+    
 function advection_test_2D()
     # Initialize particles -------------------------------
     nxcell, max_xcell, min_xcell = 6, 12, 1

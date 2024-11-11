@@ -10,22 +10,37 @@ Injects particles if the number of particles in a given cell is such that `n < p
 - `args`: `CellArrays`s containing particle fields.
 - `grid`: The grid cell vertices.
 """
-function inject_particles!(particles::Particles, args, grid)
+function inject_particles!(particles::Particles, args, grid::NTuple{N}) where N
     # function implementation goes here
     # unpack
     (; coords, index, min_xcell) = particles
     ni = size(index)
     di = compute_dx(grid)
+    n_color = ntuple(i -> ceil(Int, ni[i] * 0.5), Val(N))
 
-    @parallel (@idx ni) inject_particles!(args, coords, index, grid, di, min_xcell)
+    if N == 2
+        for offsetᵢ in 1:3, offsetⱼ in 1:3        
+            @parallel (@idx n_color) inject_particles!(args, coords, index, grid, di, min_xcell, (offsetᵢ, offsetⱼ))
+        end
+    elseif N == 3
+        for offsetᵢ in 1:3, offsetⱼ in 1:3, offsetₖ in 1:3
+            @parallel (@idx n_color) inject_particles!(args, coords, index, grid, di, min_xcell, (offsetᵢ, offsetⱼ, offsetₖ))
+        end
+    else
+        error(ThrowArgument("The dimension of the problem must be either 2 or 3"))
+    end
 end
 
 @parallel_indices (I...) function inject_particles!(
-    args, coords, index, grid, di, min_xcell
-)
-    if mapreduce(x -> x[1] ≤ x[2], &, zip(I, size(index))) &&
-        isemptycell(index, min_xcell, I...)
-        _inject_particles!(args, coords, index, grid, di, min_xcell, I)
+    args, coords, index, grid, di, min_xcell, offsets::NTuple{N}
+) where N
+    indices = ntuple(Val(N)) do i
+        3 * (I[i] - 1) + offsets[i]
+    end
+
+    if mapreduce(x -> x[1] ≤ x[2], &, zip(indices, size(index))) &&
+        isemptycell(index, min_xcell, indices...)
+        _inject_particles!(args, coords, index, grid, di, min_xcell, indices)
     end
     return nothing
 end
@@ -54,7 +69,8 @@ function _inject_particles!(
             # add phase to new particle
             particle_idx, min_idx = index_min_distance(coords, p_new, index, i, idx_cell...)
             for j in 1:N
-                @index args[j][i, idx_cell...] = @index args[j][particle_idx, min_idx...]
+                new_value = @index args[j][particle_idx, min_idx...]
+                @index args[j][i, idx_cell...] = new_value
             end
         end
         particles_num == min_xcell && break
@@ -65,27 +81,47 @@ end
 
 # Injection of particles when multiple phases are present
 
-function inject_particles_phase!(particles::Particles, particles_phases, args, fields, grid)
+function inject_particles_phase!(particles::Particles, particles_phases, args, fields, grid::NTuple{N}) where N
     # unpack
     (; coords, index, min_xcell) = particles
     # linear to cartesian object
     ni = size(index)
     di = compute_dx(grid)
+    n_color = ntuple(i -> ceil(Int, ni[i] * 0.5), Val(N))
 
-    @parallel (@idx ni) inject_particles_phase!(
-        particles_phases, args, fields, coords, index, grid, di, min_xcell
-    )
+    if N == 2
+        for offsetᵢ in 1:3, offsetⱼ in 1:3        
+            @parallel (@idx ni) inject_particles_phase!(
+                particles_phases, args, fields, coords, index, grid, di, min_xcell, (offsetᵢ, offsetⱼ)
+            )            
+        end
+    elseif N == 3
+        for offsetᵢ in 1:3, offsetⱼ in 1:3, offsetₖ in 1:3
+            @parallel (@idx ni) inject_particles_phase!(
+                particles_phases, args, fields, coords, index, grid, di, min_xcell, (offsetᵢ, offsetⱼ, offsetₖ)
+            )
+        end
+    else
+        error(ThrowArgument("The dimension of the problem must be either 2 or 3"))
+    end
+
 end
 
 @parallel_indices (I...) function inject_particles_phase!(
-    particles_phases, args, fields, coords, index, grid, di, min_xcell
-)
-    if mapreduce(x -> x[1] ≤ x[2], &, zip(I, size(index))) &&
-        isemptycell(index, min_xcell, I...)
-        _inject_particles_phase!(
-            particles_phases, args, fields, coords, index, grid, di, min_xcell, I
-        )
+    particles_phases, args, fields, coords, index, grid, di, min_xcell, offsets::NTuple{N}
+) where N
+
+    indices = ntuple(Val(N)) do i
+        3 * (I[i] - 1) + offsets[i]
     end
+
+    if mapreduce(x -> x[1] ≤ x[2], &, zip(indices, size(index))) &&
+        isemptycell(index, min_xcell, indices...)
+        _inject_particles_phase!(
+            particles_phases, args, fields, coords, index, grid, di, min_xcell, indices
+        )    
+    end
+   
     return nothing
 end
 
@@ -136,7 +172,7 @@ function _inject_particles_phase!(
     return nothing
 end
 
-@inline distance2(x, y) = sqrt(mapreduce(x -> (x[1] - x[2])^2, +, zip(x, y)))
+@inline distance2(x, y) = √(mapreduce(x -> (x[1] - x[2])^2, +, zip(x, y)))
 
 # find index of the closest particle w.r.t the new particle
 function index_min_distance(coords, pn, index, current_cell, icell, jcell)
@@ -155,6 +191,9 @@ function index_min_distance(coords, pn, index, current_cell, icell, jcell)
 
         # distance from new point to the existing particle
         pxi = @index(px[ip, i, j]), @index(py[ip, i, j])
+
+        any(isnan, pxi) && continue
+
         d = distance(pxi, pn)
 
         if d < dist_min
@@ -162,6 +201,7 @@ function index_min_distance(coords, pn, index, current_cell, icell, jcell)
             i_min, j_min = i, j
             dist_min = d
         end
+
     end
 
     return particle_idx_min, (i_min, j_min)

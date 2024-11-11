@@ -1,12 +1,12 @@
-function update_cell_halo!(x::Vararg{CellArray,N}) where {N}
+function update_cell_halo!(x::Vararg{CellArray{S, N, D, A}, NA}) where {NA, S, N, D, A<:AbstractArray}
     ni = size(x[1])
     tmp = @fill(0, ni..., eltype = eltype(x[1].data))
 
-    for i in 1:N
-        for ip in cellaxes(x[i])
-            tmp .= field(x[i], ip)
+    for xᵢ in x
+        for ip in cellaxes(xᵢ)
+            copyto!(tmp, field(xᵢ, ip))
             update_halo!(tmp)
-            @parallel (@idx ni) copy_field!(x[i], tmp, ip)
+            @parallel (@idx ni) copy_field!(xᵢ, tmp, ip)
         end
     end
     return nothing

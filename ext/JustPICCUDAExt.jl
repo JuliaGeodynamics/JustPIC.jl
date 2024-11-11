@@ -56,8 +56,11 @@ module _2D
     using MuladdMacro, ParallelStencil, CellArrays, CellArraysIndexing, StaticArrays
     using JustPIC
 
-    @init_parallel_stencil(CUDA, Float64, 2)
-
+    function __init__()
+        @init_parallel_stencil(CUDA, Float64, 2)
+        return nothing
+    end
+    
     import JustPIC: Euler, RungeKutta2, AbstractAdvectionIntegrator
     import JustPIC._2D.CA
     import JustPIC: Particles, PassiveMarkers
@@ -80,6 +83,9 @@ module _2D
     include(joinpath(@__DIR__, "../src/common.jl"))
     include(joinpath(@__DIR__, "../src/CUDAExt/CellArrays.jl"))
 
+    # halo update
+    JustPIC._2D.update_cell_halo!(x::Vararg{CellArray{S, N, D, CuArray{T, nD}}, NA}) where {NA, S, N, D, T, nD} = update_cell_halo!(x...)
+
     # Conversions 
 
     function JustPIC._2D.Particles(
@@ -93,8 +99,8 @@ module _2D
         return Particles(CUDABackend, coords, index, nxcell, max_xcell, min_xcell, np)
     end
 
-    function JustPIC._2D.SubgridDiffusionCellArrays(particles::Particles{CUDABackend})
-        return SubgridDiffusionCellArrays(particles)
+    function JustPIC._2D.SubgridDiffusionCellArrays(particles::Particles{CUDABackend}; loc::Symbol=:vertex)
+        return SubgridDiffusionCellArrays(particles; loc=loc)
     end
 
     function JustPIC._2D.init_particles(
@@ -157,10 +163,10 @@ module _2D
         return grid2particle!(Fp, xvi, F, particles)
     end
 
-    function JustPIC._2D.particle2grid_centroid!(
+    function JustPIC._2D.particle2centroid!(
         F::CuArray, Fp, xi::NTuple, particles::Particles{CUDABackend}
     )
-        return particle2grid_centroid!(F, Fp, xi, particles)
+        return particle2centroid!(F, Fp, xi, particles)
     end
 
     function JustPIC._2D.particle2grid!(F::CuArray, Fp, xi, particles)
@@ -171,13 +177,13 @@ module _2D
         return grid2particle_flip!(Fp, xvi, F, F0, particles; α=α)
     end
 
-    function JustPIC._2D.inject_particles!(particles::Particles{CUDABackend}, args, grid)
+    function JustPIC._2D.inject_particles!(particles::Particles{CUDABackend}, args, grid::NTuple{N}) where N
         return inject_particles!(particles, args, grid)
     end
 
     function JustPIC._2D.inject_particles_phase!(
-        particles::Particles{CUDABackend}, particles_phases, args, fields, grid
-    )
+        particles::Particles{CUDABackend}, particles_phases, args, fields, grid::NTuple{N}
+    ) where {N}
         inject_particles_phase!(particles::Particles, particles_phases, args, fields, grid)
         return nothing
     end
@@ -209,7 +215,36 @@ module _2D
         return nothing
     end
 
+    function JustPIC._2D.subgrid_diffusion_centroid!(
+        pT,
+        T_grid,
+        ΔT_grid,
+        subgrid_arrays,
+        particles::Particles{CUDABackend},
+        xvi,
+        di,
+        dt;
+        d=1.0,
+    )
+        subgrid_diffusion_centroid!(pT, T_grid, ΔT_grid, subgrid_arrays, particles, xvi, di, dt; d=d)
+        return nothing
+    end
+
     ## MakerChain
+
+    function JustPIC._2D.init_markerchain(::Type{CUDABackend}, nxcell, min_xcell, max_xcell, xv, initial_elevation)
+        nx = length(xv) - 1
+        dx = xv[2] - xv[1]
+        dx_chain = dx / (nxcell + 1)
+        px, py = ntuple(_ -> @fill(NaN, (nx,), celldims = (max_xcell,)), Val(2))
+        index = @fill(false, (nx,), celldims = (max_xcell,), eltype = Bool)
+    
+        @parallel (1:nx) fill_markerchain_coords_index!(
+            px, py, index, xv, initial_elevation, dx_chain, nxcell, max_xcell
+        )
+    
+        return MarkerChain(CUDABackend, (px, py), index, xv, min_xcell, max_xcell)
+    end
 
     function JustPIC._2D.advect_markerchain!(
         chain::MarkerChain{CUDABackend},
@@ -263,9 +298,12 @@ module _2D
 
     # Phase ratio kernels
 
-    function JustPIC._2D.update_phase_ratios!(phase_ratios::JustPIC.PhaseRatios{CUDABackend}, particles, xci, xvi, phases)
+    function JustPIC._2D.update_phase_ratios!(phase_ratios::JustPIC.PhaseRatios{CUDABackend, T}, particles, xci, xvi, phases) where {T<:AbstractMatrix}
         phase_ratios_center!(phase_ratios, particles, xci, phases)
         phase_ratios_vertex!(phase_ratios, particles, xvi, phases)
+        # velocity nodes
+        phase_ratios_face!(phase_ratios.Vx, particles, xci, phases, :x)
+        phase_ratios_face!(phase_ratios.Vy, particles, xci, phases, :y)
         return nothing
     end
 
@@ -276,12 +314,17 @@ module _2D
     end
 
     function JustPIC._2D.PhaseRatios(
-        ::Type{T}, ::Type{CUDABackend}, nphases::Integer, ni::NTuple{N,Integer}
-    ) where {N,T}
-        center = cell_array(0.0, (nphases,), ni)
-        vertex = cell_array(0.0, (nphases,), ni .+ 1)
-
-        return JustPIC.PhaseRatios(CUDABackend, center, vertex)
+        ::Type{T}, ::Type{CUDABackend}, nphases::Integer, ni::NTuple{2,Integer}
+    ) where {T}
+        nx, ny = ni
+        
+        center = cell_array(zero(T), (nphases,), ni)
+        vertex = cell_array(zero(T), (nphases,), ni .+ 1)
+        Vx     = cell_array(zero(T), (nphases,), (nx + 1, ny))
+        Vy     = cell_array(zero(T), (nphases,), (nx, ny + 1))
+        dummy  = cell_array(zero(T), (nphases,), (1, 1)) # because it cant be a Union{T, Nothing} type on the GPU....
+   
+        return JustPIC.PhaseRatios(CUDABackend, center, vertex, Vx, Vy, dummy, dummy, dummy, dummy)
     end
 
     function JustPIC._2D.phase_ratios_center!(
@@ -308,6 +351,10 @@ module _2D
         return nothing
     end
 
+    function JustPIC._2D.phase_ratios_midpoint!(phase_midpoint, particles::Particles{CUDABackend}, xci::NTuple{N}, phases, dimension) where N
+        phase_ratios_midpoint!(phase_midpoint, particles, xci, phases, dimension)
+        return nothing
+    end
 end
 
 module _3D
@@ -317,7 +364,10 @@ module _3D
     using MuladdMacro, ParallelStencil, CellArrays, CellArraysIndexing, StaticArrays
     using JustPIC
 
-    @init_parallel_stencil(CUDA, Float64, 3)
+    function __init__()
+        @init_parallel_stencil(CUDA, Float64, 3)
+        return nothing
+    end
 
     macro myatomic(expr)
         return esc(
@@ -338,6 +388,9 @@ module _3D
     include(joinpath(@__DIR__, "../src/common.jl"))
     include(joinpath(@__DIR__, "../src/CUDAExt/CellArrays.jl"))
     
+    # halo update
+    JustPIC._3D.update_cell_halo!(x::Vararg{CellArray{S, N, D, CuArray{T, nD}}, NA}) where {NA, S, N, D, T, nD} = update_cell_halo!(x...)
+
     # Conversions 
 
     function JustPIC._3D.Particles(
@@ -351,8 +404,8 @@ module _3D
         return Particles(CUDABackend, coords, index, nxcell, max_xcell, min_xcell, np)
     end
 
-    function JustPIC._3D.SubgridDiffusionCellArrays(particles::Particles{CUDABackend})
-        return SubgridDiffusionCellArrays(particles)
+    function JustPIC._3D.SubgridDiffusionCellArrays(particles::Particles{CUDABackend}; loc::Symbol=:vertex)
+        return SubgridDiffusionCellArrays(particles; loc=loc)
     end
 
     function JustPIC._3D.init_particles(
@@ -415,10 +468,10 @@ module _3D
         return grid2particle!(Fp, xvi, F, particles)
     end
 
-    function JustPIC._3D.particle2grid_centroid!(
+    function JustPIC._3D.particle2centroid!(
         F::CuArray, Fp, xi::NTuple, particles::Particles{CUDABackend}
     )
-        return particle2grid_centroid!(F, Fp, xi, particles)
+        return particle2centroid!(F, Fp, xi, particles)
     end
 
     function JustPIC._3D.particle2grid!(
@@ -431,13 +484,13 @@ module _3D
         return grid2particle_flip!(Fp, xvi, F, F0, particles; α=α)
     end
 
-    function JustPIC._3D.inject_particles!(particles::Particles{CUDABackend}, args, grid)
+    function JustPIC._3D.inject_particles!(particles::Particles{CUDABackend}, args, grid::NTuple{N}) where N
         return inject_particles!(particles, args, grid)
     end
 
     function JustPIC._3D.inject_particles_phase!(
-        particles::Particles{CUDABackend}, particles_phases, args, fields, grid
-    )
+        particles::Particles{CUDABackend}, particles_phases, args, fields, grid::NTuple{N}
+    ) where N
         inject_particles_phase!(particles::Particles, particles_phases, args, fields, grid)
         return nothing
     end
@@ -466,6 +519,21 @@ module _3D
         d=1.0,
     )
         subgrid_diffusion!(pT, T_grid, ΔT_grid, subgrid_arrays, particles, xvi, di, dt; d=d)
+        return nothing
+    end
+
+    function JustPIC._3D.subgrid_diffusion_centroid!(
+        pT,
+        T_grid,
+        ΔT_grid,
+        subgrid_arrays,
+        particles::Particles{CUDABackend},
+        xvi,
+        di,
+        dt;
+        d=1.0,
+    )
+        subgrid_diffusion_centroid!(pT, T_grid, ΔT_grid, subgrid_arrays, particles, xvi, di, dt; d=d)
         return nothing
     end
 
@@ -504,9 +572,17 @@ module _3D
 
     # Phase ratio kernels
 
-    function JustPIC._3D.update_phase_ratios!(phase_ratios::JustPIC.PhaseRatios{CUDABackend}, particles, xci, xvi, phases)
+    function JustPIC._3D.update_phase_ratios!(phase_ratios::JustPIC.PhaseRatios{CUDABackend, T}, particles, xci, xvi, phases) where {T<:AbstractArray}
         phase_ratios_center!(phase_ratios, particles, xci, phases)
         phase_ratios_vertex!(phase_ratios, particles, xvi, phases)
+        # velocity nodes
+        phase_ratios_face!(phase_ratios.Vx, particles, xci, phases, :x)
+        phase_ratios_face!(phase_ratios.Vy, particles, xci, phases, :y)
+        phase_ratios_face!(phase_ratios.Vz, particles, xci, phases, :z)
+        # shear stress nodes
+        phase_ratios_midpoint!(phase_ratios.xy, particles, xci, phases, :xy)
+        phase_ratios_midpoint!(phase_ratios.yz, particles, xci, phases, :yz)
+        phase_ratios_midpoint!(phase_ratios.xz, particles, xci, phases, :xz)
         return nothing
     end
     
@@ -517,12 +593,20 @@ module _3D
     end
 
     function JustPIC._3D.PhaseRatios(
-        ::Type{T}, ::Type{CUDABackend}, nphases::Integer, ni::NTuple{N,Integer}
-    ) where {N,T}
-        center = cell_array(0.0, (nphases,), ni)
-        vertex = cell_array(0.0, (nphases,), ni .+ 1)
-
-        return JustPIC.PhaseRatios(CUDABackend, center, vertex)
+        ::Type{T}, ::Type{CUDABackend}, nphases::Integer, ni::NTuple{3,Integer}
+    ) where {T}
+        nx, ny, nz  = ni
+        
+        center = cell_array(zero(T), (nphases,), ni)
+        vertex = cell_array(zero(T), (nphases,), ni .+ 1)
+        Vx     = cell_array(zero(T), (nphases,), (nx + 1, ny, nz))
+        Vy     = cell_array(zero(T), (nphases,), (nx, ny + 1, nz))
+        Vz     = cell_array(zero(T), (nphases,), (nx, ny, nz + 1))
+        yz     = cell_array(zero(T), (nphases,), (nx, ny + 1, nz + 1))
+        xz     = cell_array(zero(T), (nphases,), (nx + 1, ny, nz + 1))
+        xy     = cell_array(zero(T), (nphases,), (nx + 1, ny + 1, nz))
+    
+        return JustPIC.PhaseRatios(CUDABackend, center, vertex, Vx, Vy, Vz, yz, xz, xy)
     end
 
     function JustPIC._3D.phase_ratios_center!(
@@ -546,6 +630,11 @@ module _3D
         @parallel (@idx ni) phase_ratios_vertex_kernel!(
             phase_ratios.vertex, particles.coords, xvi, di, phases
         )
+        return nothing
+    end
+
+    function JustPIC._3D.phase_ratios_midpoint!(phase_midpoint, particles::Particles{CUDABackend}, xci::NTuple{N}, phases, dimension) where N
+        phase_ratios_midpoint!(phase_midpoint, particles, xci, phases, dimension)
         return nothing
     end
 end

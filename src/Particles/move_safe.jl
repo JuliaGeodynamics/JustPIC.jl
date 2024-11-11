@@ -166,7 +166,11 @@ end
     return ntuple(i -> @index(args[i][ip, I...]), Val(N1))
 end
 
-@inline function cache_particle(p::NTuple{N1,T}, ip, I::NTuple{N2,Int64}) where {T,N1,N2}
+@inline function cache_args(args::NTuple{N}, ip, I::Integer) where {N}
+    return ntuple(i -> @index(args[i][ip, I]), Val(N))
+end
+
+@inline function cache_particle(p::NTuple{N1,T}, ip, I::Union{Integer, NTuple{N2,Integer}}) where {T,N1,N2}
     return cache_args(p, ip, I)
 end
 
@@ -180,6 +184,15 @@ end
     quote
         Base.@_inline_meta
         Base.Cartesian.@nexprs $N1 i -> @index p[i][ip, I...] = NaN
+    end
+end
+
+@generated function empty_particle!(
+    p::NTuple{N}, ip, I::Integer
+) where {N}
+    quote
+        Base.@_inline_meta
+        Base.Cartesian.@nexprs $N i -> @index p[i][ip, I] = NaN
     end
 end
 

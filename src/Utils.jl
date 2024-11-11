@@ -32,16 +32,23 @@ end
 @inline doskip(index, ip, I::Vararg{Int64,N}) where {N} =
     iszero(@inbounds @index index[ip, I...])
 
-function get_particle_coords(p::NTuple{N,CellArray}, ip, idx::Vararg{Int64,N}) where {N}
+@generated function get_particle_coords(p::NTuple{N,CellArray}, ip, idx::Vararg{Int64,N}) where {N}
+    quote 
+        @inline
+        Base.@ntuple $N i -> @inbounds @index p[i][ip, idx...]
+    end
+end
+
+function get_particle_coords(p::NTuple{N,CellArray}, ip, idx::Integer) where {N}
     ntuple(Val(N)) do i
         Base.@_inline_meta
-        @inbounds @index p[i][ip, idx...]
+        @inbounds @index p[i][ip, idx]
     end
 end
 
 function get_particle_coords(p::NTuple{N,T}, ip) where {N,T}
     ntuple(Val(N)) do i
         Base.@_inline_meta
-        p[i][ip]
+        @inbounds p[i][ip]
     end
 end

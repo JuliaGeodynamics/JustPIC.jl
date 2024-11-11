@@ -18,7 +18,7 @@ include("Interpolations/particle_to_grid.jl")
 export particle2grid!
 
 include("Interpolations/particle_to_grid_centroid.jl")
-export particle2grid_centroid!
+export particle2centroid!
 
 include("Interpolations/grid_to_particle.jl")
 export grid2particle!, grid2particle_flip!
@@ -31,7 +31,7 @@ include("Interpolations/ndlerp.jl")
 include("Interpolations/MQS.jl")
 
 include("Physics/subgrid_diffusion.jl")
-export SubgridDiffusionCellArrays, subgrid_diffusion!
+export SubgridDiffusionCellArrays, subgrid_diffusion!, subgrid_diffusion_centroid!
 
 # PARTICLES RELATED FILES
 
@@ -64,9 +64,6 @@ export move_particles!
 
 include("MarkerChain/interp1.jl")
 
-include("MarkerChain/sort.jl")
-export sort_chain!
-
 include("MarkerChain/resample.jl")
 export resample!
 
@@ -92,5 +89,8 @@ export particle2grid!
 include("PhaseRatios/constructors.jl")
 export PhaseRatios
 
-include("PhaseRatios/kernels.jl")
-export update_phase_ratios!, phase_ratios_center!, phase_ratios_vertex!
+include("PhaseRatios/utils.jl")
+include("PhaseRatios/centers.jl")
+include("PhaseRatios/vertices.jl")
+include("PhaseRatios/midpoints.jl")
+export update_phase_ratios!, phase_ratios_center!, phase_ratios_vertex!, phase_ratios_midpoint!
