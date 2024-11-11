@@ -18,7 +18,7 @@ function main()
 #SBATCH --ntasks-per-node=1
 #SBATCH --account c2
 
-srun /users/ademonts/.julia/juliaup/julia-1.10.5+0.aarch64.linux.gnu/bin/julia --project=. -p 1 -t $(ntᵢ) -O3 --check-bounds=no  perf2D.jl"
+srun /users/ademonts/.julia/juliaup/julia-1.10.5+0.aarch64.linux.gnu/bin/julia --project=. -p 1 -t $(ntᵢ) -O3 --check-bounds=no  perf2D.jl $(GPU)"
         
             open("runme_test.sh", "w") do io
                 println(io, str)
