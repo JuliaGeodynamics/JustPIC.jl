@@ -27,8 +27,10 @@ srun /users/ademonts/.julia/juliaup/julia-1.10.5+0.aarch64.linux.gnu/bin/julia -
 
         # Submit the job
         run(`sbatch runme_test.sh`)
+        println("Job submitted")
         # remove the file
         sleep(1)
         rm("runme_test.sh")
+        println("File removed")
     end
 end

@@ -1,4 +1,6 @@
-const isGPU = false
+
+# const isGPU = false
+const isGPU = ARGS[1] === "GPU" ? true : false
 
 using JustPIC
 using JustPIC._2D
