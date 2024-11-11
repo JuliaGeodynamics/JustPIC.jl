@@ -1,6 +1,11 @@
 
 # const isGPU = false
-const isGPU = ARGS[1] === "GPU" ? true : false
+@show ARGS[1]
+const isGPU = ARGS[1] === "true" ? true : false
+
+@static if isGPU
+    using CUDA
+end
 
 using JustPIC
 using JustPIC._2D
@@ -9,7 +14,7 @@ using JustPIC._2D
 # to run on a CUDA GPU load CUDA.jl (i.e. "using CUDA"), 
 # and to run on an AMD GPU load AMDGPU.jl (i.e. "using AMDGPU")
 const backend = @static if isGPU
-     CUDABackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
+    CUDABackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
 else
     JustPIC.CPUBackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
 end
@@ -112,6 +117,7 @@ function main(; n = 256, fn_advection = advection!)
         "MQS"
     end
 
+    @show isGPU
     if isGPU
         CSV.write("perf/perf2D_$(adv_interp)_n$(n)_CUDA.csv", df)
     else
@@ -121,7 +127,7 @@ function main(; n = 256, fn_advection = advection!)
 end
 
 function runner()
-    n = 64, 128, 256, 512, 1024
+    n = 64, 128 , 256, 512 #, 1024
 
     fn_advection = advection!, advection_LinP!, advection_MQS! 
     for n in n

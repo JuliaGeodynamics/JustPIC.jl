@@ -5,7 +5,7 @@ function main()
 
     for GPU in isGPU
         jobname = GPU ? "CUDA_perf2D" : "CPU_perf2D"
-        nt = GPU ? (1:1) : (2 .^ (5:10))
+        nt = GPU ? (1:1) : (1, 4, 8, 16, 32, 64)
 
         for ntᵢ in nt
             str = 
