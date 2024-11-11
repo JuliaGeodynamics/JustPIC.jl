@@ -16,21 +16,24 @@ function main()
 #SBATCH --error=er_vep.e
 #SBATCH --time=06:00:00
 #SBATCH --ntasks-per-node=1
-#SBATCH --account c2
+#SBATCH --account c23
 
 srun /users/ademonts/.julia/juliaup/julia-1.10.5+0.aarch64.linux.gnu/bin/julia --project=. -p 1 -t $(ntᵢ) -O3 --check-bounds=no  perf2D.jl $(GPU)"
         
             open("runme_test.sh", "w") do io
                 println(io, str)
             end
+
+            # Submit the job
+            run(`sbatch runme_test.sh`)
+            println("Job submitted")
+            # remove the file
+            sleep(1)
+            rm("runme_test.sh")
+            println("File removed")
         end
 
-        # Submit the job
-        run(`sbatch runme_test.sh`)
-        println("Job submitted")
-        # remove the file
-        sleep(1)
-        rm("runme_test.sh")
-        println("File removed")
     end
 end
+
+main()
