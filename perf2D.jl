@@ -31,7 +31,7 @@ g(x) = Point2f(
     vy_stream(x[1], x[2])
 )
 
-function main(; n = 256)
+function main(; n = 256, fn_advection = advection!)
     # Initialize particles -------------------------------
     nxcell, max_xcell, min_xcell = 25, 50, 5
     nx = ny = n-1
@@ -102,18 +102,28 @@ function main(; n = 256)
         np        = np
     )
 
-    if isGPU
-        CSV.write("perf/perf2D_n$(n)_CUDA.csv", df)
-    else
-        CSV.write("perf/perf2D_n$(n)_nt_$(Threads.nthreads()).csv", df)
+    adv_interp = if fn_advection === advection!
+        "linear"
+    elseif fn_advection === advection_LinP!
+        "LinP"
+    else fn_advection === advection_MQS!
+        "MQS"
     end
-    println("Finished")
+
+    if isGPU
+        CSV.write("perf/perf2D_$(adv_interp)_n$(n)_CUDA.csv", df)
+    else
+        CSV.write("perf/perf2D_$(adv_interp)_n$(n)_nt_$(Threads.nthreads()).csv", df)
+    end
+    println("Finished: n = $n")
 end
 
 function runner()
     n = 64, 128, 256, 512, 1024
-    for n in 
-        main(;n=n)
+
+    fn_advection = advection!, advection_LinP!, advection_MQS! 
+    for n in n
+        Base.@nexprs 3 i-> main(n=n, fn_advection=fn_advection[i])
     end
 end
 
