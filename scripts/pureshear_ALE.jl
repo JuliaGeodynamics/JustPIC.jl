@@ -1,4 +1,4 @@
-using Statistics, LinearAlgebra, Printf, Base.Threads, CairoMakie
+using Statistics, LinearAlgebra, Printf, Base.Threads, GLMakie
 const year     = 365*3600*24
 const USE_GPU  = false
 
@@ -116,6 +116,10 @@ function main()
     Vyc     = 0.5*(V.y[2:end-1,1:end-1] .+ V.y[2:end-1,2:end-0])
     Vmag    = sqrt.(Vxc.^2 .+ Vyc.^2)
 
+    # generate figure
+    f       = Figure()
+    ax      = Axis(f[1, 1], title="Particles", aspect=L.x/L.y)
+
     for it=1:Nt
 
         t += Δt
@@ -162,8 +166,7 @@ function main()
             pyv  = ppy.data[:]
             clr  = phases.data[:]
             idxv = particles.index.data[:]
-            f = Figure()
-            ax = Axis(f[1, 1], title="Particles", aspect=L.x/L.y)
+            
             scatter!(ax, Array(pxv[idxv]), Array(pyv[idxv]), color=Array(clr[idxv]), colormap=:roma, markersize=2)
             xlims!(ax, verts.x[1], verts.x[end])
             ylims!(ax, verts.y[1], verts.y[end])
