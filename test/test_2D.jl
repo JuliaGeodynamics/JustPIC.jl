@@ -266,7 +266,7 @@ end
     
 function advection_test_2D()
     # Initialize particles -------------------------------
-    nxcell, max_xcell, min_xcell = 6, 12, 1
+    nxcell, max_xcell, min_xcell = 25, 40, 10
     n = 64
     nx = ny = n-1
     Lx = Ly = 1.0
