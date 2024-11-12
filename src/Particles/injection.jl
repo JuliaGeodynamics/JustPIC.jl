@@ -19,8 +19,8 @@ function inject_particles!(particles::Particles, args, grid::NTuple{N}) where N
     di_quadrant = di ./ 2
     n_color     = ntuple(i -> ceil(Int, ni[i] * 0.5), Val(N))
 
-    # We need a color-coded parallel aproach for shared memory devices because
-    # we are look for the closest particle, which can be in a neighbooring cell
+    # We need a color-coded parallel approach for shared memory devices because
+    # we are look for the closest particle, which can be in a neighboring cell
     if N == 2
         for offsetᵢ in 1:3, offsetⱼ in 1:3        
             @parallel (@idx n_color) inject_particles!(args, coords, index, grid, di, di_quadrant, min_xcell, (offsetᵢ, offsetⱼ))
