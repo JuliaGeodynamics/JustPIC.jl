@@ -46,7 +46,7 @@ function main()
     grid_vz = expand_range(xc), expand_range(yc), zv
 
     # Initialize particles -------------------------------
-    nxcell, max_xcell, min_xcell = 12, 12, 6
+    nxcell, max_xcell, min_xcell = 12, 24, 6
     particles = init_particles(
         backend, nxcell, max_xcell, min_xcell, xvi...
     )
@@ -56,7 +56,6 @@ function main()
     Vy = TA(backend)([vy_stream(x, z) for x in grid_vy[1], y in grid_vy[2], z in grid_vy[3]])
     Vz = TA(backend)([vz_stream(x, z) for x in grid_vz[1], y in grid_vz[2], z in grid_vz[3]])
     T  = TA(backend)([z for x in xv, y in yv, z in zv])
-    T0 = deepcopy(T)
     V  = Vx, Vy, Vz
 
     dt = min(dx / maximum(abs.(Vx)), dy / maximum(abs.(Vy)), dz / maximum(abs.(Vz))) / 2
