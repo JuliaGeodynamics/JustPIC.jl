@@ -251,7 +251,7 @@ function index_min_distance(coords, pn, index, current_cell, icell, jcell, kcell
         ((i <  1) || (j <  1) || (k < 1))  && continue # out of the domain
         ((i > nx) || (j > ny) || (k > nz)) && continue # out of the domain
         (i == icell) && (j == jcell) && (k == kcell) && (ip == current_cell) && continue # current injected particle
-        @index index[ip, i, j, k] || continue
+        (@index index[ip, i, j, k]) || continue
 
         # distance from new point to the existing particle
         pxi = @index(px[ip, i, j, k]), @index(py[ip, i, j, k]), @index(pz[ip, i, j, k])
