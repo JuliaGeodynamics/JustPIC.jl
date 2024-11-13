@@ -64,12 +64,14 @@ The current version of `JustPIC.jl` is specialized for bi- and tri-dimensional, 
 
 `JustPIC.jl` seamlessly supports single and multiple CPUs in shared and distributed memory architectures, where it has been tested on Intel, AMD, and ARM chips. Single and multi-GPU architectures from NVidia and AMD are also supported.
 
-# Advection schemes
+# Features
 
-# Velocity interpolation
+## Particles advection
+
+### Velocity interpolation
 `JustPIC.jl` supports three different kinds of interpolation of the velocity field onto the particles
 
-## Bi/Tri-Linear interpolation
+- Bi/Tri-Linear interpolation
 
 The velocity field is linearly interpolated from the corresponding $V_i$ grid onto the particles. Bi- and tri-linear interpolation over a rectangular or cubic cells is a linear combination of linear interpolation (also referred as _lerp_) kernels. For example, the bilinear interpolation requires two lerps along the left and right hand side boundaries of the cell, followed by a lerp on the horizontal direction; on the other hand, tri-linear interpolation is a combination of two bilinear kernels and one lerp. 
 
@@ -81,7 +83,10 @@ $v_{\text{p}} = t v_0  + (1 -t) v_1$
 
 where the $t$, $v_0$, and $v_1$ are graphically described below.
 
-<img src="assets/lerp.png" width="250"  />
+<figure>
+    <img src="../src/assets/lerp.png" alt  width="500">
+    <figcaption>image_caption</figcaption>
+</figure>
 
 Numerically, it is more appropriately implemented as a double [fma](https://en.wikipedia.org/wiki/Multiply%E2%80%93accumulate_operation) as it is slightly more accurate than a naive implementation:
 
@@ -89,12 +94,33 @@ Numerically, it is more appropriately implemented as a double [fma](https://en.w
 v_p = fma(t, v1, fma(-t, v0, v0))
 ```
 
+- LinP interpolation
 
+<figure>
+    <img src="../src/assets/LinP.png" alt  width="500">
+    <figcaption>image_caption</figcaption>
+</figure>
 
-## LinP interpolation
+- Modified Quadratic Spline (MQS) interpolation
 
-## Modified Quadratic Spline (MQS) interpolation
+<figure>
+    <img src="../src/assets/MQS.png" alt  width="500">
+    <figcaption>image_caption</figcaption>
+</figure>
 
+## Other interpolations:
+
+### Grid to particles
+
+### Particles to grid
+
+## Phase ratios calculations
+
+In, for example, geodynamic simulations, it is common to track the time-history of the compositional phases (i.e. passive markers) and their associated information. `JustPIC.jl` provides a set of tools to interpolate the fields defined in different locations (vertices or cell centers) the Eulerian grid to the particles, and vice versa. This allows for a seamless integration of the particles with the Eulerian grid, and the possibility to advect fields defined in the particles back to the Eulerian grid.
+
+# Parallelization and supported devices
+
+`JustPIC.jl` is designed to run seamlessly in single and multiple CPUs and GPUs. The package is designed to be easily extensible so that irregular grids, collocated grids, and other coordinates systems can easily implemented.
 
 # Examples
 
