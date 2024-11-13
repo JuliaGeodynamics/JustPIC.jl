@@ -14,7 +14,7 @@ function main()
 #SBATCH --nodes=1
 #SBATCH --output=out_vep.o
 #SBATCH --error=er_vep.e
-#SBATCH --time=06:00:00
+#SBATCH --time=12:00:00
 #SBATCH --ntasks-per-node=1
 #SBATCH --account c23
 
