@@ -1,4 +1,3 @@
-# ENV["JULIA_JUSTPIC_BACKEND"] = "asd"
 @static if ENV["JULIA_JUSTPIC_BACKEND"] === "AMDGPU"
     using AMDGPU
     AMDGPU.allowscalar(true)
@@ -243,7 +242,7 @@ function test_advection_3D()
     for _ in 1:niter
         _3D.particle2grid!(T, pT, xvi, particles)
         copyto!(T0, T)
-        _3D.advection!(particles, _3D.RungeKutta2(2/3), V, (grid_vx, grid_vy, grid_vz), dt)
+        _3D.advection!(particles, _3D.RungeKutta2(), V, (grid_vx, grid_vy, grid_vz), dt)
         _3D.move_particles!(particles, xvi, particle_args)
         # reseed
         _3D.inject_particles!(particles, (pT, ), xvi)
