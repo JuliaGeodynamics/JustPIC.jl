@@ -51,7 +51,7 @@ function main()
     V  = Vx, Vy;
 
     dt = min(dx / maximum(abs.(Array(Vx))),  dy / maximum(abs.(Array(Vy))));
-    dt *= 0.25
+    dt *= 0.75
 
     # Advection test
     particle_args = pT, = init_cell_arrays(particles, Val(1));
@@ -61,7 +61,7 @@ function main()
 
     niter = 250
     for it in 1:niter
-        advection!(particles, RungeKutta2(2/3), V, (grid_vx, grid_vy), dt)
+        advection!(particles, RungeKutta2(), V, (grid_vx, grid_vy), dt)
         move_particles!(particles, xvi, particle_args)
         inject_particles!(particles, (pT, ), xvi)
 

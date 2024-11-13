@@ -14,7 +14,7 @@ function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args) wh
     (; coords, index, max_xcell) = particles
     nxi = size(index)
     domain_limits = extrema.(grid)
-    n_color = ntuple(i -> ceil(Int, nxi[i] * 0.5), Val(N))
+    n_color = ntuple(i -> ceil(Int, nxi[i] / 3), Val(N))
 
     # make some space for incoming particles
     @parallel (@idx nxi) empty_particles!(coords, index, max_xcell, args)
