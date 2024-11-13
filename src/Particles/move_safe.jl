@@ -70,6 +70,7 @@ function move_kernel!(
     idx::NTuple{N1,Int64},
 ) where {N1,N2,T}
 
+    starting_point = 1
     # iterate over particles in child cell 
     for ip in cellaxes(index)
         doskip(index, ip, idx...) && continue
@@ -102,8 +103,10 @@ function move_kernel!(
         empty_particle!(coords, ip, idx)
         empty_particle!(args, ip, idx)
         # check whether there's empty space in parent cell
-        free_idx = find_free_memory(index, new_cell...)
+        # free_idx = find_free_memory(index, new_cell...)
+        free_idx = find_free_memory(starting_point, index, new_cell...)
         free_idx == 0 && continue
+        starting_point = free_idx
         # move particle and its fields to the first free memory location
         @inbounds @index index[free_idx, new_cell...] = true
         fill_particle!(coords, pᵢ, free_idx, new_cell)
@@ -131,7 +134,14 @@ end
 
 function find_free_memory(index, I::Vararg{Int,N}) where {N}
     for i in cellaxes(index)
-        !(@index(index[i, I...])) && return i
+        (@index(index[i, I...])) || return i
+    end
+    return 0
+end
+
+function find_free_memory(initial_index::Integer, index, I::Vararg{Int,N}) where {N}
+    for i in initial_index:cellnum(index)
+        (@index(index[i, I...])) || return i
     end
     return 0
 end
@@ -140,7 +150,7 @@ end
     quote
         Base.@_inline_meta
         Base.Cartesian.@nexprs $N i ->
-            (@inbounds !(domain_limits[i][1] < p[i] < domain_limits[i][2]) && return false)
+            (@inbounds (domain_limits[i][1] < p[i] < domain_limits[i][2]) || return false)
         return true
     end
 end
