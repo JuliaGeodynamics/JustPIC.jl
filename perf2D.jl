@@ -127,7 +127,7 @@ function main(; n = 256, fn_advection = advection!)
 end
 
 function runner()
-    n = 64, 128 , 256, 512 #, 1024
+    n = 64, 128 , 256, 512, 1024
 
     fn_advection = advection!, advection_LinP!, advection_MQS! 
     for n in n
