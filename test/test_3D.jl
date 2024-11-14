@@ -237,6 +237,7 @@ function test_advection_3D()
     particle_args = pT, = _3D.init_cell_arrays(particles, Val(1))
     _3D.grid2particle!(pT, xvi, T, particles)
     sumT = sum(T)
+    _3D.move_particles!(particles, xvi, particle_args)
    
     niter = 5
     for _ in 1:niter
@@ -265,9 +266,6 @@ function test_advection()
     return passed
 end
 
-env = ENV["JULIA_JUSTPIC_BACKEND"]
-if env === "AMDGPU" || env === "CUDA"
-    @testset "Miniapps" begin
-        @test test_advection()
-    end
+@testset "Miniapps" begin
+    @test test_advection()
 end
