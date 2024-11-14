@@ -201,7 +201,7 @@ end
 
 function test_advection_3D()
       
-    n   = 32
+    n   = 64
     nx  = ny = nz = n-1
     Lx  = Ly = Lz = 1.0
     ni  = nx, ny, nz
@@ -237,7 +237,6 @@ function test_advection_3D()
     particle_args = pT, = _3D.init_cell_arrays(particles, Val(1))
     _3D.grid2particle!(pT, xvi, T, particles)
     sumT = sum(T)
-    _3D.move_particles!(particles, xvi, particle_args)
    
     niter = 5
     for _ in 1:niter
