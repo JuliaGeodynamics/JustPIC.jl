@@ -26,8 +26,11 @@ function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args) wh
             )
         end
     elseif N == 3
+        nthreads = min((32, 32, 32), nxi .>>> 3)
+        nblocks  = ceil.(Int, nxi ./ nthreads)
+
         for offsetᵢ in 1:3, offsetⱼ in 1:3, offsetₖ in 1:3
-            @parallel (@idx n_color) move_particles_ps!(
+            @parallel (@idx n_color) nblocks nthreads move_particles_ps!(
                 coords, grid, dxi, index, domain_limits, args, (offsetᵢ, offsetⱼ, offsetₖ)
             )
         end
