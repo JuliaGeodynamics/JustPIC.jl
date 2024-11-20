@@ -201,7 +201,7 @@ end
 
 function test_advection_3D()
       
-    n   = 80
+    n   = 64
     nx  = ny = nz = n-1
     Lx  = Ly = Lz = 1.0
     ni  = nx, ny, nz
@@ -265,9 +265,6 @@ function test_advection()
     return passed
 end
 
-env = ENV["JULIA_JUSTPIC_BACKEND"]
-if !(env === "AMDGPU" && env === "CUDA")
-    @testset "Miniapps" begin
-        @test test_advection()
-    end
+@testset "Miniapps" begin
+    @test test_advection()
 end

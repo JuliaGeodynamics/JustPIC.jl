@@ -266,8 +266,8 @@ end
     
 function advection_test_2D()
     # Initialize particles -------------------------------
-    nxcell, max_xcell, min_xcell = 25, 40, 10
-    n = 64
+    nxcell, max_xcell, min_xcell = 25, 50, 10
+    n = 128
     nx = ny = n-1
     Lx = Ly = 1.0
     # nodal vertices
@@ -324,8 +324,8 @@ end
 
 function test_rotating_circle()
     # Initialize particles -------------------------------
-    nxcell, max_xcell, min_xcell = 50, 60, 40
-    n = 101
+    nxcell, max_xcell, min_xcell = 25, 50, 10
+    n = 256
     nx = ny = n-1
     Lx = Ly = 1.0
     # nodal vertices
@@ -364,7 +364,7 @@ function test_rotating_circle()
     while t ≤ tmax
         _2D.particle2grid!(T, pT, xvi, particles)
         copyto!(T0, T)
-        _2D.advection!(particles, _2D.RungeKutta2(2/3), V, (grid_vx, grid_vy), dt)
+        _2D.advection!(particles, _2D.RungeKutta2(), V, (grid_vx, grid_vy), dt)
         _2D.move_particles!(particles, xvi, particle_args)
         _2D.inject_particles!(particles, (pT, ), xvi)
         _2D.grid2particle!(pT, xvi, T, particles)
