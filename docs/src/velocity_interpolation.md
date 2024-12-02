@@ -1,4 +1,4 @@
-# Velocity interpolations 
+# Velocity interpolation
 
 ## Linear 
 
@@ -26,7 +26,7 @@ Example for the $u_x$ component in 2D:
 
 $t_{x} = \frac{x_m - xc_j}{\Delta x}$
 
-$t_{y} = \frac{y_m - yc_j}{\Delta y} $
+$t_{y} = \frac{y_m - yc_j}{\Delta y}$
 
 *Step 2* Compute $u_x$ velocity with bi-linear scheme for the bottom and top
 
