@@ -40,3 +40,92 @@ end
     end
     return nothing
 end
+
+## fill chain with given topo 
+
+"""
+    fill_chain!(chain::MarkerChain, topo_x, topo_y)
+
+Fill the given `chain` of markers with topographical data.
+
+# Arguments
+- `chain::MarkerChain`: The chain of markers to be filled.
+- `topo_x`: The x-coordinates of the topography.
+- `topo_y`: The y-coordinates of the topography.
+
+# Description
+This function populates the `chain` with markers based on the provided topographical data (`topo_x` and `topo_y`). The function modifies the `chain` in place.
+"""
+function fill_chain!(chain::MarkerChain, topo_x, topo_y)
+
+    (; coords, index, cell_vertices) = chain
+    @parallel (1:length(index)) _fill_chain!(coords, index, cell_vertices, topo_x, topo_y)
+
+    return nothing
+end
+
+@parallel_indices (icell) function _fill_chain!(coords, index, cell_vertices, topo_x, topo_y)
+    _fill_chain_kernel!(coords, index, cell_vertices, topo_x, topo_y, icell)
+    return nothing
+end
+
+function _fill_chain_kernel!(coords, index, cell_vertices, topo_x, topo_y, icell)
+
+    itopo, ilast = first_last_particle_incell(topo_x, cell_vertices, icell)
+
+    for ip in cellaxes(index)
+
+        if itopo ≤ ilast
+            @index index[ip, icell] = true
+            @index coords[1][ip, icell] = topo_x[itopo]
+            @index coords[2][ip, icell] = topo_y[itopo]
+            itopo += 1
+        else
+            @index index[ip, icell] = false
+            @index coords[1][ip, icell] = NaN
+            @index coords[2][ip, icell] = NaN
+        end
+
+        !(@index index[ip+1, icell]) && break
+
+    end
+
+    return nothing
+end
+
+function first_last_particle_incell(topo_x, cell_vertices, icell)
+    
+    xlims = cell_vertices[icell], cell_vertices[icell + 1]
+
+    ifirst = 1
+    ilast  = length(topo_x)
+    x1     = topo_x[1]
+    previous_incell = xlims[1] < x1 < xlims[2]
+
+    first_found = false
+    last_found  = false
+
+    x = topo_x[2]
+    for i in 2:ilast-1
+        incell = xlims[1] < x < xlims[2]
+
+        if !previous_incell && incell
+            ifirst = i
+            first_found = true
+        end
+
+        xnext = topo_x[i+1]
+        next_incell = xlims[1] < xnext < xlims[2]
+        if incell && !next_incell
+            ilast = i
+            last_found = true
+        end
+
+        first_found * last_found && break
+
+        x, previous_incell = xnext, incell
+    end
+
+    return ifirst, ilast
+
+end
