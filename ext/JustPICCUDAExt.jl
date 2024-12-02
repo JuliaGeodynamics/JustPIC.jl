@@ -246,6 +246,10 @@ module _2D
         return MarkerChain(CUDABackend, (px, py), index, xv, min_xcell, max_xcell)
     end
 
+    function JustPIC._2D.fill_chain!(chain::MarkerChain{CUDABackend}, topo_x, topo_y)
+        fill_chain!(chain, topo_x, topo_y)
+    end
+
     function JustPIC._2D.advect_markerchain!(
         chain::MarkerChain{CUDABackend},
         method::AbstractAdvectionIntegrator,
