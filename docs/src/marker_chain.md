@@ -13,7 +13,7 @@ We can also fill an existing `MarkerChain` with a given topographic profile:
 # create topographic profile
 x      = LinRange(0, 1, 200)
 topo_x = LinRange(0, 1, 200)
-topo_y = sin.(2π*topo_x) .* 0.1
+topo_y = @. sin(2π*topo_x) * 0.1
 
 # fill the chain with the topographic profile` 
 fill_chain!(chain, topo_x, topo_y)
@@ -25,7 +25,7 @@ Finally, the marker chain can be advected as follows:
 advect_markerchain!(chain, method, velocity, grid_vxi, dt)
 ```
 
-where `method` is the time integration method of the advection equation, `velocity` is a tuple containing the velocity field arrays $velocity_i$, `grid_vxi` is a tuple containing the grids of the velocity components on the staggered grid, and `t` is the time step.
+where `method` is the time integration method of the advection equation, `velocity` is a tuple containing the arrays of the velocity field, `grid_vxi` is a tuple containing the grids of the velocity components on the staggered grid, and `t` is the time step.
 
 ## Example
 
