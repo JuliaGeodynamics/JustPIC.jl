@@ -116,7 +116,13 @@ v_p = fma(t, v1, fma(-t, v0, v0))
 
 ## Phase ratios calculations
 
-In, for example, geodynamic simulations, it is common to track the time-history of the compositional phases (i.e. passive markers) and their associated information. `JustPIC.jl` provides a set of tools to interpolate the fields defined in different locations (vertices or cell centers) the Eulerian grid to the particles, and vice versa. This allows for a seamless integration of the particles with the Eulerian grid, and the possibility to advect fields defined in the particles back to the Eulerian grid.
+In, for example, geodynamic simulations, it is common to track the time-history of the compositional phases (i.e. passive markers) and their associated information. The phase ratios are calculated as the ratio of the number of particles of a given phase to the total number of particles at different cell locations:
+
+- Cell vertices
+- Cell centers
+- Velocity nodes 
+- Shear stress nodes (in 3D) 
+
 
 # Parallelization and supported devices
 

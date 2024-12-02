@@ -1,12 +1,14 @@
+using CUDA
 using JustPIC
 using JustPIC._2D
 
 # Threads is the default backend, 
 # to run on a CUDA GPU load CUDA.jl (i.e. "using CUDA"), 
 # and to run on an AMD GPU load AMDGPU.jl (i.e. "using AMDGPU")
-const backend = JustPIC.CPUBackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
+const backend = CUDABackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
+# const backend = JustPIC.CPUBackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
 
-using GLMakie
+# using GLMakie
 
 function expand_range(x::AbstractRange)
     dx = x[2] - x[1]
@@ -60,22 +62,23 @@ function main()
     !isdir("figs") && mkdir("figs")
 
     niter = 250
+    tmove = 0
     for it in 1:niter
         advection!(particles, RungeKutta2(), V, (grid_vx, grid_vy), dt)
-        move_particles!(particles, xvi, particle_args)
+        tmove += @elapsed move_particles!(particles, xvi, particle_args)
         inject_particles!(particles, (pT, ), xvi)
 
-        particle2grid!(T, pT, xvi, particles)
+        # particle2grid!(T, pT, xvi, particles)
 
-        if rem(it, 10) == 0
-            f, ax, = heatmap(xvi..., Array(T), colormap=:batlow)
-            streamplot!(ax, g, xvi...)
-            save("figs/test_$(it).png", f)
-            f
-        end
+        # if rem(it, 10) == 0
+        #     f, ax, = heatmap(xvi..., Array(T), colormap=:batlow)
+        #     streamplot!(ax, g, xvi...)
+        #     save("figs/test_$(it).png", f)
+        #     f
+        # end
     end
 
-    println("Finished")
+    println("Finished with tmove: ", tmove)
 end
 
 main()
