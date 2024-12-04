@@ -94,7 +94,7 @@ end
 @inline function corner_field_nodes(F::AbstractArray{T,N}, pᵢ, xi_vx, dxi) where {T,N}
     I = ntuple(Val(N)) do i
         Base.@_inline_meta
-        cell_index(pᵢ[i], xi_vx[i], dxi[1])
+        cell_index(pᵢ[i], xi_vx[i], dxi[i])
     end
 
     # coordinates of lower-left corner of the cell
