@@ -139,7 +139,7 @@ function fill_chain_from_vertices!(chain::MarkerChain, topo_y)
     copyto!(chain.h_vertices, topo_y)
     copyto!(chain.h_vertices0, topo_y)
 
-    # recontruct marker chain
+    # reconstruct marker chain
     reconstruct_topography_from_vertices!(chain)
 
     # fill also the marker chain from the previous time step
