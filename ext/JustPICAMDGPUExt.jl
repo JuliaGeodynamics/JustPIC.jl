@@ -248,10 +248,25 @@ module _2D
         return MarkerChain(AMDGPUBackend, (px, py), index, xv, min_xcell, max_xcell)
     end
 
-    function JustPIC._2D.fill_chain!(chain::MarkerChain{CUDABackend}, topo_x, topo_y)
-        fill_chain!(chain, topo_x, topo_y)
+    function JustPIC._2D.fill_chain_from_chain!(chain::MarkerChain{AMDGPUBackend}, topo_x, topo_y)
+        fill_chain_from_chain!(chain, topo_x, topo_y)
     end
     
+    function JustPIC._2D.compute_topography_vertex!(chain::MarkerChain{AMDGPUBackend})
+        compute_topography_vertex!(chain)
+        return nothing
+    end
+    
+    function JustPIC._2D.reconstruct_topography_from_vertices!(chain::MarkerChain{AMDGPUBackend})
+        reconstruct_topography_from_vertices!(chain)
+        return nothing
+    end
+
+    function JustPIC._2D.fill_chain_from_vertices!(chain::MarkerChain{AMDGPUBackend}, topo_y)
+        fill_chain_from_vertices!(chain::MarkerChain, topo_y)
+        return nothing
+    end
+
     function JustPIC._2D.advect_markerchain!(
         chain::MarkerChain{AMDGPUBackend},
         method::AbstractAdvectionIntegrator,

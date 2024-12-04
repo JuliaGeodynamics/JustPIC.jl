@@ -8,8 +8,12 @@ function init_markerchain(::Type{JustPIC.CPUBackend}, nxcell, min_xcell, max_xce
     @parallel (1:nx) fill_markerchain_coords_index!(
         px, py, index, xv, initial_elevation, dx_chain, nxcell, max_xcell
     )
+    coords      = px, py
+    coords0     = copy(px), copy(py)
+    h_vertices  = @fill(initial_elevation, nx + 1)
+    h_vertices0 = @fill(initial_elevation, nx + 1)
 
-    return MarkerChain(JustPIC.CPUBackend, (px, py), index, xv, min_xcell, max_xcell)
+    return MarkerChain(JustPIC.CPUBackend, coords, coords0, h_vertices, h_vertices0, xv, index, min_xcell, max_xcell)
 end
 
 @parallel_indices (i) function fill_markerchain_coords_index!(
@@ -56,10 +60,14 @@ Fill the given `chain` of markers with topographical data.
 # Description
 This function populates the `chain` with markers based on the provided topographical data (`topo_x` and `topo_y`). The function modifies the `chain` in place.
 """
-function fill_chain!(chain::MarkerChain, topo_x, topo_y)
+function fill_chain_from_chain!(chain::MarkerChain, topo_x, topo_y)
 
     (; coords, index, cell_vertices) = chain
     @parallel (1:length(index)) _fill_chain!(coords, index, cell_vertices, topo_x, topo_y)
+
+    # update topography at the vertices of the grid
+    compute_topography_vertex!(chain)
+    copyto!(chain.h_vertices0, chain.h_vertices)
 
     return nothing
 end
@@ -86,15 +94,12 @@ function _fill_chain_kernel!(coords, index, cell_vertices, topo_x, topo_y, icell
             @index coords[2][ip, icell] = NaN
         end
 
-        !(@index index[ip+1, icell]) && break
-
     end
 
     return nothing
 end
 
 function first_last_particle_incell(topo_x, cell_vertices, icell)
-    
     xlims = cell_vertices[icell], cell_vertices[icell + 1]
 
     ifirst = 1
@@ -127,5 +132,19 @@ function first_last_particle_incell(topo_x, cell_vertices, icell)
     end
 
     return ifirst, ilast
+end
 
+function fill_chain_from_vertices!(chain::MarkerChain, topo_y)
+
+    copyto!(chain.h_vertices, topo_y)
+    copyto!(chain.h_vertices0, topo_y)
+
+    # recontruct marker chain
+    reconstruct_topography_from_vertices!(chain)
+
+    # fill also the marker chain from the previous time step
+    copyto!(chain.coords0[1].data, chain.coords[1].data)
+    copyto!(chain.coords0[2].data, chain.coords[2].data)
+
+    return nothing
 end

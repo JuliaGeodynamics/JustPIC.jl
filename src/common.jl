@@ -57,7 +57,10 @@ export check_injection, inject_particles!, inject_particles_phase!, clean_partic
 ## MARKER CHAIN RELATED FILES
 
 include("MarkerChain/init.jl")
-export init_markerchain, fill_chain!
+export init_markerchain, fill_chain_from_chain!, fill_chain_from_vertices!
+
+include("MarkerChain/bilinear_MC.jl")
+export reconstruct_topography_from_vertices!, compute_topography_vertex!
 
 include("MarkerChain/move.jl")
 export move_particles!
