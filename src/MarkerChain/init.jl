@@ -9,7 +9,7 @@ function init_markerchain(::Type{backend}, nxcell, min_xcell, max_xcell, xv, ini
         px, py, index, xv, initial_elevation, dx_chain, nxcell, max_xcell
     )
     coords      = px, py
-    coords0     = copy(px), copy(py)
+    coords0     = px, py
     h_vertices  = @fill(initial_elevation, nx + 1)
     h_vertices0 = @fill(initial_elevation, nx + 1)
 
