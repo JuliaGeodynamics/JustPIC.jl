@@ -43,7 +43,7 @@ end
 
 ######################################
 
-function reconstruct_topography_from_vertices!(chain::MarkerChain)
+function reconstruct_chain_from_vertices!(chain::MarkerChain)
     (; coords, index, cell_vertices, h_vertices) = chain;
     chain_x, chain_y = coords;
 
@@ -58,10 +58,9 @@ end
 end
 
 function _reconstruct_h_from_vertex_kernel!(h_vertices, chain_x, chain_y, cell_vertices, index, ivertex)
-    xcorner_left = cell_vertices[ivertex]
+    xcorner_left  = cell_vertices[ivertex]
     xcorner_right = cell_vertices[ivertex+1]
-
-    ycorner_left = h_vertices[ivertex]
+    ycorner_left  = h_vertices[ivertex]
     ycorner_right = h_vertices[ivertex+1]
 
     # count active particles

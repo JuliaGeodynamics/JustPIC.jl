@@ -257,8 +257,8 @@ module _2D
         return nothing
     end
     
-    function JustPIC._2D.reconstruct_topography_from_vertices!(chain::MarkerChain{AMDGPUBackend})
-        reconstruct_topography_from_vertices!(chain)
+    function JustPIC._2D.reconstruct_chain_from_vertices!(chain::MarkerChain{AMDGPUBackend})
+        reconstruct_chain_from_vertices!(chain)
         return nothing
     end
 
