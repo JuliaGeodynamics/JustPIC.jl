@@ -1,4 +1,4 @@
-function init_markerchain(::Type{JustPIC.CPUBackend}, nxcell, min_xcell, max_xcell, xv, initial_elevation)
+function init_markerchain(::Type{backend}, nxcell, min_xcell, max_xcell, xv, initial_elevation) where {backend}
     nx = length(xv) - 1
     dx = xv[2] - xv[1]
     dx_chain = dx / (nxcell + 1)
@@ -13,7 +13,7 @@ function init_markerchain(::Type{JustPIC.CPUBackend}, nxcell, min_xcell, max_xce
     h_vertices  = @fill(initial_elevation, nx + 1)
     h_vertices0 = @fill(initial_elevation, nx + 1)
 
-    return MarkerChain(JustPIC.CPUBackend, coords, coords0, h_vertices, h_vertices0, xv, index, min_xcell, max_xcell)
+    return MarkerChain(backend, coords, coords0, h_vertices, h_vertices0, xv, index, min_xcell, max_xcell)
 end
 
 @parallel_indices (i) function fill_markerchain_coords_index!(
@@ -140,7 +140,7 @@ function fill_chain_from_vertices!(chain::MarkerChain, topo_y)
     copyto!(chain.h_vertices0, topo_y)
 
     # reconstruct marker chain
-    reconstruct_topography_from_vertices!(chain)
+    reconstruct_chain_from_vertices!(chain)
 
     # fill also the marker chain from the previous time step
     copyto!(chain.coords0[1].data, chain.coords[1].data)
