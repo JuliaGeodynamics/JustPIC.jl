@@ -19,7 +19,7 @@ function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args) wh
     # make some space for incoming particles
     @parallel (@idx nxi) empty_particles!(coords, index, max_xcell, args)
     # move particles 
-    if N == 2
+    if N == 2 # 2D case
         nthreads = (16, 16)
         nblocks  = ceil.(Int, n_color ./ nthreads)
         for offsetᵢ in 1:3, offsetⱼ in 1:3
@@ -27,9 +27,8 @@ function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args) wh
                 coords, grid, dxi, index, domain_limits, args, (offsetᵢ, offsetⱼ)
             )
         end
-    elseif N == 3
+    elseif N == 3 # 3D case 
         nthreads = (16, 16, 1)
-        # nthreads = (6, 6, 6)
         nblocks  = ceil.(Int, n_color ./ nthreads)
         for offsetᵢ in 1:3, offsetⱼ in 1:3, offsetₖ in 1:3
             @parallel (@idx n_color) nblocks nthreads move_particles_ps!(

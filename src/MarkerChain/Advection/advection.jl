@@ -5,6 +5,16 @@ function advect_markerchain!(
     advection!(chain, method, V, grid_vxi, dt)
     move_particles!(chain)
     resample!(chain)
+
+    # interpolate from markers to grid
+    compute_topography_vertex!(chain)
+    # average h_vertices0 and h_vertices and store in h_vertices
+    @. chain.h_vertices = (chain.h_vertices0 + chain.h_vertices) / 2
+    # reconstruct chain from vertices
+    reconstruct_chain_from_vertices!(chain)
+    # update old nodal topography
+    copyto!(chain.h_vertices0, chain.h_vertices)
+
     return nothing
 end
 

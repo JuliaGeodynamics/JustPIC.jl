@@ -233,21 +233,27 @@ module _2D
     ## MakerChain
 
     function JustPIC._2D.init_markerchain(::Type{CUDABackend}, nxcell, min_xcell, max_xcell, xv, initial_elevation)
-        nx = length(xv) - 1
-        dx = xv[2] - xv[1]
-        dx_chain = dx / (nxcell + 1)
-        px, py = ntuple(_ -> @fill(NaN, (nx,), celldims = (max_xcell,)), Val(2))
-        index = @fill(false, (nx,), celldims = (max_xcell,), eltype = Bool)
-    
-        @parallel (1:nx) fill_markerchain_coords_index!(
-            px, py, index, xv, initial_elevation, dx_chain, nxcell, max_xcell
-        )
-    
-        return MarkerChain(CUDABackend, (px, py), index, xv, min_xcell, max_xcell)
+        return init_markerchain(CUDABackend, nxcell, min_xcell, max_xcell, xv, initial_elevation)
     end
 
-    function JustPIC._2D.fill_chain!(chain::MarkerChain{CUDABackend}, topo_x, topo_y)
-        fill_chain!(chain, topo_x, topo_y)
+    function JustPIC._2D.fill_chain_from_chain!(chain::MarkerChain{CUDABackend}, topo_x, topo_y)
+        fill_chain_from_chain!(chain, topo_x, topo_y)
+        return nothing
+    end
+
+    function JustPIC._2D.compute_topography_vertex!(chain::MarkerChain{CUDABackend})
+        compute_topography_vertex!(chain)
+        return nothing
+    end
+    
+    function JustPIC._2D.reconstruct_chain_from_vertices!(chain::MarkerChain{CUDABackend})
+        reconstruct_chain_from_vertices!(chain)
+        return nothing
+    end
+
+    function JustPIC._2D.fill_chain_from_vertices!(chain::MarkerChain{CUDABackend}, topo_y)
+        fill_chain_from_vertices!(chain::MarkerChain, topo_y)
+        return nothing
     end
 
     function JustPIC._2D.advect_markerchain!(
