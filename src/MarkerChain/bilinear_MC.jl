@@ -60,8 +60,10 @@ end
 function _reconstruct_h_from_vertex_kernel!(h_vertices, chain_x, chain_y, cell_vertices, index, ivertex)
     xcorner_left  = cell_vertices[ivertex]
     xcorner_right = cell_vertices[ivertex+1]
+    lx            =  xcorner_right - xcorner_left
     ycorner_left  = h_vertices[ivertex]
     ycorner_right = h_vertices[ivertex+1]
+    ly            =  ycorner_right - ycorner_left
 
     # count active particles
     np = 0
@@ -70,18 +72,19 @@ function _reconstruct_h_from_vertex_kernel!(h_vertices, chain_x, chain_y, cell_v
         np += 1
     end
 
-    # lazy linear interpolants
-    xp_new = LinRange(xcorner_left, xcorner_right, np+2)
-    xp_new = LinRange(xp_new[2], xp_new[end-1], np)
-    yp_new = LinRange(ycorner_left, ycorner_right, np+2)
-    yp_new = LinRange(yp_new[2], yp_new[end-1], np)
-
+    Δx     = lx / (np + 1)
+    Δy     = ly / (np + 1)
+    xp_new = xcorner_left
+    yp_new = ycorner_left
+    
     # fill cell arrays with new particle coordinates
     for ip in cellaxes(index)
         @index(index[ip, ivertex]) || break
 
-        @index chain_x[ip, ivertex] = xp_new[ip]
-        @index chain_y[ip, ivertex] = yp_new[ip]
+        xp_new += Δx
+        yp_new += Δy
+        @index chain_x[ip, ivertex] = xp_new
+        @index chain_y[ip, ivertex] = yp_new
     end
 
     return nothing
