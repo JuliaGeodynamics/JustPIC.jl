@@ -56,10 +56,7 @@ module _2D
     using MuladdMacro, ParallelStencil, CellArrays, CellArraysIndexing, StaticArrays
     using JustPIC
 
-    function __init__()
-        @init_parallel_stencil(CUDA, Float64, 2)
-        return nothing
-    end
+    @init_parallel_stencil(CUDA, Float64, 2)
     
     import JustPIC: Euler, RungeKutta2, AbstractAdvectionIntegrator
     import JustPIC._2D.CA
@@ -374,10 +371,7 @@ module _3D
     using MuladdMacro, ParallelStencil, CellArrays, CellArraysIndexing, StaticArrays
     using JustPIC
 
-    function __init__()
-        @init_parallel_stencil(CUDA, Float64, 3)
-        return nothing
-    end
+    @init_parallel_stencil(CUDA, Float64, 3)
 
     macro myatomic(expr)
         return esc(
