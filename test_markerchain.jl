@@ -74,5 +74,33 @@ topo_y = TA(backend)(sin.(2π*topo_x) .* 0.1)
 fill_chain_from_vertices!(chain, topo_y)
 
 ###############
-
+ratio_center = zeros(nx, nx)
 compute_area_below_chain_centers!(ratio_center, chain, xvi, dxi)
+
+@b compute_area_below_chain_centers!($(ratio_center, chain, xvi, dxi)...)
+
+grid_vx
+
+ratio_vx = zeros(nx+1, nx);
+xvi = xv, yc
+compute_area_below_chain_vx!(ratio_vx, chain, xvi, dxi)
+
+heatmap(ratio_vx)
+ratio_vx |> unique
+ratio_vx
+
+xvi = xc, yv
+ratio_vy = zeros(nx, nx+1);
+compute_area_below_chain_vy!(ratio_vy, chain, xvi, dxi)
+
+heatmap(ratio_vy)
+ratio_vy |> unique
+
+
+xvi = xv, yv
+ratio_vertex = zeros(nx+1, nx+1);
+compute_area_below_chain_vertex!(ratio_vertex, chain, xvi, dxi)
+
+
+heatmap(ratio_vertex)
+ratio_vertex |> unique

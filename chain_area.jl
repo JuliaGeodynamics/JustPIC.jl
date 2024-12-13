@@ -1,47 +1,45 @@
 
 function compute_area_below_chain_centers!(ratio_center, chain, xvi, dxi)
     topo_x, topo_y = chain.cell_vertices, chain.h_vertices
-    @parallel (1:length(topo_x)-1) _compute_area_below_chain_center!(ratio_center, topo_x, topo_y, xvi..., dxi) 
+    nx, ny = size(ratio_center)
+    @parallel (1:nx, 1:ny) _compute_area_below_chain_center!(ratio_center, topo_x, topo_y, xvi..., dxi) 
     return nothing
 end
 
-@parallel_indices (i) function _compute_area_below_chain_center!(ratio, topo_x, topo_y, xv, yv, dxi) 
+@parallel_indices (i, j) function _compute_area_below_chain_center!(ratio, topo_x, topo_y, xv, yv, dxi) 
+    _, dy = dxi
+
+    # cell min max coordinates
+    x_min_cell, x_max_cell = xv[i], xv[i + 1]
+    y_min_cell, y_max_cell = yv[j], yv[j + 1]
+
+    topo_xᵢ   = topo_x[i], topo_x[i + 1]
+    topo_yᵢ   = topo_y[i], topo_y[i + 1]
+
+
+    isbelow = topo_yᵢ[1] - y_min_cell > dy && topo_yᵢ[2] - y_min_cell > dy
+    isabove = y_max_cell - topo_yᵢ[1] > dy && y_max_cell - topo_yᵢ[2] > dy
+
+    if isbelow 
+        ratio[i, j] = one(eltype(topo_xᵢ))
+
+    elseif isabove
+        ratio[i, j] = zero(eltype(topo_xᵢ))
     
-    origin_y     = yv[1]
-    topo_xᵢ      = topo_x[i], topo_x[i + 1]
-    topo_yᵢ      = topo_y[i], topo_y[i + 1]
-    min_j, max_j = find_minmax_cell_indices(topo_yᵢ, origin_y, dxi[end])
-    cell_range   = min_j:max_j
-    T            = eltype(dxi)
-    zeroT        = zero(T)
-    oneT         = one(T)
-
-    for j in axes(ratio, 2)
-        if j < min_j
-            ratio[i, j] = oneT
-        elseif j > max_j
-            ratio[i, j] = zeroT
-
-        elseif j ∈ cell_range
-            # cell min max coordinates
-            x_left_cell, x_right_cell = xv[j], xv[j + 1]
-            y_bot_cell, y_top_cell    = yv[j], yv[j + 1]
-
-            # compute area at cell center
-            area_rock = compute_area_below_chain(
-                topo_xᵢ, topo_yᵢ, x_left_cell, x_right_cell, y_bot_cell, y_top_cell, dxi
-            )
-            area_cell = prod(dxi)
-            ratio[i, j] = clamp(area_rock / area_cell, 0, 1)
-        
-        end
+    else
+        # compute area at cell center
+        area_rock   = compute_area_below_chain(
+            topo_xᵢ, topo_yᵢ, x_min_cell, x_max_cell, y_min_cell, y_max_cell, dxi
+        )
+        area_cell   = prod(dxi)
+        ratio[i, j] = clamp(area_rock / area_cell, 0, 1)
     end
 
     return nothing
 end
 
 function compute_area_below_chain(
-    topo_xᵢ, topo_yᵢ, x_left_cell::T, x_right_cell::T, y_bot_cell::T, y_top_cell::T, dxi
+    topo_xᵢ, topo_yᵢ, x_min_cell::T, x_max_cell::T, y_min_cell::T, y_max_cell::T, dxi
 ) where T <: Real
 
     dx, dy = dxi
@@ -49,13 +47,13 @@ function compute_area_below_chain(
 
     is_chain_within_cell = true
     for y in topo_yᵢ
-        is_chain_within_cell *= y_bot_cell ≤ y ≤ y_top_cell
+        is_chain_within_cell *= y_min_cell ≤ y ≤ y_max_cell
     end
 
     # whole topograpy segment is within the cell
     # := trapezoid area
     if is_chain_within_cell
-        area += trapezoid_area((topo_yᵢ .- y_bot_cell)..., dx)
+        area += trapezoid_area((topo_yᵢ .- y_min_cell)..., dx)
 
     else
         # coordiantes of topography segment
@@ -64,25 +62,25 @@ function compute_area_below_chain(
         p  = p1, p2
 
         # compute intersections between topography segment and cell boundaries
-        intersections = get_intersections(p, x_left_cell, x_right_cell, y_bot_cell, y_top_cell)
+        intersections = get_intersections(p, x_min_cell, x_max_cell, y_min_cell, y_max_cell)
 
         # compute inner area
         dx_intersections = intersections[2][1] - intersections[1][1]
         area += trapezoid_area(
-            intersections[1][2] - y_bot_cell, 
-            intersections[2][2] - y_bot_cell, 
+            intersections[1][2] - y_min_cell, 
+            intersections[2][2] - y_min_cell, 
             dx_intersections
         )
 
         # compute area of the tails, if necessary
         # compute left-hand-side tail
-        if intersections[1][2] ≥ y_top_cell
-            lx    = intersections[1][1] - x_left_cell
+        if intersections[1][2] ≥ y_max_cell
+            lx    = intersections[1][1] - x_min_cell
             area += rectangle_area(lx, dy)
         end
         # compute right-hand-side tail
-        if intersections[2][2] ≥ y_top_cell
-            lx    = x_right_cell - intersections[1][1]
+        if intersections[2][2] ≥ y_max_cell
+            lx    = x_max_cell - intersections[1][1]
             area += rectangle_area(lx, dy)
         end
     end
@@ -112,28 +110,28 @@ function line_intersection(p1, p2, q1, q2)
     b, d = slope_intercept(q1, q2)
     # compute intersection point
     px = isinf(a) ? p1[1] : (d-c) / (a-b)
-    py = b * px + d
+    py = @muladd b * px + d
     return (px, py)
 end
 
-function get_intersections(p::NTuple{2}, x_left_cell, x_right_cell, y_bot_cell, y_top_cell)
+function get_intersections(p::NTuple{2}, x_min_cell, x_max_cell, y_min_cell, y_max_cell)
     p1, p2 = p
     intersections = Base.@ntuple 2 ii -> begin
         @inline 
         pᵢ = p[ii]
-        intersection = if pᵢ[2] ≥ y_top_cell
+        intersection = if pᵢ[2] ≥ y_max_cell
             line_intersection(
                 p1,
                 p2,
-                (x_left_cell, y_top_cell), 
-                (x_right_cell, y_top_cell), 
+                (x_min_cell, y_max_cell), 
+                (x_max_cell, y_max_cell), 
             )
-        elseif pᵢ[2] ≤ y_bot_cell
+        elseif pᵢ[2] ≤ y_min_cell
             line_intersection(
                 p1,
                 p2,
-                (x_left_cell, y_bot_cell), 
-                (x_right_cell, y_bot_cell), 
+                (x_min_cell, y_min_cell), 
+                (x_max_cell, y_min_cell), 
             )
         else
             pᵢ
@@ -151,23 +149,23 @@ end
 
 # check if the topography segment intersects with the lateral cell boundaries;
 # if it does, it does intersect with the cell
-function do_intersect(p::NTuple{2}, x_left_cell, x_right_cell, y_bot_cell, y_top_cell)
+function do_intersect(p::NTuple{2}, x_min_cell, x_max_cell, y_min_cell, y_max_cell)
     p1, p2 = p
     
     _, left_y = line_intersection(
         p1,
         p2,
-        (x_left_cell, y_bot_cell), 
-        (x_left_cell, y_top_cell), 
+        (x_min_cell, y_min_cell), 
+        (x_min_cell, y_max_cell), 
     )
-    y_bot_cell ≤ left_y ≤ y_top_cell && return true
+    y_min_cell ≤ left_y ≤ y_max_cell && return true
     _, right_y = line_intersection(
         p1,
         p2,
-        (x_right_cell, y_bot_cell), 
-        (x_right_cell, y_top_cell), 
+        (x_max_cell, y_min_cell), 
+        (x_max_cell, y_max_cell), 
     )
-    y_bot_cell ≤ right_y ≤ y_top_cell && return true
+    y_min_cell ≤ right_y ≤ y_max_cell && return true
 
     return false
 end
