@@ -263,6 +263,11 @@ module _2D
         return advect_markerchain!(chain, method, V, grid_vxi, dt)
     end
 
+    function JustPIC._2D.compute_rock_fraction!(ratios, chain::MarkerChain{CUDABackend}, xvi, dxi)
+        compute_rock_fraction!(ratios, chain, xvi, dxi)
+        return nothing
+    end
+
     ## PassiveMarkers
 
     function JustPIC._2D.init_passive_markers(
