@@ -70,6 +70,9 @@ include("MarkerChain/interp1.jl")
 include("MarkerChain/resample.jl")
 export resample!
 
+include("MarkerChain/areas.jl")
+export compute_rock_fraction!
+
 include("MarkerChain/Advection/Euler.jl")
 include("MarkerChain/Advection/RK2.jl")
 include("MarkerChain/Advection/advection.jl")
