@@ -40,30 +40,35 @@ end
 function Particles(coords, index::CPUCellArray, nxcell, max_xcell, min_xcell, np)
     return Particles(CPUBackend, coords, index, nxcell, max_xcell, min_xcell, np)
 end
-
-struct MarkerChain{Backend,N,M,I,T1,T2,TV} <: AbstractParticles
-    coords::NTuple{N,T1}
-    index::T2
-    cell_vertices::TV # x-coord in 2D, (x,y)-coords in 3D
+struct MarkerChain{Backend,N,M,I,T1,T2,T3,TV} <: AbstractParticles
+    coords::NTuple{N,T1}    # current x-coord in 2D, (x,y)
+    coords0::NTuple{N,T1}   # x-coord in 2D, (x,y) from the previous time step
+    h_vertices::T2          # topography at the vertices of the grid (current)
+    h_vertices0::T2         # topography at the vertices of the grid (previous timestep)
+    cell_vertices::TV
+    index::T3
     max_xcell::I
     min_xcell::I
 
     function MarkerChain(
         backend,
         coords::NTuple{N,T1},
-        index::T2,
+        coords0::NTuple{N,T1},
+        h_vertices::T2,
+        h_vertices0::T2,
         cell_vertices::TV,
+        index::T3,
         min_xcell::I,
         max_xcell::I,
-    ) where {N,I,T1,T2,TV}
-        return new{backend,N,max_xcell,I,T1,T2,TV}(
-            coords, index, cell_vertices, max_xcell, min_xcell
+    ) where {N,I,T1,T2,T3,TV}
+        return new{backend,N,max_xcell,I,T1,T2,T3,TV}(
+            coords, coords0, h_vertices, h_vertices0, cell_vertices, index, max_xcell, min_xcell
         )
     end
 end
 
 function MarkerChain(coords, index::CPUCellArray, cell_vertices, min_xcell, max_xcell)
-    return MarkerChain(CPUBackend, coords, index, cell_vertices, min_xcell, max_xcell)
+    return MarkerChain(CPUBackend, coords, coords0, h_vertices, h_vertices0, cell_vertices, index, max_xcell, min_xcell)
 end
 
 struct PassiveMarkers{Backend,T} <: AbstractParticles

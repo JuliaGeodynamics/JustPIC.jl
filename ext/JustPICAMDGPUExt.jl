@@ -58,10 +58,7 @@ module _2D
     using MuladdMacro, ParallelStencil, CellArrays, CellArraysIndexing, StaticArrays
     using JustPIC
 
-    function __init__()
-        @init_parallel_stencil(AMDGPU, Float64, 2)
-        return nothing
-    end
+    @init_parallel_stencil(AMDGPU, Float64, 2)
     
     import JustPIC: Euler, RungeKutta2, AbstractAdvectionIntegrator
     import JustPIC._2D.CA
@@ -235,17 +232,26 @@ module _2D
     ## MakerChain
 
     function JustPIC._2D.init_markerchain(::Type{AMDGPUBackend}, nxcell, min_xcell, max_xcell, xv, initial_elevation)
-        nx = length(xv) - 1
-        dx = xv[2] - xv[1]
-        dx_chain = dx / (nxcell + 1)
-        px, py = ntuple(_ -> @fill(NaN, (nx,), celldims = (max_xcell,)), Val(2))
-        index = @fill(false, (nx,), celldims = (max_xcell,), eltype = Bool)
+        return init_markerchain(CUDABackend, nxcell, min_xcell, max_xcell, xv, initial_elevation)
+    end
+
+    function JustPIC._2D.fill_chain_from_chain!(chain::MarkerChain{AMDGPUBackend}, topo_x, topo_y)
+        fill_chain_from_chain!(chain, topo_x, topo_y)
+    end
     
-        @parallel (1:nx) fill_markerchain_coords_index!(
-            px, py, index, xv, initial_elevation, dx_chain, nxcell, max_xcell
-        )
+    function JustPIC._2D.compute_topography_vertex!(chain::MarkerChain{AMDGPUBackend})
+        compute_topography_vertex!(chain)
+        return nothing
+    end
     
-        return MarkerChain(AMDGPUBackend, (px, py), index, xv, min_xcell, max_xcell)
+    function JustPIC._2D.reconstruct_chain_from_vertices!(chain::MarkerChain{AMDGPUBackend})
+        reconstruct_chain_from_vertices!(chain)
+        return nothing
+    end
+
+    function JustPIC._2D.fill_chain_from_vertices!(chain::MarkerChain{AMDGPUBackend}, topo_y)
+        fill_chain_from_vertices!(chain::MarkerChain, topo_y)
+        return nothing
     end
 
     function JustPIC._2D.advect_markerchain!(
@@ -256,6 +262,11 @@ module _2D
         dt,
     )
         return advect_markerchain!(chain, method, V, grid_vxi, dt)
+    end
+
+    function JustPIC._2D.compute_rock_fraction!(ratios, chain::MarkerChain{AMDGPUBackend}, xvi, dxi)
+        compute_rock_fraction!(ratios, chain, xvi, dxi)
+        return nothing
     end
 
     ## PassiveMarkers
@@ -369,10 +380,7 @@ module _3D
     using MuladdMacro, ParallelStencil, CellArrays, CellArraysIndexing, StaticArrays
     using JustPIC
 
-    function __init__()
-        @init_parallel_stencil(AMDGPU, Float64, 3)
-        return nothing
-    end
+    @init_parallel_stencil(AMDGPU, Float64, 3)
 
     import JustPIC:
         Euler, RungeKutta2, AbstractAdvectionIntegrator, Particles, PassiveMarkers

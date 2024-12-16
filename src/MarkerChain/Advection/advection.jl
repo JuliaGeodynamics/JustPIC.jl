@@ -5,6 +5,16 @@ function advect_markerchain!(
     advection!(chain, method, V, grid_vxi, dt)
     move_particles!(chain)
     resample!(chain)
+
+    # interpolate from markers to grid
+    compute_topography_vertex!(chain)
+    # average h_vertices0 and h_vertices and store in h_vertices
+    @. chain.h_vertices = (chain.h_vertices0 + chain.h_vertices) / 2
+    # reconstruct chain from vertices
+    reconstruct_chain_from_vertices!(chain)
+    # update old nodal topography
+    copyto!(chain.h_vertices0, chain.h_vertices)
+
     return nothing
 end
 
@@ -94,7 +104,7 @@ end
 @inline function corner_field_nodes(F::AbstractArray{T,N}, pᵢ, xi_vx, dxi) where {T,N}
     I = ntuple(Val(N)) do i
         Base.@_inline_meta
-        cell_index(pᵢ[i], xi_vx[i], dxi[1])
+        cell_index(pᵢ[i], xi_vx[i], dxi[i])
     end
 
     # coordinates of lower-left corner of the cell

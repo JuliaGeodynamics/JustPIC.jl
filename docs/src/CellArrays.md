@@ -37,19 +37,19 @@ julia> CA[1,1]
  20.0
 ```
 
-It is however useful to read and mutate the data of the `CellArray` object directly, without going through the `StaticArray` object. For this porpuse, `JustPIC` provides the macro `@cell` that allows to directly access and mutate the individual elements of the cell. 
+It is however useful to read and mutate the data of the `CellArray` object directly, without instantiating a `StaticArray`. For this porpuse, `JustPIC` exports the macro `@index` to directly read and mutate the individual elements of the cell. 
 
-For example, to read an individual of the `CA`:
+For example, to read a single element of `CA`:
 
 ```julia-repl
-julia> @cell CA[2, 1, 1]
+julia> @index CA[2, 1, 1]
 20.0
 ```
 
-where, in this case, the first index corresponds to the 2nd element of the data within the [1, 1] cell. We can mutate the `CellArray` in a similar way:
+where, in this case, the first index corresponds to the 2nd element of the data within $cell_{11}$ cell. We can mutate the `CellArray` in a similar way:
 
 ```julia-repl
-julia> @cell CA[2, 1, 1] = 0.0
+julia> @index CA[2, 1, 1] = 0.0
 0.0
 
 julia> CA
@@ -57,3 +57,25 @@ julia> CA
  [20.0, 0.0]   [20.0, 20.0]
  [20.0, 20.0]  [20.0, 20.0]
 ```
+
+`JustPIC` also provides the macro `@cell` operatig at the cell level:
+
+```julia-repl 
+julia> @cell CA[1,1]
+2-element StaticArraysCore.SVector{2, Float64} with indices SOneTo(2):
+ 20.0
+ 20.0
+```
+
+```julia-repl 
+julia> @cell CA[1,1] = @cell(CA[1,1]) .+ 1
+2-element StaticArraysCore.SVector{2, Float64} with indices SOneTo(2):
+ 21.0
+ 21.0
+
+ julia> CA
+2×2 CellArrays.CPUCellArray{StaticArraysCore.SVector{2, Float64}, 2, 1, Float64}:
+ [21.0, 21.0]  [20.0, 20.0]
+ [20.0, 20.0]  [20.0, 20.0]
+```
+
