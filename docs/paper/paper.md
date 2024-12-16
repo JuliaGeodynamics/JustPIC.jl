@@ -60,18 +60,31 @@ The current version of `JustPIC.jl` is specialized for bi- and tri-dimensional, 
 
 <!-- ![Staggered velocity grids \label{fig:grid}](StaggeredVelocity.png) -->
 
-# Supported devices and architectures
-
-`JustPIC.jl` seamlessly supports single and multiple CPUs in shared and distributed memory architectures, where it has been tested on Intel, AMD, and ARM chips. Single and multi-GPU architectures from NVidia and AMD are also supported.
-
 # Features
+
+1. Computational markers
+2. Maker chain
+3. Passive markers
+4. Particles advection
+5. Particles injection and deletion
+6. Phase ratios calculations
+
+## Computational markers
+
+Markers that carry information of any field defined in the Eulerian grid which needs to be advected. These markers can be advected in time, and the information of the field is interpolated from the Eulerian grid to the markers, and back.
+
+## Maker chain
+Markers than track the evolution of a one-dimensional surface. This is useful to track the evolution of a fault, or a phase boundary, for example. The markers are advected in time, and the information of the field is interpolated from the Eulerian grid to the markers, and back.
+
+## Passive markers
+Markers that track the path and time evolution of some physical properties, they can be instantiated at user defined locations, and advected in time. The information of the field is interpolated from the Eulerian grid to the markers, but not the other way around.
 
 ## Particles advection
 
 ### Velocity interpolation
 `JustPIC.jl` supports three different kinds of interpolation of the velocity field onto the particles
 
-- Bi/Tri-Linear interpolation
+#### Bi-/Tri-Linear interpolation
 
 The velocity field is linearly interpolated from the corresponding $V_i$ grid onto the particles. Bi- and tri-linear interpolation over a rectangular or cubic cells is a linear combination of linear interpolation (also referred as _lerp_) kernels. For example, the bilinear interpolation requires two lerps along the left and right hand side boundaries of the cell, followed by a lerp on the horizontal direction; on the other hand, tri-linear interpolation is a combination of two bilinear kernels and one lerp. 
 
@@ -94,39 +107,39 @@ Numerically, it is more appropriately implemented as a double [fma](https://en.w
 v_p = fma(t, v1, fma(-t, v0, v0))
 ```
 
-- LinP interpolation
+#### LinP interpolation
 
 <figure>
     <img src="../src/assets/LinP.png" alt  width="500">
     <figcaption>image_caption</figcaption>
 </figure>
 
-- Modified Quadratic Spline (MQS) interpolation
+#### Modified Quadratic Spline (MQS) interpolation
 
 <figure>
     <img src="../src/assets/MQS.png" alt  width="500">
     <figcaption>image_caption</figcaption>
 </figure>
 
-## Other interpolations:
+## Information interpolation
 
 ### Grid to particles
 
 ### Particles to grid
 
-## Phase ratios calculations
+## Phase ratios 
 
-In, for example, geodynamic simulations, it is common to track the time-history of the compositional phases (i.e. passive markers) and their associated information. The phase ratios are calculated as the ratio of the number of particles of a given phase to the total number of particles at different cell locations:
+In, for example, geodynamic simulations, it is common to track the time-history of the compositional phases (i.e. passive markers) and their associated information. The phase ratios are calculated as the ratio of the number of particles of a given phase to the total number of particles at different cell locations: (i) at the cell vertices, (ii) at the cell centers, (iii) at the velocity nodes, and (iv) at the shear stress nodes (only needed in 3D).
 
-- Cell vertices
-- Cell centers
-- Velocity nodes 
-- Shear stress nodes (in 3D) 
+# Parallelization, and supported devices and architectures
 
+`JustPIC.jl` is designed to run seamlessly in single and multiple CPUs and GPUs, where the parallelization is agnostic to the device. 
 
-# Parallelization and supported devices
+We use `ParallelStencil.jl` @Omlin2024 to write device-agnostic parallel kernels on shared memory devices. To handle distributed parallelism we use `ImplicitGlobalGrid.jl`, relying on `MPI.jl`.
 
-`JustPIC.jl` is designed to run seamlessly in single and multiple CPUs and GPUs. The package is designed to be easily extensible so that irregular grids, collocated grids, and other coordinates systems can easily implemented.
+`JustPIC.jl` has been tested on Intel, AMD, and ARM CPU chips, and fully supports NVidia and AMD GPU cards.
+
+<!-- The package is designed to be easily extensible so that irregular grids, collocated grids, and other coordinates systems can easily implemented. -->
 
 # Examples
 
@@ -263,7 +276,7 @@ phases.data[particles.coords[1].data .<  particles.coords[2].data] .= 1
 phases.data[particles.coords[1].data .>= particles.coords[2].data] .= 2
 ```
 
-Build time stepping and run simulation
+Define time stepping and run simulation
 ```julia
 t  = 0.
 Δt = C * min(di / max(maximum(abs.(Vx)), maximum(abs.(Vy)))
