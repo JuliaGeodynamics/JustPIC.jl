@@ -261,7 +261,7 @@ function compute_area_below_chain(
         area += trapezoid_area((topo_yᵢ .- y_min_cell)..., dx)
 
     else
-        # coordiantes of topography segment
+        # coordinates of topography segment
         p1 = topo_xᵢ[1], topo_yᵢ[1]
         p2 = topo_xᵢ[2], topo_yᵢ[2]
         p  = p1, p2
