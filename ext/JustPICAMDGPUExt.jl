@@ -93,7 +93,7 @@ module _2D
         min_xcell,
         np,
     ) where {N1,N2}
-        return Particles(CUDABackend, coords, index, nxcell, max_xcell, min_xcell, np)
+        return Particles(AMDGPUBackend, coords, index, nxcell, max_xcell, min_xcell, np)
     end
 
     function JustPIC._2D.Particles(
@@ -104,7 +104,7 @@ module _2D
         min_xcell,
         np,
     ) where {B,N1,N2}
-        return Particles(CUDABackend, coords, index, nxcell, max_xcell, min_xcell, np)
+        return Particles(AMDGPUBackend, coords, index, nxcell, max_xcell, min_xcell, np)
     end
 
     function JustPIC._2D.SubgridDiffusionCellArrays(particles::Particles{AMDGPUBackend}; loc::Symbol=:vertex)
@@ -245,7 +245,7 @@ module _2D
     ## MakerChain
 
     function JustPIC._2D.init_markerchain(::Type{AMDGPUBackend}, nxcell, min_xcell, max_xcell, xv, initial_elevation)
-        return init_markerchain(CUDABackend, nxcell, min_xcell, max_xcell, xv, initial_elevation)
+        return init_markerchain(AMDGPUBackend, nxcell, min_xcell, max_xcell, xv, initial_elevation)
     end
 
     function JustPIC._2D.fill_chain_from_chain!(chain::MarkerChain{AMDGPUBackend}, topo_x, topo_y)
@@ -420,7 +420,18 @@ module _3D
 
     function JustPIC._3D.Particles(
         coords,
-        index::CellArray{StaticArraysCore.SVector{N1,Bool},3,0,Union{ROCArray{Bool,N2, B}, ROCArray{Bool,N2}}},
+        index::CellArray{StaticArraysCore.SVector{N1,Bool},3,0, ROCArray{Bool,N2}},
+        nxcell,
+        max_xcell,
+        min_xcell,
+        np,
+    ) where {N1,N2}
+        return Particles(AMDGPUBackend, coords, index, nxcell, max_xcell, min_xcell, np)
+    end
+
+    function JustPIC._3D.Particles(
+        coords,
+        index::CellArray{StaticArraysCore.SVector{N1,Bool},3,0,ROCArray{Bool,N2, B}},
         nxcell,
         max_xcell,
         min_xcell,
