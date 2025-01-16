@@ -82,6 +82,7 @@ module _2D
 
     # halo update
     JustPIC._2D.update_cell_halo!(x::Vararg{CellArray{S, N, D, CuArray{T, nD}}, NA}) where {NA, S, N, D, T, nD} = update_cell_halo!(x...)
+    JustPIC._2D.update_cell_halo!(x::Vararg{CellArray{S, N, D, CuArray{T, nD, B}}, NA}) where {NA, S, N, D, T, nD, B} = update_cell_halo!(x...)
 
     # Conversions 
 
@@ -399,6 +400,7 @@ module _3D
     
     # halo update
     JustPIC._3D.update_cell_halo!(x::Vararg{CellArray{S, N, D, CuArray{T, nD}}, NA}) where {NA, S, N, D, T, nD} = update_cell_halo!(x...)
+    JustPIC._3D.update_cell_halo!(x::Vararg{CellArray{S, N, D, CuArray{T, nD, B}}, NA}) where {NA, S, N, D, T, nD, B} = update_cell_halo!(x...)
 
     # Conversions 
 

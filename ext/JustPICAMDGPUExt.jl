@@ -82,6 +82,7 @@ module _2D
 
     # halo update
     JustPIC._2D.update_cell_halo!(x::Vararg{CellArray{S, N, D, ROCArray{T, nD}}, NA}) where {NA, S, N, D, T, nD} = update_cell_halo!(x...)
+    JustPIC._2D.update_cell_halo!(x::Vararg{CellArray{S, N, D, ROCArray{T, nD, B}}, NA}) where {NA, S, N, D, T, nD, B} = update_cell_halo!(x...)
 
     function JustPIC._2D.Particles(
         coords,
@@ -403,6 +404,7 @@ module _3D
 
     # halo update
     JustPIC._3D.update_cell_halo!(x::Vararg{CellArray{S, N, D, ROCArray{T, nD}}, NA}) where {NA, S, N, D, T, nD} = update_cell_halo!(x...)
+    JustPIC._3D.update_cell_halo!(x::Vararg{CellArray{S, N, D, ROCArray{T, nD, B}}, NA}) where {NA, S, N, D, T, nD, B} = update_cell_halo!(x...)
 
     function JustPIC._3D.Particles(
         coords,
