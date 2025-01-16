@@ -87,7 +87,8 @@ function main()
         advection!(particles, RungeKutta2(), V, (grid_vx, grid_vy), dt)
 
         # update halos
-        update_cell_halo!(particles.coords..., particle_args...);
+        update_cell_halo!(particles.coords...);
+        update_cell_halo!(particle_args...);
         update_cell_halo!(particles.index)
         # shuffle particles
         move_particles!(particles, xvi, particle_args)

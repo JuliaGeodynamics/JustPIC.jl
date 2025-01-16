@@ -70,12 +70,6 @@ function main()
     T_v      = zeros(nx_v, ny_v, nz_v)
     T_nohalo = @zeros(size(T).-2)
 
-    # dt = min(
-    #     dx / MPI.Allreduce(maximum(abs.(Vx)), MPI.MAX, MPI.COMM_WORLD),
-    #     dy / MPI.Allreduce(maximum(abs.(Vy)), MPI.MAX, MPI.COMM_WORLD),
-    #     dz / MPI.Allreduce(maximum(abs.(Vz)), MPI.MAX, MPI.COMM_WORLD),
-    # )
-
     dt = mapreduce(x -> x[1] / MPI.Allreduce(maximum(abs.(x[2])), MPI.MAX, MPI.COMM_WORLD), min, zip(dxi, V))
     
     # Advection test
@@ -90,13 +84,14 @@ function main()
         advection!(particles, RungeKutta2(), V, (grid_vx, grid_vy, grid_vz), dt)
 
         # update halos
-        update_cell_halo!(particles.coords..., particle_args...);
+        update_cell_halo!(particles.coords...);
+        update_cell_halo!(particle_args...);
         update_cell_halo!(particles.index)
+
         # shuffle particles
         move_particles!(particles, xvi, particle_args)
         # interpolate T from particle to grid
         particle2grid!(T, pT, xvi, particles)
-    #     # T0 .= deepcopy(T) 
 
         @views T_nohalo .= T[2:end-1, 2:end-1, 2:end-1]
         gather!(T_nohalo, T_v)
