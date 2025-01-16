@@ -86,12 +86,12 @@ module _2D
 
     function JustPIC._2D.Particles(
         coords,
-        index::CellArray{StaticArraysCore.SVector{N1,Bool},2,0,ROCArray{Bool,N2}},
+        index::CellArray{StaticArraysCore.SVector{N1,Bool},2,0,Union{ROCArray{Bool,N2, B}, ROCArray{Bool,N2}}},
         nxcell,
         max_xcell,
         min_xcell,
         np,
-    ) where {N1,N2}
+    ) where {B, N1,N2}
         return Particles(AMDGPUBackend, coords, index, nxcell, max_xcell, min_xcell, np)
     end
 
@@ -408,12 +408,12 @@ module _3D
 
     function JustPIC._3D.Particles(
         coords,
-        index::CellArray{StaticArraysCore.SVector{N1,Bool},3,0,ROCArray{Bool,N2}},
+        index::CellArray{StaticArraysCore.SVector{N1,Bool},3,0,Union{ROCArray{Bool,N2, B}, ROCArray{Bool,N2}}},
         nxcell,
         max_xcell,
         min_xcell,
         np,
-    ) where {N1,N2}
+    ) where {B,N1,N2}
         return Particles(AMDGPUBackend, coords, index, nxcell, max_xcell, min_xcell, np)
     end
 

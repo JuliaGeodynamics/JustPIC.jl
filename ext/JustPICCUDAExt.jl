@@ -88,12 +88,12 @@ module _2D
 
     function JustPIC._2D.Particles(
         coords,
-        index::CellArray{StaticArraysCore.SVector{N1,Bool},2,0,CuArray{Bool,N2}},
+        index::CellArray{StaticArraysCore.SVector{N1,Bool},2,0,Union{CuArray{Bool,N2, B}, CuArray{Bool,N2}}},
         nxcell,
         max_xcell,
         min_xcell,
         np,
-    ) where {N1,N2}
+    ) where {B,N1,N2}
         return Particles(CUDABackend, coords, index, nxcell, max_xcell, min_xcell, np)
     end
 
@@ -403,15 +403,14 @@ module _3D
     JustPIC._3D.update_cell_halo!(x::Vararg{CellArray{S, N, D, CuArray{T, nD, B}}, NA}) where {NA, S, N, D, T, nD, B} = update_cell_halo!(x...)
 
     # Conversions 
-
     function JustPIC._3D.Particles(
         coords,
-        index::CellArray{StaticArraysCore.SVector{N1,Bool},3,0,CuArray{Bool,N2}},
+        index::CellArray{StaticArraysCore.SVector{N1,Bool},3,0,Union{CuArray{Bool,N2, B}, CuArray{Bool,N2}}},
         nxcell,
         max_xcell,
         min_xcell,
         np,
-    ) where {N1,N2}
+    ) where {B,N1,N2}
         return Particles(CUDABackend, coords, index, nxcell, max_xcell, min_xcell, np)
     end
 
