@@ -52,60 +52,58 @@ const backend = JustPIC.CPUBackend
     phases2       = data["phases"]
     phase_ratios2 = data["phase_ratios"]
 
-    @test JP2.Array(particles).coords[1].data        == particles2.coords[1].data
-    @test JP2.Array(particles).coords[2].data        == particles2.coords[2].data
-    @test JP2.Array(particles).index.data            == particles2.index.data
-    @test JP2.Array(phase_ratios).center.data        == phase_ratios2.center.data
-    @test JP2.Array(phase_ratios).vertex.data        == phase_ratios2.vertex.data
-    @test JP2.Array(phases).data                     == phases2.data
-    @test size(JP2.Array(particles).coords[1].data)  == size(particles2.coords[1].data)
-    @test size(JP2.Array(particles).coords[2].data)  == size(particles2.coords[2].data)
-    @test size(JP2.Array(particles).index.data)      == size(particles2.index.data)
-    @test size(JP2.Array(phase_ratios).center.data)  == size(phase_ratios2.center.data)
-    @test size(JP2.Array(phase_ratios).vertex.data)  == size(phase_ratios2.vertex.data)
-    @test size(JP2.Array(phases).data)               == size(phases2.data)
+    @test Array(particles).coords[1].data        == particles2.coords[1].data
+    @test Array(particles).coords[2].data        == particles2.coords[2].data
+    @test Array(particles).index.data            == particles2.index.data
+    @test Array(phase_ratios).center.data        == phase_ratios2.center.data
+    @test Array(phase_ratios).vertex.data        == phase_ratios2.vertex.data
+    @test Array(phases).data                     == phases2.data
+    @test size(Array(particles).coords[1].data)  == size(particles2.coords[1].data)
+    @test size(Array(particles).coords[2].data)  == size(particles2.coords[2].data)
+    @test size(Array(particles).index.data)      == size(particles2.index.data)
+    @test size(Array(phase_ratios).center.data)  == size(phase_ratios2.center.data)
+    @test size(Array(phase_ratios).vertex.data)  == size(phase_ratios2.vertex.data)
+    @test size(Array(phases).data)               == size(phases2.data)
 
     # Test on GPU card, if available
     isCUDA   = isdefined(Main, :CUDA)
     isAMDGPU = isdefined(Main, :AMDGPU)
 
     if isCUDA || isAMDGPU
-        T       = isCUDA ? :CuArray : :ROCArray
-        Backend = isCUDA ? :CUDABackend : :AMDGPUBackend
+        T       = isCUDA ? CuArray : ROCArray
+        Backend = isCUDA ? CUDABackend : AMDGPUBackend
 
-        @eval begin
-            particles2    = Array(particles)
-            phases2       = Array(phases)
-            phase_ratios2 = Array(phase_ratios)
+        particles2       = Array(particles)
+        phases2          = Array(phases)
+        phase_ratios2    = Array(phase_ratios)
             
-            particles_gpu    = $T(particles2)
-            phase_ratios_gpu = $T(phase_ratios2)
-            phases_gpu       = $T(phases2);
+        particles_gpu    = T(particles2)
+        phase_ratios_gpu = T(phase_ratios2)
+        phases_gpu       = T(phases2);
 
-            @test particles_gpu                       isa JustPIC.Particles{$Backend}
-            @test phase_ratios_gpu                    isa JustPIC.PhaseRatios{$Backend}
-            @test last(typeof(phases_gpu).parameters) <: $T{Float64, 3}
-            @test size(particles_gpu.coords[1].data)  == size(permutedims(particles.coords[1].data, (3, 2, 1)))
-            @test size(particles_gpu.coords[2].data)  == size(permutedims(particles.coords[2].data, (3, 2, 1)))
-            @test size(particles_gpu.index.data)      == size(permutedims(particles.index.data, (3, 2, 1)))
-            @test size(phase_ratios_gpu.center.data)  == size(permutedims(phase_ratios.center.data, (3, 2, 1)))
-            @test size(phase_ratios_gpu.vertex.data)  == size(permutedims(phase_ratios.vertex.data, (3, 2, 1)))
-            @test size(phases_gpu.data)               == size(permutedims(phases.data, (3, 2, 1)))
+        @test particles_gpu                       isa JustPIC.Particles{Backend}
+        @test phase_ratios_gpu                    isa JustPIC.PhaseRatios{Backend}
+        @test last(typeof(phases_gpu).parameters) <: T{Float64, 3}
+        @test size(particles_gpu.coords[1].data)  == size(permutedims(particles.coords[1].data, (3, 2, 1)))
+        @test size(particles_gpu.coords[2].data)  == size(permutedims(particles.coords[2].data, (3, 2, 1)))
+        @test size(particles_gpu.index.data)      == size(permutedims(particles.index.data, (3, 2, 1)))
+        @test size(phase_ratios_gpu.center.data)  == size(permutedims(phase_ratios.center.data, (3, 2, 1)))
+        @test size(phase_ratios_gpu.vertex.data)  == size(permutedims(phase_ratios.vertex.data, (3, 2, 1)))
+        @test size(phases_gpu.data)               == size(permutedims(phases.data, (3, 2, 1)))
 
-            # test type conversion
-            @test eltype(eltype($T(phases)))                            === Float64
-            @test eltype(eltype($T(Float64, phases)))                   === Float64
-            @test eltype(eltype($T(Float32, phases)))                   === Float32
-            @test eltype(eltype($T(particles).coords[1].data))          === Float64
-            @test eltype(eltype($T(Float64, particles).coords[1].data)) === Float64
-            @test eltype(eltype($T(Float32, particles).coords[1].data)) === Float32
-            @test eltype(eltype($T(phase_ratios).vertex.data))          === Float64
-            @test eltype(eltype($T(Float64, phase_ratios).vertex.data)) === Float64
-            @test eltype(eltype($T(Float32, phase_ratios).vertex.data)) === Float32
-            @test eltype(eltype($T(particles).index.data))              === Bool
-            @test eltype(eltype($T(Float32, particles).index.data))     === Bool
-            @test eltype(eltype($T(Float64, particles).index.data))     === Bool
-        end
+        # test type conversion
+        @test eltype(eltype(T(phases)))                            === Float64
+        @test eltype(eltype(T(Float64, phases)))                   === Float64
+        @test eltype(eltype(T(Float32, phases)))                   === Float32
+        @test eltype(eltype(T(particles).coords[1].data))          === Float64
+        @test eltype(eltype(T(Float64, particles).coords[1].data)) === Float64
+        @test eltype(eltype(T(Float32, particles).coords[1].data)) === Float32
+        @test eltype(eltype(T(phase_ratios).vertex.data))          === Float64
+        @test eltype(eltype(T(Float64, phase_ratios).vertex.data)) === Float64
+        @test eltype(eltype(T(Float32, phase_ratios).vertex.data)) === Float32
+        @test eltype(eltype(T(particles).index.data))              === Bool
+        @test eltype(eltype(T(Float32, particles).index.data))     === Bool
+        @test eltype(eltype(T(Float64, particles).index.data))     === Bool
     end
     
     rm("particles.jld2") # cleanup
@@ -172,42 +170,39 @@ end
      isAMDGPU = isdefined(Main, :AMDGPU)
  
      if isCUDA || isAMDGPU
-        T       = isCUDA ? :CuArray : :ROCArray
-        Backend = isCUDA ? :CUDABackend : :AMDGPUBackend
+        T       = isCUDA ? CuArray : ROCArray
+        Backend = isCUDA ? CUDABackend : AMDGPUBackend
 
-        @eval begin
-            particles2    = copy(particles)
-            phases2       = copy(phases)
-            phase_ratios2 = copy(phase_ratios)
-          
-            particles_gpu    = $T(particles2)
-            phase_ratios_gpu = $T(phase_ratios2)
-            phases_gpu       = $T(phases2);
+        particles2       = Array(particles)
+        phases2          = Array(phases)
+        phase_ratios2    = Array(phase_ratios)
+        particles_gpu    = T(particles2)
+        phase_ratios_gpu = T(phase_ratios2)
+        phases_gpu       = T(phases2);
 
-            @test particles_gpu                       isa JustPIC.Particles{$Backend}
-            @test phase_ratios_gpu                    isa JustPIC.PhaseRatios{$Backend}
-            @test last(typeof(phases_gpu).parameters) <: $T{Float64, 3}
-            @test size(particles_gpu.coords[1].data)  == size(permutedims(particles.coords[1].data, (3, 2, 1)))
-            @test size(particles_gpu.coords[2].data)  == size(permutedims(particles.coords[2].data, (3, 2, 1)))
-            @test size(particles_gpu.index.data)      == size(permutedims(particles.index.data, (3, 2, 1)))
-            @test size(phase_ratios_gpu.center.data)  == size(permutedims(phase_ratios.center.data, (3, 2, 1)))
-            @test size(phase_ratios_gpu.vertex.data)  == size(permutedims(phase_ratios.vertex.data, (3, 2, 1)))
-            @test size(phases_gpu.data)               == size(permutedims(phases.data, (3, 2, 1)))
+        @test particles_gpu                       isa JustPIC.Particles{Backend}
+        @test phase_ratios_gpu                    isa JustPIC.PhaseRatios{Backend}
+        @test last(typeof(phases_gpu).parameters) <: T{Float64, 3}
+        @test size(particles_gpu.coords[1].data)  == size(permutedims(particles.coords[1].data, (3, 2, 1)))
+        @test size(particles_gpu.coords[2].data)  == size(permutedims(particles.coords[2].data, (3, 2, 1)))
+        @test size(particles_gpu.index.data)      == size(permutedims(particles.index.data, (3, 2, 1)))
+        @test size(phase_ratios_gpu.center.data)  == size(permutedims(phase_ratios.center.data, (3, 2, 1)))
+        @test size(phase_ratios_gpu.vertex.data)  == size(permutedims(phase_ratios.vertex.data, (3, 2, 1)))
+        @test size(phases_gpu.data)               == size(permutedims(phases.data, (3, 2, 1)))
 
-            # test type conversion
-            @test eltype(eltype($T(phases)))                            === Float64
-            @test eltype(eltype($T(Float64, phases)))                   === Float64
-            @test eltype(eltype($T(Float32, phases)))                   === Float32
-            @test eltype(eltype($T(particles).coords[1].data))          === Float64
-            @test eltype(eltype($T(Float64, particles).coords[1].data)) === Float64
-            @test eltype(eltype($T(Float32, particles).coords[1].data)) === Float32
-            @test eltype(eltype($T(phase_ratios).vertex.data))          === Float64
-            @test eltype(eltype($T(Float64, phase_ratios).vertex.data)) === Float64
-            @test eltype(eltype($T(Float32, phase_ratios).vertex.data)) === Float32
-            @test eltype(eltype($T(particles).index.data))              === Bool
-            @test eltype(eltype($T(Float32, particles).index.data))     === Bool
-            @test eltype(eltype($T(Float64, particles).index.data))     === Bool
-        end
+        # test type conversion
+        @test eltype(eltype(T(phases)))                            === Float64
+        @test eltype(eltype(T(Float64, phases)))                   === Float64
+        @test eltype(eltype(T(Float32, phases)))                   === Float32
+        @test eltype(eltype(T(particles).coords[1].data))          === Float64
+        @test eltype(eltype(T(Float64, particles).coords[1].data)) === Float64
+        @test eltype(eltype(T(Float32, particles).coords[1].data)) === Float32
+        @test eltype(eltype(T(phase_ratios).vertex.data))          === Float64
+        @test eltype(eltype(T(Float64, phase_ratios).vertex.data)) === Float64
+        @test eltype(eltype(T(Float32, phase_ratios).vertex.data)) === Float32
+        @test eltype(eltype(T(particles).index.data))              === Bool
+        @test eltype(eltype(T(Float32, particles).index.data))     === Bool
+        @test eltype(eltype(T(Float64, particles).index.data))     === Bool
      end
     
     rm("particles.jld2") # cleanup
