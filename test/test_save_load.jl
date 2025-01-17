@@ -1,3 +1,11 @@
+@static if ENV["JULIA_JUSTPIC_BACKEND"] === "AMDGPU"
+    using AMDGPU
+elseif ENV["JULIA_JUSTPIC_BACKEND"] === "CUDA"
+    using CUDA
+end
+
+const backend = JustPIC.CPUBackend
+
 using JLD2, JustPIC
 import JustPIC._2D as JP2
 import JustPIC._3D as JP3
