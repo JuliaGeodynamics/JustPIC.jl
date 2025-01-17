@@ -44,6 +44,7 @@ function runtests()
             include("test_2D.jl")
             include("test_integrators.jl")
             include("test_CellArrays.jl")
+            include("test_save_load.jl")
         catch 
             nfail +=1 
         end
