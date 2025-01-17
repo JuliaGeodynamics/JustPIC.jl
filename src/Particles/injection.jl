@@ -286,7 +286,8 @@ end
 
 @inline function new_particle(xvi::NTuple{N}, di::NTuple{N}) where {N}
     p_new = ntuple(Val(N)) do i
-        xvi[i] + di[i] * (0.95 * rand() + 0.05)
+        # xvi[i] + di[i] * (0.95 * rand() + 0.05)
+        xvi[i] + di[i] * rand() 
     end
     return p_new
 end

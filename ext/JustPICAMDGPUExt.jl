@@ -112,9 +112,9 @@ module _2D
     end
 
     function JustPIC._2D.init_particles(
-        ::Type{AMDGPUBackend}, nxcell, max_xcell, min_xcell, x, y
+        ::Type{AMDGPUBackend}, nxcell, max_xcell, min_xcell, x, y; buffer = 0.98
     )
-        return init_particles(AMDGPUBackend, nxcell, max_xcell, min_xcell, x, y)
+        return init_particles(AMDGPUBackend, nxcell, max_xcell, min_xcell, x, y, buffer)
     end
 
     function JustPIC._2D.init_particles(
@@ -125,8 +125,9 @@ module _2D
         coords::NTuple{2,AbstractArray},
         dxᵢ::NTuple{2,T},
         nᵢ::NTuple{2,I},
+        buffer,
     ) where {T,I}
-        return init_particles(AMDGPUBackend, nxcell, max_xcell, min_xcell, coords, dxᵢ, nᵢ)
+        return init_particles(AMDGPUBackend, nxcell, max_xcell, min_xcell, coords, dxᵢ, nᵢ, buffer)
     end
 
     function JustPIC._2D.advection!(
@@ -445,9 +446,9 @@ module _3D
     end
 
     function JustPIC._3D.init_particles(
-        ::Type{AMDGPUBackend}, nxcell, max_xcell, min_xcell, x, y, z
+        ::Type{AMDGPUBackend}, nxcell, max_xcell, min_xcell, x, y, z; buffer = 0.98
     )
-        return init_particles(AMDGPUBackend, nxcell, max_xcell, min_xcell, x, y, z)
+        return init_particles(AMDGPUBackend, nxcell, max_xcell, min_xcell, x, y, z, buffer)
     end
 
     function JustPIC._3D.init_particles(
@@ -458,8 +459,9 @@ module _3D
         coords::NTuple{3,AbstractArray},
         dxᵢ::NTuple{3,T},
         nᵢ::NTuple{3,I},
+        buffer
     ) where {T,I}
-        return init_particles(AMDGPUBackend, nxcell, max_xcell, min_xcell, coords, dxᵢ, nᵢ)
+        return init_particles(AMDGPUBackend, nxcell, max_xcell, min_xcell, coords, dxᵢ, nᵢ, buffer)
     end
 
     function JustPIC._3D.advection!(
