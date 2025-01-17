@@ -87,7 +87,7 @@ module _2D
     # Conversions 
     function JustPIC._2D.Particles(
         coords,
-        index::CellArray{StaticArraysCore.SVector{N1,Bool},3,0, CuArray{Bool,N2}},
+        index::CellArray{StaticArraysCore.SVector{N1,Bool},2,0, CuArray{Bool,N2}},
         nxcell,
         max_xcell,
         min_xcell,
@@ -98,7 +98,7 @@ module _2D
 
     function JustPIC._2D.Particles(
         coords,
-        index::CellArray{StaticArraysCore.SVector{N1,Bool},3,0,CuArray{Bool,N2, B}},
+        index::CellArray{StaticArraysCore.SVector{N1,Bool},2,0,CuArray{Bool,N2, B}},
         nxcell,
         max_xcell,
         min_xcell,
