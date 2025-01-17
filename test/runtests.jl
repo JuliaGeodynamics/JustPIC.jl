@@ -79,6 +79,9 @@ function runtests()
                 end
             end
         end
+
+        # Force IO test on GPU
+        run(`$(Base.julia_cmd()) --startup-file=no $(joinpath(testdir, "test_save_load.jl"))`)
     end
 
     return nfail
