@@ -1,6 +1,22 @@
-using JLD2, JustPIC
+@static if ENV["JULIA_JUSTPIC_BACKEND"] === "AMDGPU"
+    using AMDGPU
+elseif ENV["JULIA_JUSTPIC_BACKEND"] === "CUDA"
+    using CUDA
+end
+
+using JustPIC
 import JustPIC._2D as JP2
 import JustPIC._3D as JP3
+
+using CellArrays, Test, JLD2
+
+const backend = @static if ENV["JULIA_JUSTPIC_BACKEND"] === "AMDGPU"
+    JustPIC.AMDGPUBackend
+elseif ENV["JULIA_JUSTPIC_BACKEND"] === "CUDA"
+    CUDABackend
+else
+    JustPIC.CPUBackend
+end
 @testset "Save and load 2D" begin
     # Initialize particles -------------------------------
     nxcell, max_xcell, min_xcell = 6, 6, 6
@@ -13,7 +29,10 @@ import JustPIC._3D as JP3
 
     particles    = JP2.init_particles(backend, nxcell, max_xcell, min_xcell, xvi...,);
     phases,      = JP2.init_cell_arrays(particles, Val(1));
+    particle_args = (phases,)
     phase_ratios = JP2.PhaseRatios(backend, 2, ni);
+    initial_elevation = Ly/2
+    chain             = JP2.init_markerchain(backend, nxcell, min_xcell, max_xcell, xv, initial_elevation);
     @views particles.index.data[:, 1:3, 1] .= 1.0
     @views particles.index.data[:, 4:6, 1] .= 0.0
 
@@ -43,12 +62,14 @@ import JustPIC._3D as JP3
     phases2       = data["phases"]
     phase_ratios2 = data["phase_ratios"]
 
-    checkpointing_particles(@__DIR__, particles, phases, phase_ratios)
+    JP2.checkpointing_particles(@__DIR__, particles, phases, phase_ratios; chain=chain, particle_args=particle_args)
 
     data1          = load("particles_checkpoint.jld2")
     particles3    = data1["particles"]
     phases3       = data1["phases"]
     phase_ratios3 = data1["phase_ratios"]
+    chain3         = data1["chain"]
+    particle_args3 = data1["particle_args"]
 
     @test JP2.Array(particles).coords[1].data        == particles2.coords[1].data
     @test JP2.Array(particles).coords[2].data        == particles2.coords[2].data
@@ -63,6 +84,8 @@ import JustPIC._3D as JP3
     @test size(JP2.Array(phase_ratios).vertex.data)  == size(phase_ratios2.vertex.data)
     @test size(JP2.Array(phases).data)               == size(phases2.data)
 
+    @test chain3                                      isa JustPIC.MarkerChain{JustPIC.CPUBackend}
+    @test particle_args3                              isa Tuple
     @test JP2.Array(particles).coords[1].data        == particles3.coords[1].data
     @test JP2.Array(particles).coords[2].data        == particles3.coords[2].data
     @test JP2.Array(particles).index.data            == particles3.index.data
@@ -84,9 +107,13 @@ import JustPIC._3D as JP3
         particles_cuda2    = CuArray(particles3)
         phase_ratios_cuda2 = CuArray(phase_ratios3)
         phases_cuda2       = CuArray(phases3);
+        chain_cuda         = CuArray(chain)
+        particle_args_cuda = CuArray.(particle_args)
 
         @test particles_cuda                       isa JustPIC.Particles{CUDABackend}
         @test phase_ratios_cuda                    isa JustPIC.PhaseRatios{CUDABackend}
+        @test chain_cuda                           isa JustPIC.MarkerChain{CUDABackend}
+        @test particle_args_cuda                   isa Tuple
         @test last(typeof(phases_cuda).parameters) <: CuArray{Float64, 3}
         @test typeof(phases_cuda)                  == typeof(phases)
         @test size(particles_cuda.coords[1].data)  == size(particles.coords[1].data)
@@ -129,9 +156,13 @@ import JustPIC._3D as JP3
         particles_amdgpu2    = ROCArray(particles2)
         phase_ratios_amdgpu2 = ROCArray(phase_ratios2)
         phases_amdgpu2       = ROCArray(phases2)
+        chain_amdgpu         = ROCArray(chain)
+        partile_args_ampgpu  = ROCArray.(particle_args)
 
         @test particles_amdgpu2                       isa JustPIC.Particles{AMDGPUBackend}
         @test phase_ratios_amdgpu2                    isa JustPIC.PhaseRatios{AMDGPUBackend}
+        @test chain_amdgpu                            isa JustPIC.MarkerChain{AMDGPUBackend}
+        @test partiles_args_ampgpu                    isa Tuple
         @test last(typeof(phases_amdgpu2).parameters) <: ROCArray{Float64, 3}
         @test typeof(phases_amdgpu2)                  == typeof(phases)
         @test size(particles_amdgpu2.coords[1].data)  == size(particles.coords[1].data)
@@ -203,7 +234,7 @@ end
     phases2       = data["phases"]
     phase_ratios2 = data["phase_ratios"]
 
-    checkpointing_particles(@__DIR__, particles, phases, phase_ratios)
+    JP3.checkpointing_particles(@__DIR__, particles, phases, phase_ratios)
 
     data1          = load("particles_checkpoint.jld2")
     particles3    = data1["particles"]
