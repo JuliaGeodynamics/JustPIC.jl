@@ -4,7 +4,7 @@ elseif ENV["JULIA_JUSTPIC_BACKEND"] === "CUDA"
     using CUDA
 end
 
-using JLD2, JustPIC
+using JLD2, JustPIC, Test
 import JustPIC._2D as JP2
 import JustPIC._3D as JP3
 
