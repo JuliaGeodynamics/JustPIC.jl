@@ -65,9 +65,8 @@ const backend = JustPIC.CPUBackend
     @test size(JP2.Array(phase_ratios).vertex.data)  == size(phase_ratios2.vertex.data)
     @test size(JP2.Array(phases).data)               == size(phases2.data)
 
-    
     # Test on GPU card, if available
-    isCUDA = isdefined(Main, :CUDA)
+    isCUDA   = isdefined(Main, :CUDA)
     isAMDGPU = isdefined(Main, :AMDGPU)
 
     if isCUDA || isAMDGPU
@@ -75,6 +74,10 @@ const backend = JustPIC.CPUBackend
         Backend = isCUDA ? :CUDABackend : :AMDGPUBackend
 
         @eval begin
+            particles2    = Array(particles)
+            phases2       = Array(phases)
+            phase_ratios2 = Array(phase_ratios)
+            
             particles_gpu    = $T(particles2)
             phase_ratios_gpu = $T(phase_ratios2)
             phases_gpu       = $T(phases2);
@@ -123,27 +126,27 @@ end
     phase_ratios = JP3.PhaseRatios(backend, 2, ni);
 
     # test type conversion
-    @test eltype(eltype(JP3.Array(phases)))                            === Float64
-    @test eltype(eltype(JP3.Array(Float64, phases)))                   === Float64
-    @test eltype(eltype(JP3.Array(Float32, phases)))                   === Float32
-    @test eltype(eltype(JP3.Array(particles).coords[1].data))          === Float64
-    @test eltype(eltype(JP3.Array(Float64, particles).coords[1].data)) === Float64
-    @test eltype(eltype(JP3.Array(Float32, particles).coords[1].data)) === Float32
-    @test eltype(eltype(JP3.Array(phase_ratios).vertex.data))          === Float64
-    @test eltype(eltype(JP3.Array(Float64, phase_ratios).vertex.data)) === Float64
-    @test eltype(eltype(JP3.Array(Float32, phase_ratios).vertex.data)) === Float32
-    @test eltype(eltype(JP3.Array(particles).index.data))              === Bool
-    @test eltype(eltype(JP3.Array(Float32, particles).index.data))     === Bool
-    @test eltype(eltype(JP3.Array(Float64, particles).index.data))     === Bool
+    @test eltype(eltype(Array(phases)))                            === Float64
+    @test eltype(eltype(Array(Float64, phases)))                   === Float64
+    @test eltype(eltype(Array(Float32, phases)))                   === Float32
+    @test eltype(eltype(Array(particles).coords[1].data))          === Float64
+    @test eltype(eltype(Array(Float64, particles).coords[1].data)) === Float64
+    @test eltype(eltype(Array(Float32, particles).coords[1].data)) === Float32
+    @test eltype(eltype(Array(phase_ratios).vertex.data))          === Float64
+    @test eltype(eltype(Array(Float64, phase_ratios).vertex.data)) === Float64
+    @test eltype(eltype(Array(Float32, phase_ratios).vertex.data)) === Float32
+    @test eltype(eltype(Array(particles).index.data))              === Bool
+    @test eltype(eltype(Array(Float32, particles).index.data))     === Bool
+    @test eltype(eltype(Array(Float64, particles).index.data))     === Bool
 
     particles.index.data[:, 1:3, 1] .= 1.0
     particles.index.data[:, 4:6, 1] .= 0.0
 
     jldsave(
         "particles.jld2"; 
-        particles    = JP3.Array(particles), 
-        phases       = JP3.Array(phases), 
-        phase_ratios = JP3.Array(phase_ratios)
+        particles    = Array(particles), 
+        phases       = Array(phases), 
+        phase_ratios = Array(phase_ratios)
     )
 
     data          = load("particles.jld2")
@@ -151,21 +154,21 @@ end
     phases2       = data["phases"]
     phase_ratios2 = data["phase_ratios"]
 
-    @test JP3.Array(particles).coords[1].data        == particles2.coords[1].data
-    @test JP3.Array(particles).coords[2].data        == particles2.coords[2].data
-    @test JP3.Array(particles).index.data            == particles2.index.data
-    @test JP3.Array(phase_ratios).center.data        == phase_ratios2.center.data
-    @test JP3.Array(phase_ratios).vertex.data        == phase_ratios2.vertex.data
-    @test JP3.Array(phases).data                     == phases2.data
-    @test size(JP3.Array(particles).coords[1].data)  == size(particles2.coords[1].data)
-    @test size(JP3.Array(particles).coords[2].data)  == size(particles2.coords[2].data)
-    @test size(JP3.Array(particles).index.data)      == size(particles2.index.data)
-    @test size(JP3.Array(phase_ratios).center.data)  == size(phase_ratios2.center.data)
-    @test size(JP3.Array(phase_ratios).vertex.data)  == size(phase_ratios2.vertex.data)
-    @test size(JP3.Array(phases).data)               == size(phases2.data)
+    @test Array(particles).coords[1].data        == particles2.coords[1].data
+    @test Array(particles).coords[2].data        == particles2.coords[2].data
+    @test Array(particles).index.data            == particles2.index.data
+    @test Array(phase_ratios).center.data        == phase_ratios2.center.data
+    @test Array(phase_ratios).vertex.data        == phase_ratios2.vertex.data
+    @test Array(phases).data                     == phases2.data
+    @test size(Array(particles).coords[1].data)  == size(particles2.coords[1].data)
+    @test size(Array(particles).coords[2].data)  == size(particles2.coords[2].data)
+    @test size(Array(particles).index.data)      == size(particles2.index.data)
+    @test size(Array(phase_ratios).center.data)  == size(phase_ratios2.center.data)
+    @test size(Array(phase_ratios).vertex.data)  == size(phase_ratios2.vertex.data)
+    @test size(Array(phases).data)               == size(phases2.data)
 
      # Test on GPU card, if available
-     isCUDA = isdefined(Main, :CUDA)
+     isCUDA   = isdefined(Main, :CUDA)
      isAMDGPU = isdefined(Main, :AMDGPU)
  
      if isCUDA || isAMDGPU
@@ -173,6 +176,10 @@ end
         Backend = isCUDA ? :CUDABackend : :AMDGPUBackend
 
         @eval begin
+            particles2    = copy(particles)
+            phases2       = copy(phases)
+            phase_ratios2 = copy(phase_ratios)
+          
             particles_gpu    = $T(particles2)
             phase_ratios_gpu = $T(phase_ratios2)
             phases_gpu       = $T(phases2);
