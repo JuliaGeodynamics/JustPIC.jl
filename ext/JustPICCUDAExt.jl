@@ -114,7 +114,7 @@ module _2D
     function JustPIC._2D.init_particles(
         ::Type{CUDABackend}, nxcell, max_xcell, min_xcell, x, y; buffer = 0.98
     )
-        return init_particles(CUDABackend, nxcell, max_xcell, min_xcell, x, y, bufer)
+        return init_particles(CUDABackend, nxcell, max_xcell, min_xcell, x, y, buffer)
     end
 
     function JustPIC._2D.init_particles(
