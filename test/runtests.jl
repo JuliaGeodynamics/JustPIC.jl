@@ -44,14 +44,15 @@ function runtests()
             include("test_2D.jl")
             include("test_integrators.jl")
             include("test_CellArrays.jl")
-        catch 
-            nfail +=1 
+            include("test_save_load.jl")
+        catch
+            nfail +=1
         end
         try
             printstyled("Running 3D tests\n"; bold=true, color=:white)
             include("test_3D.jl")
-        catch 
-            nfail +=1 
+        catch
+            nfail +=1
         end
     else
         # 2D tests --------------------------------------------------

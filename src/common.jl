@@ -100,3 +100,6 @@ include("PhaseRatios/centers.jl")
 include("PhaseRatios/vertices.jl")
 include("PhaseRatios/midpoints.jl")
 export update_phase_ratios!, phase_ratios_center!, phase_ratios_vertex!, phase_ratios_midpoint!
+
+include("IO/JLD2.jl")
+export checkpointing_particles

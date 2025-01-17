@@ -32,9 +32,9 @@ import JustPIC._3D as JP3
     @test eltype(eltype(JP2.Array(Float32, phase_ratios).vertex.data)) === Float32
 
     jldsave(
-        "particles.jld2"; 
-        particles    = JP2.Array(particles), 
-        phases       = JP2.Array(phases), 
+        "particles.jld2";
+        particles    = JP2.Array(particles),
+        phases       = JP2.Array(phases),
         phase_ratios = JP2.Array(phase_ratios)
     )
 
@@ -42,6 +42,13 @@ import JustPIC._3D as JP3
     particles2    = data["particles"]
     phases2       = data["phases"]
     phase_ratios2 = data["phase_ratios"]
+
+    checkpointing_particles(@__DIR__, particles, phases, phase_ratios)
+
+    data1          = load("particles_checkpoint.jld2")
+    particles3    = data1["particles"]
+    phases3       = data1["phases"]
+    phase_ratios3 = data1["phase_ratios"]
 
     @test JP2.Array(particles).coords[1].data        == particles2.coords[1].data
     @test JP2.Array(particles).coords[2].data        == particles2.coords[2].data
@@ -56,13 +63,30 @@ import JustPIC._3D as JP3
     @test size(JP2.Array(phase_ratios).vertex.data)  == size(phase_ratios2.vertex.data)
     @test size(JP2.Array(phases).data)               == size(phases2.data)
 
+    @test JP2.Array(particles).coords[1].data        == particles3.coords[1].data
+    @test JP2.Array(particles).coords[2].data        == particles3.coords[2].data
+    @test JP2.Array(particles).index.data            == particles3.index.data
+    @test JP2.Array(phase_ratios).center.data        == phase_ratios3.center.data
+    @test JP2.Array(phase_ratios).vertex.data        == phase_ratios3.vertex.data
+    @test JP2.Array(phases).data                     == phases3.data
+    @test size(JP2.Array(particles).coords[1].data)  == size(particles3.coords[1].data)
+    @test size(JP2.Array(particles).coords[2].data)  == size(particles3.coords[2].data)
+    @test size(JP2.Array(particles).index.data)      == size(particles3.index.data)
+    @test size(JP2.Array(phase_ratios).center.data)  == size(phase_ratios3.center.data)
+    @test size(JP2.Array(phase_ratios).vertex.data)  == size(phase_ratios3.vertex.data)
+    @test size(JP2.Array(phases).data)               == size(phases3.data)
+
     if isdefined(Main, :CUDA)
         particles_cuda    = CuArray(particles2)
         phase_ratios_cuda = CuArray(phase_ratios2)
         phases_cuda       = CuArray(phases2);
 
-        @test particles_cuda                       isa JustPIC.Particles{CUDABackend} 
-        @test phase_ratios_cuda                    isa JustPIC.PhaseRatios{CUDABackend} 
+        particles_cuda2    = CuArray(particles3)
+        phase_ratios_cuda2 = CuArray(phase_ratios3)
+        phases_cuda2       = CuArray(phases3);
+
+        @test particles_cuda                       isa JustPIC.Particles{CUDABackend}
+        @test phase_ratios_cuda                    isa JustPIC.PhaseRatios{CUDABackend}
         @test last(typeof(phases_cuda).parameters) <: CuArray{Float64, 3}
         @test typeof(phases_cuda)                  == typeof(phases)
         @test size(particles_cuda.coords[1].data)  == size(particles.coords[1].data)
@@ -71,6 +95,17 @@ import JustPIC._3D as JP3
         @test size(phase_ratios_cuda.center.data)  == size(phase_ratios.center.data)
         @test size(phase_ratios_cuda.vertex.data)  == size(phase_ratios.vertex.data)
         @test size(phases_cuda.data)               == size(phases.data)
+
+        @test particles_cuda2                       isa JustPIC.Particles{CUDABackend}
+        @test phase_ratios_cuda2                    isa JustPIC.PhaseRatios{CUDABackend}
+        @test last(typeof(phases_cuda2).parameters) <: CuArray{Float64, 3}
+        @test typeof(phases_cuda2)                  == typeof(phases)
+        @test size(particles_cuda2.coords[1].data)  == size(particles.coords[1].data)
+        @test size(particles_cuda2.coords[2].data)  == size(particles.coords[2].data)
+        @test size(particles_cuda2.index.data)      == size(particles.index.data)
+        @test size(phase_ratios_cuda2.center.data)  == size(phase_ratios.center.data)
+        @test size(phase_ratios_cuda2.vertex.data)  == size(phase_ratios.vertex.data)
+        @test size(phases_cuda2.data)               == size(phases.data)
 
         # test type conversion
         @test eltype(eltype(CuArray(phases)))                            === Float64
@@ -91,16 +126,20 @@ import JustPIC._3D as JP3
         phase_ratios_amdgpu = ROCArray(phase_ratios2)
         phases_amdgpu       = ROCArray(phases2)
 
-        @test particles_amdgpu                       isa JustPIC.Particles{AMDGPUBackend} 
-        @test phase_ratios_amdgpu                    isa JustPIC.PhaseRatios{AMDGPUBackend} 
-        @test last(typeof(phases_amdgpu).parameters) <: ROCArray{Float64, 3}
-        @test typeof(phases_amdgpu)                  == typeof(phases)
-        @test size(particles_amdgpu.coords[1].data)  == size(particles.coords[1].data)
-        @test size(particles_amdgpu.coords[2].data)  == size(particles.coords[2].data)
-        @test size(particles_amdgpu.index.data)      == size(particles.index.data)
-        @test size(phase_ratios_amdgpu.center.data)  == size(phase_ratios.center.data)
-        @test size(phase_ratios_amdgpu.vertex.data)  == size(phase_ratios.vertex.data)
-        @test size(phases_amdgpu.data)               == size(phases.data)
+        particles_amdgpu2    = ROCArray(particles2)
+        phase_ratios_amdgpu2 = ROCArray(phase_ratios2)
+        phases_amdgpu2       = ROCArray(phases2)
+
+        @test particles_amdgpu2                       isa JustPIC.Particles{AMDGPUBackend}
+        @test phase_ratios_amdgpu2                    isa JustPIC.PhaseRatios{AMDGPUBackend}
+        @test last(typeof(phases_amdgpu2).parameters) <: ROCArray{Float64, 3}
+        @test typeof(phases_amdgpu2)                  == typeof(phases)
+        @test size(particles_amdgpu2.coords[1].data)  == size(particles.coords[1].data)
+        @test size(particles_amdgpu2.coords[2].data)  == size(particles.coords[2].data)
+        @test size(particles_amdgpu2.index.data)      == size(particles.index.data)
+        @test size(phase_ratios_amdgpu2.center.data)  == size(phase_ratios.center.data)
+        @test size(phase_ratios_amdgpu2.vertex.data)  == size(phase_ratios.vertex.data)
+        @test size(phases_amdgpu2.data)               == size(phases.data)
 
         # test type conversion
         @test eltype(eltype(ROCArray(phases)))                            === Float64
@@ -116,7 +155,8 @@ import JustPIC._3D as JP3
         @test eltype(eltype(ROCArray(Float32, particles).index.data))     === Bool
         @test eltype(eltype(ROCArray(Float64, particles).index.data))     === Bool
     end
-    
+
+    rm("particles_checkpoint.jld2") # cleanup
     rm("particles.jld2") # cleanup
 end
 
@@ -152,9 +192,9 @@ end
     particles.index.data[:, 4:6, 1] .= 0.0
 
     jldsave(
-        "particles.jld2"; 
-        particles    = JP3.Array(particles), 
-        phases       = JP3.Array(phases), 
+        "particles.jld2";
+        particles    = JP3.Array(particles),
+        phases       = JP3.Array(phases),
         phase_ratios = JP3.Array(phase_ratios)
     )
 
@@ -162,6 +202,13 @@ end
     particles2    = data["particles"]
     phases2       = data["phases"]
     phase_ratios2 = data["phase_ratios"]
+
+    checkpointing_particles(@__DIR__, particles, phases, phase_ratios)
+
+    data1          = load("particles_checkpoint.jld2")
+    particles3    = data1["particles"]
+    phases3       = data1["phases"]
+    phase_ratios3 = data1["phase_ratios"]
 
     @test JP3.Array(particles).coords[1].data        == particles2.coords[1].data
     @test JP3.Array(particles).coords[2].data        == particles2.coords[2].data
@@ -176,13 +223,30 @@ end
     @test size(JP3.Array(phase_ratios).vertex.data)  == size(phase_ratios2.vertex.data)
     @test size(JP3.Array(phases).data)               == size(phases2.data)
 
+    @test JP3.Array(particles).coords[1].data        == particles3.coords[1].data
+    @test JP3.Array(particles).coords[2].data        == particles3.coords[2].data
+    @test JP3.Array(particles).index.data            == particles3.index.data
+    @test JP3.Array(phase_ratios).center.data        == phase_ratios3.center.data
+    @test JP3.Array(phase_ratios).vertex.data        == phase_ratios3.vertex.data
+    @test JP3.Array(phases).data                     == phases3.data
+    @test size(JP3.Array(particles).coords[1].data)  == size(particles3.coords[1].data)
+    @test size(JP3.Array(particles).coords[2].data)  == size(particles3.coords[2].data)
+    @test size(JP3.Array(particles).index.data)      == size(particles3.index.data)
+    @test size(JP3.Array(phase_ratios).center.data)  == size(phase_ratios3.center.data)
+    @test size(JP3.Array(phase_ratios).vertex.data)  == size(phase_ratios3.vertex.data)
+    @test size(JP3.Array(phases).data)               == size(phases3.data)
+
     if isdefined(Main, :CUDA)
         particles_cuda    = CuArray(particles2)
         phase_ratios_cuda = CuArray(phase_ratios2)
         phases_cuda       = CuArray(phases2);
 
-        @test particles_cuda                       isa JustPIC.Particles{CUDABackend} 
-        @test phase_ratios_cuda                    isa JustPIC.PhaseRatios{CUDABackend} 
+        particles_cuda2    = CuArray(particles3)
+        phase_ratios_cuda2 = CuArray(phase_ratios3)
+        phases_cuda2       = CuArray(phases3);
+
+        @test particles_cuda                       isa JustPIC.Particles{CUDABackend}
+        @test phase_ratios_cuda                    isa JustPIC.PhaseRatios{CUDABackend}
         @test last(typeof(phases_cuda).parameters) <: CuArray{Float64, 3}
         @test typeof(phases_cuda)                  == typeof(phases)
         @test size(particles_cuda.coords[1].data)  == size(particles.coords[1].data)
@@ -191,6 +255,17 @@ end
         @test size(phase_ratios_cuda.center.data)  == size(phase_ratios.center.data)
         @test size(phase_ratios_cuda.vertex.data)  == size(phase_ratios.vertex.data)
         @test size(phases_cuda.data)               == size(phases.data)
+
+        @test particles_cuda2                       isa JustPIC.Particles{CUDABackend}
+        @test phase_ratios_cuda2                    isa JustPIC.PhaseRatios{CUDABackend}
+        @test last(typeof(phases_cuda2).parameters) <: CuArray{Float64, 3}
+        @test typeof(phases_cuda2)                  == typeof(phases)
+        @test size(particles_cuda2.coords[1].data)  == size(particles.coords[1].data)
+        @test size(particles_cuda2.coords[2].data)  == size(particles.coords[2].data)
+        @test size(particles_cuda2.index.data)      == size(particles.index.data)
+        @test size(phase_ratios_cuda2.center.data)  == size(phase_ratios.center.data)
+        @test size(phase_ratios_cuda2.vertex.data)  == size(phase_ratios.vertex.data)
+        @test size(phases_cuda2.data)               == size(phases.data)
 
         # test type conversion
         @test eltype(eltype(CuArray(phases)))                            === Float64
@@ -211,8 +286,12 @@ end
         phase_ratios_amdgpu = JP3.ROCArray(phase_ratios2)
         phases_amdgpu       = JP3.ROCArray(phases2)
 
-        @test particles_amdgpu                       isa JustPIC.Particles{AMDGPUBackend} 
-        @test phase_ratios_amdgpu                    isa JustPIC.PhaseRatios{AMDGPUBackend} 
+        particles_amdgpu2    = JP3.ROCArray(particles3)
+        phase_ratios_amdgpu2 = JP3.ROCArray(phase_ratios3)
+        phases_amdgpu2       = JP3.ROCArray(phases3)
+
+        @test particles_amdgpu                       isa JustPIC.Particles{AMDGPUBackend}
+        @test phase_ratios_amdgpu                    isa JustPIC.PhaseRatios{AMDGPUBackend}
         @test last(typeof(phases_amdgpu).parameters) <: ROCArray{Float64, 3}
         @test typeof(phases_amdgpu)                  == typeof(phases)
         @test size(particles_amdgpu.coords[1].data)  == size(particles.coords[1].data)
@@ -221,6 +300,17 @@ end
         @test size(phase_ratios_amdgpu.center.data)  == size(phase_ratios.center.data)
         @test size(phase_ratios_amdgpu.vertex.data)  == size(phase_ratios.vertex.data)
         @test size(phases_amdgpu.data)               == size(phases.data)
+
+        @test particles_amdgpu2                       isa JustPIC.Particles{AMDGPUBackend}
+        @test phase_ratios_amdgpu2                    isa JustPIC.PhaseRatios{AMDGPUBackend}
+        @test last(typeof(phases_amdgpu2).parameters) <: ROCArray{Float64, 3}
+        @test typeof(phases_amdgpu2)                  == typeof(phases)
+        @test size(particles_amdgpu2.coords[1].data)  == size(particles.coords[1].data)
+        @test size(particles_amdgpu2.coords[2].data)  == size(particles.coords[2].data)
+        @test size(particles_amdgpu2.index.data)      == size(particles.index.data)
+        @test size(phase_ratios_amdgpu2.center.data)  == size(phase_ratios.center.data)
+        @test size(phase_ratios_amdgpu2.vertex.data)  == size(phase_ratios.vertex.data)
+        @test size(phases_amdgpu2.data)               == size(phases.data)
 
         # test type conversion
         @test eltype(eltype(ROCArray(phases)))                            === Float64
@@ -237,6 +327,7 @@ end
         @test eltype(eltype(ROCArray(Float64, particles).index.data))     === Bool
 
     end
-    
+
     rm("particles.jld2") # cleanup
+    rm("particles_checkpoint.jld2") # cleanup
 end
