@@ -15,19 +15,19 @@ function CUDA.CuArray(::Type{T}, particles::JustPIC.Particles) where {T<:Number}
 end
 
 function CUDA.CuArray(::Type{T}, phase_ratios::JustPIC.PhaseRatios) where {T<:Number}
-    (; vertex, center) = phase_ratios
-    return JustPIC.PhaseRatios(CUDABackend, CuArray(T, center), CuArray(T, vertex))
+    (; center, vertex, Vx, Vy, Vz, yz, xz, xy) = phase_ratios
+    return JustPIC.PhaseRatios(CUDABackend, CuArray(T, center), CuArray(T, vertex), CuArray(T, Vx), CuArray(T, Vy), CuArray(T, Vz), CuArray(T, yz), CuArray(T, xz), CuArray(T, xy))
+end
+
+function CUDA.CuArray(phase_ratios::JustPIC.PhaseRatios)
+    (; center, vertex, Vx, Vy, Vz, yz, xz, xy) = phase_ratios
+    return JustPIC.PhaseRatios(CUDABackend, CuArray(center), CuArray(vertex), CuArray(Vx), CuArray(Vy), CuArray(Vz), CuArray(yz), CuArray(xz), CuArray(xy))
 end
 
 function CUDA.CuArray(particles::JustPIC.Particles)
     (; coords, index, nxcell, max_xcell, min_xcell, np) = particles
     coords_gpu = ntuple(i->CuArray(coords[i]), Val(length(coords))) 
     return Particles(CUDABackend, coords_gpu, CuArray(index), nxcell, max_xcell, min_xcell, np)
-end
-
-function CUDA.CuArray(phase_ratios::JustPIC.PhaseRatios)
-    (; vertex, center) = phase_ratios
-    return JustPIC.PhaseRatios(CUDABackend, CuArray(center), CuArray(vertex))
 end
 
 function CUDA.CuArray(::Type{T}, CA::CellArray) where {T<:Number}
