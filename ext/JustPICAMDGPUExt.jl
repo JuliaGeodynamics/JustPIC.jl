@@ -17,8 +17,13 @@ function AMDGPU.ROCArray(::Type{T}, particles::JustPIC.Particles) where {T<:Numb
 end
 
 function AMDGPU.ROCArray(::Type{T}, phase_ratios::JustPIC.PhaseRatios) where {T<:Number}
-    (; vertex, center) = phase_ratios
-    return JustPIC.PhaseRatios(AMDGPUBackend, ROCArray(T, center), ROCArray(T, vertex))
+    (; center, vertex, Vx, Vy, Vz, yz, xz, xy) = phase_ratios
+    return JustPIC.PhaseRatios(AMDGPUBackend, ROCArray(T, center), ROCArray(T, vertex), ROCArray(T, Vx), ROCArray(T, Vy), ROCArray(T, Vz), ROCArray(T, yz), ROCArray(T, xz), ROCArray(T, xy))
+end
+
+function AMDGPU.ROCArray(phase_ratios::JustPIC.PhaseRatios)
+    (; center, vertex, Vx, Vy, Vz, yz, xz, xy) = phase_ratios
+    return JustPIC.PhaseRatios(AMDGPUBackend, ROCArray(center), ROCArray(vertex), ROCArray(Vx), ROCArray(Vy), ROCArray(Vz), ROCArray(yz), ROCArray(xz), ROCArray(xy))
 end
 
 function AMDGPU.ROCArray(particles::JustPIC.Particles)
@@ -87,7 +92,7 @@ module _2D
     # Conversions 
     function JustPIC._2D.Particles(
         coords,
-        index::CellArray{StaticArraysCore.SVector{N1,Bool},3,0, ROCArray{Bool,N2}},
+        index::CellArray{StaticArraysCore.SVector{N1,Bool},2,0, ROCArray{Bool,N2}},
         nxcell,
         max_xcell,
         min_xcell,
@@ -98,7 +103,7 @@ module _2D
 
     function JustPIC._2D.Particles(
         coords,
-        index::CellArray{StaticArraysCore.SVector{N1,Bool},3,0,ROCArray{Bool,N2, B}},
+        index::CellArray{StaticArraysCore.SVector{N1,Bool},2,0,ROCArray{Bool,N2, B}},
         nxcell,
         max_xcell,
         min_xcell,
