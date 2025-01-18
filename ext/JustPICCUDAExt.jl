@@ -10,8 +10,15 @@ CuCellArray(::Type{T}, ::UndefInitializer, dims::Int...) where {T<:CellArrays.Ce
 
 function CUDA.CuArray(::Type{T}, particles::JustPIC.Particles) where {T<:Number}
     (; coords, index, nxcell, max_xcell, min_xcell, np) = particles
-    coords_gpu = ntuple(i->CuArray(T, coords[i]), Val(length(coords))) 
+    coords_gpu = ntuple(i->CuArray(T, coords[i]), Val(length(coords)))
     return Particles(CUDABackend, coords_gpu, CuArray(Bool, index), nxcell, max_xcell, min_xcell, np)
+end
+
+function CUDA.CuArray(::Type{T}, chain::JustPIC.MarkerChain) where {T<:Number}
+    (; cell_vertices, coords, coords0, h_vertices, h_vertices0, index, max_xcell, min_xcell) = chain
+    coords_gpu = ntuple(i->CuArray(T, coords[i]), Val(length(coords)))
+    coords0_gpu = ntuple(i->CuArray(T, coords0[i]), Val(length(coords0)))
+    return MarkerChain(CUDABackend, coords_gpu, coords0_gpu, CuArray(h_vertices), CuArray(h_vertices0), cell_vertices, CuArray(Bool, index), max_xcell, min_xcell)
 end
 
 function CUDA.CuArray(::Type{T}, phase_ratios::JustPIC.PhaseRatios) where {T<:Number}
@@ -26,8 +33,15 @@ end
 
 function CUDA.CuArray(particles::JustPIC.Particles)
     (; coords, index, nxcell, max_xcell, min_xcell, np) = particles
-    coords_gpu = ntuple(i->CuArray(coords[i]), Val(length(coords))) 
+    coords_gpu = ntuple(i->CuArray(coords[i]), Val(length(coords)))
     return Particles(CUDABackend, coords_gpu, CuArray(index), nxcell, max_xcell, min_xcell, np)
+end
+
+function CUDA.CuArray(chain::JustPIC.MarkerChain)
+    (; cell_vertices, coords, coords0, h_vertices, h_vertices0, index, max_xcell, min_xcell) = chain
+    coords_gpu = ntuple(i->CuArray( coords[i]), Val(length(coords)))
+    coords0_gpu = ntuple(i->CuArray(coords0[i]), Val(length(coords0)))
+    return MarkerChain(CUDABackend, coords_gpu, coords0_gpu, CuArray(h_vertices), CuArray(h_vertices0), cell_vertices, CuArray(Bool, index), max_xcell, min_xcell)
 end
 
 function CUDA.CuArray(::Type{T}, CA::CellArray) where {T<:Number}
@@ -57,7 +71,7 @@ module _2D
     using JustPIC
 
     @init_parallel_stencil(CUDA, Float64, 2)
-    
+
     import JustPIC: Euler, RungeKutta2, AbstractAdvectionIntegrator
     import JustPIC._2D.CA
     import JustPIC: Particles, PassiveMarkers
@@ -84,7 +98,7 @@ module _2D
     JustPIC._2D.update_cell_halo!(x::Vararg{CellArray{S, N, D, CuArray{T, nD}}, NA}) where {NA, S, N, D, T, nD} = update_cell_halo!(x...)
     JustPIC._2D.update_cell_halo!(x::Vararg{CellArray{S, N, D, CuArray{T, nD, B}}, NA}) where {NA, S, N, D, T, nD, B} = update_cell_halo!(x...)
 
-    # Conversions 
+    # Conversions
     function JustPIC._2D.Particles(
         coords,
         index::CellArray{StaticArraysCore.SVector{N1,Bool},2,0, CuArray{Bool,N2}},
@@ -253,7 +267,7 @@ module _2D
         compute_topography_vertex!(chain)
         return nothing
     end
-    
+
     function JustPIC._2D.reconstruct_chain_from_vertices!(chain::MarkerChain{CUDABackend})
         reconstruct_chain_from_vertices!(chain)
         return nothing
@@ -340,13 +354,13 @@ module _2D
         ::Type{T}, ::Type{CUDABackend}, nphases::Integer, ni::NTuple{2,Integer}
     ) where {T}
         nx, ny = ni
-        
+
         center = cell_array(zero(T), (nphases,), ni)
         vertex = cell_array(zero(T), (nphases,), ni .+ 1)
         Vx     = cell_array(zero(T), (nphases,), (nx + 1, ny))
         Vy     = cell_array(zero(T), (nphases,), (nx, ny + 1))
         dummy  = cell_array(zero(T), (nphases,), (1, 1)) # because it cant be a Union{T, Nothing} type on the GPU....
-   
+
         return JustPIC.PhaseRatios(CUDABackend, center, vertex, Vx, Vy, dummy, dummy, dummy, dummy)
     end
 
@@ -407,12 +421,12 @@ module _3D
 
     include(joinpath(@__DIR__, "../src/common.jl"))
     include(joinpath(@__DIR__, "../src/CUDAExt/CellArrays.jl"))
-    
+
     # halo update
     JustPIC._3D.update_cell_halo!(x::Vararg{CellArray{S, N, D, CuArray{T, nD}}, NA}) where {NA, S, N, D, T, nD} = update_cell_halo!(x...)
     JustPIC._3D.update_cell_halo!(x::Vararg{CellArray{S, N, D, CuArray{T, nD, B}}, NA}) where {NA, S, N, D, T, nD, B} = update_cell_halo!(x...)
 
-    # Conversions 
+    # Conversions
     function JustPIC._3D.Particles(
         coords,
         index::CellArray{StaticArraysCore.SVector{N1,Bool},3,0, CuArray{Bool,N2}},
@@ -616,7 +630,7 @@ module _3D
         phase_ratios_midpoint!(phase_ratios.xz, particles, xci, phases, :xz)
         return nothing
     end
-    
+
     function JustPIC._3D.PhaseRatios(
         ::Type{CUDABackend}, nphases::Integer, ni::NTuple{N,Integer}
     ) where {N}
@@ -627,7 +641,7 @@ module _3D
         ::Type{T}, ::Type{CUDABackend}, nphases::Integer, ni::NTuple{3,Integer}
     ) where {T}
         nx, ny, nz  = ni
-        
+
         center = cell_array(zero(T), (nphases,), ni)
         vertex = cell_array(zero(T), (nphases,), ni .+ 1)
         Vx     = cell_array(zero(T), (nphases,), (nx + 1, ny, nz))
@@ -636,7 +650,7 @@ module _3D
         yz     = cell_array(zero(T), (nphases,), (nx, ny + 1, nz + 1))
         xz     = cell_array(zero(T), (nphases,), (nx + 1, ny, nz + 1))
         xy     = cell_array(zero(T), (nphases,), (nx + 1, ny + 1, nz))
-    
+
         return JustPIC.PhaseRatios(CUDABackend, center, vertex, Vx, Vy, Vz, yz, xz, xy)
     end
 
@@ -671,4 +685,3 @@ module _3D
 end
 
 end # module
-

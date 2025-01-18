@@ -8,7 +8,13 @@ using JLD2, JustPIC, Test
 import JustPIC._2D as JP2
 import JustPIC._3D as JP3
 
-const backend = JustPIC.CPUBackend
+const backend = @static if ENV["JULIA_JUSTPIC_BACKEND"] === "AMDGPU"
+    JustPIC.AMDGPUBackend
+elseif ENV["JULIA_JUSTPIC_BACKEND"] === "CUDA"
+    CUDABackend
+else
+    JustPIC.CPUBackend
+end
 
 @testset "Save and load 2D" begin
     # Initialize particles -------------------------------
@@ -28,6 +34,8 @@ const backend = JustPIC.CPUBackend
     chain             = JP2.init_markerchain(backend, nxcell, min_xcell, max_xcell, xv, initial_elevation);
     @views particles.index.data[:, 1:3, 1] .= 1.0;
     @views particles.index.data[:, 4:6, 1] .= 0.0;
+
+    JP2.checkpointing_particles(@__DIR__, particles; phases=phases, phase_ratios=phase_ratios, chain=chain, particle_args=particle_args)
 
     # test type conversion
     @test eltype(eltype(Array(phases)))                            === Float64
@@ -50,7 +58,6 @@ const backend = JustPIC.CPUBackend
         phase_ratios = Array(phase_ratios)
     )
 
-    JP2.checkpointing_particles(@__DIR__, particles; phases=phases, phase_ratios=phase_ratios, chain=chain, particle_args=particle_args)
 
     data          = load("particles.jld2")
     particles2    = data["particles"]
@@ -168,6 +175,8 @@ end
     phases,      = JP3.init_cell_arrays(particles, Val(1));
     phase_ratios = JP3.PhaseRatios(backend, 2, ni);
 
+    JP3.checkpointing_particles(@__DIR__, particles; phases=phases, phase_ratios=phase_ratios)
+
     # test type conversion
     @test eltype(eltype(Array(phases)))                            === Float64
     @test eltype(eltype(Array(Float64, phases)))                   === Float64
@@ -197,7 +206,6 @@ end
     phases2       = data["phases"];
     phase_ratios2 = data["phase_ratios"];
 
-    JP3.checkpointing_particles(@__DIR__, particles; phases=phases, phase_ratios=phase_ratios)
 
     data1          = load("particles_checkpoint.jld2");
     particles3    = data1["particles"];

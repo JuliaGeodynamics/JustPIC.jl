@@ -16,6 +16,13 @@ function AMDGPU.ROCArray(::Type{T}, particles::JustPIC.Particles) where {T<:Numb
     return Particles(AMDGPUBackend, coords_gpu, ROCArray(Bool, index), nxcell, max_xcell, min_xcell, np)
 end
 
+function AMDGPU.ROCArray(::Type{T}, chain::JustPIC.MarkerChain) where {T<:Number}
+    (; cell_vertices, coords, coords0, h_vertices, h_vertices0, index, max_xcell, min_xcell) = chain
+    coords_gpu = ntuple(i->ROCArray(T, coords[i]), Val(length(coords)))
+    coords0_gpu = ntuple(i->ROCArray(T, coords0[i]), Val(length(coords0)))
+    return MarkerChain(CUDABackend, coords_gpu, coords0_gpu, ROCArray(h_vertices), ROCArray(h_vertices0), cell_vertices, ROCArray(Bool, index), max_xcell, min_xcell)
+end
+
 function AMDGPU.ROCArray(::Type{T}, phase_ratios::JustPIC.PhaseRatios) where {T<:Number}
     (; center, vertex, Vx, Vy, Vz, yz, xz, xy) = phase_ratios
     return JustPIC.PhaseRatios(AMDGPUBackend, ROCArray(T, center), ROCArray(T, vertex), ROCArray(T, Vx), ROCArray(T, Vy), ROCArray(T, Vz), ROCArray(T, yz), ROCArray(T, xz), ROCArray(T, xy))
@@ -30,6 +37,13 @@ function AMDGPU.ROCArray(particles::JustPIC.Particles)
     (; coords, index, nxcell, max_xcell, min_xcell, np) = particles
     coords_gpu = ntuple(i->ROCArray(coords[i]), Val(length(coords)))
     return Particles(AMDGPUBackend, coords_gpu, ROCArray(index), nxcell, max_xcell, min_xcell, np)
+end
+
+function AMDGPU.ROCArray(chain::JustPIC.MarkerChain)
+    (; cell_vertices, coords, coords0, h_vertices, h_vertices0, index, max_xcell, min_xcell) = chain
+    coords_gpu = ntuple(i->ROCArray(coords[i]), Val(length(coords)))
+    coords0_gpu = ntuple(i->ROCArray(coords0[i]), Val(length(coords0)))
+    return MarkerChain(CUDABackend, coords_gpu, coords0_gpu, ROCArray(h_vertices), ROCArray(h_vertices0), cell_vertices, ROCArray(Bool, index), max_xcell, min_xcell)
 end
 
 function AMDGPU.ROCArray(phase_ratios::JustPIC.PhaseRatios)
@@ -64,7 +78,7 @@ module _2D
     using JustPIC
 
     @init_parallel_stencil(AMDGPU, Float64, 2)
-    
+
     import JustPIC: Euler, RungeKutta2, AbstractAdvectionIntegrator
     import JustPIC._2D.CA
     import JustPIC: Particles, PassiveMarkers
@@ -89,7 +103,7 @@ module _2D
     JustPIC._2D.update_cell_halo!(x::Vararg{CellArray{S, N, D, ROCArray{T, nD}}, NA}) where {NA, S, N, D, T, nD} = update_cell_halo!(x...)
     JustPIC._2D.update_cell_halo!(x::Vararg{CellArray{S, N, D, ROCArray{T, nD, B}}, NA}) where {NA, S, N, D, T, nD, B} = update_cell_halo!(x...)
 
-    # Conversions 
+    # Conversions
     function JustPIC._2D.Particles(
         coords,
         index::CellArray{StaticArraysCore.SVector{N1,Bool},2,0, ROCArray{Bool,N2}},
@@ -256,12 +270,12 @@ module _2D
     function JustPIC._2D.fill_chain_from_chain!(chain::MarkerChain{AMDGPUBackend}, topo_x, topo_y)
         fill_chain_from_chain!(chain, topo_x, topo_y)
     end
-    
+
     function JustPIC._2D.compute_topography_vertex!(chain::MarkerChain{AMDGPUBackend})
         compute_topography_vertex!(chain)
         return nothing
     end
-    
+
     function JustPIC._2D.reconstruct_chain_from_vertices!(chain::MarkerChain{AMDGPUBackend})
         reconstruct_chain_from_vertices!(chain)
         return nothing
@@ -350,13 +364,13 @@ module _2D
         ::Type{T}, ::Type{AMDGPUBackend}, nphases::Integer, ni::NTuple{2,Integer}
     ) where {T}
         nx, ny = ni
-        
+
         center = cell_array(zero(T), (nphases,), ni)
         vertex = cell_array(zero(T), (nphases,), ni .+ 1)
         Vx     = cell_array(zero(T), (nphases,), (nx + 1, ny))
         Vy     = cell_array(zero(T), (nphases,), (nx, ny + 1))
         dummy  = cell_array(zero(T), (nphases,), (1, 1)) # because it cant be a Union{T, Nothing} type on the GPU....
-   
+
         return JustPIC.PhaseRatios(AMDGPUBackend, center, vertex, Vx, Vy, dummy, dummy, dummy, dummy)
     end
 
@@ -637,7 +651,7 @@ module _3D
         ::Type{T}, ::Type{AMDGPUBackend}, nphases::Integer, ni::NTuple{3,Integer}
     ) where {T}
         nx, ny, nz  = ni
-        
+
         center = cell_array(zero(T), (nphases,), ni)
         vertex = cell_array(zero(T), (nphases,), ni .+ 1)
         Vx     = cell_array(zero(T), (nphases,), (nx + 1, ny, nz))
@@ -646,7 +660,7 @@ module _3D
         yz     = cell_array(zero(T), (nphases,), (nx, ny + 1, nz + 1))
         xz     = cell_array(zero(T), (nphases,), (nx + 1, ny, nz + 1))
         xy     = cell_array(zero(T), (nphases,), (nx + 1, ny + 1, nz))
-    
+
         return JustPIC.PhaseRatios(AMDGPUBackend, center, vertex, Vx, Vy, Vz, yz, xz, xy)
     end
 
