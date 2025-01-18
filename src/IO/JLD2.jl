@@ -1,15 +1,13 @@
 using JLD2
-# using ImplicitGlobalGrid
-using MPI: MPI
 
 checkpoint_name(dst) = "$dst/particles_checkpoint.jld2"
 checkpoint_name(dst, me) = "$dst/particles_checkpoint" * lpad("$(me)", 4, "0") * ".jld2"
 
 function checkpointing_particles(
     dst,
-    particles,
-    phases,
-    phase_ratios;
+    particles;
+    phases=nothing,
+    phase_ratios=nothing,
     chain=nothing,
     t=nothing,
     dt=nothing,
@@ -19,9 +17,9 @@ function checkpointing_particles(
     return checkpointing_particles(
         dst,
         particles,
-        phases,
-        phase_ratios,
         fname;
+        phases=phases,
+        phase_ratios=phase_ratios,
         chain=chain,
         t=t,
         dt=dt,
@@ -32,9 +30,9 @@ end
 function checkpointing_particles(
     dst,
     particles,
-    phases,
-    phase_ratios,
     me;
+    phases=nothing,
+    phase_ratios=nothing,
     chain=nothing,
     t=nothing,
     dt=nothing,
@@ -44,9 +42,9 @@ function checkpointing_particles(
     checkpointing_particles(
         dst,
         particles,
-        phases,
-        phase_ratios,
         fname;
+        phases=phases,
+        phase_ratios=phase_ratios,
         chain=chain,
         t=t,
         dt=dt,
@@ -56,7 +54,7 @@ function checkpointing_particles(
 end
 
 """
-    checkpointing_particles(dst, particles, phases, phase_ratios; chain=nothing, t=nothing, dt=nothing, particle_args=nothing)
+    checkpointing_particles(dst, particles;phases=nothing, phase_ratios=nothing, chain=nothing, t=nothing, dt=nothing, particle_args=nothing)
 
 Save the state of particles and related data to a checkpoint file in a jld2 format. The name of the checkpoint file is `particles_checkpoint.jld2`.
 
@@ -64,10 +62,10 @@ Save the state of particles and related data to a checkpoint file in a jld2 form
 # Arguments
 - `dst`: The destination directory where the checkpoint file will be saved.
 - `particles`: The array of particles to be saved.
-- `phases`: The array of phases associated with the particles.
-- `phase_ratios`: The array of phase ratios.
 
 ## Keyword Arguments
+- `phases`: The array of phases associated with the particles. If nothing is stated, the default is `nothing`.
+- `phase_ratios`: The array of phase ratios. If nothing is stated, the default is `nothing`.
 - `chain`: The chain data to be saved. If nothing is stated, the default is `nothing`.
 - `t`: The current time to be saved. If nothing is stated, the default is `nothing`.
 - `dt`: The timestep to be saved. If nothing is stated, the default is `nothing`.
@@ -76,9 +74,9 @@ Save the state of particles and related data to a checkpoint file in a jld2 form
 function checkpointing_particles(
     dst,
     particles,
-    phases,
-    phase_ratios,
     fname::String;
+    phases=phases,
+    phase_ratios=phase_ratios,
     chain=chain,
     t=t,
     dt=dt,
@@ -93,22 +91,13 @@ function checkpointing_particles(
         # Prepare the arguments for jldsave
         args = Dict(
             :particles => Array(particles),
-            :phases => Array(phases),
-            :phase_ratios => Array(phase_ratios),
+            :phases => isnothing(phases) ? nothing : Array(phases),
+            :phase_ratios => isnothing(phase_ratios) ? nothing : Array(phase_ratios),
+            :chain => isnothing(chain) ? nothing : Array(chain),
+            :time => t,
+            :timestep => dt,
+            :particle_args => isnothing(particle_args) ? nothing : Array.(particle_args),
         )
-        if !isnothing(chain)
-            args[:chain] = Array(chain)
-        end
-        if !isnothing(t)
-            args[:time] = t
-        end
-        if !isnothing(dt)
-            args[:timestep] = dt
-        end
-        if !isnothing(particle_args)
-            args[:particle_args] = Array.(particle_args)
-        end
-
         jldsave(tmpfname; args...)
 
         # Move the checkpoint file from the temporary directory to the destination directory
