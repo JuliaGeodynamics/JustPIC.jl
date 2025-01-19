@@ -11,8 +11,8 @@ function phase_ratios_vertex!(phase_ratios::JustPIC.PhaseRatios, particles, xvi,
 end
 
 @parallel_indices (I...) function phase_ratios_vertex_kernel!(
-    ratio_vertices, pxi::NTuple{3}, xvi::NTuple{3}, di::NTuple{3,T}, phases
-) where {T}
+        ratio_vertices, pxi::NTuple{3}, xvi::NTuple{3}, di::NTuple{3, T}, phases
+    ) where {T}
 
     # index corresponding to the cell center
     cell_vertex = xvi[1][I[1]], xvi[2][I[2]], xvi[3][I[3]]
@@ -52,8 +52,8 @@ end
 end
 
 @parallel_indices (I...) function phase_ratios_vertex_kernel!(
-    ratio_vertices, pxi::NTuple{2}, xvi::NTuple{2}, di::NTuple{2,T}, phases
-) where {T}
+        ratio_vertices, pxi::NTuple{2}, xvi::NTuple{2}, di::NTuple{2, T}, phases
+    ) where {T}
 
     # index corresponding to the cell center
     cell_vertex = xvi[1][I[1]], xvi[2][I[2]]
