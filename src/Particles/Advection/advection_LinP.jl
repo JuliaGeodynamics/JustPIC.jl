@@ -12,12 +12,12 @@ Advects the particles using the advection scheme defined by `method`.
 - `dt`: Time step.
 """
 function advection_LinP!(
-    particles::Particles,
-    method::AbstractAdvectionIntegrator,
-    V,
-    grid_vi::NTuple{N,NTuple{N}},
-    dt,
-) where {N}
+        particles::Particles,
+        method::AbstractAdvectionIntegrator,
+        V,
+        grid_vi::NTuple{N, NTuple{N}},
+        dt,
+    ) where {N}
     interpolation_fn = interp_velocity2particle_LinP
 
     dxi = compute_dx(first(grid_vi))
@@ -38,16 +38,16 @@ end
 # DIMENSION AGNOSTIC KERNELS
 
 @parallel_indices (I...) function advection_kernel_LinP!(
-    p,
-    method::AbstractAdvectionIntegrator,
-    V::NTuple{N},
-    index,
-    grid,
-    local_limits,
-    dxi,
-    dt,
-    interpolation_fn::F,
-) where {N,F}
+        p,
+        method::AbstractAdvectionIntegrator,
+        V::NTuple{N},
+        index,
+        grid,
+        local_limits,
+        dxi,
+        dt,
+        interpolation_fn::F,
+    ) where {N, F}
 
     # iterate over particles in the I-th cell
     for ipart in cellaxes(index)
@@ -69,8 +69,8 @@ end
 end
 
 @inline function interp_velocity2particle_LinP(
-    particle_coords::NTuple{N}, grid_vi, local_limits, dxi, V::NTuple{N}, idx::NTuple{N}
-) where {N}
+        particle_coords::NTuple{N}, grid_vi, local_limits, dxi, V::NTuple{N}, idx::NTuple{N}
+    ) where {N}
     return ntuple(Val(N)) do i
         Base.@_inline_meta
         local_lims = local_limits[i]
@@ -83,8 +83,8 @@ end
 end
 
 @inline function interp_velocity2particle_LinP(
-    p_i::Union{SVector,NTuple}, xi_vx::NTuple, dxi::NTuple, F::AbstractArray, ::Val{N}, idx
-) where {N}
+        p_i::Union{SVector, NTuple}, xi_vx::NTuple, dxi::NTuple, F::AbstractArray, ::Val{N}, idx
+    ) where {N}
     # F and coordinates of the cell corners
     Fi, xci, indices = corner_field_nodes_LinP(F, p_i, xi_vx, dxi, idx)
 
@@ -123,48 +123,48 @@ end
 
 # 2D corner correction for x-dim
 @inline function correct_xci_to_pressure_point(
-    xci::NTuple{2}, pxi::NTuple{2}, dxi::NTuple{2}, ::Val{1}
-)
+        xci::NTuple{2}, pxi::NTuple{2}, dxi::NTuple{2}, ::Val{1}
+    )
     offset = 1 - 2 * (pxi[1] < xci[1] + dxi[1] * 0.5)
     return xci[1] + offset * dxi[1] * 0.5, xci[2]
 end
 # 2D corner correction for y-dim
 @inline function correct_xci_to_pressure_point(
-    xci::NTuple{2}, pxi::NTuple{2}, dxi::NTuple{2}, ::Val{2}
-)
+        xci::NTuple{2}, pxi::NTuple{2}, dxi::NTuple{2}, ::Val{2}
+    )
     offset = 1 - 2 * (pxi[2] < xci[2] + dxi[2] * 0.5)
     return xci[1], xci[2] + offset * dxi[2] * 0.5
 end
 # 3D corner correction for x-dim
 @inline function correct_xci_to_pressure_point(
-    xci::NTuple{3}, pxi::NTuple{3}, dxi::NTuple{3}, ::Val{1}
-)
+        xci::NTuple{3}, pxi::NTuple{3}, dxi::NTuple{3}, ::Val{1}
+    )
     offset = 1 - 2 * (pxi[1] < xci[1] + dxi[1] * 0.5)
     return xci[1] + offset * dxi[1] * 0.5, xci[2], xci[3]
 end
 # 3D corner correction for y-dim
 @inline function correct_xci_to_pressure_point(
-    xci::NTuple{3}, pxi::NTuple{3}, dxi::NTuple{3}, ::Val{2}
-)
+        xci::NTuple{3}, pxi::NTuple{3}, dxi::NTuple{3}, ::Val{2}
+    )
     offset = 1 - 2 * (pxi[2] < xci[2] + dxi[2] * 0.5)
     return xci[1], xci[2] + offset * dxi[2] * 0.5, xci[3]
 end
 # 3D corner correction for z-dim
 @inline function correct_xci_to_pressure_point(
-    xci::NTuple{3}, pxi::NTuple{3}, dxi::NTuple{3}, ::Val{3}
-)
+        xci::NTuple{3}, pxi::NTuple{3}, dxi::NTuple{3}, ::Val{3}
+    )
     offset = 1 - 2 * (pxi[3] < xci[3] + dxi[3] * 0.5)
     return xci[1], xci[2], xci[3] + offset * dxi[3] * 0.5
 end
 
 @generated function corner_field_nodes_LinP(
-    F::AbstractArray{T,N},
-    particle,
-    xi_vx,
-    dxi,
-    idx::Union{SVector{N,Integer},NTuple{N,Integer}},
-) where {N,T}
-    quote
+        F::AbstractArray{T, N},
+        particle,
+        xi_vx,
+        dxi,
+        idx::Union{SVector{N, Integer}, NTuple{N, Integer}},
+    ) where {N, T}
+    return quote
         Base.@_inline_meta
         @inbounds begin
             Base.@nexprs $N i -> begin
@@ -189,7 +189,7 @@ end
 end
 
 # Interpolates velocity from velocity-grid to pressure nodes
-#      P[i,j+1]     P[i+1,j+1]   
+#      P[i,j+1]     P[i+1,j+1]
 # V[i-1,j+1]   V[i,j+1]    V[i+1,j+1]
 #  x------□------x------□------x
 #  |      |      |      |      |
@@ -199,7 +199,7 @@ end
 #  |      |      |      |      |
 #  x------□------x------□------x
 # V[i-1,j]     V[i,j]       V[i+1,j]
-#      P[i,j]         P[i+1,j]         
+#      P[i,j]         P[i+1,j]
 function interpolate_V_to_P(F, xi_corner, xi_particle, dxi, ::Val{N}, i, j) where {N}
     # this is the dimension we are dealing with
     # 1 => x
@@ -340,13 +340,13 @@ for (i, fn) in enumerate((:offset_LinP_x, :offset_LinP_y, :offset_LinP_z))
     # Val(i) => ith-direction
     @eval begin
         @inline function ($fn)(
-            ::Val{$i}, xi_corner::NTuple{N}, xi_particle::NTuple{N}, dxi::NTuple{N}
-        ) where {N}
+                ::Val{$i}, xi_corner::NTuple{N}, xi_particle::NTuple{N}, dxi::NTuple{N}
+            ) where {N}
             return offset_LinP(xi_corner[$i], xi_particle[$i], dxi[$i])
         end
         @inline ($fn)(
             ::Val{I}, xi_corner::NTuple{N}, xi_particle::NTuple{N}, dxi::NTuple{N}
-        ) where {N,I} = 0
+        ) where {N, I} = 0
     end
 end
 

@@ -22,8 +22,8 @@ end
 ## INTERPOLATION KERNEL 2D
 
 @inbounds function _passivemarker2grid!(
-    F, Fp, buffer, ipart, xi::NTuple{2,T}, coords, dxi
-) where {T}
+        F, Fp, buffer, ipart, xi::NTuple{2, T}, coords, dxi
+    ) where {T}
     pᵢ = get_particle_coords(coords, ipart)
     # pᵢ = coords[ipart].data
 

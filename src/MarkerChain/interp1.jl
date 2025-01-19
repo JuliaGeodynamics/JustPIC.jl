@@ -3,10 +3,10 @@
 function interp1D_extremas(xq, x, y)
     last_I = 1
     for i in length(x):-1:2
-        if !isnan(x[i]) 
+        if !isnan(x[i])
             last_I = i
             break
-        end 
+        end
     end
     x_lo, x_hi = x[1], x[last_I]
     @inbounds for j in eachindex(x)[1:(end - 1)]
@@ -38,13 +38,13 @@ end
 function interp1D_inner(xq, x, y, coords, I::Integer)
     last_I = 1
     for i in length(x):-1:2
-        if !isnan(x[i]) 
+        if !isnan(x[i])
             last_I = i
             break
-        end 
+        end
     end
     x_lo, x_hi = x[1], x[last_I]
-    @inbounds for j in 1:last_I-1
+    @inbounds for j in 1:(last_I - 1)
         x0, x1 = x[j], x[j + 1]
 
         # interpolate using the last particle of left-neighbouring cell
@@ -79,13 +79,13 @@ end
     # px = @cell coords[1][I - 1]
     ip = 1
     for i in cellnum(px):-1:2
-        if !isnan(@index px[i, I-1]) 
+        if !isnan(@index px[i, I - 1])
             ip = i
             break
-        end 
+        end
     end
 
-    return @index(px[ip, I-1]), @index(coords[2][ip, I - 1])
+    return @index(px[ip, I - 1]), @index(coords[2][ip, I - 1])
 end
 
 @inline function is_above_surface(xq, yq, coords, cell_vertices)

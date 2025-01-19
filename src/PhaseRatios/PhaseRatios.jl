@@ -1,4 +1,4 @@
-struct PhaseRatios{Backend,T} <: AbstractParticles
+struct PhaseRatios{Backend, T} <: AbstractParticles
     center::T
     vertex::T
     Vx::T
@@ -15,7 +15,7 @@ end
 
 @inline dimension(::Type{PhaseRatios{Any, AbstractVector}}) = 1
 @inline dimension(::Type{PhaseRatios{Any, AbstractMatrix}}) = 2
-@inline dimension(::Type{PhaseRatios{Any, AbstractArray}})  = 3
+@inline dimension(::Type{PhaseRatios{Any, AbstractArray}}) = 3
 
 """
     nphases(x::PhaseRatios)
@@ -26,13 +26,13 @@ Return the number of phases in `x::PhaseRatios`.
 @inline numphases(x::PhaseRatios) = numphases(x.center)
 
 @inline function nphases(
-    ::CellArray{StaticArraysCore.SArray{Tuple{N},T,N1,N}}
-) where {N,T,N1}
+        ::CellArray{StaticArraysCore.SArray{Tuple{N}, T, N1, N}}
+    ) where {N, T, N1}
     return Val(N)
 end
 
 @inline function numphases(
-    ::CellArray{StaticArraysCore.SArray{Tuple{N},T,N1,N}}
-) where {N,T,N1}
+        ::CellArray{StaticArraysCore.SArray{Tuple{N}, T, N1, N}}
+    ) where {N, T, N1}
     return N
 end
