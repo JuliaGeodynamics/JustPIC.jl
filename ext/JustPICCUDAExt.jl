@@ -127,7 +127,7 @@ module _2D
         nᵢ::NTuple{2,I};
         buffer = 1-1e-5
     ) where {T,I}
-        return init_particles(CUDABackend, nxcell, max_xcell, min_xcell, coords, dxᵢ, nᵢ, buffer)
+        return init_particles(CUDABackend, nxcell, max_xcell, min_xcell, coords, dxᵢ, nᵢ; buffer = buffer)
     end
 
     function JustPIC._2D.advection!(
@@ -456,7 +456,7 @@ module _3D
         nᵢ::NTuple{3,I};
         buffer = 1-1e-5,
     ) where {T,I}
-        return init_particles(CUDABackend, nxcell, max_xcell, min_xcell, coords, dxᵢ, nᵢ, buffer)
+        return init_particles(CUDABackend, nxcell, max_xcell, min_xcell, coords, dxᵢ, nᵢ; buffer = buffer)
     end
 
     function JustPIC._3D.advection!(
