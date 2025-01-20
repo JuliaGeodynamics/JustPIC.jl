@@ -45,18 +45,13 @@ end
     return nothing
 end
 
-compute_dx(grid::LinRange{T, Int64}) where {T} = grid[2] - grid[1]
-
-@inline function compute_dx(grid::NTuple{N, LinRange{T, Int64}}) where {N, T}
-    return ntuple(i -> grid[i][2] - grid[i][1], Val(N))
-end
-
-@inline function compute_dx(grid::NTuple{N, T}) where {N, T}
-    return ntuple(i -> abs(minimum(diff(grid[i]))), Val(N))
-end
+@inline compute_dx(::Tuple{}) = ()
+@inline compute_dx(grid::AbstractArray) = grid[3] - grid[2]
+@inline compute_dx(grid::Tuple) = compute_dx(first(grid)), compute_dx(Base.tail(grid))...
 
 @inline function clamp_grid_lims(grid_lims::NTuple{N, T1}, dxi::NTuple{N, T2}) where {N, T1, T2}
     clamped_limits = ntuple(Val(N)) do i
+        @inline
         min_L, max_L = grid_lims[i]
         (min_L + dxi[i] * 0.01, max_L - dxi[i] * 0.01)
     end
