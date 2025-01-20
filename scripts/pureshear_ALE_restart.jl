@@ -19,11 +19,7 @@ end
         @index(index[ip, I...]) == 0 && continue
         x = @index px[ip, I...]
         y = @index py[ip, I...]
-        if x<y
-            @index phases[ip, I...] = 1.0
-        else
-            @index phases[ip, I...] = 2.0
-        end
+        @index phases[ip, I...] = x < y ?  1.0 : 2.0
     end
     return nothing
 end
@@ -35,9 +31,8 @@ end
     if I[1]<=size(V.y,1) &&  I[2]<=size(V.y,2)
         V.y[I...] = -verts.y[I[2]]*ε̇bg
     end
-return nothing
+    return nothing
 end
-
 
 function main(ALE, restart, last_step)
 

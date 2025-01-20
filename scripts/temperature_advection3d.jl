@@ -8,15 +8,15 @@ using JustPIC._3D
 const backend = CUDABackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
 # const backend = JustPIC.CPUBackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
 
-# using GLMakie
+using GLMakie
 
 function expand_range(x::AbstractRange)
     dx = x[2] - x[1]
     n = length(x)
     x1, x2 = extrema(x)
-    xI = round(x1-dx; sigdigits=5)
-    xF = round(x2+dx; sigdigits=5)
-    range(xI, xF, length=n+2)
+    xI = x1 - dx
+    xF = x2 + dx
+    return LinRange(xI, xF, n + 2)
 end
 
 # Analytical flow solution
@@ -30,7 +30,7 @@ g(x) = Point2f(
 )
 
 function main()
-    n   = 32
+    n   = 64
     nx  = ny = nz = n-1
     Lx  = Ly = Lz = 1.0
     ni  = nx, ny, nz
@@ -48,7 +48,7 @@ function main()
     grid_vz = expand_range(xc), expand_range(yc), zv
 
     # Initialize particles -------------------------------
-    nxcell, max_xcell, min_xcell = 12, 24, 6
+    nxcell, max_xcell, min_xcell = 125, 150, 100
     particles = init_particles(
         backend, nxcell, max_xcell, min_xcell, xvi...
     )
@@ -66,7 +66,7 @@ function main()
     particle_args = pT, = init_cell_arrays(particles, Val(1))
     grid2particle!(pT, xvi, T, particles)
     
-    niter = 1
+    niter = 10
     for _ in 1:niter
         advection!(particles, RungeKutta2(), V, (grid_vx, grid_vy, grid_vz), dt)
         move_particles!(particles, xvi, particle_args)        
@@ -75,7 +75,7 @@ function main()
     end
     particle2grid!(T, pT, xvi, particles)
 
-    # f, = heatmap(xvi[1], xvi[3] , Array(T[:, Int(div(n, 2)), :]), colormap=:batlow)
+    f, = heatmap(xvi[1], xvi[3] , Array(T[:, Int(div(n, 2)), :]), colormap=:batlow)
     
 end
 

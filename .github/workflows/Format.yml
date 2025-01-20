@@ -44,3 +44,12 @@ jobs:
           set +e
           git runic origin/main
           [ $? -eq 2 ] && exit 1 || exit 0
+
+      - name: Suggest changes
+        uses: googleapis/code-suggester@v2
+        env:
+          ACCESS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          command: review
+          pull_number: ${{ github.event.pull_request.number }}
+          git_dir: '.'
