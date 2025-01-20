@@ -1,6 +1,6 @@
 function PhaseRatios(
-        ::Type{T}, ::Type{B}, nphases::Integer, ni::NTuple{2, Integer}
-    ) where {T, B}
+    ::Type{T}, ::Type{B}, nphases::Integer, ni::NTuple{2,Integer}
+) where {T,B}
     nx, ny = ni
 
     center = cell_array(zero(T), (nphases,), ni)
@@ -13,8 +13,8 @@ function PhaseRatios(
 end
 
 function PhaseRatios(
-        ::Type{T}, ::Type{B}, nphases::Integer, ni::NTuple{3, Integer}
-    ) where {T, B}
+    ::Type{T}, ::Type{B}, nphases::Integer, ni::NTuple{3,Integer}
+) where {T,B}
     nx, ny, nz = ni
 
     center = cell_array(zero(T), (nphases,), ni)
@@ -29,12 +29,12 @@ function PhaseRatios(
     return JustPIC.PhaseRatios(B, center, vertex, Vx, Vy, Vz, yz, xz, xy)
 end
 
-function PhaseRatios(nphases::Integer, ni::NTuple{N, Integer}) where {N}
+function PhaseRatios(nphases::Integer, ni::NTuple{N,Integer}) where {N}
     return PhaseRatios(Float64, CPUBackend, nphases, ni)
 end
 
 function PhaseRatios(
-        ::Type{B}, nphases::Integer, ni::NTuple{N, Integer}
-    ) where {N, B <: AbstractBackend}
+    ::Type{B}, nphases::Integer, ni::NTuple{N,Integer}
+) where {N,B<:AbstractBackend}
     return PhaseRatios(Float64, B, nphases, ni)
 end

@@ -9,11 +9,15 @@ end
 function compute_area_below_chain_centers!(ratio_center, chain, xvi, dxi)
     topo_x, topo_y = chain.cell_vertices, chain.h_vertices
     nx, ny = size(ratio_center)
-    @parallel (1:nx, 1:ny) _compute_area_below_chain_center!(ratio_center, topo_x, topo_y, xvi..., dxi)
+    @parallel (1:nx, 1:ny) _compute_area_below_chain_center!(
+        ratio_center, topo_x, topo_y, xvi..., dxi
+    )
     return nothing
 end
 
-@parallel_indices (i, j) function _compute_area_below_chain_center!(ratio, topo_x, topo_y, xv, yv, dxi)
+@parallel_indices (i, j) function _compute_area_below_chain_center!(
+    ratio, topo_x, topo_y, xv, yv, dxi
+)
     _, dy = dxi
 
     # cell min max coordinates
@@ -46,19 +50,17 @@ end
 function compute_area_below_chain_vx!(ratio_velocity, chain, xvi, dxi)
     topo_x, topo_y = chain.cell_vertices, chain.h_vertices
     nx, ny = size(ratio_velocity)
-    masks_x = (
-        (-0.5, 0.0),
-        (0.0, 0.5),
+    masks_x = ((-0.5, 0.0), (0.0, 0.5))
+    masks_y = ((0.0, 1.0), (0.0, 1.0))
+    @parallel (1:nx, 1:ny) _compute_area_below_chain_vx!(
+        ratio_velocity, topo_x, topo_y, masks_x, masks_y, xvi..., nx, dxi
     )
-    masks_y = (
-        (0.0, 1.0),
-        (0.0, 1.0),
-    )
-    @parallel (1:nx, 1:ny) _compute_area_below_chain_vx!(ratio_velocity, topo_x, topo_y, masks_x, masks_y, xvi..., nx, dxi)
     return nothing
 end
 
-@parallel_indices (i, j) function _compute_area_below_chain_vx!(ratios, topo_x, topo_y, masks_x, masks_y, xv, yv, n, dxi)
+@parallel_indices (i, j) function _compute_area_below_chain_vx!(
+    ratios, topo_x, topo_y, masks_x, masks_y, xv, yv, n, dxi
+)
     dx, dy = dxi
     area_cell = prod(dxi) / 2
     ratios[i, j] = zero(eltype(dx))
@@ -80,7 +82,9 @@ end
 
             # recompute topography intersections
             if do_intersect(p1, p2, x_min_cell, x_max_cell, y_min_cell, y_max_cell)
-                p1, p2 = get_intersections((p1, p2), x_min_cell, x_max_cell, y_min_cell, y_max_cell)
+                p1, p2 = get_intersections(
+                    (p1, p2), x_min_cell, x_max_cell, y_min_cell, y_max_cell
+                )
                 topo_xᵢ = p1[1], p1[2]
                 topo_xᵢ = p2[1], p2[2]
             end
@@ -101,7 +105,6 @@ end
                 )
                 ratios[i, j] += clamp(correction * area_rock / area_cell, 0, 1)
             end
-
         end
     end
     return nothing
@@ -110,19 +113,17 @@ end
 function compute_area_below_chain_vy!(ratio_velocity, chain, xvi, dxi)
     topo_x, topo_y = chain.cell_vertices, chain.h_vertices
     nx, ny = size(ratio_velocity)
-    masks_x = (
-        (0.0, 1.0),
-        (0.0, 1.0),
+    masks_x = ((0.0, 1.0), (0.0, 1.0))
+    masks_y = ((-0.5, 0.0), (0.0, 0.5))
+    @parallel (1:nx, 1:ny) _compute_area_below_chain_vy!(
+        ratio_velocity, topo_x, topo_y, masks_x, masks_y, xvi..., ny, dxi
     )
-    masks_y = (
-        (-0.5, 0.0),
-        (0.0, 0.5),
-    )
-    @parallel (1:nx, 1:ny) _compute_area_below_chain_vy!(ratio_velocity, topo_x, topo_y, masks_x, masks_y, xvi..., ny, dxi)
     return nothing
 end
 
-@parallel_indices (i, j) function _compute_area_below_chain_vy!(ratios, topo_x, topo_y, masks_x, masks_y, xv, yv, n, dxi)
+@parallel_indices (i, j) function _compute_area_below_chain_vy!(
+    ratios, topo_x, topo_y, masks_x, masks_y, xv, yv, n, dxi
+)
     dx, dy = dxi
     area_cell = prod(dxi) / 2
     ratios[i, j] = zero(eltype(dx))
@@ -144,7 +145,9 @@ end
 
             # recompute topography intersections
             if do_intersect(p1, p2, x_min_cell, x_max_cell, y_min_cell, y_max_cell)
-                p1, p2 = get_intersections((p1, p2), x_min_cell, x_max_cell, y_min_cell, y_max_cell)
+                p1, p2 = get_intersections(
+                    (p1, p2), x_min_cell, x_max_cell, y_min_cell, y_max_cell
+                )
                 topo_xᵢ = p1[1], p1[2]
                 topo_xᵢ = p2[1], p2[2]
             end
@@ -165,7 +168,6 @@ end
                 )
                 ratios[i, j] += clamp(correction * area_rock / area_cell, 0, 1)
             end
-
         end
     end
     return nothing
@@ -174,23 +176,17 @@ end
 function compute_area_below_chain_vertex!(ratio_velocity, chain, xvi, dxi)
     topo_x, topo_y = chain.cell_vertices, chain.h_vertices
     ni = size(ratio_velocity)
-    masks_x = (
-        (-0.5, 0.0),
-        (0.0, 0.5),
-        (-0.5, 0.0),
-        (0.0, 0.5),
+    masks_x = ((-0.5, 0.0), (0.0, 0.5), (-0.5, 0.0), (0.0, 0.5))
+    masks_y = ((-0.5, 0.0), (-0.5, 0.0), (0.0, 0.5), (0.0, 0.5))
+    @parallel (@idx ni) _compute_area_below_chain_vertex!(
+        ratio_velocity, topo_x, topo_y, masks_x, masks_y, xvi..., ni..., dxi
     )
-    masks_y = (
-        (-0.5, 0.0),
-        (-0.5, 0.0),
-        (0.0, 0.5),
-        (0.0, 0.5),
-    )
-    @parallel (@idx ni) _compute_area_below_chain_vertex!(ratio_velocity, topo_x, topo_y, masks_x, masks_y, xvi..., ni..., dxi)
     return nothing
 end
 
-@parallel_indices (i, j) function _compute_area_below_chain_vertex!(ratios, topo_x, topo_y, masks_x, masks_y, xv, yv, nx, ny, dxi)
+@parallel_indices (i, j) function _compute_area_below_chain_vertex!(
+    ratios, topo_x, topo_y, masks_x, masks_y, xv, yv, nx, ny, dxi
+)
     dx, dy = dxi
     area_cell = prod(dxi) / 2
     ratios[i, j] = zero(eltype(dx))
@@ -214,7 +210,9 @@ end
 
             # recompute topography intersections
             if do_intersect(p1, p2, x_min_cell, x_max_cell, y_min_cell, y_max_cell)
-                p1, p2 = get_intersections((p1, p2), x_min_cell, x_max_cell, y_min_cell, y_max_cell)
+                p1, p2 = get_intersections(
+                    (p1, p2), x_min_cell, x_max_cell, y_min_cell, y_max_cell
+                )
                 topo_xᵢ = p1[1], p1[2]
                 topo_xᵢ = p2[1], p2[2]
             end
@@ -235,7 +233,6 @@ end
                 )
                 ratios[i, j] += clamp(correction * area_rock / area_cell, 0, 1)
             end
-
         end
     end
     return nothing
@@ -244,9 +241,8 @@ end
 #############################
 
 function compute_area_below_chain(
-        topo_xᵢ, topo_yᵢ, x_min_cell::T, x_max_cell::T, y_min_cell::T, y_max_cell::T, dxi
-    ) where {T <: Real}
-
+    topo_xᵢ, topo_yᵢ, x_min_cell::T, x_max_cell::T, y_min_cell::T, y_max_cell::T, dxi
+) where {T<:Real}
     dx, dy = dxi
     area = zero(T)
 
@@ -274,7 +270,7 @@ function compute_area_below_chain(
         area += trapezoid_area(
             intersections[1][2] - y_min_cell,
             intersections[2][2] - y_min_cell,
-            dx_intersections
+            dx_intersections,
         )
 
         # compute area of the tails, if necessary
@@ -325,19 +321,9 @@ function get_intersections(p::NTuple{2}, x_min_cell, x_max_cell, y_min_cell, y_m
         @inline
         pᵢ = p[ii]
         intersection = if pᵢ[2] > y_max_cell
-            line_intersection(
-                p1,
-                p2,
-                (x_min_cell, y_max_cell),
-                (x_max_cell, y_max_cell),
-            )
+            line_intersection(p1, p2, (x_min_cell, y_max_cell), (x_max_cell, y_max_cell))
         elseif pᵢ[2] < y_min_cell
-            line_intersection(
-                p1,
-                p2,
-                (x_min_cell, y_min_cell),
-                (x_max_cell, y_min_cell),
-            )
+            line_intersection(p1, p2, (x_min_cell, y_min_cell), (x_max_cell, y_min_cell))
         else
             pᵢ
         end
@@ -355,19 +341,12 @@ end
 # check if the topography segment intersects with the lateral cell boundaries;
 # if it does, it does intersect with the cell
 function do_intersect(p1, p2, x_min_cell, x_max_cell, y_min_cell, y_max_cell)
-
     _, left_y = line_intersection(
-        p1,
-        p2,
-        (x_min_cell, y_min_cell),
-        (x_min_cell, y_max_cell),
+        p1, p2, (x_min_cell, y_min_cell), (x_min_cell, y_max_cell)
     )
     y_min_cell ≤ left_y ≤ y_max_cell && return true
     _, right_y = line_intersection(
-        p1,
-        p2,
-        (x_max_cell, y_min_cell),
-        (x_max_cell, y_max_cell),
+        p1, p2, (x_max_cell, y_min_cell), (x_max_cell, y_max_cell)
     )
     y_min_cell ≤ right_y ≤ y_max_cell && return true
 

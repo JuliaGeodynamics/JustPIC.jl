@@ -1,7 +1,7 @@
 abstract type AbstractAdvectionIntegrator end
 
 struct Euler <: AbstractAdvectionIntegrator
-    Euler(::Vararg{Any, N}) where {N} = new()
+    Euler(::Vararg{Any,N}) where {N} = new()
 end
 
 struct RungeKutta2{T} <: AbstractAdvectionIntegrator

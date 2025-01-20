@@ -1,10 +1,10 @@
-struct SubgridDiffusionCellArrays{CA, T}
+struct SubgridDiffusionCellArrays{CA,T}
     pT0::CA # particle old temperature
     pΔT::CA # particle temperature increment
     dt₀::CA # characteristic timescale `dt₀` of the local cell := ρCp / (K * (2/Δx^2 + 2/Δy^2))
     ΔT_subgrid::T # subgrid temperature increment
 
-    function SubgridDiffusionCellArrays(particles::Particles; loc::Symbol = :vertex)
+    function SubgridDiffusionCellArrays(particles::Particles; loc::Symbol=:vertex)
         pΔT, pT0, dt₀ = init_cell_arrays(particles, Val(3))
         ni = if loc === :vertex
             size(pΔT) .+ 1
@@ -14,7 +14,7 @@ struct SubgridDiffusionCellArrays{CA, T}
         ΔT = @zeros(ni...)
         CA = typeof(pΔT)
         T = typeof(ΔT)
-        return new{CA, T}(pT0, pΔT, dt₀, ΔT)
+        return new{CA,T}(pT0, pΔT, dt₀, ΔT)
     end
 end
 
@@ -23,8 +23,8 @@ function SubgridDiffusionCellArrays(::T) where {T}
 end
 
 function subgrid_diffusion!(
-        pT, T_grid, ΔT_grid, subgrid_arrays, particles::Particles, xvi, di, dt; d = 1.0
-    )
+    pT, T_grid, ΔT_grid, subgrid_arrays, particles::Particles, xvi, di, dt; d=1.0
+)
     # d = dimensionless numerical diffusion coefficient (0 ≤ d ≤ 1)
     (; pT0, pΔT, dt₀) = subgrid_arrays
     ni = size(pT)
@@ -44,8 +44,8 @@ function subgrid_diffusion!(
 end
 
 function subgrid_diffusion_centroid!(
-        pT, T_grid, ΔT_grid, subgrid_arrays, particles, xci, di, dt; d = 1.0
-    )
+    pT, T_grid, ΔT_grid, subgrid_arrays, particles, xci, di, dt; d=1.0
+)
     # d = dimensionless numerical diffusion coefficient (0 ≤ d ≤ 1)
     (; pT0, pΔT, dt₀) = subgrid_arrays
     ni = size(pT)

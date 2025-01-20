@@ -1,7 +1,9 @@
 using JLD2
 
 checkpoint_name(dst) = joinpath(dst, "particles_checkpoint.jld2")
-checkpoint_name(dst, me) = joinpath(dst, "particles_checkpoint" * lpad("$(me)", 4, "0") * ".jld2")
+function checkpoint_name(dst, me)
+    return joinpath(dst, "particles_checkpoint" * lpad("$(me)", 4, "0") * ".jld2")
+end
 
 function checkpointing_particles(
     dst,

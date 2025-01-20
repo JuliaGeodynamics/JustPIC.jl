@@ -24,8 +24,8 @@ function move_particles!(particles::AbstractParticles, grid, args)
 end
 
 @parallel_indices (I...) function move_particles_ps!(
-        coords, grid, dxi, index, domain_limits, args
-    )
+    coords, grid, dxi, index, domain_limits, args
+)
     _move_particles!(coords, grid, dxi, index, domain_limits, I, args)
     return nothing
 end
@@ -40,15 +40,15 @@ function _move_particles!(coords, grid, dxi, index, domain_limits, idx, args)
 end
 
 function move_kernel!(
-        coords,
-        corner_xi,
-        grid,
-        dxi,
-        index,
-        domain_limits,
-        args::NTuple{N2, T},
-        idx::NTuple{N1, Int64},
-    ) where {N1, N2, T}
+    coords,
+    corner_xi,
+    grid,
+    dxi,
+    index,
+    domain_limits,
+    args::NTuple{N2,T},
+    idx::NTuple{N1,Int64},
+) where {N1,N2,T}
 
     # iterate over particles in child cell
     for ip in cellaxes(index)
@@ -89,7 +89,7 @@ function move_kernel!(
         fill_particle!(coords, pᵢ, free_idx, new_cell)
         fill_particle!(args, current_args, free_idx, new_cell)
     end
-    return
+    return nothing
 end
 
 ## Utility functions
@@ -103,39 +103,39 @@ function cell_index_neighbour(x, xc, dx, i::Integer)
 end
 
 function cell_index_neighbour(
-        xᵢ::NTuple{N}, xcᵢ::NTuple{N}, dxᵢ::NTuple{N}, I::NTuple{N, Integer}
-    ) where {N}
+    xᵢ::NTuple{N}, xcᵢ::NTuple{N}, dxᵢ::NTuple{N}, I::NTuple{N,Integer}
+) where {N}
     return ntuple(Val(N)) do i
         cell_index_neighbour(xᵢ[i], xcᵢ[i], dxᵢ[i], I[i])
     end
 end
 
-function find_free_memory(index, I::Vararg{Int, N}) where {N}
+function find_free_memory(index, I::Vararg{Int,N}) where {N}
     for i in cellaxes(index)
         !(@index(index[i, I...])) && return i
     end
     return 0
 end
 
-@generated function indomain(p::NTuple{N, T1}, domain_limits::NTuple{N, T2}) where {N, T1, T2}
+@generated function indomain(p::NTuple{N,T1}, domain_limits::NTuple{N,T2}) where {N,T1,T2}
     return quote
         Base.@_inline_meta
         Base.Cartesian.@nexprs $N i ->
-        (@inbounds !(domain_limits[i][1] < p[i] < domain_limits[i][2]) && return false)
+            (@inbounds !(domain_limits[i][1] < p[i] < domain_limits[i][2]) && return false)
         return true
     end
 end
 
-@generated function indomain(idx_child::NTuple{N, Integer}, nxi::NTuple{N, Integer}) where {N}
+@generated function indomain(idx_child::NTuple{N,Integer}, nxi::NTuple{N,Integer}) where {N}
     return quote
         Base.@_inline_meta
         Base.Cartesian.@nexprs $N i ->
-        @inbounds (1 ≤ idx_child[i] ≤ nxi[i] - 1) == false && return false
+            @inbounds (1 ≤ idx_child[i] ≤ nxi[i] - 1) == false && return false
         return true
     end
 end
 
-@generated function isparticleempty(p::NTuple{N, T}) where {N, T}
+@generated function isparticleempty(p::NTuple{N,T}) where {N,T}
     return quote
         Base.@_inline_meta
         Base.Cartesian.@nexprs $N i -> @inbounds isnan(p[i]) && return true
@@ -143,21 +143,21 @@ end
     end
 end
 
-@inline function cache_args(args::NTuple{N1, T}, ip, I::NTuple{N2, Int64}) where {T, N1, N2}
+@inline function cache_args(args::NTuple{N1,T}, ip, I::NTuple{N2,Int64}) where {T,N1,N2}
     return ntuple(i -> @index(args[i][ip, I...]), Val(N1))
 end
 
-@inline function cache_particle(p::NTuple{N1, T}, ip, I::NTuple{N2, Int64}) where {T, N1, N2}
+@inline function cache_particle(p::NTuple{N1,T}, ip, I::NTuple{N2,Int64}) where {T,N1,N2}
     return cache_args(p, ip, I)
 end
 
-@inline function child_index(parent_cell::NTuple{N, Int64}, I::NTuple{N, Int64}) where {N}
+@inline function child_index(parent_cell::NTuple{N,Int64}, I::NTuple{N,Int64}) where {N}
     return ntuple(i -> parent_cell[i] + I[i], Val(N))
 end
 
 @generated function empty_particle!(
-        p::NTuple{N1, T}, ip, I::NTuple{N2, Int64}
-    ) where {N1, N2, T}
+    p::NTuple{N1,T}, ip, I::NTuple{N2,Int64}
+) where {N1,N2,T}
     return quote
         Base.@_inline_meta
         Base.Cartesian.@nexprs $N1 i -> @index p[i][ip, I...] = NaN
@@ -165,14 +165,14 @@ end
 end
 
 @inline function fill_particle!(
-        p::NTuple{N, T1}, field::NTuple{N, T2}, ip, I::Int64
-    ) where {N, T1, T2}
+    p::NTuple{N,T1}, field::NTuple{N,T2}, ip, I::Int64
+) where {N,T1,T2}
     return fill_particle!(p, field, ip, (I,))
 end
 
 @generated function fill_particle!(
-        p::NTuple{N1, T1}, field::NTuple{N1, T2}, ip, I::NTuple{N2, Int64}
-    ) where {N1, N2, T1, T2}
+    p::NTuple{N1,T1}, field::NTuple{N1,T2}, ip, I::NTuple{N2,Int64}
+) where {N1,N2,T1,T2}
     return quote
         Base.Cartesian.@nexprs $N1 i -> begin
             Base.@_inline_meta
@@ -192,22 +192,22 @@ function clean_particles!(particles::Particles, grid, args)
 end
 
 @parallel_indices (i, j) function _clean!(
-        particle_coords::NTuple{2, Any}, grid::NTuple{2, Any}, dxi::NTuple{2, Any}, index, args
-    )
+    particle_coords::NTuple{2,Any}, grid::NTuple{2,Any}, dxi::NTuple{2,Any}, index, args
+)
     clean_kernel!(particle_coords, grid, dxi, index, args, i, j)
     return nothing
 end
 
 @parallel_indices (i, j, k) function _clean!(
-        particle_coords::NTuple{3, Any}, grid::NTuple{3, Any}, dxi::NTuple{3, Any}, index, args
-    )
+    particle_coords::NTuple{3,Any}, grid::NTuple{3,Any}, dxi::NTuple{3,Any}, index, args
+)
     clean_kernel!(particle_coords, grid, dxi, index, args, i, j, k)
     return nothing
 end
 
 function clean_kernel!(
-        particle_coords, grid, dxi, index, args, cell_indices::Vararg{Int, N}
-    ) where {N}
+    particle_coords, grid, dxi, index, args, cell_indices::Vararg{Int,N}
+) where {N}
     corner_xi = corner_coordinate(grid, cell_indices...)
     # iterate over particles in child cell
     for ip in cellaxes(index)
@@ -225,7 +225,7 @@ function clean_kernel!(
     return nothing
 end
 
-function global_domain_limits(origin::NTuple{N, Any}, dxi::NTuple{N, Any}) where {N}
+function global_domain_limits(origin::NTuple{N,Any}, dxi::NTuple{N,Any}) where {N}
     fn = nx_g, ny_g, nz_g
 
     lims = ntuple(Val(N)) do i
@@ -245,8 +245,8 @@ end
 end
 
 function empty_kernel!(
-        coords, index, cell_length, args::NTuple{N2}, I::NTuple{N1, Int64}
-    ) where {N1, N2}
+    coords, index, cell_length, args::NTuple{N2}, I::NTuple{N1,Int64}
+) where {N1,N2}
 
     # count number of active particles inside I-th cell
     number_of_particles = count_particles(index, I...)
@@ -273,7 +273,7 @@ function empty_kernel!(
     return nothing
 end
 
-function count_particles(index, I::Vararg{Int, N}) where {N}
+function count_particles(index, I::Vararg{Int,N}) where {N}
     count = 0
     for i in cellaxes(index)
         @inbounds count += @index index[i, I...]

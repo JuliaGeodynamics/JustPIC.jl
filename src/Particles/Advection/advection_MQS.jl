@@ -12,12 +12,12 @@ Advects the particles using the advection scheme defined by `method`.
 - `dt`: Time step.
 """
 function advection_MQS!(
-        particles::Particles,
-        method::AbstractAdvectionIntegrator,
-        V,
-        grid_vi::NTuple{N, NTuple{N}},
-        dt,
-    ) where {N}
+    particles::Particles,
+    method::AbstractAdvectionIntegrator,
+    V,
+    grid_vi::NTuple{N,NTuple{N}},
+    dt,
+) where {N}
     interpolation_fn = interp_velocity2particle_MQS
 
     dxi = compute_dx(first(grid_vi))
@@ -38,16 +38,16 @@ end
 # DIMENSION AGNOSTIC KERNELS
 
 @parallel_indices (I...) function advection_kernel_MQS!(
-        p,
-        method::AbstractAdvectionIntegrator,
-        V::NTuple{N},
-        index,
-        grid,
-        local_limits,
-        dxi,
-        dt,
-        interpolation_fn::F,
-    ) where {N, F}
+    p,
+    method::AbstractAdvectionIntegrator,
+    V::NTuple{N},
+    index,
+    grid,
+    local_limits,
+    dxi,
+    dt,
+    interpolation_fn::F,
+) where {N,F}
 
     # iterate over particles in the I-th cell
     for ipart in cellaxes(index)
@@ -69,8 +69,8 @@ end
 end
 
 @inline function interp_velocity2particle_MQS(
-        particle_coords::NTuple{N}, grid_vi, local_limits, dxi, V::NTuple{N}, idx::NTuple{N}
-    ) where {N}
+    particle_coords::NTuple{N}, grid_vi, local_limits, dxi, V::NTuple{N}, idx::NTuple{N}
+) where {N}
     return ntuple(Val(N)) do i
         Base.@_inline_meta
         local_lims = local_limits[i]
@@ -83,8 +83,8 @@ end
 end
 
 @inline function interp_velocity2particle_MQS(
-        p_i::Union{SVector, NTuple}, xi_vx::NTuple, dxi::NTuple, F::AbstractArray, ::Val{N}, idx
-    ) where {N}
+    p_i::Union{SVector,NTuple}, xi_vx::NTuple, dxi::NTuple, F::AbstractArray, ::Val{N}, idx
+) where {N}
     # F and coordinates of the cell corners
     Fi, xci, indices = corner_field_nodes_LinP(F, p_i, xi_vx, dxi, idx)
     # normalize particle coordinates
