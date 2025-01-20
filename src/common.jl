@@ -1,4 +1,3 @@
-
 include("CellArrays/CellArrays.jl")
 export @cell, cellnum, cellaxes
 

@@ -8,17 +8,17 @@ function init_markerchain(::Type{backend}, nxcell, min_xcell, max_xcell, xv, ini
     @parallel (1:nx) fill_markerchain_coords_index!(
         px, py, index, xv, initial_elevation, dx_chain, nxcell, max_xcell
     )
-    coords      = px, py
-    coords0     = px, py
-    h_vertices  = @fill(initial_elevation, nx + 1)
+    coords = px, py
+    coords0 = px, py
+    h_vertices = @fill(initial_elevation, nx + 1)
     h_vertices0 = @fill(initial_elevation, nx + 1)
 
     return MarkerChain(backend, coords, coords0, h_vertices, h_vertices0, xv, index, min_xcell, max_xcell)
 end
 
 @parallel_indices (i) function fill_markerchain_coords_index!(
-    px, py, index, x, initial_elevation, dx_chain, nxcell, max_xcell
-)
+        px, py, index, x, initial_elevation, dx_chain, nxcell, max_xcell
+    )
     # lower-left corner of the cell
     x0 = x[i]
     # fill index array
@@ -31,8 +31,8 @@ end
 end
 
 @parallel_indices (i) function fill_markerchain_coords_index!(
-    px, py, index, x, initial_elevation::AbstractArray{T, 1}, dx_chain, nxcell, max_xcell
-) where {T}
+        px, py, index, x, initial_elevation::AbstractArray{T, 1}, dx_chain, nxcell, max_xcell
+    ) where {T}
     # lower-left corner of the cell
     x0 = x[i]
     initial_elevation0 = initial_elevation[i]
@@ -45,7 +45,7 @@ end
     return nothing
 end
 
-## fill chain with given topo 
+## fill chain with given topo
 
 """
     fill_chain!(chain::MarkerChain, topo_x, topo_y)
@@ -103,15 +103,15 @@ function first_last_particle_incell(topo_x, cell_vertices, icell)
     xlims = cell_vertices[icell], cell_vertices[icell + 1]
 
     ifirst = 1
-    ilast  = length(topo_x)
-    x1     = topo_x[1]
+    ilast = length(topo_x)
+    x1 = topo_x[1]
     previous_incell = xlims[1] < x1 < xlims[2]
 
     first_found = false
-    last_found  = false
+    last_found = false
 
     x = topo_x[2]
-    for i in 2:ilast-1
+    for i in 2:(ilast - 1)
         incell = xlims[1] < x < xlims[2]
 
         if !previous_incell && incell
@@ -119,7 +119,7 @@ function first_last_particle_incell(topo_x, cell_vertices, icell)
             first_found = true
         end
 
-        xnext = topo_x[i+1]
+        xnext = topo_x[i + 1]
         next_incell = xlims[1] < xnext < xlims[2]
         if incell && !next_incell
             ilast = i

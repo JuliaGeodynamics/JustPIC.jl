@@ -21,12 +21,12 @@ end
 # @testset "Save and load 2D" begin
     # Initialize particles -------------------------------
     nxcell, max_xcell, min_xcell = 6, 6, 6
-    n  = 64
-    nx = ny = n-1
+    n = 64
+    nx = ny = n - 1
     ni = nx, ny
     Lx = Ly = 1.0
     # nodal vertices
-    xvi = xv, yv = range(0, Lx, length=n), range(0, Ly, length=n)
+    xvi = xv, yv = range(0, Lx, length = n), range(0, Ly, length = n)
 
     particles    = JP2.init_particles(backend, nxcell, max_xcell, min_xcell, xvi...,);
     phases,      = JP2.init_cell_arrays(particles, Val(1));
@@ -40,16 +40,16 @@ end
     JP2.checkpointing_particles(@__DIR__, particles; phases=phases, phase_ratios=phase_ratios, chain=chain, particle_args=particle_args)
 
     # test type conversion
-    @test eltype(eltype(Array(phases)))                            === Float64
-    @test eltype(eltype(Array(Float64, phases)))                   === Float64
-    @test eltype(eltype(Array(Float32, phases)))                   === Float32
-    @test eltype(eltype(Array(particles).coords[1].data))          === Float64
+    @test eltype(eltype(Array(phases))) === Float64
+    @test eltype(eltype(Array(Float64, phases))) === Float64
+    @test eltype(eltype(Array(Float32, phases))) === Float32
+    @test eltype(eltype(Array(particles).coords[1].data)) === Float64
     @test eltype(eltype(Array(Float64, particles).coords[1].data)) === Float64
     @test eltype(eltype(Array(Float32, particles).coords[1].data)) === Float32
-    @test eltype(eltype(Array(particles).index.data))              === Bool
-    @test eltype(eltype(Array(Float32, particles).index.data))     === Bool
-    @test eltype(eltype(Array(Float64, particles).index.data))     === Bool
-    @test eltype(eltype(Array(phase_ratios).vertex.data))          === Float64
+    @test eltype(eltype(Array(particles).index.data)) === Bool
+    @test eltype(eltype(Array(Float32, particles).index.data)) === Bool
+    @test eltype(eltype(Array(Float64, particles).index.data)) === Bool
+    @test eltype(eltype(Array(phase_ratios).vertex.data)) === Float64
     @test eltype(eltype(Array(Float64, phase_ratios).vertex.data)) === Float64
     @test eltype(eltype(Array(Float32, phase_ratios).vertex.data)) === Float32
 
@@ -101,11 +101,11 @@ end
     @test size(Array(phases).data)               == size(phases3.data)
 
     # Test on GPU card, if available
-    isCUDA   = isdefined(Main, :CUDA)
+    isCUDA = isdefined(Main, :CUDA)
     isAMDGPU = isdefined(Main, :AMDGPU)
 
     if isCUDA || isAMDGPU
-        T       = isCUDA ? CuArray : ROCArray
+        T = isCUDA ? CuArray : ROCArray
         Backend = isCUDA ? CUDABackend : AMDGPUBackend
 
         particles2         = Array(particles)
@@ -120,8 +120,8 @@ end
         chain_gpu          = T(chain);
         particle_args_gpu2 = T.(particle_args);
 
-        @test particles_gpu                       isa JustPIC.Particles{Backend}
-        @test phase_ratios_gpu                    isa JustPIC.PhaseRatios{Backend}
+        @test particles_gpu isa JustPIC.Particles{Backend}
+        @test phase_ratios_gpu isa JustPIC.PhaseRatios{Backend}
         @test last(typeof(phases_gpu).parameters) <: T{Float64, 3}
         @test size(particles_gpu.coords[1].data)  == size(permutedims(particles.coords[1].data, (3, 2, 1)))
         @test size(particles_gpu.coords[2].data)  == size(permutedims(particles.coords[2].data, (3, 2, 1)))
@@ -143,18 +143,18 @@ end
         @test size(phases_gpu2.data)               == size(permutedims(phases.data, (3, 2, 1)))
 
         # test type conversion
-        @test eltype(eltype(T(phases)))                            === Float64
-        @test eltype(eltype(T(Float64, phases)))                   === Float64
-        @test eltype(eltype(T(Float32, phases)))                   === Float32
-        @test eltype(eltype(T(particles).coords[1].data))          === Float64
+        @test eltype(eltype(T(phases))) === Float64
+        @test eltype(eltype(T(Float64, phases))) === Float64
+        @test eltype(eltype(T(Float32, phases))) === Float32
+        @test eltype(eltype(T(particles).coords[1].data)) === Float64
         @test eltype(eltype(T(Float64, particles).coords[1].data)) === Float64
         @test eltype(eltype(T(Float32, particles).coords[1].data)) === Float32
-        @test eltype(eltype(T(phase_ratios).vertex.data))          === Float64
+        @test eltype(eltype(T(phase_ratios).vertex.data)) === Float64
         @test eltype(eltype(T(Float64, phase_ratios).vertex.data)) === Float64
         @test eltype(eltype(T(Float32, phase_ratios).vertex.data)) === Float32
-        @test eltype(eltype(T(particles).index.data))              === Bool
-        @test eltype(eltype(T(Float32, particles).index.data))     === Bool
-        @test eltype(eltype(T(Float64, particles).index.data))     === Bool
+        @test eltype(eltype(T(particles).index.data)) === Bool
+        @test eltype(eltype(T(Float32, particles).index.data)) === Bool
+        @test eltype(eltype(T(Float64, particles).index.data)) === Bool
     end
 
     rm("particles_checkpoint.jld2") # cleanup
@@ -163,12 +163,12 @@ end
 @testset "Save and load 3D" begin
     # Initialize particles -------------------------------
     nxcell, max_xcell, min_xcell = 6, 6, 6
-    n  = 64
-    nx = ny = nz = n-1
+    n = 64
+    nx = ny = nz = n - 1
     ni = nx, ny, nz
     Lx = Ly = Lz = 1.0
     # nodal vertices
-    xvi = xv, yv, zv = range(0, Lx, length=n), range(0, Ly, length=n), range(0, Lz, length=n)
+    xvi = xv, yv, zv = range(0, Lx, length = n), range(0, Ly, length = n), range(0, Lz, length = n)
 
     particles    = JP3.init_particles(backend, nxcell, max_xcell, min_xcell, xvi...,);
     phases,      = JP3.init_cell_arrays(particles, Val(1));
@@ -177,18 +177,18 @@ end
     JP3.checkpointing_particles(@__DIR__, particles; phases=phases, phase_ratios=phase_ratios)
 
     # test type conversion
-    @test eltype(eltype(Array(phases)))                            === Float64
-    @test eltype(eltype(Array(Float64, phases)))                   === Float64
-    @test eltype(eltype(Array(Float32, phases)))                   === Float32
-    @test eltype(eltype(Array(particles).coords[1].data))          === Float64
+    @test eltype(eltype(Array(phases))) === Float64
+    @test eltype(eltype(Array(Float64, phases))) === Float64
+    @test eltype(eltype(Array(Float32, phases))) === Float32
+    @test eltype(eltype(Array(particles).coords[1].data)) === Float64
     @test eltype(eltype(Array(Float64, particles).coords[1].data)) === Float64
     @test eltype(eltype(Array(Float32, particles).coords[1].data)) === Float32
-    @test eltype(eltype(Array(phase_ratios).vertex.data))          === Float64
+    @test eltype(eltype(Array(phase_ratios).vertex.data)) === Float64
     @test eltype(eltype(Array(Float64, phase_ratios).vertex.data)) === Float64
     @test eltype(eltype(Array(Float32, phase_ratios).vertex.data)) === Float32
-    @test eltype(eltype(Array(particles).index.data))              === Bool
-    @test eltype(eltype(Array(Float32, particles).index.data))     === Bool
-    @test eltype(eltype(Array(Float64, particles).index.data))     === Bool
+    @test eltype(eltype(Array(particles).index.data)) === Bool
+    @test eltype(eltype(Array(Float32, particles).index.data)) === Bool
+    @test eltype(eltype(Array(Float64, particles).index.data)) === Bool
 
     particles.index.data[:, 1:3, 1] .= 1.0;
     particles.index.data[:, 4:6, 1] .= 0.0;
@@ -245,10 +245,10 @@ end
         T       = isCUDA ? CuArray : ROCArray
         Backend = isCUDA ? CUDABackend : AMDGPUBackend
 
-        particles2       = Array(particles)
-        phases2          = Array(phases)
-        phase_ratios2    = Array(phase_ratios)
-        particles_gpu    = T(particles2)
+        particles2 = Array(particles)
+        phases2 = Array(phases)
+        phase_ratios2 = Array(phase_ratios)
+        particles_gpu = T(particles2)
         phase_ratios_gpu = T(phase_ratios2)
         phases_gpu       = T(phases2);
 
@@ -257,8 +257,8 @@ end
         phases_gpu2        = T(phases3);
         particle_args_gpu2 = T.(particle_args)
 
-        @test particles_gpu                       isa JustPIC.Particles{Backend}
-        @test phase_ratios_gpu                    isa JustPIC.PhaseRatios{Backend}
+        @test particles_gpu isa JustPIC.Particles{Backend}
+        @test phase_ratios_gpu isa JustPIC.PhaseRatios{Backend}
         @test last(typeof(phases_gpu).parameters) <: T{Float64, 3}
         @test size(particles_gpu.coords[1].data)  == size(permutedims(particles.coords[1].data, (3, 2, 1)))
         @test size(particles_gpu.coords[2].data)  == size(permutedims(particles.coords[2].data, (3, 2, 1)))
@@ -279,13 +279,13 @@ end
         @test size(phases_gpu2.data)               == size(permutedims(phases.data, (3, 2, 1)))
 
         # test type conversion
-        @test eltype(eltype(T(phases)))                            === Float64
-        @test eltype(eltype(T(Float64, phases)))                   === Float64
-        @test eltype(eltype(T(Float32, phases)))                   === Float32
-        @test eltype(eltype(T(particles).coords[1].data))          === Float64
+        @test eltype(eltype(T(phases))) === Float64
+        @test eltype(eltype(T(Float64, phases))) === Float64
+        @test eltype(eltype(T(Float32, phases))) === Float32
+        @test eltype(eltype(T(particles).coords[1].data)) === Float64
         @test eltype(eltype(T(Float64, particles).coords[1].data)) === Float64
         @test eltype(eltype(T(Float32, particles).coords[1].data)) === Float32
-        @test eltype(eltype(T(phase_ratios).vertex.data))          === Float64
+        @test eltype(eltype(T(phase_ratios).vertex.data)) === Float64
         @test eltype(eltype(T(Float64, phase_ratios).vertex.data)) === Float64
         @test eltype(eltype(T(Float32, phase_ratios).vertex.data)) === Float32
         @test eltype(eltype(T(particles).index.data))              === Bool

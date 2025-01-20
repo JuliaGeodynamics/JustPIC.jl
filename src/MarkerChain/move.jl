@@ -14,19 +14,19 @@ end
     return nothing
 end
 
-chop(I::NTuple{2,T}) where {T} = I[1]
-chop(I::NTuple{3,T}) where {T} = I[1], I[2]
+chop(I::NTuple{2, T}) where {T} = I[1]
+chop(I::NTuple{3, T}) where {T} = I[1], I[2]
 
 function _move_particles!(coords, grid, dxi, index, idx)
-    # coordinate of the lower-most-left coordinate of the parent cell 
+    # coordinate of the lower-most-left coordinate of the parent cell
     corner_xi = corner_coordinate(grid, idx)
 
-    # iterate over particles in child cell 
+    # iterate over particles in child cell
     for ip in cellaxes(index)
         doskip(index, ip, idx) && continue
         pᵢ = cache_particle(coords, ip, idx)
 
-        # check whether the particle is 
+        # check whether the particle is
         # within the same cell and skip it
         isincell(chop(pᵢ), corner_xi, dxi) && continue
 
@@ -47,10 +47,11 @@ function _move_particles!(coords, grid, dxi, index, idx)
             fill_particle!(coords, pᵢ, free_idx, new_cell)
 
         else
-            ## SOMEHOW THE PARTICLE DID ESCAPE THE DOMAIN 
+            ## SOMEHOW THE PARTICLE DID ESCAPE THE DOMAIN
             ## => REMOVE IT
             @inbounds @index index[ip, idx] = false
             empty_particle!(coords, ip, idx)
         end
     end
+    return
 end
