@@ -1,76 +1,76 @@
 @inline function parent_cell(
-    p::NTuple{N,A}, di::NTuple{N,B}, xci::NTuple{N,B}
-) where {N,A,B}
+        p::NTuple{N, A}, di::NTuple{N, B}, xci::NTuple{N, B}
+    ) where {N, A, B}
     ni = length.(xci)
     return ntuple(i -> min(Int((p[i] - xci[i]) ÷ di[i] + 1), ni[i]), Val(N))
 end
 
 # dimension-agnostic fully unrolled euclidean distance
-@inline function distance(a::NTuple{N,T}, b::NTuple{N,T}) where {N,T}
-    distance((a[1] - b[1])^2, Base.tail(a), Base.tail(b))
+@inline function distance(a::NTuple{N, T}, b::NTuple{N, T}) where {N, T}
+    return distance((a[1] - b[1])^2, Base.tail(a), Base.tail(b))
 end
 
-@inline function distance(s::Number, a::NTuple{N,T}, b::NTuple{N,T}) where {N,T}
-    distance(s + (a[1] - b[1])^2, Base.tail(a), Base.tail(b))
+@inline function distance(s::Number, a::NTuple{N, T}, b::NTuple{N, T}) where {N, T}
+    return distance(s + (a[1] - b[1])^2, Base.tail(a), Base.tail(b))
 end
 
-@inline function distance(s::Number, a::NTuple{1,T}, b::NTuple{1,T}) where {T}
-    √(s + (a[1] - b[1])^2 )
+@inline function distance(s::Number, a::NTuple{1, T}, b::NTuple{1, T}) where {T}
+    return √(s + (a[1] - b[1])^2)
 end
 
 # check whether particle is inside the grid (includes boundary)
 @inline function isinside(px::Real, py::Real, x, y)
     xmin, xmax = extrema(x)
     ymin, ymax = extrema(y)
-    @assert (px === NaN) || (py === NaN) (xmin ≤ px ≤ xmax) && (ymin ≤ py ≤ ymax)
+    return @assert (px === NaN) || (py === NaN) (xmin ≤ px ≤ xmax) && (ymin ≤ py ≤ ymax)
 end
 
 @inline function isinside(px::Real, py::Real, pz::Real, x, y, z)
     xmin, xmax = extrema(x)
     ymin, ymax = extrema(y)
     zmin, zmax = extrema(z)
-    @assert (px === NaN) ||
+    return @assert (px === NaN) ||
         (py === NaN) ||
         (pz === NaN) ||
         (xmin ≤ px ≤ xmax) && (ymin ≤ py ≤ ymax) && (zmin ≤ pz ≤ zmax)
 end
 
-@inline function isinside(p::NTuple{2,T1}, x::NTuple{2,T2}) where {T1,T2}
+@inline function isinside(p::NTuple{2, T1}, x::NTuple{2, T2}) where {T1, T2}
     return isinside(p[1], p[2], x[1], x[2])
 end
 
-@inline function isinside(p::NTuple{3,T1}, x::NTuple{3,T2}) where {T1,T2}
+@inline function isinside(p::NTuple{3, T1}, x::NTuple{3, T2}) where {T1, T2}
     return isinside(p[1], p[2], p[3], x[1], x[2], x[3])
 end
 
 # normalize coordinates
 @inline function normalize_coordinates(
-    p::NTuple{N,A}, xi::NTuple{N,B}, di::NTuple{N,C}, idx::NTuple{N,D}
-) where {N,A,B,C,D}
+        p::NTuple{N, A}, xi::NTuple{N, B}, di::NTuple{N, C}, idx::NTuple{N, D}
+    ) where {N, A, B, C, D}
     return ntuple(i -> (p[i] - xi[i][idx[i]]) * inv(di[i]), Val(N))
 end
 
 # normalize coordinates
 @inline function normalize_coordinates(
-    p::NTuple{N,A}, xci::NTuple{N,B}, di::NTuple{N,C}
-) where {N,A,B,C}
+        p::NTuple{N, A}, xci::NTuple{N, B}, di::NTuple{N, C}
+    ) where {N, A, B, C}
     return ntuple(i -> (p[i] - xci[i]) * inv(di[i]), Val(N))
 end
 
 # compute grid size
-function grid_size(x::NTuple{N,T}) where {T,N}
+function grid_size(x::NTuple{N, T}) where {T, N}
     return ntuple(i -> abs(minimum(diff(x[i]))), Val(N))
 end
 
 # Get field F at the corners of a given cell
-@inline function field_corners(F::AbstractArray{T,2}, idx::NTuple{2,Int64}) where {T}
+@inline function field_corners(F::AbstractArray{T, 2}, idx::NTuple{2, Int64}) where {T}
     idx_x, idx_y = idx
     return (
-        F[idx_x, idx_y], F[idx_x + 1, idx_y], F[idx_x, idx_y + 1], F[idx_x + 1, idx_y + 1]
+        F[idx_x, idx_y], F[idx_x + 1, idx_y], F[idx_x, idx_y + 1], F[idx_x + 1, idx_y + 1],
     )
 end
 
-@inline function field_corners(F::AbstractArray{T,3}, idx::NTuple{3,Int64}) where {T}
+@inline function field_corners(F::AbstractArray{T, 3}, idx::NTuple{3, Int64}) where {T}
     idx_x, idx_y, idx_z = idx
     return (
         F[idx_x, idx_y, idx_z],             # v000
@@ -95,15 +95,15 @@ end
 end
 
 # Get field F at the corners of a given cell
-@inline function field_corners(F::AbstractArray{T,2}, idx::NTuple{2,Integer}) where {T}
+@inline function field_corners(F::AbstractArray{T, 2}, idx::NTuple{2, Integer}) where {T}
     idx_x, idx_y = idx
     idx_x1, idx_y1 = (idx_x, idx_y) .+ 1
     return @inbounds (
-        F[idx_x, idx_y], F[idx_x1, idx_y], F[idx_x, idx_y1], F[idx_x1, idx_y1]
+        F[idx_x, idx_y], F[idx_x1, idx_y], F[idx_x, idx_y1], F[idx_x1, idx_y1],
     )
 end
 
-@inline function field_corners(F::AbstractArray{T,3}, idx::NTuple{3,Integer}) where {T}
+@inline function field_corners(F::AbstractArray{T, 3}, idx::NTuple{3, Integer}) where {T}
     idx_x, idx_y, idx_z = idx
     return @inbounds (
         F[idx_x, idx_y, idx_z],             # v000
@@ -119,8 +119,8 @@ end
 
 # Get field F at the centers of a given cell
 @inline function field_centers(
-    F::AbstractArray{T,2}, pxi, xi, xci_augmented, idx::NTuple{2,Integer}
-) where {T}
+        F::AbstractArray{T, 2}, pxi, xi, xci_augmented, idx::NTuple{2, Integer}
+    ) where {T}
     # unpack
     idx_x, idx_y = idx
     px, py = pxi
@@ -138,15 +138,15 @@ end
 
     # F at the four centers
     Fi = (
-        F[idx_x, idx_y], F[idx_x + 1, idx_y], F[idx_x, idx_y + 1], F[idx_x + 1, idx_y + 1]
+        F[idx_x, idx_y], F[idx_x + 1, idx_y], F[idx_x, idx_y + 1], F[idx_x + 1, idx_y + 1],
     )
 
     return Fi, (xc, yc)
 end
 
 @inline function field_centers(
-    F::AbstractArray{T,3}, pxi, xi, di, idx::NTuple{3,Integer}
-) where {T}
+        F::AbstractArray{T, 3}, pxi, xi, di, idx::NTuple{3, Integer}
+    ) where {T}
     # unpack
     idx_x, idx_y, idx_z = idx
     px, py, pz = pxi
@@ -180,7 +180,7 @@ end
 end
 
 # lower-left center coordinate
-@inline function center_coordinate(pxi, xi, idx::NTuple{2,Integer})
+@inline function center_coordinate(pxi, xi, idx::NTuple{2, Integer})
     idx_x, idx_y = idx
     px, py = pxi
     x, y = xi[1][idx_x], xi[2][idx_x]
@@ -188,11 +188,11 @@ end
     idx_y = (py - y) > 0 ? idx_y + 1 : idx_y
 
     return (
-        F[idx_x, idx_y], F[idx_x + 1, idx_y], F[idx_x, idx_y + 1], F[idx_x + 1, idx_y + 1]
+        F[idx_x, idx_y], F[idx_x + 1, idx_y], F[idx_x, idx_y + 1], F[idx_x + 1, idx_y + 1],
     )
 end
 
-@inline function center_coordinate(pxi, xi, idx::NTuple{3,Integer})
+@inline function center_coordinate(pxi, xi, idx::NTuple{3, Integer})
     idx_x, idx_y, idx_z = idx
     px, py, pz = pxi
     x, y, z = xi[1][idx_x], xi[2][idx_x], xi[3][idx_x]
@@ -212,7 +212,7 @@ end
     )
 end
 
-@inline function particle2tuple(p::NTuple{N,AbstractArray}, ix) where {N}
+@inline function particle2tuple(p::NTuple{N, AbstractArray}, ix) where {N}
     return ntuple(i -> p[i][ix], Val(N))
 end
 

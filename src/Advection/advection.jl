@@ -25,17 +25,17 @@ end
 @inline firstlast(x::Array) = first(x), last(x)
 @inline firstlast(x) = extrema(x)
 
-@inline function inner_limits(grid::NTuple{N,T}) where {N,T}
-    ntuple(Val(N)) do i
+@inline function inner_limits(grid::NTuple{N, T}) where {N, T}
+    return ntuple(Val(N)) do i
         Base.@_inline_meta
         ntuple(j -> firstlast.(grid[i])[j], Val(N))
     end
 end
 
 @generated function check_local_limits(
-    local_lims::NTuple{N,T1}, p::Union{SVector{N,T2},NTuple{N,T2}}
-) where {N,T1,T2}
-    quote
+        local_lims::NTuple{N, T1}, p::Union{SVector{N, T2}, NTuple{N, T2}}
+    ) where {N, T1, T2}
+    return quote
         Base.@_inline_meta
         Base.@nexprs $N i -> !(local_lims[i][1] < p[i] < local_lims[i][2]) && return false
         return true

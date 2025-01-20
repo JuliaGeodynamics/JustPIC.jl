@@ -6,7 +6,7 @@ push!(LOAD_PATH, "..")
 
 istest(f) = endswith(f, ".jl") && startswith(basename(f), "test_")
 
-function parse_flags!(args, flag; default=nothing, typ=typeof(default))
+function parse_flags!(args, flag; default = nothing, typ = typeof(default))
     for f in args
         startswith(f, flag) || continue
 
@@ -35,27 +35,28 @@ function runtests()
         ),
     )
     nfail = 0
-    printstyled("Testing package JustPIC.jl\n"; bold=true, color=:white)
+    printstyled("Testing package JustPIC.jl\n"; bold = true, color = :white)
 
     if get(ENV, "JULIA_JUSTPIC_BACKEND", "") === "CPU"
 
         try
-            printstyled("Running 2D tests\n"; bold=true, color=:white)
+            printstyled("Running 2D tests\n"; bold = true, color = :white)
             include("test_2D.jl")
             include("test_integrators.jl")
             include("test_CellArrays.jl")
-        catch 
-            nfail +=1 
+            include("test_save_load.jl")
+        catch
+            nfail += 1
         end
         try
-            printstyled("Running 3D tests\n"; bold=true, color=:white)
+            printstyled("Running 3D tests\n"; bold = true, color = :white)
             include("test_3D.jl")
-        catch 
-            nfail +=1 
+        catch
+            nfail += 1
         end
     else
         # 2D tests --------------------------------------------------
-        printstyled("Running 2D tests\n"; bold=true, color=:white)
+        printstyled("Running 2D tests\n"; bold = true, color = :white)
         for f in testfiles
             if occursin("2D", f)
                 println("\n Running tests from $f")
@@ -68,7 +69,7 @@ function runtests()
         end
 
         # 3D tests --------------------------------------------------
-        printstyled("Running 3D tests\n"; bold=true, color=:white)
+        printstyled("Running 3D tests\n"; bold = true, color = :white)
         for f in testfiles
             if occursin("3D", f)
                 println("\n Running tests from $f")
@@ -79,12 +80,15 @@ function runtests()
                 end
             end
         end
+
+        # Force IO test on GPU
+        run(`$(Base.julia_cmd()) --startup-file=no $(joinpath(testdir, "test_save_load.jl"))`)
     end
 
     return nfail
 end
 
-_, backend_name = parse_flags!(ARGS, "--backend"; default="CPU", typ=String)
+_, backend_name = parse_flags!(ARGS, "--backend"; default = "CPU", typ = String)
 
 @static if backend_name == "AMDGPU"
     Pkg.add("AMDGPU")
