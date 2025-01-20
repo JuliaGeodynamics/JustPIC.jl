@@ -56,7 +56,7 @@ end
         pᵢ_new = advect_particle(method, pᵢ, V, grid, local_limits, dxi, dt, I)
         # update particle coordinates
         for k in 1:N
-            @inbounds @index p[k][ipart, I...] = pᵢ_new[k]
+            @index p[k][ipart, I...] = pᵢ_new[k]
         end
     end
 
@@ -107,7 +107,7 @@ end
     ) where {N, T}
     return quote
         Base.@_inline_meta
-        @inbounds begin
+        begin
             Base.@nexprs $N i -> begin
                 # unpack
                 corrected_idx_i = idx[i]
@@ -122,7 +122,7 @@ end
             cells = Base.@ncall $N tuple cell
 
             # F at the four centers
-            Fi = @inbounds extract_field_corners(F, indices...)
+            Fi = extract_field_corners(F, indices...)
         end
 
         return Fi, cells
