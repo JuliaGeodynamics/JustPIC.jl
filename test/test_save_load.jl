@@ -165,6 +165,10 @@ end
     particles    = JP3.init_particles(backend, nxcell, max_xcell, min_xcell, xvi...,);
     phases,      = JP3.init_cell_arrays(particles, Val(1));
     phase_ratios = JP3.PhaseRatios(backend, 2, ni);
+    particle_args = (phases,)
+    initial_elevation = Ly/2
+    chain             = JP2.init_markerchain(backend, nxcell, min_xcell, max_xcell, xv, initial_elevation);
+   
     @views particles.index.data[:, 1:3, 1] .= 1.0;
     @views particles.index.data[:, 4:6, 1] .= 0.0;
 
@@ -196,10 +200,12 @@ end
     phases2       = data["phases"];
     phase_ratios2 = data["phase_ratios"];
 
-    data1         = load("particles_checkpoint.jld2");
-    particles3    = data1["particles"];
-    phases3       = data1["phases"];
-    phase_ratios3 = data1["phase_ratios"];
+    data1          = load("particles_checkpoint.jld2");
+    particles3     = data1["particles"];
+    phases3        = data1["phases"];
+    phase_ratios3  = data1["phase_ratios"];
+    chain3         = data1["chain"]
+    particle_args3 = data1["particle_args"]
 
     @test Array(particles).coords[1].data        == particles2.coords[1].data
     @test Array(particles).coords[2].data        == particles2.coords[2].data
