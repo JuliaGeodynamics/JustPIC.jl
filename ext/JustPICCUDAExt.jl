@@ -112,7 +112,7 @@ module _2D
     end
 
     function JustPIC._2D.init_particles(
-        ::Type{CUDABackend}, nxcell, max_xcell, min_xcell, x, y; buffer = 0.98
+        ::Type{CUDABackend}, nxcell, max_xcell, min_xcell, x, y; buffer = 1-1e-5
     )
         return init_particles(CUDABackend, nxcell, max_xcell, min_xcell, x, y; buffer = buffer)
     end
@@ -125,7 +125,7 @@ module _2D
         coords::NTuple{2,AbstractArray},
         dxᵢ::NTuple{2,T},
         nᵢ::NTuple{2,I};
-        buffer = 0.98
+        buffer = 1-1e-5
     ) where {T,I}
         return init_particles(CUDABackend, nxcell, max_xcell, min_xcell, coords, dxᵢ, nᵢ, buffer)
     end
@@ -441,7 +441,7 @@ module _3D
     end
 
     function JustPIC._3D.init_particles(
-        ::Type{CUDABackend}, nxcell, max_xcell, min_xcell, x, y, z; buffer = 0.98
+        ::Type{CUDABackend}, nxcell, max_xcell, min_xcell, x, y, z; buffer = 1-1e-5
     )
         return init_particles(CUDABackend, nxcell, max_xcell, min_xcell, x, y, z; buffer = buffer)
     end
@@ -454,7 +454,7 @@ module _3D
         coords::NTuple{3,AbstractArray},
         dxᵢ::NTuple{3,T},
         nᵢ::NTuple{3,I};
-        buffer = 0.98,
+        buffer = 1-1e-5,
     ) where {T,I}
         return init_particles(CUDABackend, nxcell, max_xcell, min_xcell, coords, dxᵢ, nᵢ, buffer)
     end
