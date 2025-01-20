@@ -30,7 +30,7 @@ function init_particles(backend, nxcell, max_xcell, min_xcell, xvi::Vararg{N,T};
     di = compute_dx(xvi)
     ni = @. length(xvi) - 1
 
-    return init_particles(backend, nxcell, max_xcell, min_xcell, xvi, di, ni, buffer)
+    return init_particles(backend, nxcell, max_xcell, min_xcell, xvi, di, ni; buffer = buffer)
 end
 
 function init_particles(
@@ -40,8 +40,8 @@ function init_particles(
     min_xcell,
     coords::NTuple{N,AbstractArray},
     dxᵢ::NTuple{N,T},
-    nᵢ::NTuple{N,I},
-    buffer
+    nᵢ::NTuple{N,I}; 
+    buffer = 0.98
 ) where {N,T,I}
     ncells = prod(nᵢ)
     np = max_xcell * ncells
