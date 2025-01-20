@@ -1,3 +1,5 @@
+ENV["JULIA_JUSTPIC_BACKEND"] = "CUDA"
+
 @static if ENV["JULIA_JUSTPIC_BACKEND"] === "AMDGPU"
     using AMDGPU
 elseif ENV["JULIA_JUSTPIC_BACKEND"] === "CUDA"
@@ -16,7 +18,7 @@ else
     JustPIC.CPUBackend
 end
 
-@testset "Save and load 2D" begin
+# @testset "Save and load 2D" begin
     # Initialize particles -------------------------------
     nxcell, max_xcell, min_xcell = 6, 6, 6
     n  = 64
@@ -52,14 +54,13 @@ end
     @test eltype(eltype(Array(Float32, phase_ratios).vertex.data)) === Float32
 
     jldsave(
-        "particles.jld2";
+        joinpath(@__DIR__,"particles.jld2");
         particles    = Array(particles),
         phases       = Array(phases),
         phase_ratios = Array(phase_ratios)
     )
 
-
-    data          = load("particles.jld2")
+    data          = load(joinpath(@__DIR__,"particles.jld2"))
     particles2    = data["particles"]
     phases2       = data["phases"]
     phase_ratios2 = data["phase_ratios"]
@@ -77,10 +78,10 @@ end
     @test size(Array(phase_ratios).vertex.data)  == size(phase_ratios2.vertex.data)
     @test size(Array(phases).data)               == size(phases2.data)
 
-    data1          = load("particles_checkpoint.jld2")
-    particles3    = data1["particles"]
-    phases3       = data1["phases"]
-    phase_ratios3 = data1["phase_ratios"]
+    data1          = load(joinpath(@__DIR__,"particles_checkpoint.jld2"))
+    particles3     = data1["particles"]
+    phases3        = data1["phases"]
+    phase_ratios3  = data1["phase_ratios"]
     chain3         = data1["chain"]
     particle_args3 = data1["particle_args"]
 
@@ -107,19 +108,17 @@ end
         T       = isCUDA ? CuArray : ROCArray
         Backend = isCUDA ? CUDABackend : AMDGPUBackend
 
-        particles2       = Array(particles)
-        phases2          = Array(phases)
-        phase_ratios2    = Array(phase_ratios)
-
-        particles_gpu    = T(particles2)
-        phase_ratios_gpu = T(phase_ratios2)
-        phases_gpu       = T(phases2);
-
-        particles_gpu2    = T(particles3)
-        phase_ratios_gpu2 = T(phase_ratios3)
-        phases_gpu2       = T(phases3);
-        chain_gpu         = T(chain)
-        particle_args_gpu2 = T.(particle_args)
+        particles2         = Array(particles)
+        phases2            = Array(phases)
+        phase_ratios2      = Array(phase_ratios)
+        particles_gpu      = T(particles2);
+        phase_ratios_gpu   = T(phase_ratios2);
+        phases_gpu         = T(phases2);
+        particles_gpu2     = T(particles3);
+        phase_ratios_gpu2  = T(phase_ratios3);
+        phases_gpu2        = T(phases3);
+        chain_gpu          = T(chain);
+        particle_args_gpu2 = T.(particle_args);
 
         @test particles_gpu                       isa JustPIC.Particles{Backend}
         @test phase_ratios_gpu                    isa JustPIC.PhaseRatios{Backend}
@@ -160,7 +159,7 @@ end
 
     rm("particles_checkpoint.jld2") # cleanup
     rm("particles.jld2") # cleanup
-end
+# end
 @testset "Save and load 3D" begin
     # Initialize particles -------------------------------
     nxcell, max_xcell, min_xcell = 6, 6, 6
