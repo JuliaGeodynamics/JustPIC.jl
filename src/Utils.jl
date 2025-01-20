@@ -1,7 +1,7 @@
 function add_global_ghost_nodes(x::AbstractArray, dx, origin; backend = CPUBackend)
     x1, x2 = extrema(x)
-    xI = round(x1 - dx; sigdigits = 5)
-    xF = round(x2 + dx; sigdigits = 5)
+    xI = x1 - dx
+    xF = x2 + dx
     x1 == origin[1] && (x = vcat(xI, x))
     x2 == origin[2] && (x = vcat(x, xF))
     return x = TA(backend)(x)
@@ -9,8 +9,8 @@ end
 
 function add_ghost_nodes(x::AbstractArray, dx, origin; backend = CPUBackend)
     x1, x2 = extrema(x)
-    xI = round(x1 - dx; sigdigits = 5)
-    xF = round(x2 + dx; sigdigits = 5)
+    xI = x1 - dx
+    xF = x2 + dx
     # LinRange(xI, xF, length(x)+2)
     return x = TA(backend)(vcat(xI, Array(x), xF))
 end
