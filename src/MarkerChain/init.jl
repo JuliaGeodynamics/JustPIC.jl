@@ -1,6 +1,6 @@
 function init_markerchain(
-    ::Type{backend}, nxcell, min_xcell, max_xcell, xv, initial_elevation
-) where {backend}
+        ::Type{backend}, nxcell, min_xcell, max_xcell, xv, initial_elevation
+    ) where {backend}
     nx = length(xv) - 1
     dx = xv[2] - xv[1]
     dx_chain = dx / (nxcell + 1)
@@ -21,8 +21,8 @@ function init_markerchain(
 end
 
 @parallel_indices (i) function fill_markerchain_coords_index!(
-    px, py, index, x, initial_elevation, dx_chain, nxcell, max_xcell
-)
+        px, py, index, x, initial_elevation, dx_chain, nxcell, max_xcell
+    )
     # lower-left corner of the cell
     x0 = x[i]
     # fill index array
@@ -35,8 +35,8 @@ end
 end
 
 @parallel_indices (i) function fill_markerchain_coords_index!(
-    px, py, index, x, initial_elevation::AbstractArray{T,1}, dx_chain, nxcell, max_xcell
-) where {T}
+        px, py, index, x, initial_elevation::AbstractArray{T, 1}, dx_chain, nxcell, max_xcell
+    ) where {T}
     # lower-left corner of the cell
     x0 = x[i]
     initial_elevation0 = initial_elevation[i]
@@ -76,8 +76,8 @@ function fill_chain_from_chain!(chain::MarkerChain, topo_x, topo_y)
 end
 
 @parallel_indices (icell) function _fill_chain!(
-    coords, index, cell_vertices, topo_x, topo_y
-)
+        coords, index, cell_vertices, topo_x, topo_y
+    )
     _fill_chain_kernel!(coords, index, cell_vertices, topo_x, topo_y, icell)
     return nothing
 end

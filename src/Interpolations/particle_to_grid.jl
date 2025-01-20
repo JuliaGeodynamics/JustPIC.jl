@@ -14,7 +14,7 @@ end
 
 ## INTERPOLATION KERNEL 2D
 
-function _particle2grid!(F, Fp, inode, jnode, xi::NTuple{2,T}, p, index, di) where {T}
+function _particle2grid!(F, Fp, inode, jnode, xi::NTuple{2, T}, p, index, di) where {T}
     px, py = p # particle coordinates
     xvertex = xi[1][inode], xi[2][jnode] # cell lower-left coordinates
     ω, ωxF = 0.0, 0.0 # init weights
@@ -36,7 +36,7 @@ function _particle2grid!(F, Fp, inode, jnode, xi::NTuple{2,T}, p, index, di) whe
                 doskip(index, ip, ivertex, jvertex) && continue
 
                 p_i = @index(px[ip, ivertex, jvertex]), @index(py[ip, ivertex, jvertex])
-                ω_i = distance_weight(xvertex, p_i; order=1)
+                ω_i = distance_weight(xvertex, p_i; order = 1)
                 # ω_i = bilinear_weight(xvertex, p_i, di)
                 ω += ω_i
                 ωxF = fma(ω_i, @index(Fp[ip, ivertex, jvertex]), ωxF)
@@ -48,8 +48,8 @@ function _particle2grid!(F, Fp, inode, jnode, xi::NTuple{2,T}, p, index, di) whe
 end
 
 @inbounds function _particle2grid!(
-    F::NTuple{N,T1}, Fp::NTuple{N,T2}, inode, jnode, xi::NTuple{2,T3}, p, index, di
-) where {N,T1,T2,T3}
+        F::NTuple{N, T1}, Fp::NTuple{N, T2}, inode, jnode, xi::NTuple{2, T3}, p, index, di
+    ) where {N, T1, T2, T3}
     px, py = p # particle coordinates
     nx, ny = size(F[1])
     xvertex = xi[1][inode], xi[2][jnode] # cell lower-left coordinates
@@ -69,7 +69,7 @@ end
                     doskip(index, i, ivertex, jvertex) && continue
 
                     p_i = @index(px[i, ivertex, jvertex]), @index(py[i, ivertex, jvertex])
-                    ω_i = distance_weight(xvertex, p_i; order=1)
+                    ω_i = distance_weight(xvertex, p_i; order = 1)
                     # ω_i = bilinear_weight(xvertex, p_i, di)
                     ω += ω_i
                     ωxF = ntuple(Val(N)) do j
@@ -91,8 +91,8 @@ end
 ## INTERPOLATION KERNEL 3D
 
 @inbounds function _particle2grid!(
-    F, Fp, inode, jnode, knode, xi::NTuple{3,T}, p, index, di
-) where {T}
+        F, Fp, inode, jnode, knode, xi::NTuple{3, T}, p, index, di
+    ) where {T}
     px, py, pz = p # particle coordinates
     nx, ny, nz = size(F)
     xvertex = xi[1][inode], xi[2][jnode], xi[3][knode] # cell lower-left coordinates
@@ -117,7 +117,7 @@ end
                             @index(py[ip, ivertex, jvertex, kvertex]),
                             @index(pz[ip, ivertex, jvertex, kvertex]),
                         )
-                        ω_i = distance_weight(xvertex, p_i; order=1)
+                        ω_i = distance_weight(xvertex, p_i; order = 1)
                         # ω_i = bilinear_weight(xvertex, p_i, di)
                         ω += ω_i
                         ωF = muladd(ω_i, @index(Fp[ip, ivertex, jvertex, kvertex]), ωF)
@@ -131,8 +131,8 @@ end
 end
 
 @inbounds function _particle2grid!(
-    F::NTuple{N,T1}, Fp::NTuple{N,T2}, inode, jnode, knode, xi::NTuple{3,T3}, p, index, di
-) where {N,T1,T2,T3}
+        F::NTuple{N, T1}, Fp::NTuple{N, T2}, inode, jnode, knode, xi::NTuple{3, T3}, p, index, di
+    ) where {N, T1, T2, T3}
     px, py, pz = p # particle coordinates
     nx, ny, nz = size(F[1])
     xvertex = xi[1][inode], xi[2][jnode], xi[3][knode] # cell lower-left coordinates
@@ -158,7 +158,7 @@ end
                             @index(py[ip, ivertex, jvertex, kvertex]),
                             @index(pz[ip, ivertex, jvertex, kvertex]),
                         )
-                        ω_i = distance_weight(xvertex, p_i; order=1)
+                        ω_i = distance_weight(xvertex, p_i; order = 1)
                         # ω_i = bilinear_weight(xvertex, p_i, di)
                         ω += ω_i
                         ωxF = ntuple(Val(N)) do j
@@ -180,24 +180,24 @@ end
 
 ## OTHERS
 
-@inline function distance_weight(a, b; order::Int64=1)
+@inline function distance_weight(a, b; order::Int64 = 1)
     return inv(distance(a, b)^order)
 end
 
-@inline function distance_weight(x, y, b; order::Int64=1)
+@inline function distance_weight(x, y, b; order::Int64 = 1)
     return inv(distance((x, y), b)^order)
 end
 
 @generated function bilinear_weight(
-    a::Union{NTuple{N,T},SVector{N,T}},
-    b::Union{NTuple{N,T},SVector{N,T}},
-    di::Union{NTuple{N,T},SVector{N,T}},
-) where {N,T}
+        a::Union{NTuple{N, T}, SVector{N, T}},
+        b::Union{NTuple{N, T}, SVector{N, T}},
+        di::Union{NTuple{N, T}, SVector{N, T}},
+    ) where {N, T}
     return quote
         Base.@_inline_meta
         one_T = val = one(T)
         Base.Cartesian.@nexprs $N i ->
-            @inbounds val *= muladd(-abs(a[i] - b[i]), inv(di[i]), one_T)
+        @inbounds val *= muladd(-abs(a[i] - b[i]), inv(di[i]), one_T)
         return val
     end
 end

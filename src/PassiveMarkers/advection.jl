@@ -1,7 +1,7 @@
 # Two-step Runge-Kutta advection scheme for marker chains
 function advection!(
-    particles::PassiveMarkers, method::AbstractAdvectionIntegrator, V, grid_vxi, dt
-)
+        particles::PassiveMarkers, method::AbstractAdvectionIntegrator, V, grid_vxi, dt
+    )
     (; coords, np) = particles
 
     # compute some basic stuff
@@ -17,8 +17,8 @@ end
 
 # ParallelStencil function Runge-Kutta advection function for 3D staggered grids
 @parallel_indices (ipart) function _advection!(
-    method::AbstractAdvectionIntegrator, p, V::NTuple{N,T}, grid, local_limits, dxi, dt
-) where {N,T}
+        method::AbstractAdvectionIntegrator, p, V::NTuple{N, T}, grid, local_limits, dxi, dt
+    ) where {N, T}
     # cache particle coordinates
     pᵢ = get_particle_coords(p, ipart)
     # reuses marker chain methods

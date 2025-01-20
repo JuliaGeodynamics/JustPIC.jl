@@ -14,8 +14,8 @@ end
     return nothing
 end
 
-chop(I::NTuple{2,T}) where {T} = I[1]
-chop(I::NTuple{3,T}) where {T} = I[1], I[2]
+chop(I::NTuple{2, T}) where {T} = I[1]
+chop(I::NTuple{3, T}) where {T} = I[1], I[2]
 
 function _move_particles!(coords, grid, dxi, index, idx)
     # coordinate of the lower-most-left coordinate of the parent cell

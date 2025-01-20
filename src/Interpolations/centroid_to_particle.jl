@@ -8,7 +8,7 @@ function centroid2particle!(Fp, xci, F, particles)
     return nothing
 end
 
-function centroid2particle!(Fp, xci, F, coords, di::NTuple{N,T}) where {N,T}
+function centroid2particle!(Fp, xci, F, coords, di::NTuple{N, T}) where {N, T}
     # indices = ntuple(i -> 0:(length(xci[i]) + 1), Val(N))
     ni = size(Fp)
     @parallel (@idx ni) centroid2particle_classic!(Fp, F, xci, di, coords)
@@ -42,8 +42,8 @@ end
 end
 
 @inline function _centroid2particle_classic!(
-    Fp::NTuple{NF}, p, xci, di::NTuple{N}, F::NTuple{NF}, I
-) where {NF,N}
+        Fp::NTuple{NF}, p, xci, di::NTuple{N}, F::NTuple{NF}, I
+    ) where {NF, N}
     ni = size(F) .- 1
     # iterate over all the particles within the cells of index `idx`
     @inbounds for ip in cellaxes(Fp)
@@ -68,5 +68,5 @@ end
 # shifts the index of the cell bot-left to the left if it is located in the left cell
 @inline shifted_index(pxi, xci, idx) = pxi < xci ? idx - 1 : idx
 @inline shifted_index(
-    pxi::NTuple{N,A}, xci::NTuple{N,B}, idx::NTuple{N,Integer}
-) where {N,A,B} = ntuple(i -> shifted_index(pxi[i], xci[i], idx[i]), Val(N))
+    pxi::NTuple{N, A}, xci::NTuple{N, B}, idx::NTuple{N, Integer}
+) where {N, A, B} = ntuple(i -> shifted_index(pxi[i], xci[i], idx[i]), Val(N))

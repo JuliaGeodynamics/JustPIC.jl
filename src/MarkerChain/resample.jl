@@ -2,8 +2,8 @@ function resample!(chain::MarkerChain)
 
     # resampling launch kernel
     @parallel_indices (i) function resample!(
-        coords, cell_vertices, index, min_xcell, max_xcell, dx_cells
-    )
+            coords, cell_vertices, index, min_xcell, max_xcell, dx_cells
+        )
         resample_cell!(coords, cell_vertices, index, min_xcell, max_xcell, dx_cells, i)
         return nothing
     end
@@ -22,8 +22,8 @@ function resample!(chain::MarkerChain)
 end
 
 function resample_cell!(
-    coords::NTuple{2,T}, cell_vertices, index, min_xcell, max_xcell, dx_cells, I
-) where {T}
+        coords::NTuple{2, T}, cell_vertices, index, min_xcell, max_xcell, dx_cells, I
+    ) where {T}
 
     # cell particles coordinates
     index_I = @cell index[I]
@@ -100,7 +100,7 @@ end
 function sort_chain!(chain::MarkerChain{T}) where {T}
     (; coords, index) = chain
     # sort permutations of each cell
-    perms = sortperm(coords[1].data; dims=2)
+    perms = sortperm(coords[1].data; dims = 2)
     coords[1].data .= @views coords[1].data[perms]
     coords[2].data .= @views coords[2].data[perms]
     index.data .= @views index.data[perms]

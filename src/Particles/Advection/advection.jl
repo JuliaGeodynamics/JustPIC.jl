@@ -12,12 +12,12 @@ Advects the particles using the advection scheme defined by `method`.
 - `dt`: Time step.
 """
 function advection!(
-    particles::Particles,
-    method::AbstractAdvectionIntegrator,
-    V,
-    grid_vi::NTuple{N,NTuple{N,T}},
-    dt,
-) where {N,T}
+        particles::Particles,
+        method::AbstractAdvectionIntegrator,
+        V,
+        grid_vi::NTuple{N, NTuple{N, T}},
+        dt,
+    ) where {N, T}
     dxi = compute_dx(first(grid_vi))
     (; coords, index) = particles
     # compute some basic stuff
@@ -36,15 +36,15 @@ end
 # DIMENSION AGNOSTIC KERNELS
 
 @parallel_indices (I...) function advection_kernel!(
-    p,
-    method::AbstractAdvectionIntegrator,
-    V::NTuple{N,T},
-    index,
-    grid,
-    local_limits,
-    dxi,
-    dt,
-) where {N,T}
+        p,
+        method::AbstractAdvectionIntegrator,
+        V::NTuple{N, T},
+        index,
+        grid,
+        local_limits,
+        dxi,
+        dt,
+    ) where {N, T}
 
     # iterate over particles in the I-th cell
     for ipart in cellaxes(index)
@@ -64,13 +64,13 @@ end
 end
 
 @inline function interp_velocity2particle(
-    particle_coords::NTuple{N,Any},
-    grid_vi,
-    local_limits,
-    dxi,
-    V::NTuple{N,Any},
-    idx::NTuple{N,Any},
-) where {N}
+        particle_coords::NTuple{N, Any},
+        grid_vi,
+        local_limits,
+        dxi,
+        V::NTuple{N, Any},
+        idx::NTuple{N, Any},
+    ) where {N}
     return ntuple(Val(N)) do i
         Base.@_inline_meta
         local_lims = local_limits[i]
@@ -84,8 +84,8 @@ end
 
 # Interpolate velocity from staggered grid to particle. Innermost kernel
 @inline function interp_velocity2particle(
-    p_i::Union{SVector,NTuple}, xi_vx::NTuple, dxi::NTuple, F::AbstractArray, idx
-)
+        p_i::Union{SVector, NTuple}, xi_vx::NTuple, dxi::NTuple, F::AbstractArray, idx
+    )
     # F and coordinates at/of the cell corners
     Fi, xci = corner_field_nodes(F, p_i, xi_vx, dxi, idx)
     # normalize particle coordinates
@@ -99,12 +99,12 @@ end
 ## Other functions
 
 @generated function corner_field_nodes(
-    F::AbstractArray{T,N},
-    particle,
-    xi_vx,
-    dxi,
-    idx::Union{SVector{N,Integer},NTuple{N,Integer}},
-) where {N,T}
+        F::AbstractArray{T, N},
+        particle,
+        xi_vx,
+        dxi,
+        idx::Union{SVector{N, Integer}, NTuple{N, Integer}},
+    ) where {N, T}
     return quote
         Base.@_inline_meta
         begin

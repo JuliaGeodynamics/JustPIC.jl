@@ -12,8 +12,8 @@ function compute_topography_vertex!(chain::MarkerChain)
 end
 
 @parallel_indices (ivertex) function _compute_h_vertex!(
-    h_vertices, chain_x, chain_y, cell_vertices, index, _dx
-)
+        h_vertices, chain_x, chain_y, cell_vertices, index, _dx
+    )
     _compute_h_vertex_kernel!(
         h_vertices, chain_x, chain_y, cell_vertices, index, _dx, ivertex
     )
@@ -21,8 +21,8 @@ end
 end
 
 function _compute_h_vertex_kernel!(
-    h_vertices, chain_x, chain_y, cell_vertices, index, _dx::T, ivertex
-) where {T}
+        h_vertices, chain_x, chain_y, cell_vertices, index, _dx::T, ivertex
+    ) where {T}
     h = zero(T)
     ω = zero(T)
     xcorner = cell_vertices[ivertex]
@@ -63,8 +63,8 @@ function reconstruct_chain_from_vertices!(chain::MarkerChain)
 end
 
 @parallel_indices (ivertex) function _reconstruct_h_from_vertex!(
-    h_vertices, chain_x, chain_y, cell_vertices, index
-)
+        h_vertices, chain_x, chain_y, cell_vertices, index
+    )
     _reconstruct_h_from_vertex_kernel!(
         h_vertices, chain_x, chain_y, cell_vertices, index, ivertex
     )
@@ -72,8 +72,8 @@ end
 end
 
 function _reconstruct_h_from_vertex_kernel!(
-    h_vertices, chain_x, chain_y, cell_vertices, index, ivertex
-)
+        h_vertices, chain_x, chain_y, cell_vertices, index, ivertex
+    )
     xcorner_left = cell_vertices[ivertex]
     xcorner_right = cell_vertices[ivertex + 1]
     lx = xcorner_right - xcorner_left

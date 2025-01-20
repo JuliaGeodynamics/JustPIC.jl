@@ -16,8 +16,8 @@ function compute_area_below_chain_centers!(ratio_center, chain, xvi, dxi)
 end
 
 @parallel_indices (i, j) function _compute_area_below_chain_center!(
-    ratio, topo_x, topo_y, xv, yv, dxi
-)
+        ratio, topo_x, topo_y, xv, yv, dxi
+    )
     _, dy = dxi
 
     # cell min max coordinates
@@ -59,8 +59,8 @@ function compute_area_below_chain_vx!(ratio_velocity, chain, xvi, dxi)
 end
 
 @parallel_indices (i, j) function _compute_area_below_chain_vx!(
-    ratios, topo_x, topo_y, masks_x, masks_y, xv, yv, n, dxi
-)
+        ratios, topo_x, topo_y, masks_x, masks_y, xv, yv, n, dxi
+    )
     dx, dy = dxi
     area_cell = prod(dxi) / 2
     ratios[i, j] = zero(eltype(dx))
@@ -122,8 +122,8 @@ function compute_area_below_chain_vy!(ratio_velocity, chain, xvi, dxi)
 end
 
 @parallel_indices (i, j) function _compute_area_below_chain_vy!(
-    ratios, topo_x, topo_y, masks_x, masks_y, xv, yv, n, dxi
-)
+        ratios, topo_x, topo_y, masks_x, masks_y, xv, yv, n, dxi
+    )
     dx, dy = dxi
     area_cell = prod(dxi) / 2
     ratios[i, j] = zero(eltype(dx))
@@ -185,8 +185,8 @@ function compute_area_below_chain_vertex!(ratio_velocity, chain, xvi, dxi)
 end
 
 @parallel_indices (i, j) function _compute_area_below_chain_vertex!(
-    ratios, topo_x, topo_y, masks_x, masks_y, xv, yv, nx, ny, dxi
-)
+        ratios, topo_x, topo_y, masks_x, masks_y, xv, yv, nx, ny, dxi
+    )
     dx, dy = dxi
     area_cell = prod(dxi) / 2
     ratios[i, j] = zero(eltype(dx))
@@ -241,8 +241,8 @@ end
 #############################
 
 function compute_area_below_chain(
-    topo_xᵢ, topo_yᵢ, x_min_cell::T, x_max_cell::T, y_min_cell::T, y_max_cell::T, dxi
-) where {T<:Real}
+        topo_xᵢ, topo_yᵢ, x_min_cell::T, x_max_cell::T, y_min_cell::T, y_max_cell::T, dxi
+    ) where {T <: Real}
     dx, dy = dxi
     area = zero(T)
 

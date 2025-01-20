@@ -1,7 +1,7 @@
 # 2D version, shear stress defined at cell vertices
 function update_phase_ratios!(
-    phase_ratios::JustPIC.PhaseRatios{B,T}, particles, xci, xvi, phases
-) where {B,T<:AbstractMatrix}
+        phase_ratios::JustPIC.PhaseRatios{B, T}, particles, xci, xvi, phases
+    ) where {B, T <: AbstractMatrix}
     phase_ratios_center!(phase_ratios, particles, xci, phases)
     phase_ratios_vertex!(phase_ratios, particles, xvi, phases)
     # velocity nodes
@@ -12,8 +12,8 @@ end
 
 # 3D version, shear stress defined at arete midpoints
 function update_phase_ratios!(
-    phase_ratios::JustPIC.PhaseRatios{B,T}, particles, xci, xvi, phases
-) where {B,T<:AbstractArray}
+        phase_ratios::JustPIC.PhaseRatios{B, T}, particles, xci, xvi, phases
+    ) where {B, T <: AbstractArray}
     phase_ratios_center!(phase_ratios, particles, xci, phases)
     phase_ratios_vertex!(phase_ratios, particles, xvi, phases)
     # velocity nodes
@@ -30,8 +30,8 @@ end
 ## interpolation kernels
 
 function phase_ratio_weights(
-    pxi::NTuple{NP,C}, ph::SVector{N1,T}, cell_center, di, ::Val{NC}
-) where {N1,NC,NP,T,C}
+        pxi::NTuple{NP, C}, ph::SVector{N1, T}, cell_center, di, ::Val{NC}
+    ) where {N1, NC, NP, T, C}
 
     # Initiaze phase ratio weights
     w = ntuple(_ -> zero(T), Val(NC))
@@ -49,13 +49,13 @@ function phase_ratio_weights(
 end
 
 @generated function bilinear_weight(
-    a::NTuple{N,T}, b::NTuple{N,T}, di::NTuple{N,T}
-) where {N,T}
+        a::NTuple{N, T}, b::NTuple{N, T}, di::NTuple{N, T}
+    ) where {N, T}
     return quote
         Base.@_inline_meta
         val = one($T)
         Base.Cartesian.@nexprs $N i ->
-            @inbounds val *= muladd(-abs(a[i] - b[i]), inv(di[i]), one($T))
+        @inbounds val *= muladd(-abs(a[i] - b[i]), inv(di[i]), one($T))
         return val
     end
 end

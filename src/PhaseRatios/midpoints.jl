@@ -1,8 +1,8 @@
 ## CELL FACES: AKA VELOCITY-NODES
 
 function phase_ratios_face!(
-    phase_face, particles, xci::NTuple{N}, phases, dimension
-) where {N}
+        phase_face, particles, xci::NTuple{N}, phases, dimension
+    ) where {N}
     ni = size(phases)
     di = compute_dx(xci)
     offsets = face_offset(Val(N), dimension)
@@ -14,8 +14,8 @@ function phase_ratios_face!(
 end
 
 @parallel_indices (I...) function phase_ratios_face_kernel!(
-    ratio_faces, pxi::NTuple{N}, xci::NTuple{N}, di::NTuple{N,T}, phases, offsets
-) where {N,T}
+        ratio_faces, pxi::NTuple{N}, xci::NTuple{N}, di::NTuple{N, T}, phases, offsets
+    ) where {N, T}
 
     # index corresponding to the cell center
     cell_center = getindex.(xci, I)
@@ -95,8 +95,8 @@ end
 ## MIDPOINTS: AKA SHEAR STRESS-NODES (ONLY IN 3D)
 
 function phase_ratios_midpoint!(
-    phase_midpoint, particles, xci::NTuple{N}, phases, dimension
-) where {N}
+        phase_midpoint, particles, xci::NTuple{N}, phases, dimension
+    ) where {N}
     ni = size(phases)
     di = compute_dx(xci)
     offsets = midpoint_offset(Val(N), dimension)
@@ -108,21 +108,21 @@ function phase_ratios_midpoint!(
 end
 
 @parallel_indices (I...) function phase_ratios_midpoint_kernel!(
-    ratio_midpoints, pxi::NTuple{N}, xci::NTuple{N}, di::NTuple{N,T}, phases, offsets
-) where {N,T}
+        ratio_midpoints, pxi::NTuple{N}, xci::NTuple{N}, di::NTuple{N, T}, phases, offsets
+    ) where {N, T}
     _phase_ratios_midpoint_kernel!(ratio_midpoints, pxi, xci, di, phases, offsets, I...)
     return nothing
 end
 
 function _phase_ratios_midpoint_kernel!(
-    ratio_midpoints,
-    pxi::NTuple{N},
-    xci::NTuple{N},
-    di::NTuple{N,T},
-    phases,
-    offsets,
-    I::Vararg{Int,N},
-) where {N,T}
+        ratio_midpoints,
+        pxi::NTuple{N},
+        xci::NTuple{N},
+        di::NTuple{N, T},
+        phases,
+        offsets,
+        I::Vararg{Int, N},
+    ) where {N, T}
     MASK_3D = (1, 0, 0), (0, 1, 0), (0, 0, 1), (1, 1, 1)
 
     # index corresponding to the cell center

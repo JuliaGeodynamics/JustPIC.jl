@@ -6,51 +6,51 @@ function checkpoint_name(dst, me)
 end
 
 function checkpointing_particles(
-    dst,
-    particles;
-    phases=nothing,
-    phase_ratios=nothing,
-    chain=nothing,
-    t=nothing,
-    dt=nothing,
-    particle_args=nothing,
-)
+        dst,
+        particles;
+        phases = nothing,
+        phase_ratios = nothing,
+        chain = nothing,
+        t = nothing,
+        dt = nothing,
+        particle_args = nothing,
+    )
     fname = checkpoint_name(dst)
     return checkpointing_particles(
         dst,
         particles,
         fname;
-        phases=phases,
-        phase_ratios=phase_ratios,
-        chain=chain,
-        t=t,
-        dt=dt,
-        particle_args=particle_args,
+        phases = phases,
+        phase_ratios = phase_ratios,
+        chain = chain,
+        t = t,
+        dt = dt,
+        particle_args = particle_args,
     )
 end
 
 function checkpointing_particles(
-    dst,
-    particles,
-    me;
-    phases=nothing,
-    phase_ratios=nothing,
-    chain=nothing,
-    t=nothing,
-    dt=nothing,
-    particle_args=nothing,
-)
+        dst,
+        particles,
+        me;
+        phases = nothing,
+        phase_ratios = nothing,
+        chain = nothing,
+        t = nothing,
+        dt = nothing,
+        particle_args = nothing,
+    )
     fname = checkpoint_name(dst, me)
     checkpointing_particles(
         dst,
         particles,
         fname;
-        phases=phases,
-        phase_ratios=phase_ratios,
-        chain=chain,
-        t=t,
-        dt=dt,
-        particle_args=particle_args,
+        phases = phases,
+        phase_ratios = phase_ratios,
+        chain = chain,
+        t = t,
+        dt = dt,
+        particle_args = particle_args,
     )
     return nothing
 end
@@ -74,19 +74,19 @@ Save the state of particles and related data to a checkpoint file in a jld2 form
 - `particle_args`: Additional particle arguments to be saved. If nothing is stated, the default is `nothing`.
 """
 function checkpointing_particles(
-    dst,
-    particles,
-    fname::String;
-    phases=phases,
-    phase_ratios=phase_ratios,
-    chain=chain,
-    t=t,
-    dt=dt,
-    particle_args=particle_args,
-)
+        dst,
+        particles,
+        fname::String;
+        phases = phases,
+        phase_ratios = phase_ratios,
+        chain = chain,
+        t = t,
+        dt = dt,
+        particle_args = particle_args,
+    )
     !isdir(dst) && mkpath(dst) # create folder in case it does not exist
 
-    mktempdir() do tmpdir
+    return mktempdir() do tmpdir
         # Save the checkpoint file in the temporary directory
         tmpfname = joinpath(tmpdir, basename(fname))
 
@@ -103,6 +103,6 @@ function checkpointing_particles(
         jldsave(tmpfname; args...)
 
         # Move the checkpoint file from the temporary directory to the destination directory
-        return mv(tmpfname, fname; force=true)
+        return mv(tmpfname, fname; force = true)
     end
 end
