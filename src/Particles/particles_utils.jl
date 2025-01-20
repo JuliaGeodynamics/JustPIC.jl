@@ -26,11 +26,7 @@ Initialize the particles object.
 - `min_xcell`: Minimum number of particles per cell
 - `xvi`: Grid cells vertices
 """
-<<<<<<< HEAD
 function init_particles(backend, nxcell, max_xcell, min_xcell, xvi::Vararg{N,T}; buffer = 0.98) where {N,T}
-=======
-function init_particles(backend, nxcell, max_xcell, min_xcell, xvi::Vararg{N, T}) where {N, T}
->>>>>>> main
     di = compute_dx(xvi)
     ni = @. length(xvi) - 1
 
@@ -38,7 +34,6 @@ function init_particles(backend, nxcell, max_xcell, min_xcell, xvi::Vararg{N, T}
 end
 
 function init_particles(
-<<<<<<< HEAD
     backend,
     nxcell,
     max_xcell,
@@ -48,17 +43,6 @@ function init_particles(
     nᵢ::NTuple{N,I}; 
     buffer = 0.98
 ) where {N,T,I}
-=======
-        backend,
-        nxcell,
-        max_xcell,
-        min_xcell,
-        coords::NTuple{N, AbstractArray},
-        dxᵢ::NTuple{N, T},
-        nᵢ::NTuple{N, I};
-        buffer = 0.9
-    ) where {N, T, I}
->>>>>>> main
     ncells = prod(nᵢ)
     np = max_xcell * ncells
     pxᵢ = ntuple(_ -> @rand(nᵢ..., celldims = (max_xcell,)), Val(N))

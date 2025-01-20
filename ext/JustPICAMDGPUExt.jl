@@ -117,7 +117,6 @@ module _2D
     end
 
     function JustPIC._2D.init_particles(
-<<<<<<< HEAD
         ::Type{AMDGPUBackend}, nxcell, max_xcell, min_xcell, x, y, z; buffer = 0.98
     )
         return init_particles(AMDGPUBackend, nxcell, max_xcell, min_xcell, x, y, z; buffer = buffer)
@@ -134,23 +133,6 @@ module _2D
         buffer = 0.98,
     ) where {T,I}
         return init_particles(AMDGPUBackend, nxcell, max_xcell, min_xcell, coords, dxᵢ, nᵢ, buffer)
-=======
-            ::Type{AMDGPUBackend}, nxcell, max_xcell, min_xcell, x, y
-        )
-        return init_particles(AMDGPUBackend, nxcell, max_xcell, min_xcell, x, y)
-    end
-
-    function JustPIC._2D.init_particles(
-            ::Type{AMDGPUBackend},
-            nxcell,
-            max_xcell,
-            min_xcell,
-            coords::NTuple{2, AbstractArray},
-            dxᵢ::NTuple{2, T},
-            nᵢ::NTuple{2, I},
-        ) where {T, I}
-        return init_particles(AMDGPUBackend, nxcell, max_xcell, min_xcell, coords, dxᵢ, nᵢ)
->>>>>>> main
     end
 
     function JustPIC._2D.advection!(
@@ -469,7 +451,6 @@ module _3D
     end
 
     function JustPIC._3D.init_particles(
-<<<<<<< HEAD
         ::Type{AMDGPUBackend}, nxcell, max_xcell, min_xcell, x, y, z; buffer = 0.98
     )
         return init_particles(AMDGPUBackend, nxcell, max_xcell, min_xcell, x, y, z; buffer = buffer)
@@ -486,23 +467,6 @@ module _3D
         buffer = 0.98,
     ) where {T,I}
         return init_particles(AMDGPUBackend, nxcell, max_xcell, min_xcell, coords, dxᵢ, nᵢ, buffer)
-=======
-            ::Type{AMDGPUBackend}, nxcell, max_xcell, min_xcell, x, y, z
-        )
-        return init_particles(AMDGPUBackend, nxcell, max_xcell, min_xcell, x, y, z)
-    end
-
-    function JustPIC._3D.init_particles(
-            ::Type{AMDGPUBackend},
-            nxcell,
-            max_xcell,
-            min_xcell,
-            coords::NTuple{3, AbstractArray},
-            dxᵢ::NTuple{3, T},
-            nᵢ::NTuple{3, I},
-        ) where {T, I}
-        return init_particles(AMDGPUBackend, nxcell, max_xcell, min_xcell, coords, dxᵢ, nᵢ)
->>>>>>> main
     end
 
     function JustPIC._3D.advection!(
