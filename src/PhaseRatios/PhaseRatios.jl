@@ -8,7 +8,9 @@ struct PhaseRatios{Backend, T} <: AbstractParticles
     xz::T
     xy::T
 
-    function PhaseRatios(::Type{B}, center::T, vertex::T, Vx::T, Vy::T, Vz::T, yz::T, xz::T, xy::T) where {B, T}
+    function PhaseRatios(
+            ::Type{B}, center::T, vertex::T, Vx::T, Vy::T, Vz::T, yz::T, xz::T, xy::T
+        ) where {B, T}
         return new{B, T}(center, vertex, Vx, Vy, Vz, yz, xz, xy)
     end
 end

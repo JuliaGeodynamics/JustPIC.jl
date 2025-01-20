@@ -1,5 +1,7 @@
 # 2D version, shear stress defined at cell vertices
-function update_phase_ratios!(phase_ratios::JustPIC.PhaseRatios{B, T}, particles, xci, xvi, phases) where {B, T <: AbstractMatrix}
+function update_phase_ratios!(
+        phase_ratios::JustPIC.PhaseRatios{B, T}, particles, xci, xvi, phases
+    ) where {B, T <: AbstractMatrix}
     phase_ratios_center!(phase_ratios, particles, xci, phases)
     phase_ratios_vertex!(phase_ratios, particles, xvi, phases)
     # velocity nodes
@@ -9,7 +11,9 @@ function update_phase_ratios!(phase_ratios::JustPIC.PhaseRatios{B, T}, particles
 end
 
 # 3D version, shear stress defined at arete midpoints
-function update_phase_ratios!(phase_ratios::JustPIC.PhaseRatios{B, T}, particles, xci, xvi, phases) where {B, T <: AbstractArray}
+function update_phase_ratios!(
+        phase_ratios::JustPIC.PhaseRatios{B, T}, particles, xci, xvi, phases
+    ) where {B, T <: AbstractArray}
     phase_ratios_center!(phase_ratios, particles, xci, phases)
     phase_ratios_vertex!(phase_ratios, particles, xvi, phases)
     # velocity nodes
@@ -58,9 +62,11 @@ end
 
 ## UTILS FOR MIDPOINTS AND FACES
 
-@inline isinhalfcell(p, cell_midpoint, offsets, di) = prod(x -> abs(x[1] - x[2]) ≤ x[3] * (1 - x[4] / 2), zip(p, cell_midpoint, di, offsets))
+@inline isinhalfcell(p, cell_midpoint, offsets, di) =
+    prod(x -> abs(x[1] - x[2]) ≤ x[3] * (1 - x[4] / 2), zip(p, cell_midpoint, di, offsets))
 
-@inline isinhalfcell(p, cell_midpoint, di) = prod(x -> abs(x[1] - x[2]) ≤ x[3] / 2, zip(p, cell_midpoint, di))
+@inline isinhalfcell(p, cell_midpoint, di) =
+    prod(x -> abs(x[1] - x[2]) ≤ x[3] / 2, zip(p, cell_midpoint, di))
 
 @inline accumulate_weight(w, x, phase, N) = w .+ x .* ntuple(j -> (phase == j), N)
 

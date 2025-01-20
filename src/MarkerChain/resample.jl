@@ -98,7 +98,6 @@ end
 
 # sort marker chain cells
 function sort_chain!(chain::MarkerChain{T}) where {T}
-
     (; coords, index) = chain
     # sort permutations of each cell
     perms = sortperm(coords[1].data; dims = 2)

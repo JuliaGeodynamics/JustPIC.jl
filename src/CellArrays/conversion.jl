@@ -8,15 +8,24 @@ import Base: Array, copy
 @inline isdevice(::T) where {T} =
     throw(ArgumentError("$(T) is not a supported CellArray type."))
 
-@inline CPU_CellArray(::Type{T}, ::UndefInitializer, dims::NTuple{N, Int}) where {T <: CellArrays.Cell, N} = CellArrays.CellArray{T, N, 1, Array{eltype(T), 3}}(undef, dims)
-@inline CPU_CellArray(::Type{T}, ::UndefInitializer, dims::Int...) where {T <: CellArrays.Cell} = CPU_CellArray(T, undef, dims)
-
+@inline CPU_CellArray(
+    ::Type{T}, ::UndefInitializer, dims::NTuple{N, Int}
+) where {T <: CellArrays.Cell, N} = CellArrays.CellArray{T, N, 1, Array{eltype(T), 3}}(undef, dims)
+@inline CPU_CellArray(
+    ::Type{T}, ::UndefInitializer, dims::Int...
+) where {T <: CellArrays.Cell} = CPU_CellArray(T, undef, dims)
 
 # Copies CellArray to CPU if it is on a GPU device
 Array(CA::CellArray) = Array(eltype(eltype(CA)), CA)
-Array(::Type{T}, CA::CellArray) where {T <: Number} = Array(isdevice(typeof(CA).parameters[end]), T, CA)
+function Array(::Type{T}, CA::CellArray) where {T <: Number}
+    return Array(isdevice(typeof(CA).parameters[end]), T, CA)
+end
 Array(::Val{false}, ::Type{T}, CA::CellArray) where {T <: Number} = Array(Val(true), T, CA)
-Array(::Val{false}, ::Type{T}, CA::CellArray{CPUCellArray{SVector{N, T}}}) where {N, T <: Number} = CA
+function Array(
+        ::Val{false}, ::Type{T}, CA::CellArray{CPUCellArray{SVector{N, T}}}
+    ) where {N, T <: Number}
+    return CA
+end
 
 # inner kernel doing the actual copy of the `CellArray`
 function Array(::Val{true}, ::Type{T}, CA::CellArray) where {T <: Number}
@@ -66,7 +75,9 @@ _Array(x::NTuple{N, T}) where {N, T} = ntuple(i -> _Array(x[i]), Val(N))
 _Array(::Type{T}, ::Nothing) where {T <: Number} = nothing
 _Array(::Type{T}, x) where {T <: Number} = x
 _Array(::Type{T}, x::AbstractArray{TA, N}) where {T <: Number, N, TA} = Array(T, x)
-_Array(::Type{T}, x::NTuple{N, TA}) where {T <: Number, N, TA} = ntuple(i -> _Array(T, x[i]), Val(N))
+function _Array(::Type{T}, x::NTuple{N, TA}) where {T <: Number, N, TA}
+    return ntuple(i -> _Array(T, x[i]), Val(N))
+end
 
 # recursively copy the data from `AbstractParticles` to CPU arrays
 function copy(x::T) where {T <: AbstractParticles}

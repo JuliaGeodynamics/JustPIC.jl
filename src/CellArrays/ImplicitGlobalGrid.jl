@@ -1,4 +1,6 @@
-function update_cell_halo!(x::Vararg{CellArray{S, N, D, A}, NA}) where {NA, S, N, D, A <: AbstractArray}
+function update_cell_halo!(
+        x::Vararg{CellArray{S, N, D, A}, NA}
+    ) where {NA, S, N, D, A <: AbstractArray}
     ni = size(x[1])
     tmp = @fill(0, ni..., eltype = eltype(x[1].data))
 

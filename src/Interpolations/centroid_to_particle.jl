@@ -41,7 +41,9 @@ end
     return nothing
 end
 
-@inline function _centroid2particle_classic!(Fp::NTuple{NF}, p, xci, di::NTuple{N}, F::NTuple{NF}, I) where {NF, N}
+@inline function _centroid2particle_classic!(
+        Fp::NTuple{NF}, p, xci, di::NTuple{N}, F::NTuple{NF}, I
+    ) where {NF, N}
     ni = size(F) .- 1
     # iterate over all the particles within the cells of index `idx`
     @inbounds for ip in cellaxes(Fp)

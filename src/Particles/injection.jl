@@ -23,11 +23,22 @@ function inject_particles!(particles::Particles, args, grid::NTuple{N}) where {N
     # we are look for the closest particle, which can be in a neighboring cell
     return if N == 2
         for offsetᵢ in 1:2, offsetⱼ in 1:2
-            @parallel (@idx n_color) inject_particles!(args, coords, index, grid, di, di_quadrant, min_xcell, (offsetᵢ, offsetⱼ))
+            @parallel (@idx n_color) inject_particles!(
+                args, coords, index, grid, di, di_quadrant, min_xcell, (offsetᵢ, offsetⱼ)
+            )
         end
     elseif N == 3
         for offsetᵢ in 1:2, offsetⱼ in 1:2, offsetₖ in 1:2
-            @parallel (@idx n_color) inject_particles!(args, coords, index, grid, di, di_quadrant, min_xcell, (offsetᵢ, offsetⱼ, offsetₖ))
+            @parallel (@idx n_color) inject_particles!(
+                args,
+                coords,
+                index,
+                grid,
+                di,
+                di_quadrant,
+                min_xcell,
+                (offsetᵢ, offsetⱼ, offsetₖ),
+            )
         end
     else
         error(ThrowArgument("The dimension of the problem must be either 2 or 3"))
@@ -104,7 +115,9 @@ end
 
 # Injection of particles when multiple phases are present
 
-function inject_particles_phase!(particles::Particles, particles_phases, args, fields, grid::NTuple{N}) where {N}
+function inject_particles_phase!(
+        particles::Particles, particles_phases, args, fields, grid::NTuple{N}
+    ) where {N}
     # unpack
     (; coords, index, min_xcell) = particles
     ni = size(index)
@@ -115,32 +128,66 @@ function inject_particles_phase!(particles::Particles, particles_phases, args, f
     return if N == 2
         for offsetᵢ in 1:2, offsetⱼ in 1:2
             @parallel (@idx n_color) inject_particles_phase!(
-                particles_phases, args, fields, coords, index, grid, di, di_quadrant, min_xcell, (offsetᵢ, offsetⱼ)
+                particles_phases,
+                args,
+                fields,
+                coords,
+                index,
+                grid,
+                di,
+                di_quadrant,
+                min_xcell,
+                (offsetᵢ, offsetⱼ),
             )
         end
     elseif N == 3
         for offsetᵢ in 1:2, offsetⱼ in 1:2, offsetₖ in 1:2
             @parallel (@idx n_color) inject_particles_phase!(
-                particles_phases, args, fields, coords, index, grid, di, di_quadrant, min_xcell, (offsetᵢ, offsetⱼ, offsetₖ)
+                particles_phases,
+                args,
+                fields,
+                coords,
+                index,
+                grid,
+                di,
+                di_quadrant,
+                min_xcell,
+                (offsetᵢ, offsetⱼ, offsetₖ),
             )
         end
     else
         error(ThrowArgument("The dimension of the problem must be either 2 or 3"))
     end
-
 end
 
 @parallel_indices (I...) function inject_particles_phase!(
-        particles_phases, args, fields, coords, index, grid, di, di_quadrant, min_xcell, offsets::NTuple{N}
+        particles_phases,
+        args,
+        fields,
+        coords,
+        index,
+        grid,
+        di,
+        di_quadrant,
+        min_xcell,
+        offsets::NTuple{N},
     ) where {N}
-
     indices = ntuple(Val(N)) do i
         2 * (I[i] - 1) + offsets[i]
     end
 
     if all(indices .≤ size(index))
         _inject_particles_phase!(
-            particles_phases, args, fields, coords, index, grid, di, di_quadrant, min_xcell, indices
+            particles_phases,
+            args,
+            fields,
+            coords,
+            index,
+            grid,
+            di,
+            di_quadrant,
+            min_xcell,
+            indices,
         )
     end
 
@@ -148,7 +195,16 @@ end
 end
 
 function _inject_particles_phase!(
-        particles_phases, args, fields, coords, index, grid, di, di_quadrant, min_xcell, idx_cell
+        particles_phases,
+        args,
+        fields,
+        coords,
+        index,
+        grid,
+        di,
+        di_quadrant,
+        min_xcell,
+        idx_cell,
     )
     # coordinates of the lower-left corner of the cell
     xvi = corner_coordinate(grid, idx_cell)
@@ -215,7 +271,7 @@ function index_min_distance(coords, pn, index, current_cell, icell, jcell)
     for j in (jcell - 1):(jcell + 1), i in (icell - 1):(icell + 1), ip in cellaxes(index)
 
         # early escape conditions
-        ((i < 1) || (j < 1))  && continue # out of the domain
+        ((i < 1) || (j < 1)) && continue # out of the domain
         ((i > nx) || (j > ny)) && continue # out of the domain
         (i == icell) && (j == jcell) && (ip == current_cell) && continue # current injected particle
         (@index index[ip, i, j]) || continue
@@ -232,7 +288,6 @@ function index_min_distance(coords, pn, index, current_cell, icell, jcell)
             i_min, j_min = i, j
             dist_min = d
         end
-
     end
 
     return particle_idx_min, (i_min, j_min)
@@ -250,7 +305,7 @@ function index_min_distance(coords, pn, index, current_cell, icell, jcell, kcell
             ip in cellaxes(index)
 
         # early escape conditions
-        ((i < 1) || (j < 1) || (k < 1))  && continue # out of the domain
+        ((i < 1) || (j < 1) || (k < 1)) && continue # out of the domain
         ((i > nx) || (j > ny) || (k > nz)) && continue # out of the domain
         (i == icell) && (j == jcell) && (k == kcell) && (ip == current_cell) && continue # current injected particle
         (@index index[ip, i, j, k]) || continue
@@ -287,7 +342,7 @@ end
 @inline function new_particle(xvi::NTuple{N}, di::NTuple{N}) where {N}
     p_new = ntuple(Val(N)) do i
         # xvi[i] + di[i] * (0.95 * rand() + 0.05)
-        xvi[i] + di[i] * rand() 
+        xvi[i] + di[i] * rand()
     end
     return p_new
 end
@@ -334,7 +389,9 @@ function quadrant_corners(xvi::NTuple{3}, di_quadrant::NTuple{3})
     return c111, c121, c211, c221, c112, c122, c212, c222
 end
 
-function extract_particle_cell_coordinates(coords::NTuple{N}, I::Vararg{Integer, N}) where {N}
+function extract_particle_cell_coordinates(
+        coords::NTuple{N}, I::Vararg{Integer, N}
+    ) where {N}
     return ntuple(Val(N)) do i
         @cell coords[i][I...]
     end

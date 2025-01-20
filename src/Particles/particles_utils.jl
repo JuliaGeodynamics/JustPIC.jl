@@ -26,7 +26,9 @@ Initialize the particles object.
 - `min_xcell`: Minimum number of particles per cell
 - `xvi`: Grid cells vertices
 """
-function init_particles(backend, nxcell, max_xcell, min_xcell, xvi::Vararg{N,T}; buffer = 1-1e-5) where {N,T}
+function init_particles(
+        backend, nxcell, max_xcell, min_xcell, xvi::Vararg{N, T}; buffer = 1 - 1.0e-5
+    ) where {N, T}
     di = compute_dx(xvi)
     ni = @. length(xvi) - 1
 
@@ -34,15 +36,15 @@ function init_particles(backend, nxcell, max_xcell, min_xcell, xvi::Vararg{N,T};
 end
 
 function init_particles(
-    backend,
-    nxcell,
-    max_xcell,
-    min_xcell,
-    coords::NTuple{N,AbstractArray},
-    dxᵢ::NTuple{N,T},
-    nᵢ::NTuple{N,I}; 
-    buffer = 1-1e-5
-) where {N,T,I}
+        backend,
+        nxcell,
+        max_xcell,
+        min_xcell,
+        coords::NTuple{N, AbstractArray},
+        dxᵢ::NTuple{N, T},
+        nᵢ::NTuple{N, I};
+        buffer = 1 - 1.0e-5,
+    ) where {N, T, I}
     ncells = prod(nᵢ)
     np = max_xcell * ncells
     pxᵢ = ntuple(_ -> @rand(nᵢ..., celldims = (max_xcell,)), Val(N))
@@ -61,7 +63,8 @@ function init_particles(
             if l ≤ nxcell
                 ntuple(Val(N)) do ndim
                     @index pxᵢ[ndim][l, I...] =
-                        x0ᵢ[ndim] + dxᵢ[ndim] * (@index(pxᵢ[ndim][l, I...]) * buffer + (1 - buffer) / 2)
+                        x0ᵢ[ndim] +
+                        dxᵢ[ndim] * (@index(pxᵢ[ndim][l, I...]) * buffer + (1 - buffer) / 2)
                 end
                 @index index[l, I...] = true
 
@@ -74,7 +77,9 @@ function init_particles(
         return nothing
     end
 
-    @parallel (@idx nᵢ) fill_coords_index(pxᵢ, index, coords, dxᵢ, nxcell, max_xcell, buffer)
+    @parallel (@idx nᵢ) fill_coords_index(
+        pxᵢ, index, coords, dxᵢ, nxcell, max_xcell, buffer
+    )
 
     return Particles(backend, pxᵢ, index, nxcell, max_xcell, min_xcell, np)
 end

@@ -4,17 +4,25 @@ function compute_topography_vertex!(chain::MarkerChain)
 
     _dx = inv(cell_vertices[2] - cell_vertices[1])
 
-    @parallel (1:length(cell_vertices)) _compute_h_vertex!(h_vertices, chain_x, chain_y, cell_vertices, index, _dx)
+    @parallel (1:length(cell_vertices)) _compute_h_vertex!(
+        h_vertices, chain_x, chain_y, cell_vertices, index, _dx
+    )
 
     return nothing
 end
 
-@parallel_indices (ivertex) function _compute_h_vertex!(h_vertices, chain_x, chain_y, cell_vertices, index, _dx)
-    _compute_h_vertex_kernel!(h_vertices, chain_x, chain_y, cell_vertices, index, _dx, ivertex)
+@parallel_indices (ivertex) function _compute_h_vertex!(
+        h_vertices, chain_x, chain_y, cell_vertices, index, _dx
+    )
+    _compute_h_vertex_kernel!(
+        h_vertices, chain_x, chain_y, cell_vertices, index, _dx, ivertex
+    )
     return nothing
 end
 
-function _compute_h_vertex_kernel!(h_vertices, chain_x, chain_y, cell_vertices, index, _dx::T, ivertex) where {T}
+function _compute_h_vertex_kernel!(
+        h_vertices, chain_x, chain_y, cell_vertices, index, _dx::T, ivertex
+    ) where {T}
     h = zero(T)
     ω = zero(T)
     xcorner = cell_vertices[ivertex]
@@ -47,17 +55,25 @@ function reconstruct_chain_from_vertices!(chain::MarkerChain)
     (; coords, index, cell_vertices, h_vertices) = chain
     chain_x, chain_y = coords
 
-    @parallel (1:length(index)) _reconstruct_h_from_vertex!(h_vertices, chain_x, chain_y, cell_vertices, index)
+    @parallel (1:length(index)) _reconstruct_h_from_vertex!(
+        h_vertices, chain_x, chain_y, cell_vertices, index
+    )
 
     return nothing
 end
 
-@parallel_indices (ivertex) function _reconstruct_h_from_vertex!(h_vertices, chain_x, chain_y, cell_vertices, index)
-    _reconstruct_h_from_vertex_kernel!(h_vertices, chain_x, chain_y, cell_vertices, index, ivertex)
+@parallel_indices (ivertex) function _reconstruct_h_from_vertex!(
+        h_vertices, chain_x, chain_y, cell_vertices, index
+    )
+    _reconstruct_h_from_vertex_kernel!(
+        h_vertices, chain_x, chain_y, cell_vertices, index, ivertex
+    )
     return nothing
 end
 
-function _reconstruct_h_from_vertex_kernel!(h_vertices, chain_x, chain_y, cell_vertices, index, ivertex)
+function _reconstruct_h_from_vertex_kernel!(
+        h_vertices, chain_x, chain_y, cell_vertices, index, ivertex
+    )
     xcorner_left = cell_vertices[ivertex]
     xcorner_right = cell_vertices[ivertex + 1]
     lx = xcorner_right - xcorner_left

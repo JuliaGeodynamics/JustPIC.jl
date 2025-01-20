@@ -89,7 +89,7 @@ function move_kernel!(
         fill_particle!(coords, pᵢ, free_idx, new_cell)
         fill_particle!(args, current_args, free_idx, new_cell)
     end
-    return
+    return nothing
 end
 
 ## Utility functions

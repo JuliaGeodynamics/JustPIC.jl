@@ -7,29 +7,118 @@ import JustPIC: AbstractBackend, AMDGPUBackend
 
 JustPIC.TA(::Type{AMDGPUBackend}) = ROCArray
 
-ROCCellArray(::Type{T}, ::UndefInitializer, dims::NTuple{N, Int}) where {T <: CellArrays.Cell, N} = CellArrays.CellArray{T, N, 0, AMDGPU.ROCCellArrayArray{eltype(T), 3}}(undef, dims)
-ROCCellArray(::Type{T}, ::UndefInitializer, dims::Int...) where {T <: CellArrays.Cell} = ROCCellArray(T, undef, dims)
+function ROCCellArray(
+        ::Type{T}, ::UndefInitializer, dims::NTuple{N, Int}
+    ) where {T <: CellArrays.Cell, N}
+    return CellArrays.CellArray{T, N, 0, AMDGPU.ROCCellArrayArray{eltype(T), 3}}(undef, dims)
+end
+function ROCCellArray(
+        ::Type{T}, ::UndefInitializer, dims::Int...
+    ) where {T <: CellArrays.Cell}
+    return ROCCellArray(T, undef, dims)
+end
 
 function AMDGPU.ROCArray(::Type{T}, particles::JustPIC.Particles) where {T <: Number}
     (; coords, index, nxcell, max_xcell, min_xcell, np) = particles
     coords_gpu = ntuple(i -> ROCArray(T, coords[i]), Val(length(coords)))
-    return Particles(AMDGPUBackend, coords_gpu, ROCArray(Bool, index), nxcell, max_xcell, min_xcell, np)
+    return Particles(
+        AMDGPUBackend, coords_gpu, ROCArray(Bool, index), nxcell, max_xcell, min_xcell, np
+    )
+end
+
+function AMDGPU.ROCArray(::Type{T}, chain::JustPIC.MarkerChain) where {T <: Number}
+    (;
+        cell_vertices, coords, coords0, h_vertices, h_vertices0, index, max_xcell, min_xcell,
+    ) = chain
+    coords_gpu = ntuple(i -> ROCArray(T, coords[i]), Val(length(coords)))
+    coords0_gpu = ntuple(i -> ROCArray(T, coords0[i]), Val(length(coords0)))
+    return MarkerChain(
+        CUDABackend,
+        coords_gpu,
+        coords0_gpu,
+        ROCArray(h_vertices),
+        ROCArray(h_vertices0),
+        cell_vertices,
+        ROCArray(Bool, index),
+        max_xcell,
+        min_xcell,
+    )
+end
+
+function AMDGPU.ROCArray(::Type{T}, chain::JustPIC.MarkerChain) where {T <: Number}
+    (;
+        cell_vertices, coords, coords0, h_vertices, h_vertices0, index, max_xcell, min_xcell,
+    ) = chain
+    coords_gpu = ntuple(i -> ROCArray(T, coords[i]), Val(length(coords)))
+    coords0_gpu = ntuple(i -> ROCArray(T, coords0[i]), Val(length(coords0)))
+    return MarkerChain(
+        CUDABackend,
+        coords_gpu,
+        coords0_gpu,
+        ROCArray(h_vertices),
+        ROCArray(h_vertices0),
+        cell_vertices,
+        ROCArray(Bool, index),
+        max_xcell,
+        min_xcell,
+    )
 end
 
 function AMDGPU.ROCArray(::Type{T}, phase_ratios::JustPIC.PhaseRatios) where {T <: Number}
     (; center, vertex, Vx, Vy, Vz, yz, xz, xy) = phase_ratios
-    return JustPIC.PhaseRatios(AMDGPUBackend, ROCArray(T, center), ROCArray(T, vertex), ROCArray(T, Vx), ROCArray(T, Vy), ROCArray(T, Vz), ROCArray(T, yz), ROCArray(T, xz), ROCArray(T, xy))
+    return JustPIC.PhaseRatios(
+        AMDGPUBackend,
+        ROCArray(T, center),
+        ROCArray(T, vertex),
+        ROCArray(T, Vx),
+        ROCArray(T, Vy),
+        ROCArray(T, Vz),
+        ROCArray(T, yz),
+        ROCArray(T, xz),
+        ROCArray(T, xy),
+    )
 end
 
 function AMDGPU.ROCArray(phase_ratios::JustPIC.PhaseRatios)
     (; center, vertex, Vx, Vy, Vz, yz, xz, xy) = phase_ratios
-    return JustPIC.PhaseRatios(AMDGPUBackend, ROCArray(center), ROCArray(vertex), ROCArray(Vx), ROCArray(Vy), ROCArray(Vz), ROCArray(yz), ROCArray(xz), ROCArray(xy))
+    return JustPIC.PhaseRatios(
+        AMDGPUBackend,
+        ROCArray(center),
+        ROCArray(vertex),
+        ROCArray(Vx),
+        ROCArray(Vy),
+        ROCArray(Vz),
+        ROCArray(yz),
+        ROCArray(xz),
+        ROCArray(xy),
+    )
 end
 
 function AMDGPU.ROCArray(particles::JustPIC.Particles)
     (; coords, index, nxcell, max_xcell, min_xcell, np) = particles
     coords_gpu = ntuple(i -> ROCArray(coords[i]), Val(length(coords)))
-    return Particles(AMDGPUBackend, coords_gpu, ROCArray(index), nxcell, max_xcell, min_xcell, np)
+    return Particles(
+        AMDGPUBackend, coords_gpu, ROCArray(index), nxcell, max_xcell, min_xcell, np
+    )
+end
+
+function AMDGPU.ROCArray(chain::JustPIC.MarkerChain)
+    (;
+        cell_vertices, coords, coords0, h_vertices, h_vertices0, index, max_xcell, min_xcell,
+    ) = chain
+    coords_gpu = ntuple(i -> ROCArray(coords[i]), Val(length(coords)))
+    coords0_gpu = ntuple(i -> ROCArray(coords0[i]), Val(length(coords0)))
+    return MarkerChain(
+        CUDABackend,
+        coords_gpu,
+        coords0_gpu,
+        ROCArray(h_vertices),
+        ROCArray(h_vertices0),
+        cell_vertices,
+        ROCArray(Bool, index),
+        max_xcell,
+        min_xcell,
+    )
 end
 
 function AMDGPU.ROCArray(phase_ratios::JustPIC.PhaseRatios)
@@ -86,8 +175,16 @@ module _2D
     include(joinpath(@__DIR__, "../src/AMDGPUExt/CellArrays.jl"))
 
     # halo update
-    JustPIC._2D.update_cell_halo!(x::Vararg{CellArray{S, N, D, ROCArray{T, nD}}, NA}) where {NA, S, N, D, T, nD} = update_cell_halo!(x...)
-    JustPIC._2D.update_cell_halo!(x::Vararg{CellArray{S, N, D, ROCArray{T, nD, B}}, NA}) where {NA, S, N, D, T, nD, B} = update_cell_halo!(x...)
+    function JustPIC._2D.update_cell_halo!(
+            x::Vararg{CellArray{S, N, D, ROCArray{T, nD}}, NA}
+        ) where {NA, S, N, D, T, nD}
+        return update_cell_halo!(x...)
+    end
+    function JustPIC._2D.update_cell_halo!(
+            x::Vararg{CellArray{S, N, D, ROCArray{T, nD, B}}, NA}
+        ) where {NA, S, N, D, T, nD, B}
+        return update_cell_halo!(x...)
+    end
 
     # Conversions
     function JustPIC._2D.Particles(
@@ -112,27 +209,33 @@ module _2D
         return Particles(AMDGPUBackend, coords, index, nxcell, max_xcell, min_xcell, np)
     end
 
-    function JustPIC._2D.SubgridDiffusionCellArrays(particles::Particles{AMDGPUBackend}; loc::Symbol = :vertex)
+    function JustPIC._2D.SubgridDiffusionCellArrays(
+            particles::Particles{AMDGPUBackend}; loc::Symbol = :vertex
+        )
         return SubgridDiffusionCellArrays(particles; loc = loc)
     end
 
     function JustPIC._2D.init_particles(
-        ::Type{AMDGPUBackend}, nxcell, max_xcell, min_xcell, x, y, z; buffer = 1-1e-5
-    )
-        return init_particles(AMDGPUBackend, nxcell, max_xcell, min_xcell, x, y, z; buffer = buffer)
+            ::Type{AMDGPUBackend}, nxcell, max_xcell, min_xcell, x, y, z; buffer = 1 - 1.0e-5
+        )
+        return init_particles(
+            AMDGPUBackend, nxcell, max_xcell, min_xcell, x, y, z; buffer = buffer
+        )
     end
 
     function JustPIC._2D.init_particles(
-        ::Type{AMDGPUBackend},
-        nxcell,
-        max_xcell,
-        min_xcell,
-        coords::NTuple{3,AbstractArray},
-        dxᵢ::NTuple{3,T},
-        nᵢ::NTuple{3,I};
-        buffer = 1-1e-5,
-    ) where {T,I}
-        return init_particles(AMDGPUBackend, nxcell, max_xcell, min_xcell, coords, dxᵢ, nᵢ; buffer = buffer)
+            ::Type{AMDGPUBackend},
+            nxcell,
+            max_xcell,
+            min_xcell,
+            coords::NTuple{3, AbstractArray},
+            dxᵢ::NTuple{3, T},
+            nᵢ::NTuple{3, I};
+            buffer = 1 - 1.0e-5,
+        ) where {T, I}
+        return init_particles(
+            AMDGPUBackend, nxcell, max_xcell, min_xcell, coords, dxᵢ, nᵢ; buffer = buffer
+        )
     end
 
     function JustPIC._2D.advection!(
@@ -195,7 +298,9 @@ module _2D
         return grid2particle_flip!(Fp, xvi, F, F0, particles; α = α)
     end
 
-    function JustPIC._2D.inject_particles!(particles::Particles{AMDGPUBackend}, args, grid::NTuple{N}) where {N}
+    function JustPIC._2D.inject_particles!(
+            particles::Particles{AMDGPUBackend}, args, grid::NTuple{N}
+        ) where {N}
         return inject_particles!(particles, args, grid)
     end
 
@@ -244,17 +349,25 @@ module _2D
             dt;
             d = 1.0,
         )
-        subgrid_diffusion_centroid!(pT, T_grid, ΔT_grid, subgrid_arrays, particles, xvi, di, dt; d = d)
+        subgrid_diffusion_centroid!(
+            pT, T_grid, ΔT_grid, subgrid_arrays, particles, xvi, di, dt; d = d
+        )
         return nothing
     end
 
     ## MakerChain
 
-    function JustPIC._2D.init_markerchain(::Type{AMDGPUBackend}, nxcell, min_xcell, max_xcell, xv, initial_elevation)
-        return init_markerchain(AMDGPUBackend, nxcell, min_xcell, max_xcell, xv, initial_elevation)
+    function JustPIC._2D.init_markerchain(
+            ::Type{AMDGPUBackend}, nxcell, min_xcell, max_xcell, xv, initial_elevation
+        )
+        return init_markerchain(
+            AMDGPUBackend, nxcell, min_xcell, max_xcell, xv, initial_elevation
+        )
     end
 
-    function JustPIC._2D.fill_chain_from_chain!(chain::MarkerChain{AMDGPUBackend}, topo_x, topo_y)
+    function JustPIC._2D.fill_chain_from_chain!(
+            chain::MarkerChain{AMDGPUBackend}, topo_x, topo_y
+        )
         return fill_chain_from_chain!(chain, topo_x, topo_y)
     end
 
@@ -268,7 +381,9 @@ module _2D
         return nothing
     end
 
-    function JustPIC._2D.fill_chain_from_vertices!(chain::MarkerChain{AMDGPUBackend}, topo_y)
+    function JustPIC._2D.fill_chain_from_vertices!(
+            chain::MarkerChain{AMDGPUBackend}, topo_y
+        )
         fill_chain_from_vertices!(chain::MarkerChain, topo_y)
         return nothing
     end
@@ -283,7 +398,9 @@ module _2D
         return advect_markerchain!(chain, method, V, grid_vxi, dt)
     end
 
-    function JustPIC._2D.compute_rock_fraction!(ratios, chain::MarkerChain{AMDGPUBackend}, xvi, dxi)
+    function JustPIC._2D.compute_rock_fraction!(
+            ratios, chain::MarkerChain{AMDGPUBackend}, xvi, dxi
+        )
         compute_rock_fraction!(ratios, chain, xvi, dxi)
         return nothing
     end
@@ -332,7 +449,9 @@ module _2D
 
     # Phase ratio kernels
 
-    function JustPIC._2D.update_phase_ratios!(phase_ratios::JustPIC.PhaseRatios{AMDGPUBackend, T}, particles, xci, xvi, phases) where {T <: AbstractMatrix}
+    function JustPIC._2D.update_phase_ratios!(
+            phase_ratios::JustPIC.PhaseRatios{AMDGPUBackend, T}, particles, xci, xvi, phases
+        ) where {T <: AbstractMatrix}
         phase_ratios_center!(phase_ratios, particles, xci, phases)
         phase_ratios_vertex!(phase_ratios, particles, xvi, phases)
         # velocity nodes
@@ -358,7 +477,9 @@ module _2D
         Vy = cell_array(zero(T), (nphases,), (nx, ny + 1))
         dummy = cell_array(zero(T), (nphases,), (1, 1)) # because it cant be a Union{T, Nothing} type on the GPU....
 
-        return JustPIC.PhaseRatios(AMDGPUBackend, center, vertex, Vx, Vy, dummy, dummy, dummy, dummy)
+        return JustPIC.PhaseRatios(
+            AMDGPUBackend, center, vertex, Vx, Vy, dummy, dummy, dummy, dummy
+        )
     end
 
     function JustPIC._2D.phase_ratios_center!(
@@ -385,7 +506,13 @@ module _2D
         return nothing
     end
 
-    function JustPIC._2D.phase_ratios_midpoint!(phase_midpoint, particles::Particles{AMDGPUBackend}, xci::NTuple{N}, phases, dimension) where {N}
+    function JustPIC._2D.phase_ratios_midpoint!(
+            phase_midpoint,
+            particles::Particles{AMDGPUBackend},
+            xci::NTuple{N},
+            phases,
+            dimension,
+        ) where {N}
         phase_ratios_midpoint!(phase_midpoint, particles, xci, phases, dimension)
         return nothing
     end
@@ -421,8 +548,16 @@ module _3D
     include(joinpath(@__DIR__, "../src/AMDGPUExt/CellArrays.jl"))
 
     # halo update
-    JustPIC._3D.update_cell_halo!(x::Vararg{CellArray{S, N, D, ROCArray{T, nD}}, NA}) where {NA, S, N, D, T, nD} = update_cell_halo!(x...)
-    JustPIC._3D.update_cell_halo!(x::Vararg{CellArray{S, N, D, ROCArray{T, nD, B}}, NA}) where {NA, S, N, D, T, nD, B} = update_cell_halo!(x...)
+    function JustPIC._3D.update_cell_halo!(
+            x::Vararg{CellArray{S, N, D, ROCArray{T, nD}}, NA}
+        ) where {NA, S, N, D, T, nD}
+        return update_cell_halo!(x...)
+    end
+    function JustPIC._3D.update_cell_halo!(
+            x::Vararg{CellArray{S, N, D, ROCArray{T, nD, B}}, NA}
+        ) where {NA, S, N, D, T, nD, B}
+        return update_cell_halo!(x...)
+    end
 
     function JustPIC._3D.Particles(
             coords,
@@ -446,27 +581,33 @@ module _3D
         return Particles(AMDGPUBackend, coords, index, nxcell, max_xcell, min_xcell, np)
     end
 
-    function JustPIC._3D.SubgridDiffusionCellArrays(particles::Particles{AMDGPUBackend}; loc::Symbol = :vertex)
+    function JustPIC._3D.SubgridDiffusionCellArrays(
+            particles::Particles{AMDGPUBackend}; loc::Symbol = :vertex
+        )
         return SubgridDiffusionCellArrays(particles; loc = loc)
     end
 
     function JustPIC._3D.init_particles(
-        ::Type{AMDGPUBackend}, nxcell, max_xcell, min_xcell, x, y, z; buffer = 1-1e-5
-    )
-        return init_particles(AMDGPUBackend, nxcell, max_xcell, min_xcell, x, y, z; buffer = buffer)
+            ::Type{AMDGPUBackend}, nxcell, max_xcell, min_xcell, x, y, z; buffer = 1 - 1.0e-5
+        )
+        return init_particles(
+            AMDGPUBackend, nxcell, max_xcell, min_xcell, x, y, z; buffer = buffer
+        )
     end
 
     function JustPIC._3D.init_particles(
-        ::Type{AMDGPUBackend},
-        nxcell,
-        max_xcell,
-        min_xcell,
-        coords::NTuple{3,AbstractArray},
-        dxᵢ::NTuple{3,T},
-        nᵢ::NTuple{3,I};
-        buffer = 1-1e-5,
-    ) where {T,I}
-        return init_particles(AMDGPUBackend, nxcell, max_xcell, min_xcell, coords, dxᵢ, nᵢ; buffer = buffer)
+            ::Type{AMDGPUBackend},
+            nxcell,
+            max_xcell,
+            min_xcell,
+            coords::NTuple{3, AbstractArray},
+            dxᵢ::NTuple{3, T},
+            nᵢ::NTuple{3, I};
+            buffer = 1 - 1.0e-5,
+        ) where {T, I}
+        return init_particles(
+            AMDGPUBackend, nxcell, max_xcell, min_xcell, coords, dxᵢ, nᵢ; buffer = buffer
+        )
     end
 
     function JustPIC._3D.advection!(
@@ -527,7 +668,9 @@ module _3D
         return grid2particle_flip!(Fp, xvi, F, F0, particles; α = α)
     end
 
-    function JustPIC._3D.inject_particles!(particles::Particles{AMDGPUBackend}, args, grid::NTuple{N}) where {N}
+    function JustPIC._3D.inject_particles!(
+            particles::Particles{AMDGPUBackend}, args, grid::NTuple{N}
+        ) where {N}
         return inject_particles!(particles, args, grid)
     end
 
@@ -576,7 +719,9 @@ module _3D
             dt;
             d = 1.0,
         )
-        subgrid_diffusion_centroid!(pT, T_grid, ΔT_grid, subgrid_arrays, particles, xvi, di, dt; d = d)
+        subgrid_diffusion_centroid!(
+            pT, T_grid, ΔT_grid, subgrid_arrays, particles, xvi, di, dt; d = d
+        )
         return nothing
     end
 
@@ -615,7 +760,9 @@ module _3D
 
     # Phase ratio kernels
 
-    function JustPIC._3D.update_phase_ratios!(phase_ratios::JustPIC.PhaseRatios{AMDGPUBackend, T}, particles, xci, xvi, phases) where {T <: AbstractArray}
+    function JustPIC._3D.update_phase_ratios!(
+            phase_ratios::JustPIC.PhaseRatios{AMDGPUBackend, T}, particles, xci, xvi, phases
+        ) where {T <: AbstractArray}
         phase_ratios_center!(phase_ratios, particles, xci, phases)
         phase_ratios_vertex!(phase_ratios, particles, xvi, phases)
         # velocity nodes
@@ -676,7 +823,13 @@ module _3D
         return nothing
     end
 
-    function JustPIC._3D.phase_ratios_midpoint!(phase_midpoint, particles::Particles{AMDGPUBackend}, xci::NTuple{N}, phases, dimension) where {N}
+    function JustPIC._3D.phase_ratios_midpoint!(
+            phase_midpoint,
+            particles::Particles{AMDGPUBackend},
+            xci::NTuple{N},
+            phases,
+            dimension,
+        ) where {N}
         phase_ratios_midpoint!(phase_midpoint, particles, xci, phases, dimension)
         return nothing
     end

@@ -73,7 +73,6 @@ function move_kernel!(
         args::NTuple{N2, T},
         idx::NTuple{N1, Int64},
     ) where {N1, N2, T}
-
     starting_point = 1
     # iterate over particles in child cell
     for ip in cellaxes(index)
@@ -116,7 +115,7 @@ function move_kernel!(
         fill_particle!(coords, pᵢ, free_idx, new_cell)
         fill_particle!(args, current_args, free_idx, new_cell)
     end
-    return
+    return nothing
 end
 
 ## Utility functions
@@ -185,7 +184,9 @@ end
     return ntuple(i -> @index(args[i][ip, I]), Val(N))
 end
 
-@inline function cache_particle(p::NTuple{N1, T}, ip, I::Union{Integer, NTuple{N2, Integer}}) where {T, N1, N2}
+@inline function cache_particle(
+        p::NTuple{N1, T}, ip, I::Union{Integer, NTuple{N2, Integer}}
+    ) where {T, N1, N2}
     return cache_args(p, ip, I)
 end
 
@@ -202,9 +203,7 @@ end
     end
 end
 
-@generated function empty_particle!(
-        p::NTuple{N}, ip, I::Integer
-    ) where {N}
+@generated function empty_particle!(p::NTuple{N}, ip, I::Integer) where {N}
     return quote
         Base.@_inline_meta
         Base.Cartesian.@nexprs $N i -> @index p[i][ip, I] = NaN

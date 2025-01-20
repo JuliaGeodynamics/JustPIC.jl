@@ -53,5 +53,5 @@ function _move_particles!(coords, grid, dxi, index, idx)
             empty_particle!(coords, ip, idx)
         end
     end
-    return
+    return nothing
 end
