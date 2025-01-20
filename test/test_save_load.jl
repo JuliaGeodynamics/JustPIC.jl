@@ -1,5 +1,3 @@
-ENV["JULIA_JUSTPIC_BACKEND"] = "CUDA"
-
 @static if ENV["JULIA_JUSTPIC_BACKEND"] === "AMDGPU"
     using AMDGPU
 elseif ENV["JULIA_JUSTPIC_BACKEND"] === "CUDA"
@@ -10,15 +8,9 @@ using JLD2, JustPIC, Test
 import JustPIC._2D as JP2
 import JustPIC._3D as JP3
 
-const backend = @static if ENV["JULIA_JUSTPIC_BACKEND"] === "AMDGPU"
-    JustPIC.AMDGPUBackend
-elseif ENV["JULIA_JUSTPIC_BACKEND"] === "CUDA"
-    CUDABackend
-else
-    JustPIC.CPUBackend
-end
+const backend = JustPIC.CPUBackend
 
-# @testset "Save and load 2D" begin
+@testset "Save and load 2D" begin
     # Initialize particles -------------------------------
     nxcell, max_xcell, min_xcell = 6, 6, 6
     n = 64
@@ -159,7 +151,7 @@ end
 
     rm("particles_checkpoint.jld2") # cleanup
     rm("particles.jld2") # cleanup
-# end
+end
 @testset "Save and load 3D" begin
     # Initialize particles -------------------------------
     nxcell, max_xcell, min_xcell = 6, 6, 6
@@ -204,7 +196,6 @@ end
     particles2    = data["particles"];
     phases2       = data["phases"];
     phase_ratios2 = data["phase_ratios"];
-
 
     data1          = load("particles_checkpoint.jld2");
     particles3    = data1["particles"];
