@@ -14,15 +14,15 @@ function expand_range(x::AbstractRange)
     dx = x[2] - x[1]
     n = length(x)
     x1, x2 = extrema(x)
-    xI = round(x1-dx; sigdigits=5)
-    xF = round(x2+dx; sigdigits=5)
-    range(xI, xF, length=n+2)
+    xI = x1 - dx
+    xF = x2 + dx
+    return LinRange(xI, xF, n + 2)
 end
 
 function expand_range(x::AbstractArray, dx)
     x1, x2 = extrema(x)
-    xI = round(x1-dx; sigdigits=5)
-    xF = round(x2+dx; sigdigits=5)
+    xI = x1-dx
+    xF = x2+dx
     x = TA(vcat(xI, x, xF))
 end
 
