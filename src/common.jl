@@ -53,6 +53,9 @@ export advection!, advection_LinP!, advection_MQS!
 include("Particles/injection.jl")
 export check_injection, inject_particles!, inject_particles_phase!, clean_particles!
 
+include("Particles/forced_injection.jl")
+export force_injection!
+
 ## MARKER CHAIN RELATED FILES
 
 include("MarkerChain/init.jl")
