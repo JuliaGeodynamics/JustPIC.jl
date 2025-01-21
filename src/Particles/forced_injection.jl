@@ -40,7 +40,8 @@ force_injection!(particles::Particles{Backend}, p_new) where {Backend} = force_i
         # iterate over particles in the cell
         for ip in cellaxes(index)
             c += 1
-            c > cellnum(index) || doskip(index, ip, I...) && continue
+            c > cellnum(index)  && continue
+            doskip(index, ip, I...) || continue
             pᵢ = p_new[I..., c]
             @index coords[1][ip, I...] = pᵢ[1]
             @index coords[2][ip, I...] = pᵢ[2]
@@ -52,6 +53,6 @@ force_injection!(particles::Particles{Backend}, p_new) where {Backend} = force_i
             end
         end
     end
-    
+
     return nothing
 end
