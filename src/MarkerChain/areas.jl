@@ -26,8 +26,9 @@ end
     topo_xᵢ = topo_x[i], topo_x[i + 1]
     topo_yᵢ = topo_y[i], topo_y[i + 1]
 
-    isbelow = topo_yᵢ[1] - y_min_cell > dy && topo_yᵢ[2] - y_min_cell > dy
-    isabove = y_max_cell - topo_yᵢ[1] > dy && y_max_cell - topo_yᵢ[2] > dy
+    isbelow = topo_yᵢ[1] - y_min_cell ≥ dy && topo_yᵢ[2] - y_min_cell ≥ dy
+    isabove = y_max_cell - topo_yᵢ[1] ≥ dy && y_max_cell - topo_yᵢ[2] ≥ dy
+
 
     if isbelow
         ratio[i, j] = one(eltype(topo_xᵢ))
@@ -89,8 +90,8 @@ end
                 topo_xᵢ = p2[1], p2[2]
             end
 
-            isbelow = topo_yᵢ[1] - y_min_cell > dy && topo_yᵢ[2] - y_min_cell > dy
-            isabove = y_max_cell - topo_yᵢ[1] > dy && y_max_cell - topo_yᵢ[2] > dy
+            isbelow = topo_yᵢ[1] - y_min_cell ≥ dy && topo_yᵢ[2] - y_min_cell ≥ dy
+            isabove = y_max_cell - topo_yᵢ[1] ≥ dy && y_max_cell - topo_yᵢ[2] ≥ dy
 
             if isbelow
                 ratios[i, j] = min(1, ratios[i, j] + 1)
@@ -152,8 +153,8 @@ end
                 topo_xᵢ = p2[1], p2[2]
             end
 
-            isbelow = topo_yᵢ[1] - y_min_cell > dy / 2 && topo_yᵢ[2] - y_min_cell > dy / 2
-            isabove = y_max_cell - topo_yᵢ[1] > dy / 2 && y_max_cell - topo_yᵢ[2] > dy / 2
+            isbelow = topo_yᵢ[1] - y_min_cell ≥ dy / 2 && topo_yᵢ[2] - y_min_cell ≥ dy / 2
+            isabove = y_max_cell - topo_yᵢ[1] ≥ dy / 2 && y_max_cell - topo_yᵢ[2] ≥ dy / 2
 
             if isbelow
                 ratios[i, j] = min(1, ratios[i, j] + 1)
@@ -217,8 +218,8 @@ end
                 topo_xᵢ = p2[1], p2[2]
             end
 
-            isbelow = topo_yᵢ[1] - y_min_cell > dy / 2 && topo_yᵢ[2] - y_min_cell > dy / 2
-            isabove = y_max_cell - topo_yᵢ[1] > dy / 2 && y_max_cell - topo_yᵢ[2] > dy / 2
+            isbelow = topo_yᵢ[1] - y_min_cell ≥ dy / 2 && topo_yᵢ[2] - y_min_cell ≥ dy / 2
+            isabove = y_max_cell - topo_yᵢ[1] ≥ dy / 2 && y_max_cell - topo_yᵢ[2] ≥ dy / 2
 
             if isbelow
                 ratios[i, j] = min(1, ratios[i, j] + 1)
