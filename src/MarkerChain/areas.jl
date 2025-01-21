@@ -29,7 +29,6 @@ end
     isbelow = topo_yᵢ[1] - y_min_cell ≥ dy && topo_yᵢ[2] - y_min_cell ≥ dy
     isabove = y_max_cell - topo_yᵢ[1] ≥ dy && y_max_cell - topo_yᵢ[2] ≥ dy
 
-
     if isbelow
         ratio[i, j] = one(eltype(topo_xᵢ))
 
@@ -311,7 +310,7 @@ function line_intersection(p1, p2, q1, q2)
     a, c = slope_intercept(p1, p2)
     b, d = slope_intercept(q1, q2)
     # compute intersection point
-    px = isinf(a) ? p1[1] : (d - c) / (a - b)
+    px = (isinf(a) || a == b) ? p1[1] : (d - c) / (a - b)
     py = @muladd b * px + d
     return (px, py)
 end
