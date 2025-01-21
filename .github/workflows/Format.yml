@@ -7,11 +7,7 @@ on:
 
 permissions:
   contents: read
-
-  # needed for julia-actions/cache to delete old caches
   actions: write
-
-  # needed for googleapis/code-suggester
   pull-requests: write
 
 jobs:
@@ -19,11 +15,17 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out repository
+        uses: actions/checkout@v4
         with:
           ref: ${{github.event.pull_request.head.ref}}
           repository: ${{github.event.pull_request.head.repo.full_name}}
           fetch-depth: 0
+
+      - name: Add upstream remote
+        run: |
+          git remote add upstream https://github.com/${{ github.repository }}
+          git fetch upstream
 
       - name: Setup Julia
         uses: julia-actions/setup-julia@v2
@@ -42,19 +44,19 @@ jobs:
       - name: Run Runic
         id: runic
         run: |
-            set +e
-            MERGE_BASE=$(git merge-base upstream/${{ github.base_ref }} HEAD) || exit 1
-            DIFF=$(git runic --diff $MERGE_BASE)
-            EXIT_CODE=$?
-  
-            echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
-            echo "diff<<EOF" >> $GITHUB_OUTPUT
-            echo "$DIFF" >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
-  
-            # if Runic failed, bail out
-            [ $EXIT_CODE -eq 2 ] && exit 1 || exit 0
-  
+          set +e
+          MERGE_BASE=$(git merge-base upstream/${{ github.base_ref }} HEAD) || exit 1
+          DIFF=$(git runic --diff $MERGE_BASE)
+          EXIT_CODE=$?
+
+          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+          echo "diff<<EOF" >> $GITHUB_OUTPUT
+          echo "$DIFF" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          # if Runic failed, bail out
+          [ $EXIT_CODE -eq 2 ] && exit 1 || exit 0
+
       - name: Find comment
         uses: peter-evans/find-comment@v3
         id: find-comment
@@ -62,7 +64,7 @@ jobs:
           issue-number: ${{ github.event.pull_request.number }}
           comment-author: 'github-actions[bot]'
           body-includes: '<!-- runic-format-summary -->'
-  
+
       - name: Comment formatting suggestions
         if: steps.runic.outputs.exit_code == 1
         uses: peter-evans/create-or-update-comment@v4
@@ -81,10 +83,10 @@ jobs:
             ```diff
             ${{ steps.runic.outputs.diff }}
             ```
-  
-              </details>
-            edit-mode: replace
-  
+
+            </details>
+          edit-mode: replace
+
       - name: Update stale comment
         if: steps.runic.outputs.exit_code == 0 && steps.find-comment.outputs.comment-id
         uses: peter-evans/create-or-update-comment@v4
@@ -96,3 +98,8 @@ jobs:
 
             Your PR no longer requires formatting changes. Thank you for your contribution!
           edit-mode: replace
+
+      # XXX: if Github ever supports allow-failure (actions/runner#2347)
+      #- name: Propagate exit code
+      #  run: |
+      #    exit ${{ steps.runic.outputs.exit_code }}

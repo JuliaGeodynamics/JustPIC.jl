@@ -274,6 +274,13 @@ module _2D
         return inject_particles!(particles, args, grid)
     end
 
+    function JustPIC._2D.force_injection!(particles::Particles{CUDABackend}, p_new, fields::NTuple{N, Any}, values::NTuple{N, Any}) where {N}
+        force_injection!(particles, p_new, fields, values)
+        return nothing
+    end
+    
+    JustPIC._2D.force_injection!(particles::Particles{CUDABackend}, p_new) = force_injection!(particles, p_new, (), ())
+
     function JustPIC._2D.inject_particles_phase!(
             particles::Particles{CUDABackend}, particles_phases, args, fields, grid::NTuple{N}
         ) where {N}
@@ -643,6 +650,13 @@ module _3D
         inject_particles_phase!(particles::Particles, particles_phases, args, fields, grid)
         return nothing
     end
+
+    function JustPIC._3D.force_injection!(particles::Particles{CUDABackend}, p_new, fields::NTuple{N, Any}, values::NTuple{N, Any}) where {N}
+        force_injection!(particles, p_new, fields, values)
+        return nothing
+    end
+    
+    JustPIC._3D.force_injection!(particles::Particles{CUDABackend}, p_new) = force_injection!(particles, p_new, (), ())
 
     function JustPIC._3D.move_particles!(
             particles::Particles{CUDABackend}, grid::NTuple{N}, args
