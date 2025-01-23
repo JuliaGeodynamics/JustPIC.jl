@@ -4,16 +4,16 @@ using Aqua, Test, JustPIC
 # Aqua.test_unbound_args(JustPIC)
 # Aqua.test_piracies(JustPIC)
 
-# @testset "Ambiguities" begin
-#     @test Aqua.test_ambiguities(JustPIC, 
-#         color = true,
-#         # exclude = [_grid2particle],
-#         exclude = [
-#             JustPIC._2D._grid2particle, 
-#             JustPIC._3D._grid2particle,
-#         ],
-#     ).value
-# end
+@testset "Ambiguities" begin
+    @test Aqua.test_ambiguities(JustPIC, 
+        color = true,
+        # exclude = [_grid2particle],
+        exclude = [
+            JustPIC._2D._grid2particle, 
+            JustPIC._3D._grid2particle,
+        ],
+    ).value
+end
 
 @testset "Project extras" begin
     @test Aqua.test_project_extras(JustPIC).value
