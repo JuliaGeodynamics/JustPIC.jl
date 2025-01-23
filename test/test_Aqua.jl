@@ -6,7 +6,7 @@ using Aqua, Test, JustPIC
 
 @testset "Ambiguities" begin
     @test Aqua.test_ambiguities(
-        JustPIC, 
+        JustPIC,
         color = true,
         # exclude = [_grid2particle],
         exclude = [
