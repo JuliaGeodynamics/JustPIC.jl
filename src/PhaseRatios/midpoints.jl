@@ -108,8 +108,8 @@ function phase_ratios_midpoint!(
 end
 
 @parallel_indices (I...) function phase_ratios_midpoint_kernel!(
-        ratio_midpoints, pxi::NTuple{N}, xci::NTuple{N}, di::NTuple{N, T}, phases, offsets
-    ) where {N, T}
+        ratio_midpoints, pxi::NTuple, xci::NTuple, di::NTuple, phases, offsets
+    )
     _phase_ratios_midpoint_kernel!(ratio_midpoints, pxi, xci, di, phases, offsets, I...)
     return nothing
 end

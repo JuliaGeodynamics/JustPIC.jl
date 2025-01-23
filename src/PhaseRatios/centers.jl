@@ -11,8 +11,8 @@ function phase_ratios_center!(phase_ratios::JustPIC.PhaseRatios, particles, xci,
 end
 
 @parallel_indices (I...) function phase_ratios_center_kernel!(
-        ratio_centers, pxi::NTuple{N, T1}, xci::NTuple{N, T2}, di::NTuple{N, T3}, phases
-    ) where {N, T1, T2, T3}
+        ratio_centers, pxi::NTuple{N}, xci::NTuple{N}, di::NTuple{N}, phases
+    ) where {N}
 
     # index corresponding to the cell center
     cell_center = ntuple(i -> xci[i][I[i]], Val(N))

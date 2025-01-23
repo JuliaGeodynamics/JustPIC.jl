@@ -18,8 +18,8 @@ end
 # INNERMOST INTERPOLATION KERNEL
 
 @inline function _grid2particle_passive_marker!(
-        Fp::AbstractArray, F::AbstractArray, xvi, dxi::NTuple{N, T}, p, ip
-    ) where {N, T}
+        Fp::AbstractArray, F::AbstractArray, xvi, dxi::NTuple{N}, p, ip
+    ) where {N}
 
     # particle coordinates
     pᵢ = get_particle_coords(p, ip)
@@ -44,8 +44,8 @@ end
 end
 
 @inline function _grid2particle_passive_marker!(
-        Fp::NTuple{N1, AbstractArray}, F::NTuple{N1, AbstractArray}, xvi, dxi::NTuple{N2, T}, p, ip
-    ) where {N1, N2, T}
+        Fp::NTuple{N1, AbstractArray}, F::NTuple{N1, AbstractArray}, xvi, dxi::NTuple{N2}, p, ip
+    ) where {N1, N2}
 
     # particle coordinates
     pᵢ = get_particle_coords(p, ip)
