@@ -41,6 +41,7 @@ function runtests()
 
         try
             printstyled("Running 2D tests\n"; bold = true, color = :white)
+            include("test_Aqua.jl")
             include("test_2D.jl")
             include("test_integrators.jl")
             include("test_CellArrays.jl")

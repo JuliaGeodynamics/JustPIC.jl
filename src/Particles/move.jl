@@ -46,9 +46,9 @@ function move_kernel!(
         dxi,
         index,
         domain_limits,
-        args::NTuple{N2, T},
-        idx::NTuple{N1, Int64},
-    ) where {N1, N2, T}
+        args::NTuple,
+        idx::NTuple{N, Int64},
+    ) where {N}
 
     # iterate over particles in child cell
     for ip in cellaxes(index)
@@ -69,10 +69,6 @@ function move_kernel!(
         domain_check && continue
 
         # new cell indices
-        # new_cell = ntuple(Val(N1)) do i
-        #     cell_index(pᵢ[i], grid[i], dxi[i])
-        # end
-
         new_cell = cell_index_neighbour(pᵢ, corner_xi, dxi, idx)
 
         # hold particle variables
@@ -117,7 +113,7 @@ function find_free_memory(index, I::Vararg{Int, N}) where {N}
     return 0
 end
 
-@generated function indomain(p::NTuple{N, T1}, domain_limits::NTuple{N, T2}) where {N, T1, T2}
+@generated function indomain(p::NTuple{N}, domain_limits::NTuple{N}) where {N}
     return quote
         Base.@_inline_meta
         Base.Cartesian.@nexprs $N i ->
@@ -171,8 +167,8 @@ end
 end
 
 @generated function fill_particle!(
-        p::NTuple{N1, T1}, field::NTuple{N1, T2}, ip, I::NTuple{N2, Int64}
-    ) where {N1, N2, T1, T2}
+        p::NTuple{N1}, field::NTuple{N1}, ip, I::NTuple{N2, Int64}
+    ) where {N1, N2}
     return quote
         Base.Cartesian.@nexprs $N1 i -> begin
             Base.@_inline_meta
@@ -191,17 +187,10 @@ function clean_particles!(particles::Particles, grid, args)
     return nothing
 end
 
-@parallel_indices (i, j) function _clean!(
-        particle_coords::NTuple{2, Any}, grid::NTuple{2, Any}, dxi::NTuple{2, Any}, index, args
+@parallel_indices (I...) function _clean!(
+        particle_coords::NTuple, grid::NTuple, dxi::NTuple, index, args
     )
-    clean_kernel!(particle_coords, grid, dxi, index, args, i, j)
-    return nothing
-end
-
-@parallel_indices (i, j, k) function _clean!(
-        particle_coords::NTuple{3, Any}, grid::NTuple{3, Any}, dxi::NTuple{3, Any}, index, args
-    )
-    clean_kernel!(particle_coords, grid, dxi, index, args, i, j, k)
+    clean_kernel!(particle_coords, grid, dxi, index, args, I...)
     return nothing
 end
 

@@ -23,7 +23,7 @@ include("Interpolations/grid_to_particle.jl")
 export grid2particle!, grid2particle_flip!
 
 include("Interpolations/centroid_to_particle.jl")
-export centroid2particle!, centroid2particle_flip!
+export centroid2particle!
 
 include("Interpolations/ndlerp.jl")
 
@@ -51,7 +51,7 @@ include("Particles/Advection/advection_MQS.jl")
 export advection!, advection_LinP!, advection_MQS!
 
 include("Particles/injection.jl")
-export check_injection, inject_particles!, inject_particles_phase!, clean_particles!
+export inject_particles!, inject_particles_phase!, clean_particles!
 
 include("Particles/forced_injection.jl")
 export force_injection!
@@ -62,7 +62,7 @@ include("MarkerChain/init.jl")
 export init_markerchain, fill_chain_from_chain!, fill_chain_from_vertices!
 
 include("MarkerChain/bilinear_MC.jl")
-export reconstruct_topography_from_vertices!, compute_topography_vertex!
+export compute_topography_vertex!
 
 include("MarkerChain/move.jl")
 export move_particles!
