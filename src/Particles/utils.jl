@@ -1,12 +1,10 @@
-@inline corner_coordinate(grid, I::Integer) = grid[I]
+@inline corner_coordinate(grid, i::Integer) = grid[i]
+@inline corner_coordinate(grid, i::Integer, j::Integer) = grid[1][i], grid[2][j]
+@inline corner_coordinate(grid, i::Integer, j::Integer, k::Integer) = grid[1][i], grid[2][j], grid[3][k]
 @inline corner_coordinate(grid::NTuple{N, T1}, I::NTuple{N, T2}) where {T1, T2, N} =
     corner_coordinate(grid, I...)
 
-@inline function corner_coordinate(grid::NTuple{N, T1}, I::Vararg{T2, N}) where {T1, T2, N}
-    return ntuple(i -> grid[i][I[i]], Val(N))
-end
-
-@generated function isincell(p::NTuple{N, T}, xci::NTuple{N, T}, dxi::NTuple{N, T}) where {N, T}
+@generated function isincell(p::NTuple{N}, xci::NTuple{N}, dxi::NTuple{N}) where {N}
     return quote
         Base.@_inline_meta
         bool = true

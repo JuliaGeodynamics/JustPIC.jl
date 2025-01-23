@@ -143,7 +143,7 @@ function find_free_memory(index, I::Vararg{Int, N}) where {N}
     return 0
 end
 
-function find_free_memory(initial_index::Integer, index, I::Vararg{Int, N}) where {N}
+function find_free_memory(initial_index::Integer, index::CellArray, I::Vararg{Int, N}) where {N}
     for i in initial_index:cellnum(index)
         (@index(index[i, I...])) || return i
     end
