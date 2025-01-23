@@ -90,7 +90,7 @@ struct PassiveMarkers{Backend, T} <: AbstractParticles
     coords::T
     np::Int64
 
-    function PassiveMarkers(::Type{B}, coords::NTuple{N, T}) where {B, N, T}
+    function PassiveMarkers(::Type{B}, coords::NTuple) where {B}
         # np = length(coords[1].data)
         np = length(coords[1])
         return new{B, typeof(coords)}(coords, np)
