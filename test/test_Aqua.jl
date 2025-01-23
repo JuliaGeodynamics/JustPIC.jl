@@ -5,11 +5,12 @@ using Aqua, Test, JustPIC
 # Aqua.test_piracies(JustPIC)
 
 @testset "Ambiguities" begin
-    @test Aqua.test_ambiguities(JustPIC, 
+    @test Aqua.test_ambiguities(
+        JustPIC, 
         color = true,
         # exclude = [_grid2particle],
         exclude = [
-            JustPIC._2D._grid2particle, 
+            JustPIC._2D._grid2particle,
             JustPIC._3D._grid2particle,
         ],
     ).value
