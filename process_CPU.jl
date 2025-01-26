@@ -1,4 +1,4 @@
-using CSV, DataFrames, GLMakie, Statistics
+using CSV, DataFrames, CairoMakie, Statistics
 
 #### FUNCTIONS 
 

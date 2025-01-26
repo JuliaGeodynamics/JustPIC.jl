@@ -8,7 +8,7 @@ const isGPU = ARGS[1] === "true" ? true : false
 end
 
 using JustPIC
-using JustPIC._2D
+using JustPIC._3D
 
 # Threads is the default backend, 
 # to run on a CUDA GPU load CUDA.jl (i.e. "using CUDA"), 
@@ -33,37 +33,39 @@ end
 # Analytical flow solution
 vx_stream(x, y) =  250 * sin(π*x) * cos(π*y)
 vy_stream(x, y) = -250 * cos(π*x) * sin(π*y)
-g(x) = Point2f(
-    vx_stream(x[1], x[2]),
-    vy_stream(x[1], x[2])
-)
+vz_stream(x, z) = -250 * cos(π*x) * sin(π*z)
 
 function main(; n = 256, fn_advection = advection!)
     # Initialize particles -------------------------------
-    nxcell, max_xcell, min_xcell = 25, 50, 5
-    nx = ny = n-1
-    Lx = Ly = 1.0
+    nxcell, max_xcell, min_xcell = 125, 250, 5
+    nx  = ny = nz = n-1
+    Lx  = Ly = Lz = 1.0
+    ni  = nx, ny, nz
+    Li  = Lx, Ly, Lz
     # nodal vertices
-    xvi = xv, yv = range(0, Lx, length=n), range(0, Ly, length=n)
-    dxi = dx, dy = xv[2] - xv[1], yv[2] - yv[1]
+    xvi = xv, yv, zv = ntuple(i -> range(0, Li[i], length=n), Val(3))
+    # grid spacing
+    dxi = dx, dy, dz = ntuple(i -> xvi[i][2] - xvi[i][1], Val(3))
     # nodal centers
-    xc, yc = range(0+dx/2, Lx-dx/2, length=n-1), range(0+dy/2, Ly-dy/2, length=n-1)
+    xci = xc, yc, zc = ntuple(i -> range(0+dxi[i]/2, Li[i]-dxi[i]/2, length=ni[i]), Val(3))
+
     # staggered grid velocity nodal locations
-    grid_vx = xv, expand_range(yc)
-    grid_vy = expand_range(xc), yv
+    grid_vx = xv              , expand_range(yc), expand_range(zc)
+    grid_vy = expand_range(xc), yv              , expand_range(zc)
+    grid_vz = expand_range(xc), expand_range(yc), zv
 
     particles = init_particles(
         backend, nxcell, max_xcell, min_xcell, xvi...,
     )
 
     # Cell fields -------------------------------
-    Vx = TA(backend)([vx_stream(x, y) for x in grid_vx[1], y in grid_vx[2]]);
-    Vy = TA(backend)([vy_stream(x, y) for x in grid_vy[1], y in grid_vy[2]]);
-    T  = TA(backend)([y for x in xv, y in yv]);
-    V  = Vx, Vy;
+    Vx = TA(backend)([vx_stream(x, z) for x in grid_vx[1], y in grid_vx[2], z in grid_vx[3]])
+    Vy = TA(backend)([vy_stream(x, z) for x in grid_vy[1], y in grid_vy[2], z in grid_vy[3]])
+    Vz = TA(backend)([vz_stream(x, z) for x in grid_vz[1], y in grid_vz[2], z in grid_vz[3]])
+    T  = TA(backend)([z for x in xv, y in yv, z in zv])
+    V  = Vx, Vy, Vz
 
-    dt = min(dx / maximum(abs.(Array(Vx))),  dy / maximum(abs.(Array(Vy))));
-    dt *= 0.25
+    dt = min(dx / maximum(abs.(Vx)), dy / maximum(abs.(Vy)), dz / maximum(abs.(Vz))) / 2
 
     # Advection test
     particle_args = pT, = init_cell_arrays(particles, Val(1));
@@ -82,7 +84,7 @@ function main(; n = 256, fn_advection = advection!)
     niter  = 25
 
     for _ in 1:niter
-        t_adv    = @elapsed advection!(particles, RungeKutta2(), V, (grid_vx, grid_vy), dt)
+        t_adv    = @elapsed advection!(particles, RungeKutta2(), V, (grid_vx, grid_vy, grid_vz), dt)
         t_move   = @elapsed move_particles!(particles, xvi, particle_args)
         t_inject = @elapsed inject_particles!(particles, (pT, ), xvi)
         t_p2g    = @elapsed particle2grid!(T, pT, xvi, particles)
@@ -119,9 +121,9 @@ function main(; n = 256, fn_advection = advection!)
 
     @show isGPU
     if isGPU
-        CSV.write("perf2D/perf2D_$(adv_interp)_n$(n)_CUDA.csv", df)
+        CSV.write("perf3D/perf3D_$(adv_interp)_n$(n)_CUDA.csv", df)
     else
-        CSV.write("perf2D/perf2D_$(adv_interp)_n$(n)_nt_$(Threads.nthreads()).csv", df)
+        CSV.write("perf3D/perf3D_$(adv_interp)_n$(n)_nt_$(Threads.nthreads()).csv", df)
     end
     println("Finished: n = $n")
 end
