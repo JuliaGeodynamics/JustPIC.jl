@@ -24,7 +24,7 @@ JustPICCUDAExt = "CUDA"
 
 [compat]
 AMDGPU = "0.8, 0.9, 1"
-Atomix = "0.1"
+Atomix = "1"
 CUDA = "5"
 CellArrays = "0.3"
 CellArraysIndexing = "0.2"
