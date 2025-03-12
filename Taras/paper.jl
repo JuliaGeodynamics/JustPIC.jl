@@ -50,7 +50,7 @@ function main()
         grid_vy,
     )
 
-    nxcell, max_xcell, min_xcell = 4, 50, 1
+    nxcell, max_xcell, min_xcell = 4, 20, 1
     # nodal vertices
     xvi = x, y 
 
@@ -66,7 +66,7 @@ function main()
     )
     
     dt = min(dx / maximum(abs.(Array(Vx))),  dy / maximum(abs.(Array(Vy))));
-    dt *= 0.75
+    # dt *= 0.75
 
     # ntime = 1000000
     ntime   = 10000
@@ -122,21 +122,21 @@ d1 = [count(p) for p in particles1.index];
 d2 = [count(p) for p in particles2.index];
 d3 = [count(p) for p in particles3.index];
 
-heatmap(d1)
-heatmap(d2)
-heatmap(d3)
+heatmap(d1 ./ 8, colorrange = (0, 2))
+heatmap(d2 ./ 8, colorrange = (0, 2))
+heatmap(d3 ./ 8, colorrange = (0, 2))
 
 scatterlines( stats_Lin.np , markersize = 4)
 scatterlines!(stats_LinP.np, markersize = 4)
 scatterlines!(stats_MQS.np , markersize = 4)
 
-scatterlines( stats_Lin.empty , markersize = 4)
-scatterlines!(stats_LinP.empty, markersize = 4)
-scatterlines!(stats_MQS.empty , markersize = 4)
+scatterlines( stats_Lin.empty  ./ 40^2, markersize = 4)
+scatterlines!(stats_LinP.empty ./ 40^2, markersize = 4)
+scatterlines!(stats_MQS.empty  ./ 40^2, markersize = 4)
 
-scatterlines( stats_Lin.full , markersize = 4)
-scatterlines!(stats_LinP.full, markersize = 4)
-scatterlines!(stats_MQS.full , markersize = 4)
+scatterlines( stats_Lin.full  ./ 40^2, markersize = 4)
+scatterlines!(stats_LinP.full ./ 40^2, markersize = 4)
+scatterlines!(stats_MQS.full  ./ 40^2, markersize = 4)
 
 pxx, pyy  = particles1.coords
 scatter( pxx.data[:], pyy.data[:], markersize = 4)
