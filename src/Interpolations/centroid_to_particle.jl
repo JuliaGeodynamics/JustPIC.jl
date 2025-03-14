@@ -1,6 +1,11 @@
 ## CLASSIC PIC ------------------------------------------------------------------------------------------------
 
 # LAUNCHERS
+"""
+    centroid2particle!(Fp, xci, F, particles)
+
+Interpolates properties `F` that are defined on a mesh at center points with location `xci` to particles `Fp`.
+"""
 function centroid2particle!(Fp, xci, F, particles)
     (; coords) = particles
     di = grid_size(xci)
