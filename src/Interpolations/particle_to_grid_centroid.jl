@@ -1,5 +1,9 @@
 ## LAUNCHERS
+"""
+    particle2centroid!(F, Fp, xci::NTuple, particles::Particles)
 
+Interpolates properties `Fp` from particles to the grid `F` at center points that are defined by 1D coordinate arrays in `xci`
+"""
 function particle2centroid!(F, Fp, xci::NTuple, particles::Particles)
     (; coords) = particles
     dxi = grid_size(xci)
