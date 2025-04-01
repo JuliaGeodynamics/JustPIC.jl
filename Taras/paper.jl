@@ -1,5 +1,6 @@
 using MAT
 using GLMakie
+using JLD2
 
 using JustPIC
 using JustPIC._2D
@@ -50,7 +51,7 @@ function main()
         grid_vy,
     )
 
-    nxcell, max_xcell, min_xcell = 4, 20, 1
+    nxcell, max_xcell, min_xcell = 4, 50, 1
     # nodal vertices
     xvi = x, y 
 
@@ -66,10 +67,10 @@ function main()
     )
     
     dt = min(dx / maximum(abs.(Array(Vx))),  dy / maximum(abs.(Array(Vy))));
-    # dt *= 0.75
+    dt *= 0.75
 
     # ntime = 1000000
-    ntime   = 10000
+    ntime   = 100000
     np_Bi      = Int64[]
     np_MQS     = Int64[]
     np_LinP    = Int64[]
@@ -118,6 +119,16 @@ end
 
 particles1, particles2, particles3, stats_Lin, stats_LinP, stats_MQS = main()
 
+jldsave(
+    "Taras/CornerFlow2D.jld2",
+    particles1 = particles1,
+    particles2 = particles2,
+    particles3 = particles3,
+    stats_Lin = stats_Lin,
+    stats_LinP = stats_LinP,
+    stats_MQS = stats_MQS
+)
+
 d1 = [count(p) for p in particles1.index];
 d2 = [count(p) for p in particles2.index];
 d3 = [count(p) for p in particles3.index];
@@ -126,17 +137,20 @@ heatmap(d1 ./ 8, colorrange = (0, 2))
 heatmap(d2 ./ 8, colorrange = (0, 2))
 heatmap(d3 ./ 8, colorrange = (0, 2))
 
-scatterlines( stats_Lin.np , markersize = 4)
-scatterlines!(stats_LinP.np, markersize = 4)
-scatterlines!(stats_MQS.np , markersize = 4)
+f, ax, s = scatterlines(stats_Lin.np , markersize = 4, label = "bilinear")
+scatterlines!(ax, stats_LinP.np, markersize = 4, label = "LinP")
+scatterlines!(ax, stats_MQS.np , markersize = 4, label = "MQS")
+axislegend(ax)
 
-scatterlines( stats_Lin.empty  ./ 40^2, markersize = 4)
-scatterlines!(stats_LinP.empty ./ 40^2, markersize = 4)
-scatterlines!(stats_MQS.empty  ./ 40^2, markersize = 4)
+f, ax, s = scatter( stats_Lin.empty  ./ 40^2, markersize = 4, label = "bilinear")
+scatter!(ax, stats_LinP.empty ./ 40^2, markersize = 4, label = "LinP")
+scatter!(ax, stats_MQS.empty  ./ 40^2, markersize = 4, label = "MQS")
+axislegend(ax)
 
-scatterlines( stats_Lin.full  ./ 40^2, markersize = 4)
-scatterlines!(stats_LinP.full ./ 40^2, markersize = 4)
-scatterlines!(stats_MQS.full  ./ 40^2, markersize = 4)
+f, ax, s = scatterlines( stats_Lin.full  ./ 40^2, markersize = 4, label = "bilinear")
+scatterlines!(ax, stats_LinP.full ./ 40^2, markersize = 4, label = "LinP")
+scatterlines!(ax, stats_MQS.full  ./ 40^2, markersize = 4, label = "MQS")
+axislegend(ax)
 
 pxx, pyy  = particles1.coords
 scatter( pxx.data[:], pyy.data[:], markersize = 4)
