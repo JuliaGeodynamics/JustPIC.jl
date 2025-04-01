@@ -1,4 +1,3 @@
-
 """
     force_injection!(particles::Particles{Backend}, p_new, fields::NTuple{N, Any}, values::NTuple{N, Any}) where {Backend, N}
 
@@ -14,7 +13,7 @@ Forcefully injects new particles into the `particles` object. This function modi
 - Nothing. This function modifies the `particles` object in place.
 """
 function force_injection!(particles::Particles{Backend}, p_new, fields::NTuple{N, Any}, values::NTuple{N, Any}) where {Backend, N}
-    (; coords, index) = particles;
+    (; coords, index) = particles
     ni = size(index)
     @parallel (@idx ni) force_injection!(coords, index, p_new, fields, values)
     return nothing
