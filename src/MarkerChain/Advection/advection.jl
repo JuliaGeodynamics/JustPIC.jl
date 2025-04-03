@@ -30,7 +30,6 @@ function advection!(
     # compute some basic stuff
     ni = size(index, 1)
     dxi = compute_dx(first(grid_vi))
-    # Need to transpose grid_vy and Vy to reuse interpolation kernels
 
     local_limits = inner_limits(grid_vi)
 
@@ -55,8 +54,6 @@ end
         dt,
     ) where {N, T}
     for ipart in cellaxes(index)
-        doskip(index, ipart, i) && continue
-
         # skip if particle does not exist in this memory location
         doskip(index, ipart, i) && continue
         # extract particle coordinates
