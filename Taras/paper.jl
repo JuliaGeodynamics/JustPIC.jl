@@ -1,5 +1,5 @@
 using MAT
-using GLMakie
+# using GLMakie
 using JLD2
 
 using JustPIC
@@ -115,9 +115,9 @@ function main(np)
         push!(empty_MQS , sum([all(iszero,p) for p in particles3.index]))
 
         # full
-        push!(full_Bi  , sum([sum(isone, p) for p in particles1.index]))
-        push!(full_LinP, sum([sum(isone, p) for p in particles2.index]))
-        push!(full_MQS , sum([sum(isone, p) for p in particles3.index]))
+        push!(full_Bi  , sum([sum(isone, p) > np for p in particles1.index]))
+        push!(full_LinP, sum([sum(isone, p) > np for p in particles2.index]))
+        push!(full_MQS , sum([sum(isone, p) > np for p in particles3.index]))
     end
     stats_Bi   = (; np = np_Bi  , empty = empty_Bi  , time = time_Bi,   full = full_Bi)
     stats_LinP = (; np = np_LinP, empty = empty_LinP, time = time_MQS,  full = full_LinP)
@@ -126,21 +126,39 @@ function main(np)
     return particles1, particles2, particles3, stats_Bi, stats_LinP, stats_MQS
 end
 
-dt = 1.6857490992818227
-t = cumsum(dt .* ones(100000))
+# dt = 1.6857490992818227
+# t = cumsum(dt .* ones(100000))
+# np = 20
+# particles1, particles2, particles3, stats_Lin, stats_LinP, stats_MQS = main(np)
+
+# jldsave(
+#     "Taras/CornerFlow2D_$(np)particles.jld2",
+#     particles1 = particles1,
+#     particles2 = particles2,
+#     particles3 = particles3,
+#     stats_Lin = stats_Lin,
+#     stats_LinP = stats_LinP,
+#     stats_MQS = stats_MQS
+# )
+
 np = 20
-particles1, particles2, particles3, stats_Lin, stats_LinP, stats_MQS = main(np)
+for np in (4,8,12,16,20,24)
 
-jldsave(
-    "Taras/CornerFlow2D_$(np)particles.jld2",
-    particles1 = particles1,
-    particles2 = particles2,
-    particles3 = particles3,
-    stats_Lin = stats_Lin,
-    stats_LinP = stats_LinP,
-    stats_MQS = stats_MQS
-)
+    println("Sarting with np = $np...")
+    particles1, particles2, particles3, stats_Lin, stats_LinP, stats_MQS = main(np)
 
+    jldsave(
+        "Taras/CornerFlow2D_$(np)particles.jld2",
+        particles1 = particles1,
+        particles2 = particles2,
+        particles3 = particles3,
+        stats_Lin = stats_Lin,
+        stats_LinP = stats_LinP,
+        stats_MQS = stats_MQS
+    )
+    println("...done with np = $np")
+
+end
 # d1 = [count(p) for p in particles1.index];
 # d2 = [count(p) for p in particles2.index];
 # d3 = [count(p) for p in particles3.index];
