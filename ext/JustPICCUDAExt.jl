@@ -278,7 +278,7 @@ module _2D
         force_injection!(particles, p_new, fields, values)
         return nothing
     end
-    
+
     JustPIC._2D.force_injection!(particles::Particles{CUDABackend}, p_new) = force_injection!(particles, p_new, (), ())
 
     function JustPIC._2D.inject_particles_phase!(
@@ -378,6 +378,11 @@ module _2D
             ratios, chain::MarkerChain{CUDABackend}, xvi, dxi
         )
         compute_rock_fraction!(ratios, chain, xvi, dxi)
+        return nothing
+    end
+
+    function JustPIC._2D.interpolate_velocity_to_markerchain!(chain::MarkerChain{CUDABackend}, chain_V, V, grid_vi::NTuple{N, NTuple{N, T}}) where {N, T}
+        interpolate_velocity_to_markerchain!(chain, chain_V, V, grid_vi)
         return nothing
     end
 
@@ -655,7 +660,7 @@ module _3D
         force_injection!(particles, p_new, fields, values)
         return nothing
     end
-    
+
     JustPIC._3D.force_injection!(particles::Particles{CUDABackend}, p_new) = force_injection!(particles, p_new, (), ())
 
     function JustPIC._3D.move_particles!(
