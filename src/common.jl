@@ -80,6 +80,9 @@ include("MarkerChain/Advection/RK2.jl")
 include("MarkerChain/Advection/advection.jl")
 export advection!, advect_markerchain!
 
+include("MarkerChain/Advection/interp_velocity.jl")
+export interpolate_velocity_to_markerchain!
+
 ## PASSIVE MARKERS RELATED FILES
 
 include("PassiveMarkers/init.jl")
