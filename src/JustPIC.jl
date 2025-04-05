@@ -24,7 +24,7 @@ include("PhaseRatios/PhaseRatios.jl")
 export nphases, numphases
 
 include("Advection/types.jl")
-export AbstractAdvectionIntegrator, Euler, RungeKutta2
+export AbstractAdvectionIntegrator, Euler, RungeKutta2, RungeKutta4
 
 include("JustPIC_CPU.jl")
 
