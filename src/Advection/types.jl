@@ -16,3 +16,7 @@ struct RungeKutta2{T} <: AbstractAdvectionIntegrator
 end
 
 RungeKutta2() = RungeKutta2(0.5)
+
+struct RungeKutta4 <: AbstractAdvectionIntegrator
+    RungeKutta4(::Vararg{Any, N}) where {N} = new()
+end
