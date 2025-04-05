@@ -45,6 +45,7 @@ export move_particles!
 
 include("Particles/Advection/Euler.jl")
 include("Particles/Advection/RK2.jl")
+include("Particles/Advection/RK4.jl")
 include("Particles/Advection/advection.jl")
 include("Particles/Advection/advection_LinP.jl")
 include("Particles/Advection/advection_MQS.jl")
