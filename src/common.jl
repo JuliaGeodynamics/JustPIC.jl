@@ -78,6 +78,7 @@ export compute_rock_fraction!
 
 include("MarkerChain/Advection/Euler.jl")
 include("MarkerChain/Advection/RK2.jl")
+include("MarkerChain/Advection/RK4.jl")
 include("MarkerChain/Advection/advection.jl")
 export advection!, advect_markerchain!
 
