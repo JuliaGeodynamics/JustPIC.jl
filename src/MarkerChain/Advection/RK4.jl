@@ -9,7 +9,6 @@
     ) where {N, T}
     # interpolate velocity to current location
     v1 = interp_velocity2particle_markerchain(p0, grid_vi, local_limits, dxi, V)
-
     k1 = @. dt * v1
 
     # second stage
