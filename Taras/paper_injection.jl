@@ -21,7 +21,7 @@ function expand_range(x::AbstractRange)
     range(xI, xF, length=n+2)
 end
 
-function main(np)
+function main(np, integrator)
     A   = matread("Taras/CornerFlow2D.mat")
     Vx = A["Vx"]
     Vy = A["Vy"]
@@ -90,9 +90,9 @@ function main(np)
     time_LinP  = Float64[]
     
     for _ in 1:ntime
-        time_Bi0   = @elapsed advection!(particles1, RungeKutta2(), V, grid_vxi, dt)
-        time_MQS0  = @elapsed advection_LinP!(particles2, RungeKutta2(), V, grid_vxi, dt)
-        time_LinP0 = @elapsed advection_MQS!(particles3, RungeKutta2(), V, grid_vxi, dt)
+        time_Bi0   = @elapsed advection!(particles1, integrator, V, grid_vxi, dt)
+        time_MQS0  = @elapsed advection_LinP!(particles2, integrator, V, grid_vxi, dt)
+        time_LinP0 = @elapsed advection_MQS!(particles3, integrator, V, grid_vxi, dt)
 
         time_Bi0   += @elapsed move_particles!(particles1, xvi, ())
         time_MQS0  += @elapsed move_particles!(particles2, xvi, ())
@@ -140,83 +140,24 @@ function main(np)
     return particles1, particles2, particles3, stats_Bi, stats_LinP, stats_MQS
 end
 
-# dt = 1.6857490992818227
-# t = cumsum(dt .* ones(100000))
-# np = 20
-# particles1, particles2, particles3, stats_Lin, stats_LinP, stats_MQS = main(np)
+function runner()
+    for integrator in (RungeKutta2(), RungeKutta4()), np in (4,8,12,16,20,24)
 
-# jldsave(
-#     "Taras/CornerFlow2D_$(np)particles.jld2",
-#     particles1 = particles1,
-#     particles2 = particles2,
-#     particles3 = particles3,
-#     stats_Lin = stats_Lin,
-#     stats_LinP = stats_LinP,
-#     stats_MQS = stats_MQS
-# )
+        println("Sarting with np = $np...")
+        particles1, particles2, particles3, stats_Lin, stats_LinP, stats_MQS = main(np, integrator)
 
-np = 20
-for np in (4,8,12,16,20,24)
+        jldsave(
+            "Taras/CornerFlow2D_$(np)particles.jld2",
+            particles1 = particles1,
+            particles2 = particles2,
+            particles3 = particles3,
+            stats_Lin = stats_Lin,
+            stats_LinP = stats_LinP,
+            stats_MQS = stats_MQS
+        )
+        println("...done with np = $np")
 
-    println("Sarting with np = $np...")
-    particles1, particles2, particles3, stats_Lin, stats_LinP, stats_MQS = main(np)
-
-    jldsave(
-        "Taras/CornerFlow2D_$(np)particles.jld2",
-        particles1 = particles1,
-        particles2 = particles2,
-        particles3 = particles3,
-        stats_Lin = stats_Lin,
-        stats_LinP = stats_LinP,
-        stats_MQS = stats_MQS
-    )
-    println("...done with np = $np")
-
+    end
 end
-# d1 = [count(p) for p in particles1.index];
-# d2 = [count(p) for p in particles2.index];
-# d3 = [count(p) for p in particles3.index];
 
-# heatmap(d1 ./ 8, colorrange = (0, 2), colormap=:lipari)
-# heatmap(d2 ./ 8, colorrange = (0, 2), colormap=:lipari)
-# heatmap(d3 ./ 8, colorrange = (0, 2), colormap=:lipari)
-
-# f, ax, s = scatterlines(stats_Lin.np , markersize = 4, label = "bilinear")
-# scatterlines!(ax, stats_LinP.np, markersize = 4, label = "LinP")
-# scatterlines!(ax, stats_MQS.np , markersize = 4, label = "MQS")
-# axislegend(ax)
-
-# f, ax, s = scatter( stats_Lin.empty  ./ 40^2, markersize = 4, label = "bilinear")
-# scatter!(ax, stats_LinP.empty ./ 40^2, markersize = 4, label = "LinP")
-# scatter!(ax, stats_MQS.empty  ./ 40^2, markersize = 4, label = "MQS")
-# axislegend(ax)
-
-# f, ax, s = scatterlines( stats_Lin.full  ./ 40^2, markersize = 4, label = "bilinear")
-# scatterlines!(ax, stats_LinP.full ./ 40^2, markersize = 4, label = "LinP")
-# scatterlines!(ax, stats_MQS.full  ./ 40^2, markersize = 4, label = "MQS")
-# axislegend(ax)
-
-# f, ax, s = lines(cumsum(stats_Lin.time), linewidth = 3, label = "bilinear")
-# lines!(ax, cumsum(stats_LinP.time) , linewidth = 3, label = "LinP")
-# lines!(ax, cumsum(stats_MQS.time)  , linewidth = 3, label = "MQS")
-# axislegend(ax)
-
-# f, ax, s = lines((t), cumsum(stats_LinP.time) ./ cumsum(stats_Lin.time), linewidth = 3, label = "LinP")
-# lines!(ax, (t), cumsum(stats_MQS.time) ./ cumsum(stats_Lin.time), linewidth = 3, label = "MQS")
-# axislegend(ax)
-# ax.xlabel = L"\text{time}"
-# ax.ylabel = L"\text{slow down}"
-
-
-# f, ax, s = scatter((stats_LinP.time) ./ (stats_Lin.time), markersize = 4, label = "LinP")
-# scatter!(ax, (stats_MQS.time) ./ (stats_Lin.time), markersize = 4, label = "MQS")
-# axislegend(ax)
-
-# pxx, pyy  = particles1.coords;
-# scatter( pxx.data[:], pyy.data[:], markersize = 4)
-
-# pxx, pyy  = particles2.coords;
-# scatter( pxx.data[:], pyy.data[:], markersize = 4)
-
-# pxx, pyy  = particles3.coords;
-# scatter( pxx.data[:], pyy.data[:], markersize = 4)
+runner()
