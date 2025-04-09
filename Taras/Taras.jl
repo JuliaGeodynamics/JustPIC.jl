@@ -75,48 +75,56 @@ V  = Vx, Vy
     m       = 1
     inject  = true
     # ntime = 1000000
-    ntime   = 10000
+    ntime   = 100000
     @show inject
-    np = Int64[]
-    npMQS = Int64[]
-    npLinP = Int64[]
+    np      = zeros(Int64, ntime)
+    npMQS   = zeros(Int64, ntime)
+    npLinP  = zeros(Int64, ntime)
+    method  = RungeKutta4()
     for it in 1:ntime
         # if m == 1
-            advection!(particles1, RungeKutta2(), V, grid_vxi, dt)
+            advection!(particles1, method, V, grid_vxi, dt)
         # elseif m == 2
-            advection_LinP!(particles2, RungeKutta2(), V, grid_vxi, dt)
+            advection_LinP!(particles2, method, V, grid_vxi, dt)
         # elseif m == 3
-            advection_MQS!(particles3, RungeKutta2(), V, grid_vxi, dt)
+            advection_MQS!(particles3, method, V, grid_vxi, dt)
         # end
         for p in (particles1,particles2,particles3)
             move_particles!(p, xvi, ())
-            inject_particles!(p, (), xvi)
+            # inject_particles!(p, (), xvi)
         end
         # inject && inject_particles!(particles, (), xvi)
 
-        push!(np    , sum(particles1.index.data))
-        push!(npMQS , sum(particles2.index.data))
-        push!(npLinP, sum(particles3.index.data))
+        np[it]     = sum(particles1.index.data)
+        npMQS[it]  = sum(particles2.index.data)
+        npLinP[it] = sum(particles3.index.data)
     end
 #     return particles, np
 # end
 
-d1 = [count(p) for p in particles1.index];
-d2 = [count(p) for p in particles2.index];
-d3 = [count(p) for p in particles3.index];
+# d1 = [count(p) for p in particles1.index];
+# d2 = [count(p) for p in particles2.index];
+# d3 = [count(p) for p in particles3.index];
 
-heatmap(d1)
-heatmap(d2)
-heatmap(d3)
-# scatterlines(np, markersize = 4)
-# scatterlines!(npMQS, markersize = 4)
-# scatterlines!(npLinP, markersize = 4)
+# heatmap(d1)
+# heatmap(d2)
+# heatmap(d3)
+scatterlines(np, markersize = 4)
+scatterlines!(npMQS, markersize = 4)
+scatterlines!(npLinP, markersize = 4)
 
-# pxx, pyy  = particles1.coords
-# scatter( pxx.data[:], pyy.data[:], markersize = 4)
+fig = Figure(size=(800,1400))
+ax1 = Axis(fig[1,1], aspect = DataAspect())
+ax2 = Axis(fig[2,1], aspect = DataAspect())
+ax3 = Axis(fig[3,1], aspect = DataAspect())
 
-# pxx, pyy  = particles2.coords
-# scatter!( pxx.data[:], pyy.data[:], markersize = 4)
+pxx, pyy  = particles1.coords
+scatter!(ax1, pxx.data[:], pyy.data[:], markersize = 4)
 
-# pxx, pyy  = particles3.coords
-# scatter!( pxx.data[:], pyy.data[:], markersize = 4)
+pxx, pyy  = particles2.coords
+scatter!(ax2, pxx.data[:], pyy.data[:], markersize = 4)
+
+pxx, pyy  = particles3.coords
+scatter!(ax3, pxx.data[:], pyy.data[:], markersize = 4)
+
+fig

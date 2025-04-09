@@ -71,25 +71,25 @@ function main(np, integrator)
 
     # ntime = 1000000
     ntime   = 100000
-    np_Bi      = Int64[]
-    np_MQS     = Int64[]
-    np_LinP    = Int64[]
-    empty_Bi   = Int64[]
-    empty_MQS  = Int64[]
-    empty_LinP = Int64[]
-    full_Bi    = Int64[]
-    full_MQS   = Int64[]
-    full_LinP  = Int64[]
+    np_Bi      = zeros(Int64, ntime)
+    np_MQS     = zeros(Int64, ntime)
+    np_LinP    = zeros(Int64, ntime)
+    # empty_Bi   = zeros(Int64, ntime)
+    # empty_MQS  = zeros(Int64, ntime)
+    # empty_LinP = zeros(Int64, ntime)
+    # full_Bi    = zeros(Int64, ntime)
+    # full_MQS   = zeros(Int64, ntime)
+    # full_LinP  = zeros(Int64, ntime)
     
-    injected_Bi    = Float64[]
-    injected_MQS   = Float64[]
-    injected_LinP  = Float64[]
+    injected_Bi    = zeros(ntime)
+    injected_MQS   = zeros(ntime)
+    injected_LinP  = zeros(ntime)
 
-    time_Bi    = Float64[]
-    time_MQS   = Float64[]
-    time_LinP  = Float64[]
+    time_Bi    = zeros(ntime)
+    time_MQS   = zeros(ntime)
+    time_LinP  = zeros(ntime)
     
-    for _ in 1:ntime
+    for it in 1:ntime
         time_Bi0   = @elapsed advection!(particles1, integrator, V, grid_vxi, dt)
         time_MQS0  = @elapsed advection_LinP!(particles2, integrator, V, grid_vxi, dt)
         time_LinP0 = @elapsed advection_MQS!(particles3, integrator, V, grid_vxi, dt)
@@ -97,45 +97,55 @@ function main(np, integrator)
         time_Bi0   += @elapsed move_particles!(particles1, xvi, ())
         time_MQS0  += @elapsed move_particles!(particles2, xvi, ())
         time_LinP0 += @elapsed move_particles!(particles3, xvi, ())
-        push!(time_Bi,   time_Bi0)
-        push!(time_MQS,  time_MQS0)
-        push!(time_LinP, time_LinP0)
+
 
         np1 = sum(particles1.index.data)
         np2 = sum(particles2.index.data)
         np3 = sum(particles3.index.data)
 
-        for p in (particles1,particles2,particles3)
-            inject_particles!(p, (), xvi)
-        end
+        # for p in (particles1,particles2,particles3)
+        #     inject_particles!(p, (), xvi)
+        # end
+
+        time_Bi0   += @elapsed inject_particles!(particles1, (), xvi)
+        time_MQS0  += @elapsed inject_particles!(particles2, (), xvi)
+        time_LinP0 += @elapsed inject_particles!(particles3, (), xvi)
+        
+        time_Bi[it]   = time_Bi0
+        time_MQS[it]  = time_MQS0
+        time_LinP[it] = time_LinP0
 
         np1 = sum(particles1.index.data) - np1
         np2 = sum(particles2.index.data) - np2
         np3 = sum(particles3.index.data) - np3
         
         # injected particles
-        push!(injected_Bi  , np1)
-        push!(injected_LinP, np2)
-        push!(injected_MQS , np3)
+        injected_Bi[it]   = np1
+        injected_LinP[it] = np2
+        injected_MQS[it]  = np3
 
         # total particles
-        push!(np_Bi  , sum(particles1.index.data))
-        push!(np_LinP, sum(particles2.index.data))
-        push!(np_MQS , sum(particles3.index.data))
+        np_Bi[it]   = sum(particles1.index.data)
+        np_LinP[it] = sum(particles2.index.data)
+        np_MQS[it]  = sum(particles3.index.data)
 
-        # empty
-        push!(empty_Bi  , sum([all(iszero,p) for p in particles1.index]))
-        push!(empty_LinP, sum([all(iszero,p) for p in particles2.index]))
-        push!(empty_MQS , sum([all(iszero,p) for p in particles3.index]))
+        # # empty
+        # push!(empty_Bi  , sum([all(iszero,p) for p in particles1.index]))
+        # push!(empty_LinP, sum([all(iszero,p) for p in particles2.index]))
+        # push!(empty_MQS , sum([all(iszero,p) for p in particles3.index]))
 
-        # full
-        push!(full_Bi  , sum([sum(isone, p) > np for p in particles1.index]))
-        push!(full_LinP, sum([sum(isone, p) > np for p in particles2.index]))
-        push!(full_MQS , sum([sum(isone, p) > np for p in particles3.index]))
+        # # full
+        # push!(full_Bi  , sum([sum(isone, p) > np for p in particles1.index]))
+        # push!(full_LinP, sum([sum(isone, p) > np for p in particles2.index]))
+        # push!(full_MQS , sum([sum(isone, p) > np for p in particles3.index]))
     end
-    stats_Bi   = (; np = np_Bi  , empty = empty_Bi  , time = time_Bi,   injected = injected_Bi, full = full_Bi)
-    stats_LinP = (; np = np_LinP, empty = empty_LinP, time = time_MQS,  injected = injected_LinP, full = full_LinP)
-    stats_MQS  = (; np = np_MQS , empty = empty_MQS , time = time_LinP, injected = injected_MQS, full = full_MQS)
+    stats_Bi   = (; np = np_Bi  , time = time_Bi,   injected = injected_Bi,)
+    stats_LinP = (; np = np_LinP, time = time_MQS,  injected = injected_LinP)
+    stats_MQS  = (; np = np_MQS , time = time_LinP, injected = injected_MQS)
+
+    # stats_Bi   = (; np = np_Bi  , empty = empty_Bi  , time = time_Bi,   injected = injected_Bi, full = full_Bi)
+    # stats_LinP = (; np = np_LinP, empty = empty_LinP, time = time_MQS,  injected = injected_LinP, full = full_LinP)
+    # stats_MQS  = (; np = np_MQS , empty = empty_MQS , time = time_LinP, injected = injected_MQS, full = full_MQS)
 
     return particles1, particles2, particles3, stats_Bi, stats_LinP, stats_MQS
 end
@@ -146,8 +156,10 @@ function runner()
         println("Sarting with np = $np...")
         particles1, particles2, particles3, stats_Lin, stats_LinP, stats_MQS = main(np, integrator)
 
+        name = integrator == RungeKutta2() ? "RK2" : "RK4"
+
         jldsave(
-            "Taras/CornerFlow2D_$(np)particles.jld2",
+            "Taras/CornerFlow2D_$(np)particles_injection_$(name).jld2",
             particles1 = particles1,
             particles2 = particles2,
             particles3 = particles3,
