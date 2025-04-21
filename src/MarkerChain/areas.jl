@@ -215,7 +215,7 @@ end
                     (p1, p2), x_min_cell, x_max_cell, y_min_cell, y_max_cell
                 )
                 topo_xᵢ = p1[1], p1[2]
-                topo_xᵢ = p2[1], p2[2]
+                topo_yᵢ = p2[1], p2[2]
             end
 
             # isbelow = topo_yᵢ[1] - y_min_cell ≥ dy / 2 && topo_yᵢ[2] - y_min_cell ≥ dy / 2
