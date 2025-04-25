@@ -173,13 +173,14 @@ end
     return nothing
 end
 
-function compute_area_below_chain_vertex!(ratio_velocity, chain, xvi, dxi)
+function compute_area_below_chain_vertex!(ratio_vertex, chain, xvi, dxi)
     topo_x, topo_y = chain.cell_vertices, chain.h_vertices
-    ni = size(ratio_velocity)
+    ni = size(ratio_vertex)
+    @show ni
     masks_x = ((-0.5, 0.0), (0.0, 0.5), (-0.5, 0.0), (0.0, 0.5))
     masks_y = ((-0.5, 0.0), (-0.5, 0.0), (0.0, 0.5), (0.0, 0.5))
     @parallel (@idx ni) _compute_area_below_chain_vertex!(
-        ratio_velocity, topo_x, topo_y, masks_x, masks_y, xvi..., ni..., dxi
+        ratio_vertex, topo_x, topo_y, masks_x, masks_y, xvi..., ni..., dxi
     )
     return nothing
 end
@@ -214,25 +215,26 @@ end
                     (p1, p2), x_min_cell, x_max_cell, y_min_cell, y_max_cell
                 )
                 topo_xᵢ = p1[1], p1[2]
-                topo_xᵢ = p2[1], p2[2]
+                topo_yᵢ = p2[1], p2[2]
             end
 
-            isbelow = topo_yᵢ[1] - y_min_cell ≥ dy / 2 && topo_yᵢ[2] - y_min_cell ≥ dy / 2
-            isabove = y_max_cell - topo_yᵢ[1] ≥ dy / 2 && y_max_cell - topo_yᵢ[2] ≥ dy / 2
+            # isbelow = topo_yᵢ[1] - y_min_cell ≥ dy / 2 && topo_yᵢ[2] - y_min_cell ≥ dy / 2
+            # isabove = y_max_cell - topo_yᵢ[1] ≥ dy / 2 && y_max_cell - topo_yᵢ[2] ≥ dy / 2
 
-            if isbelow
-                ratios[i, j] = min(1, ratios[i, j] + 1)
+            # if isbelow
+            #     ratios[i, j] = min(1, ratios[i, j] + 1)
 
-            elseif isabove
-                ratios[i, j] = zero(eltype(topo_xᵢ))
+            # # elseif isabove
+            # #     ratios[i, j] = zero(eltype(topo_xᵢ))
 
-            else
+            # else
                 # compute area at cell center
                 area_rock = compute_area_below_chain(
                     topo_xᵢ, topo_yᵢ, x_min_cell, x_max_cell, y_min_cell, y_max_cell, dxi
                 )
                 ratios[i, j] += clamp(correction * area_rock / area_cell, 0, 1)
-            end
+            # end
+            ratios[i, j] = clamp(ratios[i, j], 0, 1)
         end
     end
     return nothing

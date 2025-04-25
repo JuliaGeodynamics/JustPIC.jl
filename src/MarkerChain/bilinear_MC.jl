@@ -32,7 +32,7 @@ function _compute_h_vertex_kernel!(
     for j in (ivertex - 1):ivertex
         if 0 < j < length(cell_vertices)
             for ip in cellaxes(index)
-                @index(index[ip, j]) || break
+                @index(index[ip, j]) || continue
 
                 x_m = @index chain_x[ip, j]
                 y_m = @index chain_y[ip, j]
