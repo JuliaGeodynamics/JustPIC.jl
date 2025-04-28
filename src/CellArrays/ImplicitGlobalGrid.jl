@@ -2,7 +2,7 @@ function update_cell_halo!(
         x::Vararg{CellArray{S, N, D, A}, NA}
     ) where {NA, S, N, D, A <: AbstractArray}
     ni = size(x[1])
-    tmp = @fill(0e0, ni..., eltype = eltype(x[1].data))
+    tmp = @fill(0.0e0, ni..., eltype = eltype(x[1].data))
 
     for xᵢ in x
         for ip in cellaxes(xᵢ)
