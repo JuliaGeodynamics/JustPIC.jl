@@ -6,20 +6,20 @@ function update_cell_halo!(
 
     for xᵢ in x
         for ip in cellaxes(xᵢ)
-            @parallel (@idx ni) copy_field!(tmp, xᵢ, ip)
+            @parallel (@idx ni) move_CellArray_to_Array!(tmp, xᵢ, ip)
             update_halo!(tmp)
-            @parallel (@idx ni) copy_field!(xᵢ, tmp, ip)
+            @parallel (@idx ni) move_Array_to_CellArray!(xᵢ, tmp, ip)
         end
     end
     return nothing
 end
 
-@parallel_indices (I...) function copy_field!(A::CellArray, B::AbstractArray, ip)
+@parallel_indices (I...) function move_Array_to_CellArray!(A::CellArray, B::AbstractArray, ip)
     @inbounds @index A[ip, I...] = B[I...]
     return nothing
 end
 
-@parallel_indices (I...) function copy_field!(B::AbstractArray, A::CellArray, ip)
+@parallel_indices (I...) function move_CellArray_to_Array!(B::AbstractArray, A::CellArray, ip)
     @inbounds B[I...] = @index A[ip, I...]
     return nothing
 end
