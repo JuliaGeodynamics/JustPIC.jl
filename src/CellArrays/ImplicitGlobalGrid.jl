@@ -1,4 +1,4 @@
-function update_cell_halo!(
+@generated function update_cell_halo!(
         x::Vararg{CellArray{S, N, D, A}, NA}
     ) where {NA, S, N, D, A <: AbstractArray}
     ni = size(x[1])
@@ -10,8 +10,8 @@ function update_cell_halo!(
             update_halo!(tmp)
             @parallel (@idx ni) move_Array_to_CellArray!(xᵢ, tmp, ip)
         end
+        return nothing
     end
-    return nothing
 end
 
 @parallel_indices (I...) function move_Array_to_CellArray!(A::CellArray, B::AbstractArray, ip)

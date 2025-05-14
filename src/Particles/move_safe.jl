@@ -17,7 +17,7 @@ function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args) wh
     n_color = ntuple(i -> ceil(Int, nxi[i] / 3), Val(N))
 
     # make some space for incoming particles
-    @parallel (@idx nxi) empty_particles!(coords, index, max_xcell, args)
+    # @parallel (@idx nxi) empty_particles!(coords, index, max_xcell, args)
     # move particles
     if N == 2 # 2D case
         nthreads = (16, 16)
@@ -89,6 +89,7 @@ function move_kernel!(
             @index index[ip, idx...] = false
             empty_particle!(coords, ip, idx)
             empty_particle!(args, ip, idx)
+            # println("Particle went out of the domain")
         end
         domain_check && continue
 
@@ -108,7 +109,10 @@ function move_kernel!(
         # check whether there's empty space in parent cell
         # free_idx = find_free_memory(index, new_cell...)
         free_idx = find_free_memory(starting_point, index, new_cell...)
-        free_idx == 0 && continue
+        if free_idx == 0
+            # println("No free memory in the parent cell")
+            continue
+        end
         starting_point = free_idx
         # move particle and its fields to the first free memory location
         @inbounds @index index[free_idx, new_cell...] = true
