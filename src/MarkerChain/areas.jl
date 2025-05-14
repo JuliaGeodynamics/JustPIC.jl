@@ -228,11 +228,11 @@ end
             # #     ratios[i, j] = zero(eltype(topo_xᵢ))
 
             # else
-                # compute area at cell center
-                area_rock = compute_area_below_chain(
-                    topo_xᵢ, topo_yᵢ, x_min_cell, x_max_cell, y_min_cell, y_max_cell, dxi
-                )
-                ratios[i, j] += clamp(correction * area_rock / area_cell, 0, 1)
+            # compute area at cell center
+            area_rock = compute_area_below_chain(
+                topo_xᵢ, topo_yᵢ, x_min_cell, x_max_cell, y_min_cell, y_max_cell, dxi
+            )
+            ratios[i, j] += clamp(correction * area_rock / area_cell, 0, 1)
             # end
             ratios[i, j] = clamp(ratios[i, j], 0, 1)
         end

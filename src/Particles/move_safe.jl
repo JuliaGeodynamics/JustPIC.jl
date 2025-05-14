@@ -109,7 +109,7 @@ function move_kernel!(
         # check whether there's empty space in parent cell
         # free_idx = find_free_memory(index, new_cell...)
         free_idx = find_free_memory(starting_point, index, new_cell...)
-        if free_idx == 0 
+        if free_idx == 0
             # println("No free memory in the parent cell")
             continue
         end
