@@ -41,7 +41,7 @@ function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args) wh
     return nothing
 end
 
-@parallel_indices function move_particles_ps!(
+@parallel_indices (I...) function move_particles_ps!(
         coords, grid, dxi, index, domain_limits, args, offsets::NTuple{N}
     ) where {N}
     indices = ntuple(Val(N)) do i
