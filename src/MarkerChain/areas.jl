@@ -176,7 +176,6 @@ end
 function compute_area_below_chain_vertex!(ratio_vertex, chain, xvi, dxi)
     topo_x, topo_y = chain.cell_vertices, chain.h_vertices
     ni = size(ratio_vertex)
-    @show ni
     masks_x = ((-0.5, 0.0), (0.0, 0.5), (-0.5, 0.0), (0.0, 0.5))
     masks_y = ((-0.5, 0.0), (-0.5, 0.0), (0.0, 0.5), (0.0, 0.5))
     @parallel (@idx ni) _compute_area_below_chain_vertex!(
