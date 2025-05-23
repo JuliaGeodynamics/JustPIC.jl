@@ -56,7 +56,7 @@ end
         pᵢ_new = advect_particle(method, pᵢ, V, grid, local_limits, dxi, dt, I)
         # update particle coordinates
         for k in 1:N
-            @index p[k][ipart, I...] = pᵢ_new[k]
+            @inbounds @index p[k][ipart, I...] = pᵢ_new[k]
         end
     end
 
@@ -111,11 +111,13 @@ end
             Base.@nexprs $N i -> begin
                 # unpack
                 corrected_idx_i = idx[i]
+                xi, particle_i, dx_i = @inbounds xi_vx[i][corrected_idx_i], particle[i], dxi[i]
+
                 # compute offsets and corrections
-                corrected_idx_i += @inline vertex_offset(
-                    xi_vx[i][corrected_idx_i], particle[i], dxi[i]
+                corrected_idx_i += vertex_offset(
+                    xi, particle_i, dx_i
                 )
-                cell_i = xi_vx[i][corrected_idx_i]
+                cell_i = @inbounds xi
             end
 
             indices = Base.@ncall $N tuple corrected_idx

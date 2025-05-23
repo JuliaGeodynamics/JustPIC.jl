@@ -2,23 +2,27 @@
 
 @inline Base.@propagate_inbounds function extract_field_corners(F, i, j)
     i1, j1 = i + 1, j + 1
-    b = F[i1, j]
-    c = F[i, j1]
-    d = F[i1, j1]
-    a = F[i, j]
+    @inbounds begin
+        b = F[i1, j]
+        c = F[i, j1]
+        d = F[i1, j1]
+        a = F[i, j]
+    end
     return a, b, c, d
 end
 
 @inline Base.@propagate_inbounds function extract_field_corners(F, i, j, k)
     i1, j1, k1 = i + 1, j + 1, k + 1
-    F000 = F[i, j, k]
-    F100 = F[i1, j, k]
-    F010 = F[i, j1, k]
-    F110 = F[i1, j1, k]
-    F001 = F[i, j, k1]
-    F101 = F[i1, j, k1]
-    F011 = F[i, j1, k1]
-    F111 = F[i1, j1, k1]
+    @inbounds begin
+        F000 = F[i, j, k]
+        F100 = F[i1, j, k]
+        F010 = F[i, j1, k]
+        F110 = F[i1, j1, k]
+        F001 = F[i, j, k1]
+        F101 = F[i1, j, k1]
+        F011 = F[i, j1, k1]
+        F111 = F[i1, j1, k1]
+    end
     return F000, F100, F010, F110, F001, F101, F011, F111
 end
 
