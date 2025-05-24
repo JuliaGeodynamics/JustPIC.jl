@@ -185,7 +185,7 @@ end
 end
 
 @inline function cache_args(args::NTuple{N}, ip, I::Integer) where {N}
-    return ntuple(i -> (@inbounds @index(args[i][ip, I])) , Val(N))
+    return ntuple(i -> (@inbounds @index(args[i][ip, I])), Val(N))
 end
 
 @inline function cache_particle(
