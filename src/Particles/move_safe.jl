@@ -86,7 +86,7 @@ function move_kernel!(
         # particle went of of the domain, get rid of it
         domain_check = !(indomain(pᵢ, domain_limits))
         if domain_check
-            @index index[ip, idx...] = false
+            @inbounds @index index[ip, idx...] = false
             empty_particle!(coords, ip, idx)
             empty_particle!(args, ip, idx)
             # println("Particle went out of the domain")
@@ -142,14 +142,14 @@ end
 
 function find_free_memory(index, I::Vararg{Int, N}) where {N}
     for i in cellaxes(index)
-        (@index(index[i, I...])) || return i
+        (@inbounds @index(index[i, I...])) || return i
     end
     return 0
 end
 
 function find_free_memory(initial_index::Integer, index::CellArray, I::Vararg{Int, N}) where {N}
     for i in initial_index:cellnum(index)
-        (@index(index[i, I...])) || return i
+        (@inbounds @index(index[i, I...])) || return i
     end
     return 0
 end
@@ -181,11 +181,11 @@ end
 end
 
 @inline function cache_args(args::NTuple{N1, T}, ip, I::NTuple{N2, Int64}) where {T, N1, N2}
-    return ntuple(i -> @index(args[i][ip, I...]), Val(N1))
+    return ntuple(i -> (@inbounds @index(args[i][ip, I...])), Val(N1))
 end
 
 @inline function cache_args(args::NTuple{N}, ip, I::Integer) where {N}
-    return ntuple(i -> @index(args[i][ip, I]), Val(N))
+    return ntuple(i -> (@inbounds @index(args[i][ip, I])), Val(N))
 end
 
 @inline function cache_particle(
@@ -227,7 +227,7 @@ end
         Base.Cartesian.@nexprs $N1 i -> begin
             Base.@_inline_meta
             tmp = p[i]
-            @index tmp[ip, I...] = field[i]
+            @inbounds @index tmp[ip, I...] = field[i]
         end
         return nothing
     end
