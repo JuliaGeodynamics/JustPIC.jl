@@ -102,11 +102,6 @@ function AMDGPU.ROCArray(chain::JustPIC.MarkerChain)
     )
 end
 
-function AMDGPU.ROCArray(phase_ratios::JustPIC.PhaseRatios)
-    (; vertex, center) = phase_ratios
-    return JustPIC.PhaseRatios(AMDGPUBackend, ROCArray(center), ROCArray(vertex))
-end
-
 function AMDGPU.ROCArray(::Type{T}, CA::CellArray) where {T <: Number}
     ni = size(CA)
     # Array initializations
