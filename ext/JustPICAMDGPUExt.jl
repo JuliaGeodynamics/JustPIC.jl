@@ -45,25 +45,6 @@ function AMDGPU.ROCArray(::Type{T}, chain::JustPIC.MarkerChain) where {T <: Numb
     )
 end
 
-function AMDGPU.ROCArray(::Type{T}, chain::JustPIC.MarkerChain) where {T <: Number}
-    (;
-        cell_vertices, coords, coords0, h_vertices, h_vertices0, index, max_xcell, min_xcell,
-    ) = chain
-    coords_gpu = ntuple(i -> ROCArray(T, coords[i]), Val(length(coords)))
-    coords0_gpu = ntuple(i -> ROCArray(T, coords0[i]), Val(length(coords0)))
-    return MarkerChain(
-        CUDABackend,
-        coords_gpu,
-        coords0_gpu,
-        ROCArray(h_vertices),
-        ROCArray(h_vertices0),
-        cell_vertices,
-        ROCArray(Bool, index),
-        max_xcell,
-        min_xcell,
-    )
-end
-
 function AMDGPU.ROCArray(::Type{T}, phase_ratios::JustPIC.PhaseRatios) where {T <: Number}
     (; center, vertex, Vx, Vy, Vz, yz, xz, xy) = phase_ratios
     return JustPIC.PhaseRatios(
@@ -216,10 +197,10 @@ module _2D
     end
 
     function JustPIC._2D.init_particles(
-            ::Type{AMDGPUBackend}, nxcell, max_xcell, min_xcell, x, y, z; buffer = 1 - 1.0e-5
+            ::Type{AMDGPUBackend}, nxcell, max_xcell, min_xcell, x, y; buffer = 1 - 1.0e-5
         )
         return init_particles(
-            AMDGPUBackend, nxcell, max_xcell, min_xcell, x, y, z; buffer = buffer
+            AMDGPUBackend, nxcell, max_xcell, min_xcell, x, y; buffer = buffer
         )
     end
 
