@@ -24,10 +24,10 @@ end
     oy = yv[j]
 
     p1 = GridGeometryUtils.Point(ox, topo_y[i])
-    p2 = GridGeometryUtils.Point(xv[i+1], topo_y[i+1])
-    s  = Segment(p1, p2)
-    
-    r = Rectangle((ox,oy), dxi...)
+    p2 = GridGeometryUtils.Point(xv[i + 1], topo_y[i + 1])
+    s = Segment(p1, p2)
+
+    r = Rectangle((ox, oy), dxi...)
     ratio[i, j] = cell_rock_area(s, r)
 
     return nothing
@@ -36,7 +36,7 @@ end
 function compute_area_below_chain_vx!(ratio_velocity, chain, xvi, dxi)
     topo_y = chain.h_vertices
     nx, ny = size(ratio_velocity)
-    mask_x = (-0.5, 0e0) .* dxi[1]
+    mask_x = (-0.5, 0.0) .* dxi[1]
 
     @parallel (1:nx, 1:ny) _compute_area_below_chain_vx!(
         ratio_velocity, topo_y, mask_x, xvi..., nx, dxi
@@ -54,20 +54,20 @@ end
     ω = 0 # weight for the average
     tmp = zero(T)
     # we can cache the potential coordinates
-    x, y =  if 1 < i < nx
-        (xv[i-1], xv[i], xv[i+1]), (topo_y[i-1], topo_y[i], topo_y[i+1])
+    x, y = if 1 < i < nx
+        (xv[i - 1], xv[i], xv[i + 1]), (topo_y[i - 1], topo_y[i], topo_y[i + 1])
     elseif i == 1
-        (xv[i], xv[i], xv[i+1]), (topo_y[i], topo_y[i], topo_y[i+1])
+        (xv[i], xv[i], xv[i + 1]), (topo_y[i], topo_y[i], topo_y[i + 1])
     else
-        (xv[i-1], xv[i], xv[i]), (topo_y[i-1], topo_y[i], topo_y[i])
+        (xv[i - 1], xv[i], xv[i]), (topo_y[i - 1], topo_y[i], topo_y[i])
     end
 
-    ox   = xv[i]
-    oy   = yv[j]
+    ox = xv[i]
+    oy = yv[j]
     for (l, ii) in enumerate((i - 1):i)
         c += 1
         !(0 < ii < nx) && continue
-        
+
         ω += 1
 
         ## new origin at the center of the (ii, jj)-th cell
@@ -75,9 +75,9 @@ end
         ## now we need to interpolate the segment of the chain to the boundaries of the new cell
         # segment of the chain
         p1 = GridGeometryUtils.Point(x[l], y[l])
-        p2 = GridGeometryUtils.Point(x[l+1], y[l+1])
+        p2 = GridGeometryUtils.Point(x[l + 1], y[l + 1])
         # create a line from the two points
-        l  = Line(p1, p2)
+        l = Line(p1, p2)
         # evaluate the line at the origin and origin + dx / 2
         y1 = line(l, origin[1])
         y2 = line(l, origin[1] + half_dx)
@@ -85,20 +85,20 @@ end
         p1 = GridGeometryUtils.Point(origin[1], y1)
         p2 = GridGeometryUtils.Point(origin[1] + half_dx, y2)
         # and turn them into a segment
-        s  = Segment(p1, p2)
+        s = Segment(p1, p2)
 
         ## create a rectangle for the new cell
-        r    = Rectangle(origin, half_dx, half_dy)
+        r = Rectangle(origin, half_dx, half_dy)
         tmp += cell_rock_area(s, r)
     end
-    ratios[i,j] = tmp / ω
+    ratios[i, j] = tmp / ω
     return nothing
 end
 
 function compute_area_below_chain_vy!(ratio_velocity, chain, xvi, dxi)
     topo_y = chain.h_vertices
     nx, ny = size(ratio_velocity)
-    mask_y = (-0.5, 0e0) .* dxi[2]
+    mask_y = (-0.5, 0.0) .* dxi[2]
 
     @parallel (1:nx, 1:ny) _compute_area_below_chain_vy!(
         ratio_velocity, topo_y, mask_y, xvi..., ny, dxi
@@ -116,14 +116,14 @@ end
     ω = 0 # weight for the average
     tmp = zero(T)
     # we can cache the potential coordinates
-    x, y = (xv[i], xv[i+1]), (topo_y[i], topo_y[i+1])
-    ox   = xv[i]
-    oy   = yv[j]
+    x, y = (xv[i], xv[i + 1]), (topo_y[i], topo_y[i + 1])
+    ox = xv[i]
+    oy = yv[j]
 
     for (k, jj) in enumerate((j - 1):j)
         c += 1
         !(0 < jj < ny) && continue
-        
+
         ω += 1
 
         ## new origin at the center of the (ii, jj)-th cell
@@ -133,7 +133,7 @@ end
         p1 = GridGeometryUtils.Point(x[1], y[1])
         p2 = GridGeometryUtils.Point(x[2], y[2])
         # create a line from the two points
-        l  = Line(p1, p2)
+        l = Line(p1, p2)
         # evaluate the line at the origin and origin + dx / 2
         y1 = line(l, origin[1])
         y2 = line(l, origin[1] + half_dx)
@@ -141,22 +141,22 @@ end
         p1 = GridGeometryUtils.Point(origin[1], y1)
         p2 = GridGeometryUtils.Point(origin[1] + half_dx, y2)
         # and turn them into a segment
-        s  = Segment(p1, p2)
+        s = Segment(p1, p2)
 
         ## create a rectangle for the new cell
-        r    = Rectangle(origin, half_dx, half_dy)
+        r = Rectangle(origin, half_dx, half_dy)
         tmp += cell_rock_area(s, r)
     end
-    ratios[i,j] = tmp / ω
+    ratios[i, j] = tmp / ω
 
     return nothing
 end
 
 function compute_area_below_chain_vertex!(ratio_vertex, chain, xvi, dxi)
-    topo_y  = chain.h_vertices
-    ni      = size(ratio_vertex)
-    masks_x = (-0.5, 0e0, -0.5, 0e0) .* dxi[1]
-    masks_y = (-0.5, -0.5, 0e0, 0e0) .* dxi[2]
+    topo_y = chain.h_vertices
+    ni = size(ratio_vertex)
+    masks_x = (-0.5, 0.0, -0.5, 0.0) .* dxi[1]
+    masks_y = (-0.5, -0.5, 0.0, 0.0) .* dxi[2]
 
     @parallel (@idx ni) _compute_area_below_chain_vertex!(
         ratio_vertex, topo_y, masks_x, masks_y, xvi..., ni..., dxi
@@ -174,12 +174,12 @@ end
     ω = 0 # weight for the average
     tmp = zero(T)
     # we can cache the potential coordinates
-    x, y =  if 1 < i < nx
-        (xv[i-1], xv[i], xv[i+1]), (topo_y[i-1], topo_y[i], topo_y[i+1])
+    x, y = if 1 < i < nx
+        (xv[i - 1], xv[i], xv[i + 1]), (topo_y[i - 1], topo_y[i], topo_y[i + 1])
     elseif i == 1
-        (xv[i], xv[i], xv[i+1]), (topo_y[i], topo_y[i], topo_y[i+1])
+        (xv[i], xv[i], xv[i + 1]), (topo_y[i], topo_y[i], topo_y[i + 1])
     else
-        (xv[i-1], xv[i], xv[i]), (topo_y[i-1], topo_y[i], topo_y[i])
+        (xv[i - 1], xv[i], xv[i]), (topo_y[i - 1], topo_y[i], topo_y[i])
     end
 
     ox = xv[i]
@@ -190,7 +190,7 @@ end
             c += 1
             !(0 < jj < nx) && continue
             !(0 < ii < ny) && continue
-            
+
             ω += 1
 
             ## new origin at the center of the (ii, jj)-th cell
@@ -198,9 +198,9 @@ end
             ## now we need to interpolate the segment of the chain to the boundaries of the new cell
             # segment of the chain
             p1 = GridGeometryUtils.Point(x[l], y[k])
-            p2 = GridGeometryUtils.Point(x[l+1], y[k+1])
+            p2 = GridGeometryUtils.Point(x[l + 1], y[k + 1])
             # create a line from the two points
-            l  = Line(p1, p2)
+            l = Line(p1, p2)
             # evaluate the line at the origin and origin + dx / 2
             y1 = line(l, origin[1])
             y2 = line(l, origin[1] + half_dx)
@@ -208,15 +208,15 @@ end
             p1 = GridGeometryUtils.Point(origin[1], y1)
             p2 = GridGeometryUtils.Point(origin[1] + half_dx, y2)
             # and turn them into a segment
-            s  = Segment(p1, p2)
+            s = Segment(p1, p2)
 
             ## create a rectangle for the new cell
-            r    = Rectangle(origin, half_dx, half_dy)
+            r = Rectangle(origin, half_dx, half_dy)
             tmp += cell_rock_area(s, r)
         end
     end
-    ratios[i,j] = tmp / ω
-    
+    ratios[i, j] = tmp / ω
+
     return nothing
 end
 
@@ -242,5 +242,5 @@ function cell_rock_area(s::Segment, r::Rectangle{T}) where {T}
     else
         clamp(intersecting_area(s, r) / area(r), zero(T), one(T))
     end
-    return A 
+    return A
 end
