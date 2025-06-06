@@ -6,6 +6,7 @@ module _2D
     using CellArrays, CellArraysIndexing, StaticArrays
     using Atomix
     using ..JustPIC
+    using GridGeometryUtils
 
     import ..JustPIC: AbstractBackend, CPUBackend
 
@@ -33,6 +34,8 @@ module _3D
     using ParallelStencil
     using CellArrays, CellArraysIndexing, StaticArrays
     using Atomix
+    using GridGeometryUtils
+
     using ..JustPIC
 
     import ..JustPIC: AbstractBackend, CPUBackend

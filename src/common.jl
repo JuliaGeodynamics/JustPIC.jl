@@ -74,6 +74,7 @@ include("MarkerChain/resample.jl")
 export resample!
 
 include("MarkerChain/areas.jl")
+# include("MarkerChain/areas0.jl")
 export compute_rock_fraction!
 
 include("MarkerChain/Advection/Euler.jl")
