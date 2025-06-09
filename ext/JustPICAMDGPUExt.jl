@@ -33,7 +33,7 @@ function AMDGPU.ROCArray(::Type{T}, chain::JustPIC.MarkerChain) where {T <: Numb
     coords_gpu = ntuple(i -> ROCArray(T, coords[i]), Val(length(coords)))
     coords0_gpu = ntuple(i -> ROCArray(T, coords0[i]), Val(length(coords0)))
     return MarkerChain(
-        CUDABackend,
+        AMDGPUBackend,
         coords_gpu,
         coords0_gpu,
         ROCArray(h_vertices),
@@ -90,7 +90,7 @@ function AMDGPU.ROCArray(chain::JustPIC.MarkerChain)
     coords_gpu = ntuple(i -> ROCArray(coords[i]), Val(length(coords)))
     coords0_gpu = ntuple(i -> ROCArray(coords0[i]), Val(length(coords0)))
     return MarkerChain(
-        CUDABackend,
+        AMDGPUBackend,
         coords_gpu,
         coords0_gpu,
         ROCArray(h_vertices),
