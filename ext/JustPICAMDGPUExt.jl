@@ -10,7 +10,7 @@ JustPIC.TA(::Type{AMDGPUBackend}) = ROCArray
 function ROCCellArray(
         ::Type{T}, ::UndefInitializer, dims::NTuple{N, Int}
     ) where {T <: CellArrays.Cell, N}
-    return CellArrays.CellArray{T, N, 0, AMDGPU.ROCCellArray{eltype(T), 3}}(undef, dims)
+    return CellArrays.CellArray{T, N, 0, AMDGPU.ROCArray{eltype(T), 3}}(undef, dims)
 end
 function ROCCellArray(
         ::Type{T}, ::UndefInitializer, dims::Int...
