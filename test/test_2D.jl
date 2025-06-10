@@ -227,7 +227,7 @@ end
         values(Δ),
         values(Nc)
     ) # random position by default
-
+    println("Backend: ", backend)
     # Initialise phase field
     particle_args = phases, = init_cell_arrays(particles, Val(1))  # cool
 
