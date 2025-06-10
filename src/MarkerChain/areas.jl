@@ -16,8 +16,8 @@ function compute_area_below_chain_centers!(ratio_center, chain, xvi, dxi)
 end
 
 @parallel_indices (i, j) function _compute_area_below_chain_center!(
-        ratio::AbstractArray{T}, topo_y, xv, yv, dxi
-    ) where {T}
+        ratio::AbstractArray, topo_y, xv, yv, dxi
+    )
 
     # cell origin
     ox = xv[i]
@@ -188,8 +188,8 @@ end
     for (k, jj) in enumerate((j - 1):j)
         for (l, ii) in enumerate((i - 1):i)
             c += 1
-            !(0 < jj < nx) && continue
-            !(0 < ii < ny) && continue
+            !(0 < ii < nx) && continue
+            !(0 < jj < ny) && continue
 
             ω += 1
 
@@ -242,5 +242,6 @@ function cell_rock_area(s::Segment, r::Rectangle{T}) where {T}
     else
         clamp(intersecting_area(s, r) / area(r), zero(T), one(T))
     end
+
     return A
 end
