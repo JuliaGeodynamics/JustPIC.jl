@@ -75,7 +75,11 @@ end
             p = @index(pxi[1][ip, cell_index...]), @index(pxi[2][ip, cell_index...])
             any(isnan, p) && continue
             # check if it's within half cell
-            prod(x -> abs(x[1] - x[2]) ≤ x[3] / 2, zip(p, cell_vertex, di)) && continue
+            tmp = true
+            for i in eachindex(p)
+                abs(p[i] - cell_vertex[i]) ≥ di[i] / 2
+            end
+            tmp && continue
             x = @inline bilinear_weight(cell_vertex, p, di)
             ph_local = @index phases[ip, cell_index...]
             # this is doing sum(w * δij(i, phase)), where δij is the Kronecker delta
