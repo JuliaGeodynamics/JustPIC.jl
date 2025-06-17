@@ -225,13 +225,13 @@ end
 @inline function is_chain_above_cell(s::Segment, r::Rectangle)
     max_y = r.origin[2] + r.h
     # Check if the segment is above the rectangle
-    return s.p1[2] ≥ max_y && s.p2[2] ≥ max_y
+    return GridGeometryUtils.geq_r(s.p1[2], max_y) && GridGeometryUtils.geq_r(s.p2[2], max_y)
 end
 
 @inline function is_chain_below_cell(s::Segment, r::Rectangle)
     min_y = r.origin[2]
     # Check if the segment is below the rectangle
-    return s.p1[2] ≤ min_y && s.p2[2] ≤ min_y
+    return GridGeometryUtils.leq_r(s.p1[2], min_y) && GridGeometryUtils.leq_r(s.p2[2], min_y)
 end
 
 function cell_rock_area(s::Segment, r::Rectangle{T}) where {T}
