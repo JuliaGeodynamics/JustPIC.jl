@@ -44,7 +44,6 @@ end
                 end
             end
             tmp && continue
-
             x = @inline bilinear_weight(cell_vertex, p, di)
             ph_local = @index phases[ip, cell_index...]
             # this is doing sum(w * δij(i, phase)), where δij is the Kronecker delta
