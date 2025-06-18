@@ -18,11 +18,11 @@ end
     ) where {N, T}
 
     # index corresponding to the cell center
-    cell_center = getindex.(xci, I)
+    cell_center = ntuple(i -> xci[i], Val(N))
     cell_face = @. cell_center + di * offsets / 2
     ni = size(phases)
     NC = nphases(ratio_faces)
-    w = ntuple(_ -> zero(T), NC)
+    w = ntuple(_ -> zero(T), Val(NC))
 
     # general case
     for offsetsᵢ in (ntuple(_ -> 0, Val(N)), offsets)
