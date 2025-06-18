@@ -22,7 +22,7 @@ end
     cell_face = @. cell_center + di * offsets / 2
     ni = size(phases)
     NC = nphases(ratio_faces)
-    w = ntuple(_ -> zero(T), Val(NC))
+    w = ntuple(_ -> zero(T), NC)
 
     # general case
     for offsetsᵢ in (ntuple(_ -> 0, Val(N)), offsets)
