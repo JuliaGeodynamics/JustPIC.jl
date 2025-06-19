@@ -1,4 +1,4 @@
-@generated function update_cell_halo!(
+function update_cell_halo!(
         x::Vararg{CellArray{S, N, D, A}, NA}
     ) where {NA, S, N, D, A <: AbstractArray}
     ni = size(x[1])
