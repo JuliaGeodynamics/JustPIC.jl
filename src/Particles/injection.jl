@@ -17,16 +17,17 @@ function inject_particles!(particles::Particles, args, grid::NTuple{N}) where {N
     ni = size(index)
     di = compute_dx(grid)
     di_quadrant = di ./ 2
-    n_color = ntuple(i -> ceil(Int, ni[i] * 0.5), Val(N))
+    n_color = ntuple(i -> ceil(Int, (ni[i] - 2) * 0.5), Val(N))
 
     # We need a color-coded parallel approach for shared memory devices because
     # we are look for the closest particle, which can be in a neighboring cell
-    return if N == 2
+    if N == 2
         for offsetᵢ in 1:2, offsetⱼ in 1:2
             @parallel (@idx n_color) inject_particles!(
                 args, coords, index, grid, di, di_quadrant, min_xcell, (offsetᵢ, offsetⱼ)
             )
         end
+
     elseif N == 3
         for offsetᵢ in 1:2, offsetⱼ in 1:2, offsetₖ in 1:2
             @parallel (@idx n_color) inject_particles!(
@@ -43,6 +44,7 @@ function inject_particles!(particles::Particles, args, grid::NTuple{N}) where {N
     else
         error(ThrowArgument("The dimension of the problem must be either 2 or 3"))
     end
+    return nothing
 end
 
 @parallel_indices (I...) function inject_particles!(
@@ -52,9 +54,6 @@ end
         2 * (I[i] - 1) + offsets[i]
     end
 
-    # if N == 3
-    #     @show indices size(index)
-    # end
     if all(indices .≤ size(index))
         _inject_particles!(args, coords, index, grid, di, di_quadrant, min_xcell, indices)
     end
@@ -65,6 +64,8 @@ function _inject_particles!(
         args::NTuple{N, T}, coords, index, grid, di, di_quadrant, min_xcell, idx_cell
     ) where {N, T}
 
+    idxCA = idx_cell .+ 1 # index of the cell array
+
     # coordinates of the lower-left corner of the cell
     xvi = corner_coordinate(grid, idx_cell)
     # coordinates of the lower-left corner of the cell quadrants
@@ -73,12 +74,12 @@ function _inject_particles!(
     min_xQuadrant = ceil(Int, min_xcell / length(xvi_quadrants))
 
     for vertex in xvi_quadrants
-        pcell = extract_particle_cell_coordinates(coords, idx_cell...)
+        pcell = extract_particle_cell_coordinates(coords, idxCA...)
 
         # count current number of particles inside the cell
         particles_num = 0
         for i in cellaxes(index)
-            (@index index[i, idx_cell...]) || continue
+            (@index index[i, idxCA...]) || continue
             # check if particle is in local quadrant
             pcoords = extract_particle_coordinates(pcell, i)
             isincell(pcoords, vertex, di_quadrant) || continue
@@ -90,19 +91,19 @@ function _inject_particles!(
         particles_num ≥ min_xQuadrant && break
 
         for i in cellaxes(index)
-            !(@index index[i, idx_cell...]) || continue
+            !(@index index[i, idxCA...]) || continue
 
             particles_num += 1
             # add at cellcenter + small random perturbation
             p_new = new_particle(vertex, di_quadrant)
             # fill new particles information
-            fill_particle!(coords, p_new, i, idx_cell)
-            @index index[i, idx_cell...] = true
+            fill_particle!(coords, p_new, i, idxCA)
+            @index index[i, idxCA...] = true
             # add phase to new particle
-            particle_idx, min_idx = index_min_distance(coords, p_new, index, i, idx_cell...)
+            particle_idx, min_idx = index_min_distance(coords, p_new, index, i, idxCA...)
             for j in 1:N
                 new_value = @index args[j][particle_idx, min_idx...]
-                @index args[j][i, idx_cell...] = new_value
+                @index args[j][i, idxCA...] = new_value
             end
             # @show particles_num
             # we are done with injection if
@@ -123,9 +124,9 @@ function inject_particles_phase!(
     ni = size(index)
     di = compute_dx(grid)
     di_quadrant = di ./ 2
-    n_color = ntuple(i -> ceil(Int, ni[i] * 0.5), Val(N))
+    n_color = ntuple(i -> ceil(Int, (ni[i] - 2) * 0.5), Val(N))
 
-    return if N == 2
+    if N == 2
         for offsetᵢ in 1:2, offsetⱼ in 1:2
             @parallel (@idx n_color) inject_particles_phase!(
                 particles_phases,
@@ -158,6 +159,7 @@ function inject_particles_phase!(
     else
         error(ThrowArgument("The dimension of the problem must be either 2 or 3"))
     end
+    return nothing
 end
 
 @parallel_indices (I...) function inject_particles_phase!(
@@ -206,6 +208,7 @@ function _inject_particles_phase!(
         min_xcell,
         idx_cell,
     )
+    idxCA = idx_cell .+ 1 # index of the cell array
     # coordinates of the lower-left corner of the cell
     xvi = corner_coordinate(grid, idx_cell)
     # coordinates of the lower-left corner of the cell quadrants
@@ -214,12 +217,12 @@ function _inject_particles_phase!(
     min_xQuadrant = ceil(Int, min_xcell / length(xvi_quadrants))
 
     for (ic, vertex) in enumerate(xvi_quadrants)
-        pcell = extract_particle_cell_coordinates(coords, idx_cell...)
+        pcell = extract_particle_cell_coordinates(coords, idxCA...)
 
         # count current number of particles inside the cell
         particles_num = 0
         for i in cellaxes(index)
-            (@index index[i, idx_cell...]) || continue
+            (@index index[i, idxCA...]) || continue
             # check if particle is in local quadrant
             pcoords = extract_particle_coordinates(pcell, i)
             isincell(pcoords, vertex, di_quadrant) || continue
@@ -231,27 +234,26 @@ function _inject_particles_phase!(
         particles_num ≥ min_xQuadrant && continue
 
         for i in cellaxes(index)
-            !(@index index[i, idx_cell...]) || continue
+            !(@index index[i, idxCA...]) || continue
 
             particles_num += 1
             # add at cellcenter + small random perturbation
             p_new = new_particle(vertex, di_quadrant)
             # add phase to new particle
-            particle_idx, min_idx = index_min_distance(coords, p_new, index, i, idx_cell...)
+            particle_idx, min_idx = index_min_distance(coords, p_new, index, i, idxCA...)
             new_phase = @index particles_phases[particle_idx, min_idx...]
-            @index particles_phases[i, idx_cell...] = new_phase
+            @index particles_phases[i, idxCA...] = new_phase
 
             # fill new particle information
-            fill_particle!(coords, p_new, i, idx_cell)
-            @index index[i, idx_cell...] = true
+            fill_particle!(coords, p_new, i, idxCA)
+            @index index[i, idxCA...] = true
             # interpolate fields into newly injected particle
             for j in eachindex(args)
-                tmp = _grid2particle(p_new, grid, di, fields[j], idx_cell)
+                tmp = _grid2particle(p_new, grid, di, fields[j], idxCA)
                 local_field = cell_field(fields[j], idx_cell...)
                 lower, upper = extrema(local_field)
-                @index args[j][i, idx_cell...] = clamp(tmp, lower, upper)
+                @index args[j][i, idxCA...] = clamp(tmp, lower, upper)
             end
-            # @show i, particles_num
             # we are done with injection if
             particles_num ≥ min_xQuadrant && break
         end

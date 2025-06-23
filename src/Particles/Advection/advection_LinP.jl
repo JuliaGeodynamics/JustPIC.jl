@@ -48,20 +48,20 @@ end
         dt,
         interpolation_fn::F,
     ) where {N, F}
-
+    ICA = I .+ 1
     # iterate over particles in the I-th cell
     for ipart in cellaxes(index)
         # skip if particle does not exist in this memory location
-        doskip(index, ipart, I...) && continue
+        doskip(index, ipart, ICA...) && continue
         # extract particle coordinates
-        pᵢ = get_particle_coords(p, ipart, I...)
+        pᵢ = get_particle_coords(p, ipart, ICA...)
         # # advect particle
         pᵢ_new = advect_particle(
             method, pᵢ, V, grid, local_limits, dxi, dt, interpolation_fn, I
         )
         # update particle coordinates
         for k in 1:N
-            @inbounds @index p[k][ipart, I...] = pᵢ_new[k]
+            @inbounds @index p[k][ipart, ICA...] = pᵢ_new[k]
         end
     end
 

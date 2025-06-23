@@ -130,11 +130,7 @@ unwrap_abstractarray(x::AbstractArray) = typeof(x).name.wrapper
 # generic one that works for any grid
 @inline function cell_index(xᵢ::T, xvᵢ::AbstractVector{T}, dxᵢ::T) where {T}
     xv₀ = first(xvᵢ)
-    if iszero(xv₀)
-        return cell_index(xᵢ, dxᵢ)
-    else
-        return cell_index(xᵢ - xv₀, dxᵢ)
-    end
+    return iszero(xv₀) ? cell_index(xᵢ, dxᵢ) : cell_index(xᵢ - xv₀, dxᵢ)
 end
 
 @inline function cell_index(x::NTuple{N, T}, xv::NTuple{N, AbstractVector{T}}) where {N, T}

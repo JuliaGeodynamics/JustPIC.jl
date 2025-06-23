@@ -1,7 +1,7 @@
 ## Kernels to compute phase ratios at the vertices
 
 function phase_ratios_vertex!(phase_ratios::JustPIC.PhaseRatios, particles, xvi, phases)
-    ni = size(phases) .+ 1
+    ni = size(phases) .+ 1 .- 2
     di = compute_dx(xvi)
 
     @parallel (@idx ni) phase_ratios_vertex_kernel!(
@@ -16,17 +16,21 @@ end
 
     # index corresponding to the cell center
     cell_vertex = xvi[1][I[1]], xvi[2][I[2]], xvi[3][I[3]]
-    ni = size(phases)
+    ni = size(phases) .- 2
     NC = nphases(ratio_vertices)
     w = ntuple(_ -> zero(T), NC)
 
     for offsetᵢ in -1:0, offsetⱼ in -1:0, offsetₖ in -1:0
-        i_cell = I[1] + offsetᵢ
-        0 < i_cell < ni[1] + 1 || continue
-        j_cell = I[2] + offsetⱼ
-        0 < j_cell < ni[2] + 1 || continue
-        k_cell = I[3] + offsetₖ
-        0 < k_cell < ni[3] + 1 || continue
+        # i_cell = I[1] + offsetᵢ
+        # 0 < i_cell < ni[1] + 1 || continue
+        # j_cell = I[2] + offsetⱼ
+        # 0 < j_cell < ni[2] + 1 || continue
+        # k_cell = I[3] + offsetₖ
+        # 0 < k_cell < ni[3] + 1 || continue
+
+        i_cell = I[1] + offsetᵢ + 1
+        j_cell = I[2] + offsetⱼ + 1
+        k_cell = I[3] + offsetₖ + 1
 
         cell_index = i_cell, j_cell, k_cell
 
@@ -70,11 +74,13 @@ end
     w = ntuple(_ -> zero(T), NC)
 
     for offsetᵢ in -1:0, offsetⱼ in -1:0
-        i_cell = I[1] + offsetᵢ
-        !(0 < i_cell < ni[1] + 1) && continue
-        j_cell = I[2] + offsetⱼ
-        !(0 < j_cell < ni[2] + 1) && continue
+        # i_cell = I[1] + offsetᵢ
+        # !(0 < i_cell < ni[1] + 1) && continue
+        # j_cell = I[2] + offsetⱼ
+        # !(0 < j_cell < ni[2] + 1) && continue
 
+        i_cell = I[1] + offsetᵢ + 1
+        j_cell = I[2] + offsetⱼ + 1
         cell_index = i_cell, j_cell
 
         for ip in cellaxes(phases)
@@ -99,7 +105,7 @@ end
 
     w = w .* inv(sum(w))
     for ip in cellaxes(ratio_vertices)
-        @index ratio_vertices[ip, I...] = w[ip]
+        @index ratio_vertices[ip, I .+ 1...] = w[ip]
     end
 
     return nothing

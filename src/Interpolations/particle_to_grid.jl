@@ -1,5 +1,6 @@
 ## LAUNCHERS
 
+
 function particle2grid!(F, Fp, xi, particles)
     (; coords, index) = particles
     dxi = grid_size(xi)
@@ -29,17 +30,20 @@ function _particle2grid!(F, Fp, inode, jnode, xi::NTuple{2, T}, p, index, di) wh
             ivertex = ioffset + inode
             !(1 ≤ ivertex < size(F, 1)) && continue
 
+            I = (ivertex, jvertex) .+ 1 # index of the cell array
             # make sure we stay within the grid
             # iterate over cell
             for ip in cellaxes(px)
                 # early exit if particle is not in the cell
-                doskip(index, ip, ivertex, jvertex) && continue
-
-                p_i = @index(px[ip, ivertex, jvertex]), @index(py[ip, ivertex, jvertex])
+                doskip(index, ip, I...) && continue
+                p_i = (
+                    @index(px[ip, I...]),
+                    @index(py[ip, I...]),
+                )
                 ω_i = distance_weight(xvertex, p_i; order = 1)
                 # ω_i = bilinear_weight(xvertex, p_i, di)
                 ω += ω_i
-                ωxF = fma(ω_i, @index(Fp[ip, ivertex, jvertex]), ωxF)
+                ωxF = fma(ω_i, @index(Fp[ip, I...]), ωxF)
             end
         end
     end
@@ -64,17 +68,21 @@ end
             # make sure we stay within the grid
             if (1 ≤ ivertex < nx) && (1 ≤ jvertex < ny)
                 # iterate over cell
-                for i in cellaxes(px)
+                I = (ivertex, jvertex) .+ 1 # index of the cell array
+                for ip in cellaxes(px)
                     # ignore lines below for unused allocations
-                    doskip(index, i, ivertex, jvertex) && continue
+                    doskip(index, ip, I...) && continue
 
-                    p_i = @index(px[i, ivertex, jvertex]), @index(py[i, ivertex, jvertex])
+                    p_i = (
+                        @index(px[ip, I...]),
+                        @index(py[ip, I...]),
+                    )
                     ω_i = distance_weight(xvertex, p_i; order = 1)
                     # ω_i = bilinear_weight(xvertex, p_i, di)
                     ω += ω_i
                     ωxF = ntuple(Val(N)) do j
                         Base.@_inline_meta
-                        muladd(ω_i, @index(Fp[j][i, ivertex, jvertex]), ωxF[j])
+                        muladd(ω_i, @index(Fp[j][ip, I...]), ωxF[j])
                     end
                 end
             end
@@ -107,20 +115,21 @@ end
                 ivertex = ioffset + inode
                 # make sure we operate within the grid
                 if (1 ≤ ivertex < nx) && (1 ≤ jvertex < ny) && (1 ≤ kvertex < nz)
+                    I = (ivertex, jvertex, kvertex) .+ 1 # index of the cell array
                     # iterate over cell
                     @inbounds for ip in cellaxes(px)
                         # ignore lines below for unused allocations
-                        doskip(index, ip, ivertex, jvertex, kvertex) && continue
+                        doskip(index, ip, I...) && continue
 
                         p_i = (
-                            @index(px[ip, ivertex, jvertex, kvertex]),
-                            @index(py[ip, ivertex, jvertex, kvertex]),
-                            @index(pz[ip, ivertex, jvertex, kvertex]),
+                            @index(px[ip, I...]),
+                            @index(py[ip, I...]),
+                            @index(pz[ip, I...]),
                         )
                         ω_i = distance_weight(xvertex, p_i; order = 1)
                         # ω_i = bilinear_weight(xvertex, p_i, di)
                         ω += ω_i
-                        ωF = muladd(ω_i, @index(Fp[ip, ivertex, jvertex, kvertex]), ωF)
+                        ωF = muladd(ω_i, @index(Fp[ip, I...]), ωF)
                     end
                 end
             end
@@ -148,22 +157,23 @@ end
                 ivertex = ioffset + inode
                 # make sure we operate within the grid
                 if (1 ≤ ivertex < nx) && (1 ≤ jvertex < ny) && (1 ≤ kvertex < nz)
+                    I = (ivertex, jvertex, kvertex) .+ 1 # index of the cell array
                     # iterate over cell
                     @inbounds for ip in cellaxes(px)
                         # ignore lines below for unused allocations
-                        doskip(index, ip, ivertex, jvertex, kvertex) && continue
+                        doskip(index, ip, I...) && continue
 
                         p_i = (
-                            @index(px[ip, ivertex, jvertex, kvertex]),
-                            @index(py[ip, ivertex, jvertex, kvertex]),
-                            @index(pz[ip, ivertex, jvertex, kvertex]),
+                            @index(px[ip, I...]),
+                            @index(py[ip, I...]),
+                            @index(pz[ip, I...]),
                         )
                         ω_i = distance_weight(xvertex, p_i; order = 1)
                         # ω_i = bilinear_weight(xvertex, p_i, di)
                         ω += ω_i
                         ωxF = ntuple(Val(N)) do j
                             Base.@_inline_meta
-                            muladd(ω_i, @index(Fp[j][i, ivertex, jvertex, kvertex]), ωxF[j])
+                            muladd(ω_i, @index(Fp[j][i, I...]), ωxF[j])
                         end
                     end
                 end

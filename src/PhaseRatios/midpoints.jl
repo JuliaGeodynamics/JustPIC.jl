@@ -3,7 +3,7 @@
 function phase_ratios_face!(
         phase_face, particles, xci::NTuple{N}, phases, dimension
     ) where {N}
-    ni = size(phases)
+    ni = size(phases) .- 2
     di = compute_dx(xci)
     offsets = face_offset(Val(N), dimension)
 
@@ -20,14 +20,15 @@ end
     # index corresponding to the cell center
     cell_center = getindex.(xci, I)
     cell_face = @. cell_center + di * offsets / 2
-    ni = size(phases)
+    # ni = size(phases)
     NC = nphases(ratio_faces)
     w = ntuple(_ -> zero(T), NC)
 
     # general case
     for offsetsᵢ in (ntuple(_ -> 0, Val(N)), offsets)
-        cell_index = min.(I .+ offsetsᵢ, ni)
-        all(@. 0 < cell_index < ni + 1) || continue
+        cell_index = I .+ offsetsᵢ .+ 1
+        # cell_index = min.(I .+ offsetsᵢ, ni)
+        # all(@. 0 < cell_index < ni + 1) || continue
 
         for ip in cellaxes(phases)
             p = get_particle_coords(pxi, ip, cell_index...)
@@ -41,29 +42,30 @@ end
         end
     end
 
+    ICA = I .+ 1
     w = w .* inv(sum(w))
     for ip in cellaxes(ratio_faces)
-        @index ratio_faces[ip, (I .+ offsets)...] = w[ip] * !isnan(w[ip]) # make it zero if there are NaNs (means no particles within velocity half cell)
+        @index ratio_faces[ip, (ICA .+ offsets)...] = w[ip] * !isnan(w[ip]) # make it zero if there are NaNs (means no particles within velocity half cell)
     end
 
-    if isboundary(offsets, I)
+    if isboundary(offsets, ICA)
         # index corresponding to the cell center
         cell_face = @. cell_center - di * offsets / 2
         w = ntuple(_ -> zero(T), NC)
 
         for ip in cellaxes(phases)
-            p = get_particle_coords(pxi, ip, I...)
+            p = get_particle_coords(pxi, ip, ICA...)
             any(isnan, p) && continue
             # check if it's within half cell
             isinhalfcell(p, cell_face, di) || continue
             x = @inline bilinear_weight(cell_face, p, di)
-            ph_local = @index phases[ip, I...]
+            ph_local = @index phases[ip, ICA...]
             # this is doing sum(w * δij(i, phase)), where δij is the Kronecker delta
             w = accumulate_weight(w, x, ph_local, NC)
         end
         w = w .* inv(sum(w))
         for ip in cellaxes(ratio_faces)
-            @index ratio_faces[ip, I...] = w[ip] * !isnan(w[ip]) # make it zero if there are NaNs (means no particles within velocity half cell)
+            @index ratio_faces[ip, ICA...] = w[ip] * !isnan(w[ip]) # make it zero if there are NaNs (means no particles within velocity half cell)
         end
     end
 
@@ -97,7 +99,7 @@ end
 function phase_ratios_midpoint!(
         phase_midpoint, particles, xci::NTuple{N}, phases, dimension
     ) where {N}
-    ni = size(phases)
+    ni = size(phases) .- 2
     di = compute_dx(xci)
     offsets = midpoint_offset(Val(N), dimension)
 
@@ -128,7 +130,7 @@ function _phase_ratios_midpoint_kernel!(
     # index corresponding to the cell center
     cell_center = getindex.(xci, I)
     cell_midpoint = @. cell_center + di * offsets / 2
-    ni = size(phases)
+    ni = size(phases) .- 2
     nm = size(ratio_midpoints)
     NC = nphases(ratio_midpoints)
     w = ntuple(_ -> zero(T), NC)
@@ -136,8 +138,9 @@ function _phase_ratios_midpoint_kernel!(
     # general case
     for mask in MASK_3D
         offsetsᵢ = offsets .* mask
-        cell_index = min.(I .+ offsetsᵢ, ni)
-        all(cell_index .≤ nm) || continue
+        cell_index = I .+ offsetsᵢ .+ 1
+        # cell_index = min.(I .+ offsetsᵢ, ni)
+        # all(cell_index .≤ nm) || continue
 
         for ip in cellaxes(phases)
             p = get_particle_coords(pxi, ip, cell_index...)
@@ -151,17 +154,18 @@ function _phase_ratios_midpoint_kernel!(
         end
     end
 
+    ICA = I .+ 1
     w = w .* inv(sum(w))
     for ip in cellaxes(ratio_midpoints)
-        @index ratio_midpoints[ip, (I .+ offsets)...] = w[ip] * !isnan(w[ip]) # make it zero if there are NaNs (means no particles within half cells)
+        @index ratio_midpoints[ip, (ICA .+ offsets)...] = w[ip] * !isnan(w[ip]) # make it zero if there are NaNs (means no particles within half cells)
     end
 
-    if isboundary(offsets, I)
-        offset_boundary = lastboundary_offset(offsets, I, ni)
+    if isboundary(offsets, ICA)
+        offset_boundary = lastboundary_offset(offsets, ICA, ni)
         for offset_boundaryᵢ in ((0, 0, 0), offset_boundary)
             all(x -> x === false, offset_boundaryᵢ) && continue # skip if not last boundary
 
-            midpoint_index = I .+ offset_boundaryᵢ
+            midpoint_index = ICA .+ offset_boundaryᵢ
             # index corresponding to the cell center
             flip_sign_mask = (0, 0, 0) .- offset_boundary # need to add dxi if we are in the last boundary
             cell_midpoint = @. cell_center - (di * offsets * flip_sign_mask) / 2
@@ -169,8 +173,9 @@ function _phase_ratios_midpoint_kernel!(
 
             for mask in MASK_3D
                 offsetsᵢ = offsets .* mask
-                cell_index = min.(I .+ offsetsᵢ, ni)
-                all(cell_index .≤ nm) || continue
+                cell_index = I .+ offsetsᵢ .+ 1
+                # cell_index = min.(I .+ offsetsᵢ, ni)
+                # all(cell_index .≤ nm) || continue
                 for ip in cellaxes(phases)
                     p = get_particle_coords(pxi, ip, cell_index...)
                     any(isnan, p) && continue

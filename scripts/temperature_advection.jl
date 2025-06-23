@@ -25,7 +25,7 @@ g(x) = Point2f(
     vy_stream(x[1], x[2])
 )
 
-function main()
+# function main()
     # Initialize particles -------------------------------
     nxcell, max_xcell, min_xcell = 24, 30, 12
     n = 256
@@ -67,15 +67,23 @@ function main()
 
         particle2grid!(T, pT, xvi, particles)
 
-        if rem(it, 10) == 0
-            f, ax, = heatmap(xvi..., Array(T), colormap = :batlow)
-            streamplot!(ax, g, xvi...)
-            save("figs/test_$(it).png", f)
-            f
-        end
+        # if rem(it, 10) == 0
+        #     f, ax, = heatmap(xvi..., Array(T), colormap = :batlow)
+        #     streamplot!(ax, g, xvi...)
+        #     save("figs/test_$(it).png", f)
+        #     f
+        # end
     end
 
-    return println("Finished")
-end
+#     return println("Finished")
+# end
 
-main()
+# main()
+
+px, py = particles.coords;
+px = px.data[:];
+py = py.data[:];
+ind = particles.index.data[:];
+
+# scatter(px[ind], py[ind], markersize = 5)
+scatter(px[ind], py[ind], markersize = 5, color = pT.data[:][ind], colormap = :batlow)

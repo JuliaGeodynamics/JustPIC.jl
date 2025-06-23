@@ -497,7 +497,7 @@ module _2D
     function JustPIC._2D.phase_ratios_center!(
             phase_ratios::JustPIC.PhaseRatios{AMDGPUBackend}, particles, xci, phases
         )
-        ni = size(phases)
+        ni = size(phases) .- 2
         di = compute_dx(xci)
 
         @parallel (@idx ni) phase_ratios_center_kernel!(
@@ -509,7 +509,7 @@ module _2D
     function JustPIC._2D.phase_ratios_vertex!(
             phase_ratios::JustPIC.PhaseRatios{AMDGPUBackend}, particles, xvi, phases
         )
-        ni = size(phases) .+ 1
+        ni = size(phases) .+ 1 .- 2
         di = compute_dx(xvi)
 
         @parallel (@idx ni) phase_ratios_vertex_kernel!(
@@ -821,7 +821,7 @@ module _3D
     function JustPIC._3D.phase_ratios_center!(
             phase_ratios::JustPIC.PhaseRatios{AMDGPUBackend}, particles, xci, phases
         )
-        ni = size(phases)
+        ni = size(phases) .- 2
         di = compute_dx(xci)
 
         @parallel (@idx ni) phase_ratios_center_kernel!(
@@ -833,7 +833,7 @@ module _3D
     function JustPIC._3D.phase_ratios_vertex!(
             phase_ratios::JustPIC.PhaseRatios{AMDGPUBackend}, particles, xvi, phases
         )
-        ni = size(phases) .+ 1
+        ni = size(phases) .+ 1 .- 2
         di = compute_dx(xvi)
 
         @parallel (@idx ni) phase_ratios_vertex_kernel!(

@@ -8,13 +8,14 @@ Move particles in the given `particles` container according to the provided `gri
 - `grid`: The grid used for particle movement.
 - `args`: `CellArrays`s containing particle fields.
 """
+
 function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args) where {N}
     # implementation goes here
     dxi = compute_dx(grid)
     (; coords, index, max_xcell) = particles
     nxi = size(index)
     domain_limits = extrema.(grid)
-    n_color = ntuple(i -> ceil(Int, nxi[i] / 3), Val(N))
+    n_color = ntuple(i -> ceil(Int, (nxi[i] .- 2) / 3), Val(N))
 
     # make some space for incoming particles
     # @parallel (@idx nxi) empty_particles!(coords, index, max_xcell, args)
@@ -48,7 +49,7 @@ end
         3 * (I[i] - 1) + offsets[i]
     end
 
-    if all(indices .≤ size(index))
+    if all(indices .≤ (size(index) .- 2))
         _move_particles!(coords, grid, dxi, index, domain_limits, indices, args)
     end
     return nothing
@@ -74,10 +75,11 @@ function move_kernel!(
         idx::NTuple{N1, Int64},
     ) where {N1, N2, T}
     starting_point = 1
+    idxCA = idx .+ 1
     # iterate over particles in child cell
     for ip in cellaxes(index)
-        doskip(index, ip, idx...) && continue
-        pᵢ = cache_particle(coords, ip, idx)
+        doskip(index, ip, idxCA...) && continue
+        pᵢ = cache_particle(coords, ip, idxCA)
 
         # check whether the particle is
         # within the same cell and skip it
@@ -86,33 +88,24 @@ function move_kernel!(
         # particle went of of the domain, get rid of it
         domain_check = !(indomain(pᵢ, domain_limits))
         if domain_check
-            @inbounds @index index[ip, idx...] = false
-            empty_particle!(coords, ip, idx)
-            empty_particle!(args, ip, idx)
-            # println("Particle went out of the domain")
+            @inbounds @index index[ip, idxCA...] = false
+            empty_particle!(coords, ip, idxCA)
+            empty_particle!(args, ip, idxCA)
         end
         domain_check && continue
 
-        # new cell indices
-        # new_cell = ntuple(Val(N1)) do i
-        #     cell_index(pᵢ[i], grid[i], dxi[i])
-        # end
-
-        new_cell = cell_index_neighbour(pᵢ, corner_xi, dxi, idx)
+        new_cell = cell_index_neighbour(pᵢ, corner_xi, dxi, idxCA)
 
         # hold particle variables
-        current_args = @inbounds cache_args(args, ip, idx)
+        current_args = @inbounds cache_args(args, ip, idxCA)
         # remove particle from child cell
-        @inbounds @index index[ip, idx...] = false
-        empty_particle!(coords, ip, idx)
-        empty_particle!(args, ip, idx)
+        @inbounds @index index[ip, idxCA...] = false
+        empty_particle!(coords, ip, idxCA)
+        empty_particle!(args, ip, idxCA)
         # check whether there's empty space in parent cell
         # free_idx = find_free_memory(index, new_cell...)
         free_idx = find_free_memory(starting_point, index, new_cell...)
-        if free_idx == 0
-            # println("No free memory in the parent cell")
-            continue
-        end
+        free_idx == 0 && continue
         starting_point = free_idx
         # move particle and its fields to the first free memory location
         @inbounds @index index[free_idx, new_cell...] = true
@@ -256,19 +249,20 @@ end
 end
 
 function clean_kernel!(
-        particle_coords, grid, dxi, index, args, cell_indices::Vararg{Int, N}
+        particle_coords, grid, dxi, index, args, idx::Vararg{Int, N}
     ) where {N}
-    corner_xi = corner_coordinate(grid, cell_indices...)
+    idxCA = idx .+ 1 # child cell index
+    corner_xi = corner_coordinate(grid, idx...)
     # iterate over particles in child cell
     for ip in cellaxes(index)
-        pᵢ = cache_particle(particle_coords, ip, cell_indices)
+        pᵢ = cache_particle(particle_coords, ip, idxCA)
 
-        if @index index[ip, cell_indices...] # true if memory allocation is filled with a particle
+        if @index index[ip, idxCA...] # true if memory allocation is filled with a particle
             if !(isincell(pᵢ, corner_xi, dxi))
                 # remove particle from child cell
-                @index index[ip, cell_indices...] = false
-                empty_particle!(particle_coords, ip, cell_indices)
-                empty_particle!(args, ip, cell_indices)
+                @index index[ip, idxCA...] = false
+                empty_particle!(particle_coords, ip, idxCA)
+                empty_particle!(args, ip, idxCA)
             end
         end
     end
@@ -297,7 +291,7 @@ end
 function empty_kernel!(
         coords, index, cell_length, args::NTuple{N2}, I::NTuple{N1, Int64}
     ) where {N1, N2}
-
+    I = I .+ 1
     # count number of active particles inside I-th cell
     number_of_particles = count_particles(index, I...)
     # if the number of particles is less than 80%

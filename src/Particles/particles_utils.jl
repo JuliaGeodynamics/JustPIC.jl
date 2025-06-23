@@ -30,7 +30,7 @@ function init_particles(
         backend, nxcell, max_xcell, min_xcell, xvi::Vararg{N, T}; buffer = 1 - 1.0e-5
     ) where {N, T}
     di = compute_dx(xvi)
-    ni = @. length(xvi) - 1
+    ni = @. length(xvi) + 1
 
     return init_particles(backend, nxcell, max_xcell, min_xcell, xvi, di, ni; buffer = buffer)
 end
@@ -47,12 +47,15 @@ function init_particles(
     ) where {N, T, I}
     ncells = prod(nᵢ)
     np = max_xcell * ncells
-    pxᵢ = ntuple(_ -> @rand(nᵢ..., celldims = (max_xcell,)), Val(N))
+    pxᵢ = ntuple(_ -> @fill(NaN, nᵢ..., celldims = (max_xcell,)), Val(N))
     index = @fill(false, nᵢ..., celldims = (max_xcell,), eltype = Bool)
 
     @parallel_indices (I...) function fill_coords_index(
             pxᵢ::NTuple{N, T}, index, coords, dxᵢ, nxcell, max_xcell, buffer
         ) where {N, T}
+
+        ICA = I .+ 1 # index of the cell array
+
         # lower-left corner of the cell
         x0ᵢ = ntuple(Val(N)) do ndim
             coords[ndim][I[ndim]]
@@ -62,22 +65,22 @@ function init_particles(
         for l in 1:max_xcell
             if l ≤ nxcell
                 ntuple(Val(N)) do ndim
-                    @index pxᵢ[ndim][l, I...] =
+                    @index pxᵢ[ndim][l, ICA...] =
                         x0ᵢ[ndim] +
-                        dxᵢ[ndim] * (@index(pxᵢ[ndim][l, I...]) * buffer + (1 - buffer) / 2)
+                        dxᵢ[ndim] * (rand() * buffer + (1 - buffer) / 2)
                 end
-                @index index[l, I...] = true
+                @index index[l, ICA...] = true
 
             else
                 ntuple(Val(N)) do ndim
-                    @index pxᵢ[ndim][l, I...] = NaN
+                    @index pxᵢ[ndim][l, ICA...] = NaN
                 end
             end
         end
         return nothing
     end
 
-    @parallel (@idx nᵢ) fill_coords_index(
+    @parallel (@idx nᵢ .- 2) fill_coords_index(
         pxᵢ, index, coords, dxᵢ, nxcell, max_xcell, buffer
     )
 
