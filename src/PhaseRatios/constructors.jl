@@ -1,7 +1,7 @@
 function PhaseRatios(
         ::Type{T}, ::Type{B}, nphases::Integer, ni::NTuple{2, Integer}
     ) where {T, B}
-    ni = ni .+ 1
+    ni = ni .+ 2
     nx, ny = ni
 
     center = cell_array(zero(T), (nphases,), ni)
@@ -16,7 +16,7 @@ end
 function PhaseRatios(
         ::Type{T}, ::Type{B}, nphases::Integer, ni::NTuple{3, Integer}
     ) where {T, B}
-    ni = ni .+ 1
+    ni = ni .+ 2
     nx, ny, nz = ni
 
     center = cell_array(zero(T), (nphases,), ni)
