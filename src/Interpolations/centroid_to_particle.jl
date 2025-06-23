@@ -15,7 +15,7 @@ end
 
 function centroid2particle!(Fp, xci, F, coords, di::NTuple{N, T}) where {N, T}
     # indices = ntuple(i -> 0:(length(xci[i]) + 1), Val(N))
-    ni = size(Fp)
+    ni = size(Fp) .- 2
     @parallel (@idx ni) centroid2particle_classic!(Fp, F, xci, di, coords)
 
     return nothing
@@ -29,19 +29,20 @@ end
 # INNERMOST INTERPOLATION KERNEL
 
 @inline function _centroid2particle_classic!(Fp, p, xci, di::NTuple{N}, F, I) where {N}
-    ni = size(F) .- 1
+    # ni = size(F) .- 1
+    ICA = I .+ 1
     # iterate over all the particles within the cells of index `idx`
     @inbounds for ip in cellaxes(Fp)
         # cache particle coordinates
-        pᵢ = ntuple(i -> (@index p[i][ip, I...]), Val(N))
+        pᵢ = ntuple(i -> (@index p[i][ip, ICA...]), Val(N))
         # skip lines below if there is no particle in this piece of memory
         any(isnan, pᵢ) && continue
         # continue the kernel
         xc = ntuple(i -> xci[i][I[i]], Val(N))
-        cell_index = shifted_index(pᵢ, xc, I)
-        cell_index = clamp.(cell_index, 1, ni)
+        cell_index = shifted_index(pᵢ, xc, ICA)
+        # cell_index = clamp.(cell_index, 1, ni)
         # Interpolate field F onto particle
-        @index Fp[ip, I...] = _grid2particle(pᵢ, xci, di, F, cell_index)
+        @index Fp[ip, ICA...] = _grid2particle(pᵢ, xci, di, F, cell_index)
     end
     return nothing
 end
@@ -49,20 +50,21 @@ end
 @inline function _centroid2particle_classic!(
         Fp::NTuple{NF}, p, xci, di::NTuple{N}, F::NTuple{NF}, I
     ) where {NF, N}
-    ni = size(F) .- 1
+    # ni = size(F) .- 1
+    ICA = I .+ 1
     # iterate over all the particles within the cells of index `idx`
     @inbounds for ip in cellaxes(Fp)
         # cache particle coordinates
-        pᵢ = ntuple(i -> (@index p[i][ip, I...]), Val(N))
+        pᵢ = ntuple(i -> (@index p[i][ip, ICA...]), Val(N))
         # skip lines below if there is no particle in this piece of memory
         any(isnan, pᵢ) && continue
         # continue the kernel
         xc = ntuple(i -> xci[i][I[i]], Val(N))
-        cell_index = shifted_index(pᵢ, xc, I)
-        cell_index = lamp.(cell_index, 1, ni)
+        cell_index = shifted_index(pᵢ, xc, ICA)
+        # cell_index = clamp.(cell_index, 1, ni)
         # Interpolate field F onto particle
         for n in 1:NF # should be unrolled
-            @index Fp[n][ip, I...] = _grid2particle(pᵢ, xci, di, F[n], cell_index)
+            @index Fp[n][ip, ICA...] = _grid2particle(pᵢ, xci, di, F[n], cell_index)
         end
     end
     return nothing
