@@ -23,7 +23,7 @@ function advection_MQS!(
     dxi = compute_dx(first(grid_vi))
     (; coords, index) = particles
     # compute some basic stuff
-    ni = size(index) .+ 2
+    ni = size(index) .- 2
     # compute local limits (i.e. domain or MPI rank limits)
     local_limits = inner_limits(grid_vi)
 
@@ -74,12 +74,12 @@ end
     ) where {N}
     return ntuple(Val(N)) do i
         Base.@_inline_meta
-        local_lims = local_limits[i]
-        v = if check_local_limits(local_lims, particle_coords)
+        # local_lims = local_limits[i]
+        # v = if check_local_limits(local_lims, particle_coords)
             interp_velocity2particle_MQS(particle_coords, grid_vi[i], dxi, V[i], Val(i), idx)
-        else
-            Inf
-        end
+        # else
+        #     Inf
+        # end
     end
 end
 

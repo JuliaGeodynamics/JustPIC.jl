@@ -73,12 +73,12 @@ end
     ) where {N}
     return ntuple(Val(N)) do i
         Base.@_inline_meta
-        local_lims = local_limits[i]
-        v = if check_local_limits(local_lims, particle_coords)
+        # local_lims = local_limits[i]
+        # v = if check_local_limits(local_lims, particle_coords)
             interp_velocity2particle(particle_coords, grid_vi[i], dxi, V[i], idx)
-        else
-            Inf
-        end
+        # else
+        #     Inf
+        # end
     end
 end
 

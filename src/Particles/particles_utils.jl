@@ -47,6 +47,7 @@ function init_particles(
     ) where {N, T, I}
     ncells = prod(nᵢ)
     np = max_xcell * ncells
+    nᵢ = nᵢ .+ 2
     pxᵢ = ntuple(_ -> @fill(NaN, nᵢ..., celldims = (max_xcell,)), Val(N))
     index = @fill(false, nᵢ..., celldims = (max_xcell,), eltype = Bool)
 
