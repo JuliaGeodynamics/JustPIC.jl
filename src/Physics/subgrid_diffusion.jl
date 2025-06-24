@@ -27,7 +27,7 @@ function subgrid_diffusion!(
     )
     # d = dimensionless numerical diffusion coefficient (0 ≤ d ≤ 1)
     (; pT0, pΔT, dt₀) = subgrid_arrays
-    ni = size(pT)
+    ni = size(pT) .- 2
 
     @parallel (@idx ni) memcopy_cellarray!(pT0, pT)
     grid2particle!(pT, xvi, T_grid, particles)
@@ -72,30 +72,33 @@ end
 end
 
 @parallel_indices (I...) function subgrid_diffusion!(pT, pT0, pΔT, dt₀, index, d, di, dt)
+    I1 = I .+ 1
     for ip in cellaxes(pT)
         # early escape if there is no particle in this memory locations
-        doskip(index, ip, I...) && continue
+        doskip(index, ip, I1...) && continue
 
-        pT0ᵢ = @index pT0[ip, I...]
-        pTᵢ = @index pT[ip, I...]
+        pT0ᵢ = @index pT0[ip, I1...]
+        pTᵢ = @index pT[ip, I1...]
 
         # subgrid diffusion of the i-th particle
-        pΔTᵢ = (pTᵢ - pT0ᵢ) * (1 - exp(-d * dt / max(@index(dt₀[ip, I...]), 1.0e-9)))
-        @index pT0[ip, I...] = pT0ᵢ + pΔTᵢ
-        @index pΔT[ip, I...] = pΔTᵢ
+        pΔTᵢ = (pTᵢ - pT0ᵢ) * (1 - exp(-d * dt / max(@index(dt₀[ip, I1...]), 1.0e-9)))
+        @index pT0[ip, I1...] = pT0ᵢ + pΔTᵢ
+        @index pΔT[ip, I1...] = pΔTᵢ
     end
 
     return nothing
 end
 
 @parallel_indices (I...) function update_ΔT_subgrid!(ΔTsubgrid, ΔT)
-    ΔTsubgrid[I...] = ΔT[I...] - ΔTsubgrid[I...]
+    I1 = I .+ 1
+    ΔTsubgrid[I1...] = ΔT[I1...] - ΔTsubgrid[I1...]
     return nothing
 end
 
 @parallel_indices (I...) function update_particle_temperature!(pT, pT0, pΔT)
+    I1 = I .+ 1
     for ip in cellaxes(pT)
-        @index pT[ip, I...] = @index(pT0[ip, I...]) + @index(pΔT[ip, I...])
+        @index pT[ip, I1...] = @index(pT0[ip, I1...]) + @index(pΔT[ip, I1...])
     end
     return nothing
 end
