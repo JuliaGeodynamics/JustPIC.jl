@@ -11,6 +11,7 @@ struct SubgridDiffusionCellArrays{CA, T}
         elseif loc === :center
             size(pΔT)
         end
+        ni = ni .- 2
         ΔT = @zeros(ni...)
         CA = typeof(pΔT)
         T = typeof(ΔT)
@@ -48,7 +49,7 @@ function subgrid_diffusion_centroid!(
     )
     # d = dimensionless numerical diffusion coefficient (0 ≤ d ≤ 1)
     (; pT0, pΔT, dt₀) = subgrid_arrays
-    ni = size(pT)
+    ni = size(pT) .- 2
 
     @parallel memcopy_cellarray!(pT0, pT)
     centroid2particle!(pT, xci, T_grid, particles)
@@ -56,10 +57,10 @@ function subgrid_diffusion_centroid!(
     @parallel (@idx ni) subgrid_diffusion!(pT, pT0, pΔT, dt₀, particles.index, d, di, dt)
     particle2centroid!(subgrid_arrays.ΔT_subgrid, pΔT, xci, particles)
 
-    @parallel (@idx ni) update_ΔT_subgrid!(subgrid_arrays.ΔT_subgrid, ΔT_grid)
+    @parallel update_ΔT_subgrid!(subgrid_arrays.ΔT_subgrid, ΔT_grid)
     centroid2particle!(pΔT, xci, subgrid_arrays.ΔT_subgrid, particles)
 
-    @parallel (@idx ni) update_particle_temperature!(pT, pT0, pΔT)
+    @parallel update_particle_temperature!(pT, pT0, pΔT)
 
     return nothing
 end
@@ -90,15 +91,13 @@ end
 end
 
 @parallel_indices (I...) function update_ΔT_subgrid!(ΔTsubgrid, ΔT)
-    I1 = I .+ 1
-    ΔTsubgrid[I1...] = ΔT[I1...] - ΔTsubgrid[I1...]
+    ΔTsubgrid[I...] = ΔT[I...] - ΔTsubgrid[I...]
     return nothing
 end
 
 @parallel_indices (I...) function update_particle_temperature!(pT, pT0, pΔT)
-    I1 = I .+ 1
     for ip in cellaxes(pT)
-        @index pT[ip, I1...] = @index(pT0[ip, I1...]) + @index(pΔT[ip, I1...])
+        @inbounds @index pT[ip, I...] = @index(pT0[ip, I...]) + @index(pΔT[ip, I...])
     end
     return nothing
 end

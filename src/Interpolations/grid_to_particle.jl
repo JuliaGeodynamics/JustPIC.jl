@@ -175,7 +175,7 @@ end
         pᵢ::Union{SVector, NTuple}, xvi::NTuple, di::NTuple, F::AbstractArray, idx
     )
     # F at the cell corners
-    Fi = field_corners(F, idx .- 2)
+    Fi = field_corners(F, idx)
     # normalize particle coordinates
     ti = normalize_coordinates(pᵢ, xvi, di, idx)
     # Interpolate field F onto particle

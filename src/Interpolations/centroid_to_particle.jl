@@ -6,6 +6,7 @@
 
 Interpolates properties `F` that are defined on a mesh at center points with location `xci` to particles `Fp`.
 """
+
 function centroid2particle!(Fp, xci, F, particles)
     (; coords) = particles
     di = grid_size(xci)
@@ -29,7 +30,7 @@ end
 # INNERMOST INTERPOLATION KERNEL
 
 @inline function _centroid2particle_classic!(Fp, p, xci, di::NTuple{N}, F, I) where {N}
-    # ni = size(F) .- 1
+    ni = size(F) .- 1
     ICA = I .+ 1
     # iterate over all the particles within the cells of index `idx`
     @inbounds for ip in cellaxes(Fp)
@@ -39,8 +40,8 @@ end
         any(isnan, pᵢ) && continue
         # continue the kernel
         xc = ntuple(i -> xci[i][I[i]], Val(N))
-        cell_index = shifted_index(pᵢ, xc, ICA)
-        # cell_index = clamp.(cell_index, 1, ni)
+        cell_index = shifted_index(pᵢ, xc, I)
+        cell_index = clamp.(cell_index, 1, ni)
         # Interpolate field F onto particle
         @index Fp[ip, ICA...] = _grid2particle(pᵢ, xci, di, F, cell_index)
     end
@@ -50,7 +51,7 @@ end
 @inline function _centroid2particle_classic!(
         Fp::NTuple{NF}, p, xci, di::NTuple{N}, F::NTuple{NF}, I
     ) where {NF, N}
-    # ni = size(F) .- 1
+    ni = size(F) .- 1
     ICA = I .+ 1
     # iterate over all the particles within the cells of index `idx`
     @inbounds for ip in cellaxes(Fp)
@@ -60,8 +61,8 @@ end
         any(isnan, pᵢ) && continue
         # continue the kernel
         xc = ntuple(i -> xci[i][I[i]], Val(N))
-        cell_index = shifted_index(pᵢ, xc, ICA)
-        # cell_index = clamp.(cell_index, 1, ni)
+        cell_index = shifted_index(pᵢ, xc, I)
+        cell_index = clamp.(cell_index, 1, ni)
         # Interpolate field F onto particle
         for n in 1:NF # should be unrolled
             @index Fp[n][ip, ICA...] = _grid2particle(pᵢ, xci, di, F[n], cell_index)

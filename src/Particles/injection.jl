@@ -54,7 +54,7 @@ end
         2 * (I[i] - 1) + offsets[i]
     end
 
-    if all(indices .≤ size(index))
+    if all(indices .≤ size(index).-2)
         _inject_particles!(args, coords, index, grid, di, di_quadrant, min_xcell, indices)
     end
     return nothing
@@ -178,7 +178,7 @@ end
         2 * (I[i] - 1) + offsets[i]
     end
 
-    if all(indices .≤ size(index))
+    if all(indices .≤ size(index).-2)
         _inject_particles_phase!(
             particles_phases,
             args,
@@ -249,7 +249,7 @@ function _inject_particles_phase!(
             @index index[i, idxCA...] = true
             # interpolate fields into newly injected particle
             for j in eachindex(args)
-                tmp = _grid2particle(p_new, grid, di, fields[j], idxCA)
+                tmp = _grid2particle(p_new, grid, di, fields[j], idx_cell)
                 local_field = cell_field(fields[j], idx_cell...)
                 lower, upper = extrema(local_field)
                 @index args[j][i, idxCA...] = clamp(tmp, lower, upper)
