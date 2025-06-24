@@ -45,6 +45,7 @@ end
         dxi,
         dt,
     ) where {N, T}
+    
     ICA = I .+ 1
     # iterate over particles in the I-th cell
     for ipart in cellaxes(index)
