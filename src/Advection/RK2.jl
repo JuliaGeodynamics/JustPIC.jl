@@ -7,8 +7,7 @@
     ) where {N, T}
     (; α) = integrator
     backtracking_sign = 1 - 2 * backtracking # flip sign if backtracking is true, used for backtracking particles during Semi-Lagrangian advection
-    @show backtracking_sign
-    return @. @muladd particle_coordinate +  dt * particle_velocity
+    return @. @muladd particle_coordinate + backtracking_sign * α * dt * particle_velocity
 end
 
 @inline function second_stage(
