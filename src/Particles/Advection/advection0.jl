@@ -65,48 +65,73 @@ end
 
 @inline function interp_velocity2particle(
         particle_coords::NTuple{N, Any},
-        grid,
+        grid_vi,
         local_limits,
         dxi,
         V::NTuple{N, Any},
         idx::NTuple{N, Any},
     ) where {N}
-    v = interp_velocity2particle(particle_coords, grid, dxi, V, idx)
     return ntuple(Val(N)) do i
         Base.@_inline_meta
         local_lims = local_limits[i]
-        check_local_limits(local_lims, particle_coords) ? v[i] : Inf
+        v = if check_local_limits(local_lims, particle_coords)
+            interp_velocity2particle(particle_coords, grid_vi[i], dxi, V[i], idx)
+        else
+            Inf
+        end
     end
 end
 
+# Interpolate velocity from staggered grid to particle. Innermost kernel
 @inline function interp_velocity2particle(
-        p_i::Union{SVector, NTuple}, grid::NTuple{2}, dxi::NTuple{2}, V::NTuple{2, AbstractArray}, idx
+        p_i::Union{SVector, NTuple}, xi_vx::NTuple, dxi::NTuple, F::AbstractArray, idx
     )
-    i, j = idx
-    xcorner = grid[1][1][i], grid[2][2][j]
-    Vx_grid = V[1][i, j + 1], V[1][i + 1, j + 1]
-    Vy_grid = V[2][i + 1, j], V[2][i + 1, j + 1]
-    ti = normalize_coordinates(p_i, xcorner, dxi)
-
-    Vx_interp = lerp(ti[1], Vx_grid...)
-    Vy_interp = lerp(ti[2], Vy_grid...)
-
-    return Vx_interp, Vy_interp
+    # F and coordinates at/of the cell corners
+    Fi, xci = corner_field_nodes(F, p_i, xi_vx, dxi, idx)
+    # normalize particle coordinates
+    ti = normalize_coordinates(p_i, xci, dxi)
+    # Interpolate field F onto particle
+    Fp = lerp(Fi, ti)
+    # return interpolated field
+    return Fp
 end
 
-@inline function interp_velocity2particle(
-        p_i::Union{SVector, NTuple}, grid::NTuple{3}, dxi::NTuple{3}, V::NTuple{3, AbstractArray}, idx
-    )
-    i, j, k = idx
-    xcorner = grid[1][1][i], grid[2][2][j], grid[3][3][k]
-    Vx_grid = V[1][i, j + 1, k + 1], V[1][i + 1, j + 1, k + 1]
-    Vy_grid = V[2][i + 1, j, k + 1], V[2][i + 1, j + 1, k + 1]
-    Vz_grid = V[3][i + 1, j + 1, k], V[3][i + 1, j + 1, k + 1]
-    ti = normalize_coordinates(p_i, xcorner, dxi)
+## Other functions
 
-    Vx_interp = lerp(ti[1], Vx_grid...)
-    Vy_interp = lerp(ti[2], Vy_grid...)
-    Vz_interp = lerp(ti[3], Vz_grid...)
+@generated function corner_field_nodes(
+        F::AbstractArray{T, N},
+        particle,
+        xi_vx,
+        dxi,
+        idx::Union{SVector{N, Integer}, NTuple{N, Integer}},
+    ) where {N, T}
+    return quote
+        Base.@_inline_meta
+        begin
+            Base.@nexprs $N i -> begin
+                # unpack
+                corrected_idx_i = idx[i]
+                xi, particle_i, dx_i = @inbounds xi_vx[i][corrected_idx_i], particle[i], dxi[i]
 
-    return Vx_interp, Vy_interp, Vz_interp
+                # compute offsets and corrections
+                corrected_idx_i += vertex_offset(
+                    xi, particle_i, dx_i
+                )
+                cell_i = @inbounds xi
+            end
+
+            indices = Base.@ncall $N tuple corrected_idx
+            cells = Base.@ncall $N tuple cell
+
+            # F at the four centers
+            Fi = extract_field_corners(F, indices...)
+        end
+
+        return Fi, cells
+    end
+end
+
+@inline function vertex_offset(xi, pxi, di)
+    dist = normalised_distance(xi, pxi, di)
+    return (dist > 2) * 2 + (2 > dist > 1) * 1 + (-1 < dist < 0) * -1 + (dist < -1) * -2
 end
