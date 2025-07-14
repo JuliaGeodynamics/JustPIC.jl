@@ -82,11 +82,11 @@ end
 @inline function interp_velocity2particle(
         p_i::Union{SVector, NTuple}, grid::NTuple{2}, dxi::NTuple{2}, V::NTuple{2, AbstractArray}, idx
     )
-    i, j    = idx
+    i, j = idx
     xcorner = grid[1][1][i], grid[2][2][j]
-    Vx_grid = V[1][i, j+1], V[1][i+1, j+1]
-    Vy_grid = V[2][i+1, j], V[2][i+1, j+1]
-    ti      = normalize_coordinates(p_i, xcorner, dxi)
+    Vx_grid = V[1][i, j + 1], V[1][i + 1, j + 1]
+    Vy_grid = V[2][i + 1, j], V[2][i + 1, j + 1]
+    ti = normalize_coordinates(p_i, xcorner, dxi)
 
     Vx_interp = lerp(ti[1], Vx_grid...)
     Vy_interp = lerp(ti[2], Vy_grid...)
@@ -99,10 +99,10 @@ end
     )
     i, j, k = idx
     xcorner = grid[1][1][i], grid[2][2][j], grid[3][3][k]
-    Vx_grid = V[1][i, j+1, k+1], V[1][i+1, j+1, k+1]
-    Vy_grid = V[2][i+1, j, k+1], V[2][i+1, j+1, k+1]
-    Vz_grid = V[3][i+1, j+1, k], V[3][i+1, j+1, k+1]
-    ti      = normalize_coordinates(p_i, xcorner, dxi)
+    Vx_grid = V[1][i, j + 1, k + 1], V[1][i + 1, j + 1, k + 1]
+    Vy_grid = V[2][i + 1, j, k + 1], V[2][i + 1, j + 1, k + 1]
+    Vz_grid = V[3][i + 1, j + 1, k], V[3][i + 1, j + 1, k + 1]
+    ti = normalize_coordinates(p_i, xcorner, dxi)
 
     Vx_interp = lerp(ti[1], Vx_grid...)
     Vy_interp = lerp(ti[2], Vy_grid...)
