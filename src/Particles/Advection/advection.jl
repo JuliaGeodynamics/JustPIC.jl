@@ -110,3 +110,42 @@ end
 
     return Vx_interp, Vy_interp, Vz_interp
 end
+
+
+@generated function corner_field_nodes(
+        F::AbstractArray{T, N},
+        particle,
+        xi_vx,
+        dxi,
+        idx::Union{SVector{N, Integer}, NTuple{N, Integer}},
+    ) where {N, T}
+    return quote
+        Base.@_inline_meta
+        begin
+            Base.@nexprs $N i -> begin
+                # unpack
+                corrected_idx_i = idx[i]
+                xi, particle_i, dx_i = @inbounds xi_vx[i][corrected_idx_i], particle[i], dxi[i]
+
+                # compute offsets and corrections
+                corrected_idx_i += vertex_offset(
+                    xi, particle_i, dx_i
+                )
+                cell_i = @inbounds xi
+            end
+
+            indices = Base.@ncall $N tuple corrected_idx
+            cells = Base.@ncall $N tuple cell
+
+            # F at the four centers
+            Fi = extract_field_corners(F, indices...)
+        end
+
+        return Fi, cells
+    end
+end
+
+@inline function vertex_offset(xi, pxi, di)
+    dist = normalised_distance(xi, pxi, di)
+    return (dist > 2) * 2 + (2 > dist > 1) * 1 + (-1 < dist < 0) * -1 + (dist < -1) * -2
+end
