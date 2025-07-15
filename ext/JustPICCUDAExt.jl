@@ -121,7 +121,7 @@ module _2D
     using CUDA
     using ImplicitGlobalGrid
     using MPI: MPI
-    using MuladdMacro, ParallelStencil, CellArrays, CellArraysIndexing, StaticArrays
+    using MuladdMacro, ParallelStencil, CellArrays, CellArraysIndexing, StaticArrays, GridGeometryUtils
     using JustPIC
 
     @init_parallel_stencil(CUDA, Float64, 2)
@@ -497,7 +497,7 @@ module _3D
     using CUDA
     using ImplicitGlobalGrid
     using MPI: MPI
-    using MuladdMacro, ParallelStencil, CellArrays, CellArraysIndexing, StaticArrays
+    using MuladdMacro, ParallelStencil, CellArrays, CellArraysIndexing, StaticArrays, GridGeometryUtils
     using JustPIC
 
     @init_parallel_stencil(CUDA, Float64, 3)
