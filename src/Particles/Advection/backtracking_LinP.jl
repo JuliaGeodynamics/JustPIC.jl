@@ -26,14 +26,14 @@ end
 # DIMENSION AGNOSTIC KERNELS
 
 @parallel_indices (I...) function backtrack_kernel_LinP!(
-        F::AbstractArray{T, N},
+        F::AbstractArray,
         method::AbstractAdvectionIntegrator,
         V::NTuple{N, T},
         grid_vi,
         grid,
         dxi,
         dt,
-    ) where {NF, N, T}
+    ) where {N, T}
 
     # extract particle coordinates
     pᵢ = ntuple(Val(N)) do i
@@ -51,7 +51,7 @@ end
 end
 
 @parallel_indices (I...) function backtrack_kernel_LinP!(
-        F::NTuple{NF, AbstractArray{T, N}},
+        F::NTuple{NF, AbstractArray},
         method::AbstractAdvectionIntegrator,
         V::NTuple{N, T},
         grid_vi,

@@ -26,7 +26,7 @@ end
 # DIMENSION AGNOSTIC KERNELS
 
 @parallel_indices (I...) function backtrack_kernel_MQS!(
-        F::AbstractArray{T, N},
+        F::AbstractArray,
         method::AbstractAdvectionIntegrator,
         V::NTuple{N, T},
         grid_vi,
@@ -51,7 +51,7 @@ end
 end
 
 @parallel_indices (I...) function backtrack_kernel_MQS!(
-        F::NTuple{NF, AbstractArray{T, N}},
+        F::NTuple{NF, AbstractArray},
         method::AbstractAdvectionIntegrator,
         V::NTuple{N, T},
         grid_vi,
