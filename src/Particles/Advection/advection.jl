@@ -40,7 +40,7 @@ end
         method::AbstractAdvectionIntegrator,
         V::NTuple{N, T},
         index,
-        grid,
+        grid_vi,
         local_limits,
         dxi,
         dt,
@@ -53,7 +53,7 @@ end
         # extract particle coordinates
         pᵢ = get_particle_coords(p, ipart, I...)
         # # advect particle
-        pᵢ_new = advect_particle(method, pᵢ, V, grid, local_limits, dxi, dt, I)
+        pᵢ_new = advect_particle(method, pᵢ, V, grid_vi, local_limits, dxi, dt, I)
         # update particle coordinates
         for k in 1:N
             @inbounds @index p[k][ipart, I...] = pᵢ_new[k]
@@ -65,7 +65,7 @@ end
 
 @inline function interp_velocity2particle(
         particle_coords::NTuple{N, Any},
-        grid,
+        grid_vi,
         local_limits,
         dxi,
         V::NTuple{N, Any},
@@ -80,6 +80,20 @@ end
             Inf
         end
     end
+end
+
+# Interpolate velocity from staggered grid to particle. Innermost kernel
+@inline function interp_velocity2particle(
+        p_i::Union{SVector, NTuple}, xi_vx::NTuple, dxi::NTuple, F::AbstractArray, idx
+    )
+    # F and coordinates at/of the cell corners
+    Fi, xci = corner_field_nodes(F, p_i, xi_vx, dxi, idx)
+    # normalize particle coordinates
+    ti = normalize_coordinates(p_i, xci, dxi)
+    # Interpolate field F onto particle
+    Fp = lerp(Fi, ti)
+    # return interpolated field
+    return Fp
 end
 
 @generated function corner_field_nodes(
