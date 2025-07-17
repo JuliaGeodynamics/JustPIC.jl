@@ -54,7 +54,7 @@ function main()
 
     niter = 250
     for it in 1:niter
-        backtrack!(T, T0, RungeKutta2(), V, (grid_vx, grid_vy), xvi, dt)
+        semilagrangian_advection!(T, T0, RungeKutta2(), V, (grid_vx, grid_vy), xvi, dt)
         # T[1,:]    .= T[2,:]
         # T[end,:]  .= T[end-1,:] 
         T[:, 1]   .= T[:, 2]
