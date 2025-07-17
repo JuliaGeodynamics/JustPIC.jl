@@ -1,7 +1,7 @@
 # Main Runge-Kutta back tracking function for 2D staggered grids
 
 
-function backtrack!(
+function semilagrangian_advection!(
         F,
         F0,
         method::AbstractAdvectionIntegrator,
