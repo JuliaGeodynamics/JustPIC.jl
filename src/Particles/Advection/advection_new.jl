@@ -65,38 +65,51 @@ end
 
 @inline function interp_velocity2particle(
         particle_coords::NTuple{N, Any},
-        grid_vi,
+        grid,
         local_limits,
         dxi,
         V::NTuple{N, Any},
         idx::NTuple{N, Any},
     ) where {N}
+    v = interp_velocity2particle(particle_coords, grid, dxi, V, idx)
     return ntuple(Val(N)) do i
         Base.@_inline_meta
         local_lims = local_limits[i]
-        v = if check_local_limits(local_lims, particle_coords)
-            interp_velocity2particle(particle_coords, grid_vi[i], dxi, V[i], idx)
-        else
-            Inf
-        end
+        check_local_limits(local_lims, particle_coords) ? v[i] : Inf
     end
 end
 
-# Interpolate velocity from staggered grid to particle. Innermost kernel
 @inline function interp_velocity2particle(
-        p_i::Union{SVector, NTuple}, xi_vx::NTuple, dxi::NTuple, F::AbstractArray, idx
+        p_i::Union{SVector, NTuple}, grid::NTuple{2}, dxi::NTuple{2}, V::NTuple{2, AbstractArray}, idx
     )
-    # F and coordinates at/of the cell corners
-    Fi, xci = corner_field_nodes(F, p_i, xi_vx, dxi, idx)
-    # normalize particle coordinates
-    ti = normalize_coordinates(p_i, xci, dxi)
-    # Interpolate field F onto particle
-    Fp = lerp(Fi, ti)
-    # return interpolated field
-    return Fp
+    i, j = idx
+    xcorner = grid[1][1][i], grid[2][2][j]
+    Vx_grid = V[1][i, j + 1], V[1][i + 1, j + 1]
+    Vy_grid = V[2][i + 1, j], V[2][i + 1, j + 1]
+    ti = normalize_coordinates(p_i, xcorner, dxi)
+
+    Vx_interp = lerp(ti[1], Vx_grid...)
+    Vy_interp = lerp(ti[2], Vy_grid...)
+
+    return Vx_interp, Vy_interp
 end
 
-## Other functions
+@inline function interp_velocity2particle(
+        p_i::Union{SVector, NTuple}, grid::NTuple{3}, dxi::NTuple{3}, V::NTuple{3, AbstractArray}, idx
+    )
+    i, j, k = idx
+    xcorner = grid[1][1][i], grid[2][2][j], grid[3][3][k]
+    Vx_grid = V[1][i, j + 1, k + 1], V[1][i + 1, j + 1, k + 1]
+    Vy_grid = V[2][i + 1, j, k + 1], V[2][i + 1, j + 1, k + 1]
+    Vz_grid = V[3][i + 1, j + 1, k], V[3][i + 1, j + 1, k + 1]
+    ti = normalize_coordinates(p_i, xcorner, dxi)
+
+    Vx_interp = lerp(ti[1], Vx_grid...)
+    Vy_interp = lerp(ti[2], Vy_grid...)
+    Vz_interp = lerp(ti[3], Vz_grid...)
+
+    return Vx_interp, Vy_interp, Vz_interp
+end
 
 @generated function corner_field_nodes(
         F::AbstractArray{T, N},

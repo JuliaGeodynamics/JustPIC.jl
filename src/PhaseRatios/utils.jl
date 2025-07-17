@@ -12,8 +12,8 @@ end
 
 # 3D version, shear stress defined at arete midpoints
 function update_phase_ratios!(
-        phase_ratios::JustPIC.PhaseRatios{B, T}, particles, xci, xvi, phases
-    ) where {B, T <: AbstractArray}
+        phase_ratios::JustPIC.PhaseRatios{B}, particles, xci, xvi, phases
+    ) where {B}
     phase_ratios_center!(phase_ratios, particles, xci, phases)
     phase_ratios_vertex!(phase_ratios, particles, xvi, phases)
     # velocity nodes

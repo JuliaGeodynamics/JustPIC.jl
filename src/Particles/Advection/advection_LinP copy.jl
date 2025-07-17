@@ -27,11 +27,6 @@ function advection_LinP!(
     # compute local limits (i.e. domain or MPI rank limits)
     local_limits = inner_limits(grid_vi)
 
-    # Vx_center, Vy_center = @zeros(ni.+1...), @zeros(ni.+1...)
-
-    # @views @. Vx_center[2:end-1, :] = (V[1][1:end-1, :] + V[1][1:end-1, :] ) / 2
-    # @views @. Vy_center[:, 2:end-1] = (V[2][:, 1:end-1] + V[2][:, 1:end-1] ) / 2
-
     # launch parallel advection kernel
     @parallel (@idx ni) advection_kernel_LinP!(
         coords, method, V, index, grid_vi, local_limits, dxi, dt, interpolation_fn
@@ -111,7 +106,7 @@ end
         VL
     end
 
-    return V
+    return VL
 end
 
 # Since the cell-center grid is offset by dxᵢ/2 w.r.t the velocity grid,
@@ -241,6 +236,13 @@ function interpolate_V_to_P(F, xi_corner, xi_particle, dxi, ::Val{N}, i, j) wher
     F_av = swap_F((F00_av, F10_av, F01_av, F11_av), VN)
 
     return F_av
+end
+
+function augment_offset(::Val{1})
+    offsetᵢ = (-1, 0, 1), (-1, 0, 1), (-1, 0, 1), (-1, 0, 1)
+    offsetⱼ = (0, 0, 0), (1, 1, 1), (0, 0, 0), (1, 1, 1)
+    offsetₖ = (0, 0, 0), (0, 0, 0), (1, 1, 1), (1, 1, 1)
+    return offsetᵢ, offsetⱼ, offsetₖ
 end
 
 function interpolate_V_to_P(F, xi_corner, xi_particle, dxi, ::Val{N}, i, j, k) where {N}

@@ -5,17 +5,17 @@
     lerp_top = lerp(v[3:4], (t1,))
 
     v0, v1, v2 = if t1 < 0.5
-        F[i - 1, j], v[1], v[2]
+        @inline F[i - 1, j], v[1], v[2]
     else
-        v[1], v[2], F[i + 2, j]
+        @inline v[1], v[2], F[i + 2, j]
     end
     correction_bot = 0.5 * (t1 - 0.5)^2 * (muladd(-2, v1, v0) + v2)
     # correction_bot = 0.5 * (t1 - 0.5)^2 * (v0 - 2*v1 + v2)
 
     v0, v1, v2 = if t[1] < 0.5
-        F[i - 1, j + 1], v[3], v[4]
+        @inline F[i - 1, j + 1], v[3], v[4]
     else
-        v[3], v[4], F[i + 2, j + 1]
+        @inline v[3], v[4], F[i + 2, j + 1]
     end
     correction_top = 0.5 * (t1 - 0.5)^2 * (muladd(-2, v1, v0) + v2)
     # correction_top = 0.5 * (t1 - 0.5)^2 * (v0 - 2*v1 + v2)
@@ -35,16 +35,16 @@ end
     lerp_right = lerp(v_right, (t2,))
 
     v0, v1, v2 = if t2 < 0.5
-        F[i, j - 1], v_left...
+        @inline F[i, j - 1], v_left...
     else
-        v_left..., F[i, j + 2]
+        @inline v_left..., F[i, j + 2]
     end
     correction_left = 0.5 * (t2 - 0.5)^2 * (muladd(-2, v1, v0) + v2)
 
     v0, v1, v2 = if t2 < 0.5
-        F[i + 1, j - 1], v_right...
+        @inline F[i + 1, j - 1], v_right...
     else
-        v_right..., F[i + 1, j + 2]
+        @inline v_right..., F[i + 1, j + 2]
     end
     correction_right = 0.5 * (t2 - 0.5)^2 * (muladd(-2, v1, v0) + v2)
 
@@ -79,16 +79,16 @@ end
     lerp_top = lerp(v[3:4], (t1,))
 
     v0, v1, v2 = if t1 < 0.5
-        F[i - 1, j, k], v[1], v[2]
+        @inline F[i - 1, j, k], v[1], v[2]
     else
-        v[1], v[2], F[i + 2, j, k]
+        @inline v[1], v[2], F[i + 2, j, k]
     end
     correction_bot = 0.5 * (t1 - 0.5)^2 * (muladd(-2, v1, v0) + v2)
 
     v0, v1, v2 = if t[1] < 0.5
-        F[i - 1, j + 1, k], v[3], v[4]
+        @inline F[i - 1, j + 1, k], v[3], v[4]
     else
-        v[3], v[4], F[i + 2, j + 1, k]
+        @inline v[3], v[4], F[i + 2, j + 1, k]
     end
     correction_top = 0.5 * (t1 - 0.5)^2 * (muladd(-2, v1, v0) + v2)
 
@@ -107,16 +107,16 @@ end
     lerp_right = lerp(v_right, (t2,))
 
     v0, v1, v2 = if t2 < 0.5
-        F[i, j - 1, k], v_left...
+        @inline F[i, j - 1, k], v_left...
     else
-        v_left..., F[i, j + 2, k]
+        @inline v_left..., F[i, j + 2, k]
     end
     correction_left = 0.5 * (t2 - 0.5)^2 * (muladd(-2, v1, v0) + v2)
 
     v0, v1, v2 = if t2 < 0.5
-        F[i + 1, j - 1, k], v_right...
+        @inline F[i + 1, j - 1, k], v_right...
     else
-        v_right..., F[i + 1, j + 2, k]
+        @inline v_right..., F[i + 1, j + 2, k]
     end
     correction_right = 0.5 * (t2 - 0.5)^2 * (muladd(-2, v1, v0) + v2)
 
@@ -133,16 +133,16 @@ end
     lerp_top = lerp(v[3:4], (t1,))
 
     v0, v1, v2 = if t1 < 0.5
-        F[i - 1, j, k], v[1], v[2]
+        @inline F[i - 1, j, k], v[1], v[2]
     else
-        v[1], v[2], F[i + 2, j, k]
+        @inline v[1], v[2], F[i + 2, j, k]
     end
     correction_bot = 0.5 * (t1 - 0.5)^2 * (muladd(-2, v1, v0) + v2)
 
     v0, v1, v2 = if t[1] < 0.5
-        F[i - 1, j, k + 1], v[3], v[4]
+        @inline F[i - 1, j, k + 1], v[3], v[4]
     else
-        v[3], v[4], F[i + 2, j, k + 1]
+        @inline v[3], v[4], F[i + 2, j, k + 1]
     end
     correction_top = 0.5 * (t1 - 0.5)^2 * (muladd(-2, v1, v0) + v2)
 
