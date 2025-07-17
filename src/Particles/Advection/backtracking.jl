@@ -3,6 +3,7 @@
 
 function backtrack!(
         F,
+        F0,
         method::AbstractAdvectionIntegrator,
         V,
         grid_vi::NTuple{N, NTuple{N, T}},
@@ -17,7 +18,7 @@ function backtrack!(
     end
     # launch parallel backtrack kernel
     @parallel (ranges) backtrack_kernel!(
-        F, method, V, grid_vi, grid, dxi, dt
+        F, F0, method, V, grid_vi, grid, dxi, dt
     )
 
     return nothing
@@ -27,6 +28,7 @@ end
 
 @parallel_indices (I...) function backtrack_kernel!(
         F::AbstractArray,
+        F0::AbstractArray,
         method::AbstractAdvectionIntegrator,
         V::NTuple{N, T},
         grid_vi,
@@ -41,13 +43,15 @@ end
         @inbounds grid[i][I[i]]
     end
     # backtrack particle
-    pᵢ_new  = advect_particle(method, pᵢ, V, grid_vi, dxi, dt, I; backtracking = true)
-    F[I...] = _grid2particle(pᵢ_new, grid, dxi, F, I)
+    pᵢ_backtrack = advect_particle(method, pᵢ, V, grid_vi, dxi, dt, I; backtracking = true)
+    I_backtrack  = cell_index(pᵢ_backtrack, grid)
+    F[I...]      = _grid2particle(pᵢ_backtrack, grid, dxi, F, I_backtrack)
     return nothing
 end
 
 @parallel_indices (I...) function backtrack_kernel!(
         F::NTuple{NF, AbstractArray},
+        F0::NTuple{NF, AbstractArray},
         method::AbstractAdvectionIntegrator,
         V::NTuple{N, T},
         grid_vi,
@@ -63,11 +67,12 @@ end
         @inbounds grid_vi[i][I[i]]
     end
     # backtrack particle position
-    pᵢ_new  = advect_particle(method, pᵢ, V, grid_vi, dxi, dt, I; backtracking = true)
+    pᵢ_backtrack = advect_particle(method, pᵢ, V, grid_vi, dxi, dt, I; backtracking = true)
+    I_backtrack  = cell_index(pᵢ_backtrack, grid)
     ntuple(Val(NF)) do i
         @inline
         # interpolate field F onto particle
-        F[i][I...] = _grid2particle(pᵢ_new, grid, dxi, F, I)
+        F[i][I...] = _grid2particle(pᵢ_backtrack, grid, dxi, F0[i], I_backtrack)
     end
     
     return nothing
