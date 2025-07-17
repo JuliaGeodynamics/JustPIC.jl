@@ -46,15 +46,12 @@ function inject_particles!(particles::Particles, args, grid::NTuple{N}) where {N
 end
 
 @parallel_indices (I...) function inject_particles!(
-        args, coords, index, grid, di, di_quadrant, min_xcell, offsets::NTuple{N}
-    ) where {N}
+    args, coords, index, grid, di, di_quadrant, min_xcell, offsets::NTuple{N}
+) where {N}
     indices = ntuple(Val(N)) do i
         2 * (I[i] - 1) + offsets[i]
     end
 
-    # if N == 3
-    #     @show indices size(index)
-    # end
     if all(indices .≤ size(index))
         _inject_particles!(args, coords, index, grid, di, di_quadrant, min_xcell, indices)
     end
@@ -62,8 +59,8 @@ end
 end
 
 function _inject_particles!(
-        args::NTuple{N, T}, coords, index, grid, di, di_quadrant, min_xcell, idx_cell
-    ) where {N, T}
+    args::NTuple{N,T}, coords, index, grid, di, di_quadrant, min_xcell, idx_cell
+) where {N,T}
 
     # coordinates of the lower-left corner of the cell
     xvi = corner_coordinate(grid, idx_cell)
@@ -116,8 +113,8 @@ end
 # Injection of particles when multiple phases are present
 
 function inject_particles_phase!(
-        particles::Particles, particles_phases, args, fields, grid::NTuple{N}
-    ) where {N}
+    particles::Particles, particles_phases, args, fields, grid::NTuple{N}
+) where {N}
     # unpack
     (; coords, index, min_xcell) = particles
     ni = size(index)
@@ -161,17 +158,17 @@ function inject_particles_phase!(
 end
 
 @parallel_indices (I...) function inject_particles_phase!(
-        particles_phases,
-        args,
-        fields,
-        coords,
-        index,
-        grid,
-        di,
-        di_quadrant,
-        min_xcell,
-        offsets::NTuple{N},
-    ) where {N}
+    particles_phases,
+    args,
+    fields,
+    coords,
+    index,
+    grid,
+    di,
+    di_quadrant,
+    min_xcell,
+    offsets::NTuple{N},
+) where {N}
     indices = ntuple(Val(N)) do i
         2 * (I[i] - 1) + offsets[i]
     end
@@ -195,17 +192,17 @@ end
 end
 
 function _inject_particles_phase!(
-        particles_phases,
-        args,
-        fields,
-        coords,
-        index,
-        grid,
-        di,
-        di_quadrant,
-        min_xcell,
-        idx_cell,
-    )
+    particles_phases,
+    args,
+    fields,
+    coords,
+    index,
+    grid,
+    di,
+    di_quadrant,
+    min_xcell,
+    idx_cell,
+)
     # coordinates of the lower-left corner of the cell
     xvi = corner_coordinate(grid, idx_cell)
     # coordinates of the lower-left corner of the cell quadrants
@@ -268,7 +265,7 @@ function index_min_distance(coords, pn, index, current_cell, icell, jcell)
     px, py = coords
     nx, ny = size(px)
 
-    for j in (jcell - 1):(jcell + 1), i in (icell - 1):(icell + 1), ip in cellaxes(index)
+    for j in (jcell-1):(jcell+1), i in (icell-1):(icell+1), ip in cellaxes(index)
 
         # early escape conditions
         ((i < 1) || (j < 1)) && continue # out of the domain
@@ -299,10 +296,10 @@ function index_min_distance(coords, pn, index, current_cell, icell, jcell, kcell
     px, py, pz = coords
     nx, ny, nz = size(px)
 
-    for k in (kcell - 1):(kcell + 1),
-            j in (jcell - 1):(jcell + 1),
-            i in (icell - 1):(icell + 1),
-            ip in cellaxes(index)
+    for k in (kcell-1):(kcell+1),
+        j in (jcell-1):(jcell+1),
+        i in (icell-1):(icell+1),
+        ip in cellaxes(index)
 
         # early escape conditions
         ((i < 1) || (j < 1) || (k < 1)) && continue # out of the domain
@@ -325,18 +322,18 @@ function index_min_distance(coords, pn, index, current_cell, icell, jcell, kcell
 end
 
 @inline function cell_field(field, i, j)
-    return field[i, j], field[i + 1, j], field[i, j + 1], field[i + 1, j + 1]
+    return field[i, j], field[i+1, j], field[i, j+1], field[i+1, j+1]
 end
 
 @inline function cell_field(field, i, j, k)
     return field[i, j, k],
-        field[i + 1, j, k],
-        field[i, j + 1, k],
-        field[i + 1, j + 1, k],
-        field[i, j, k + 1],
-        field[i + 1, j, k + 1],
-        field[i, j + 1, k + 1],
-        field[i + 1, j + 1, k + 1]
+    field[i+1, j, k],
+    field[i, j+1, k],
+    field[i+1, j+1, k],
+    field[i, j, k+1],
+    field[i+1, j, k+1],
+    field[i, j+1, k+1],
+    field[i+1, j+1, k+1]
 end
 
 @inline function new_particle(xvi::NTuple{N}, di::NTuple{N}) where {N}
@@ -390,8 +387,8 @@ function quadrant_corners(xvi::NTuple{3}, di_quadrant::NTuple{3})
 end
 
 function extract_particle_cell_coordinates(
-        coords::NTuple{N}, I::Vararg{Integer, N}
-    ) where {N}
+    coords::NTuple{N}, I::Vararg{Integer,N}
+) where {N}
     return ntuple(Val(N)) do i
         @cell coords[i][I...]
     end

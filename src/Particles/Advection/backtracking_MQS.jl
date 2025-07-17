@@ -1,7 +1,8 @@
 # Main Runge-Kutta back tracking function for 2D staggered grids
 
-function backtrack_MQS!(
+function semilagrangian_advection_MQS!(
         F,
+        F0,
         method::AbstractAdvectionIntegrator,
         V,
         grid_vi::NTuple{N, NTuple{N, T}},
@@ -17,7 +18,7 @@ function backtrack_MQS!(
     end
     # launch parallel backtrack kernel
     @parallel (ranges) backtrack_kernel_MQS!(
-        F, method, V, grid_vi, grid, dxi, dt
+        F, F0, method, V, grid_vi, grid, dxi, dt
     )
 
     return nothing
@@ -27,6 +28,7 @@ end
 
 @parallel_indices (I...) function backtrack_kernel_MQS!(
         F::AbstractArray,
+        F0::AbstractArray,
         method::AbstractAdvectionIntegrator,
         V::NTuple{N, T},
         grid_vi,
@@ -40,18 +42,16 @@ end
         # extract particle coordinates from the grid
         @inbounds grid_vi[i][I[i]]
     end
-    # advect particle
-    local_limits = ntuple(Val(N)) do i
-        extrema(grid_vi[i])
-    end
+
     pᵢ_new  = advect_particle(method, pᵢ, V, grid, local_limits, dxi, dt, interp_velocity2particle_MQS, I; backtracking = true)
-    F[I...] = _grid2particle(pᵢ_new, grid, dxi, F, I)
+    F[I...] = _grid2particle(pᵢ_new, grid, dxi, F0, I)
 
     return nothing
 end
 
 @parallel_indices (I...) function backtrack_kernel_MQS!(
         F::NTuple{NF, AbstractArray},
+        F0::NTuple{NF, AbstractArray},
         method::AbstractAdvectionIntegrator,
         V::NTuple{N, T},
         grid_vi,
@@ -66,17 +66,12 @@ end
         # extract particle coordinates from the grid
         @inbounds grid_vi[i][I[i]]
     end
-    # advect particle
-    local_limits = ntuple(Val(N)) do i
-        @inline
-        extrema(grid_vi[i])
-    end
     # backtrack particle position
     pᵢ_new  = advect_particle(method, pᵢ, V, grid, local_limits, dxi, dt, interp_velocity2particle_MQS, I; backtracking = true)
     ntuple(Val(NF)) do i
         @inline
         # interpolate field F onto particle
-        F[i][I...] = _grid2particle(pᵢ_new, grid, dxi, F, I)
+        F[i][I...] = _grid2particle(pᵢ_new, grid, dxi, F0[i], I)
     end
     
     return nothing
