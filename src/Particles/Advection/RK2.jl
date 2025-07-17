@@ -53,7 +53,7 @@ end
     return p2
 end
 
-@inline function advect_particle(
+@inline function advect_particle_SML(
         method::RungeKutta2,
         p0::NTuple{N},
         V::NTuple{N},
@@ -79,7 +79,7 @@ end
     return p2
 end
 
-@inline function advect_particle(
+@inline function advect_particle_SML(
         method::RungeKutta2,
         p0::NTuple{N},
         V::NTuple{N},

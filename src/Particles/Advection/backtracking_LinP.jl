@@ -2,6 +2,7 @@
 
 function semilagrangian_advection_LinP!(
         F,
+        F0,
         method::AbstractAdvectionIntegrator,
         V,
         grid_vi::NTuple{N, NTuple{N, T}},
@@ -17,7 +18,7 @@ function semilagrangian_advection_LinP!(
     end
     # launch parallel backtrack kernel
     @parallel (ranges) backtrack_kernel_LinP!(
-        F, method, V, grid_vi, grid, dxi, dt
+        F, F0, method, V, grid_vi, grid, dxi, dt
     )
 
     return nothing
@@ -27,6 +28,7 @@ end
 
 @parallel_indices (I...) function backtrack_kernel_LinP!(
         F::AbstractArray,
+        F0::AbstractArray,
         method::AbstractAdvectionIntegrator,
         V::NTuple{N, T},
         grid_vi,
@@ -38,20 +40,18 @@ end
     # extract particle coordinates
     pᵢ = ntuple(Val(N)) do i
         # extract particle coordinates from the grid
-        @inbounds grid_vi[i][I[i]]
+        @inbounds grid[i][I[i]]
     end
-    # advect particle
-    local_limits = ntuple(Val(N)) do i
-        extrema(grid_vi[i])
-    end
-    pᵢ_new  = advect_particle(method, pᵢ, V, grid, local_limits, dxi, dt, interp_velocity2particle_LinP, I; backtracking = true)
-    F[I...] = _grid2particle(pᵢ_new, grid, dxi, F, I)
+    pᵢ_backtrack  = advect_particle_SML(method, pᵢ, V, grid_vi, dxi, dt, interp_velocity2particle_LinP, I; backtracking = true)
+    I_backtrack  = cell_index(pᵢ_backtrack, grid)
+    F[I...]      = _grid2particle(pᵢ_backtrack, grid, dxi, F, I_backtrack)
 
     return nothing
 end
 
 @parallel_indices (I...) function backtrack_kernel_LinP!(
         F::NTuple{NF, AbstractArray},
+        F0::NTuple{NF, AbstractArray},
         method::AbstractAdvectionIntegrator,
         V::NTuple{N, T},
         grid_vi,
@@ -64,20 +64,31 @@ end
     pᵢ = ntuple(Val(N)) do i
         @inline
         # extract particle coordinates from the grid
-        @inbounds grid_vi[i][I[i]]
+        @inbounds grid[i][I[i]]
     end
-    # advect particle
-    local_limits = ntuple(Val(N)) do i
-        @inline
-        extrema(grid_vi[i])
-    end
-    # backtrack particle position
-    pᵢ_new  = advect_particle(method, pᵢ, V, grid, local_limits, dxi, dt, interp_velocity2particle_LinP, I; backtracking = true)
-    ntuple(Val(NF)) do i
+     # backtrack particle position
+  pᵢ_backtrack  = advect_particle_SML(method, pᵢ, V, grid_vi, dxi, dt, interp_velocity2particle_LinP, I; backtracking = true)
+    I_backtrack  = cell_index(pᵢ_backtrack, grid)
+        ntuple(Val(NF)) do i
         @inline
         # interpolate field F onto particle
-        F[i][I...] = _grid2particle(pᵢ_new, grid, dxi, F, I)
+        F[i][I...] = _grid2particle(pᵢ_backtrack, grid, dxi, F0[i], I_backtrack)
     end
     
     return nothing
+end
+
+@inline function interp_velocity2particle_LinP(
+        particle_coords::NTuple{N}, grid_vi, dxi, V::NTuple{N}, idx::NTuple{N}
+    ) where {N}
+    return ntuple(Val(N)) do i
+        Base.@_inline_meta
+        # @show typeof(particle_coords)
+        # @show typeof(grid_vi[i])
+        # @show typeof(dxi)
+        # @show typeof(V[i])
+        # @show typeof(Val(i))
+        # @show typeof(idx)
+        interp_velocity2particle_LinP(particle_coords, grid_vi[i], dxi, V[i], Val(i), idx)
+    end
 end

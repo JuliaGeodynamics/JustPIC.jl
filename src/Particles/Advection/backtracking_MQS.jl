@@ -40,11 +40,12 @@ end
     # extract particle coordinates
     pᵢ = ntuple(Val(N)) do i
         # extract particle coordinates from the grid
-        @inbounds grid_vi[i][I[i]]
+        @inbounds grid[i][I[i]]
     end
 
-    pᵢ_new  = advect_particle(method, pᵢ, V, grid, local_limits, dxi, dt, interp_velocity2particle_MQS, I; backtracking = true)
-    F[I...] = _grid2particle(pᵢ_new, grid, dxi, F0, I)
+    pᵢ_backtrack = advect_particle_SML(method, pᵢ, V, grid_vi, dxi, dt, interp_velocity2particle_MQS, I; backtracking = true)
+    I_backtrack  = cell_index(pᵢ_backtrack, grid)
+    F[I...] = _grid2particle(pᵢ_backtrack, grid, dxi, F0, I_backtrack)
 
     return nothing
 end
@@ -64,15 +65,25 @@ end
     pᵢ = ntuple(Val(N)) do i
         @inline
         # extract particle coordinates from the grid
-        @inbounds grid_vi[i][I[i]]
+        @inbounds grid[i][I[i]]
     end
     # backtrack particle position
-    pᵢ_new  = advect_particle(method, pᵢ, V, grid, local_limits, dxi, dt, interp_velocity2particle_MQS, I; backtracking = true)
+    pᵢ_backtrack = advect_particle_SML(method, pᵢ, V, grid_vi, dxi, dt, interp_velocity2particle_MQS, I; backtracking = true)
+    I_backtrack  = cell_index(pᵢ_backtrack, grid)
     ntuple(Val(NF)) do i
         @inline
         # interpolate field F onto particle
-        F[i][I...] = _grid2particle(pᵢ_new, grid, dxi, F0[i], I)
+        F[i][I...] = _grid2particle(pᵢ_backtrack, grid, dxi, F0[i], I_backtrack)
     end
     
     return nothing
+end
+
+@inline function interp_velocity2particle_MQS(
+        particle_coords::NTuple{N}, grid_vi, dxi, V::NTuple{N}, idx::NTuple{N}
+    ) where {N}
+    return ntuple(Val(N)) do i
+        Base.@_inline_meta
+        interp_velocity2particle_MQS(particle_coords, grid_vi[i], dxi, V[i], Val(i), idx)
+    end
 end

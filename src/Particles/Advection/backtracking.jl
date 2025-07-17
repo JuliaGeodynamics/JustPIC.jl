@@ -43,7 +43,7 @@ end
         @inbounds grid[i][I[i]]
     end
     # backtrack particle
-    pᵢ_backtrack = advect_particle(method, pᵢ, V, grid_vi, dxi, dt, I; backtracking = true)
+    pᵢ_backtrack = advect_particle_SML(method, pᵢ, V, grid_vi, dxi, dt, I; backtracking = true)
     I_backtrack  = cell_index(pᵢ_backtrack, grid)
     F[I...]      = _grid2particle(pᵢ_backtrack, grid, dxi, F, I_backtrack)
     return nothing
@@ -64,10 +64,10 @@ end
     pᵢ = ntuple(Val(N)) do i
         @inline
         # extract particle coordinates from the grid
-        @inbounds grid_vi[i][I[i]]
+        @inbounds grid[i][I[i]]
     end
     # backtrack particle position
-    pᵢ_backtrack = advect_particle(method, pᵢ, V, grid_vi, dxi, dt, I; backtracking = true)
+    pᵢ_backtrack = advect_particle_SML(method, pᵢ, V, grid_vi, dxi, dt, I; backtracking = true)
     I_backtrack  = cell_index(pᵢ_backtrack, grid)
     ntuple(Val(NF)) do i
         @inline
