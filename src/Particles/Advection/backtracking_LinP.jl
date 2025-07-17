@@ -28,7 +28,7 @@ function semilagrangian_advection_LinP!(
     # compute some basic stuff
     ni = size(F)
     ranges = ntuple(Val(N)) do i
-        2:ni[i]-1
+        2:(ni[i] - 1)
     end
     # launch parallel backtrack kernel
     @parallel (ranges) backtrack_kernel_LinP!(
@@ -56,9 +56,9 @@ end
         # extract particle coordinates from the grid
         @inbounds grid[i][I[i]]
     end
-    pᵢ_backtrack  = advect_particle_SML(method, pᵢ, V, grid_vi, dxi, dt, interp_velocity2particle_LinP, I; backtracking = true)
-    I_backtrack  = cell_index(pᵢ_backtrack, grid)
-    F[I...]      = _grid2particle(pᵢ_backtrack, grid, dxi, F, I_backtrack)
+    pᵢ_backtrack = advect_particle_SML(method, pᵢ, V, grid_vi, dxi, dt, interp_velocity2particle_LinP, I; backtracking = true)
+    I_backtrack = cell_index(pᵢ_backtrack, grid)
+    F[I...] = _grid2particle(pᵢ_backtrack, grid, dxi, F, I_backtrack)
 
     return nothing
 end
@@ -80,15 +80,15 @@ end
         # extract particle coordinates from the grid
         @inbounds grid[i][I[i]]
     end
-     # backtrack particle position
-  pᵢ_backtrack  = advect_particle_SML(method, pᵢ, V, grid_vi, dxi, dt, interp_velocity2particle_LinP, I; backtracking = true)
-    I_backtrack  = cell_index(pᵢ_backtrack, grid)
-        ntuple(Val(NF)) do i
+    # backtrack particle position
+    pᵢ_backtrack = advect_particle_SML(method, pᵢ, V, grid_vi, dxi, dt, interp_velocity2particle_LinP, I; backtracking = true)
+    I_backtrack = cell_index(pᵢ_backtrack, grid)
+    ntuple(Val(NF)) do i
         @inline
         # interpolate field F onto particle
         F[i][I...] = _grid2particle(pᵢ_backtrack, grid, dxi, F0[i], I_backtrack)
     end
-    
+
     return nothing
 end
 
