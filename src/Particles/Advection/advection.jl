@@ -40,7 +40,7 @@ end
         method::AbstractAdvectionIntegrator,
         V::NTuple{N, T},
         index,
-        grid,
+        grid_vi,
         local_limits,
         dxi,
         dt,
@@ -53,7 +53,7 @@ end
         # extract particle coordinates
         pᵢ = get_particle_coords(p, ipart, I...)
         # # advect particle
-        pᵢ_new = advect_particle(method, pᵢ, V, grid, local_limits, dxi, dt, I)
+        pᵢ_new = advect_particle(method, pᵢ, V, grid_vi, local_limits, dxi, dt, I)
         # update particle coordinates
         for k in 1:N
             @inbounds @index p[k][ipart, I...] = pᵢ_new[k]
@@ -96,8 +96,6 @@ end
     return Fp
 end
 
-## Other functions
-
 @generated function corner_field_nodes(
         F::AbstractArray{T, N},
         particle,
@@ -109,15 +107,8 @@ end
         Base.@_inline_meta
         begin
             Base.@nexprs $N i -> begin
-                # unpack
-                corrected_idx_i = idx[i]
-                xi, particle_i, dx_i = @inbounds xi_vx[i][corrected_idx_i], particle[i], dxi[i]
-
-                # compute offsets and corrections
-                corrected_idx_i += vertex_offset(
-                    xi, particle_i, dx_i
-                )
-                cell_i = @inbounds xi
+                corrected_idx_i = cell_index(particle[i], xi_vx[i])
+                cell_i = @inbounds xi_vx[i][corrected_idx_i]
             end
 
             indices = Base.@ncall $N tuple corrected_idx
