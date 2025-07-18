@@ -87,6 +87,15 @@ end
     end
 end
 
+@inline function interp_velocity2particle_markerchain(
+        particle_coords::NTuple{N, Any}, grid_vi, dxi, V::NTuple{N, Any}
+    ) where {N}
+    return ntuple(Val(N)) do i
+        Base.@_inline_meta
+        interp_velocity_grid2particle(particle_coords, grid_vi[i], dxi, V[i])
+    end
+end
+
 # Interpolate velocity from staggered grid to particle
 @inline function interp_velocity_grid2particle(
         pᵢ::Union{SVector, NTuple}, xi_vx::NTuple, dxi::NTuple, F::AbstractArray

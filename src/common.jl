@@ -88,6 +88,9 @@ include("MarkerChain/Advection/RK4.jl")
 include("MarkerChain/Advection/advection.jl")
 export advection!, advect_markerchain!
 
+include("MarkerChain/Advection/backtrack.jl")
+export semilagrangian_advection_markerchain!
+
 include("MarkerChain/Advection/interp_velocity.jl")
 export interpolate_velocity_to_markerchain!
 
