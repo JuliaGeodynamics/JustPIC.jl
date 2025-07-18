@@ -268,6 +268,45 @@ module _2D
         return advection_MQS!(particles, method, V, grid_vxi, dt)
     end
 
+    function JustPIC._2D.semilagrangian_advection!(
+            F::Union{ROCArrays, NTuple{NF, ROCArrays}},
+            F0::Union{ROCArrays, NTuple{NF, ROCArrays}},
+            method::AbstractAdvectionIntegrator,
+            V,
+            grid_vi::NTuple{N, NTuple{N, T}},
+            grid::NTuple{N, T},
+            dt,
+        ) where {N, NF, T}
+        semilagrangian_advection!(F, F0, method, V, grid_vi, grid, dt)
+        return nothing
+    end
+
+    function JustPIC._2D.semilagrangian_advection_LinP!(
+            F::Union{ROCArrays, NTuple{NF, ROCArrays}},
+            F0::Union{ROCArrays, NTuple{NF, ROCArrays}},
+            method::AbstractAdvectionIntegrator,
+            V,
+            grid_vi::NTuple{N, NTuple{N, T}},
+            grid::NTuple{N, T},
+            dt,
+        ) where {N, NF, T}
+        semilagrangian_advection_LinP!(F, F0, method, V, grid_vi, grid, dt)
+        return nothing
+    end
+
+    function JustPIC._2D.semilagrangian_advection_MQS!(
+            F::Union{ROCArrays, NTuple{NF, ROCArrays}},
+            F0::Union{ROCArrays, NTuple{NF, ROCArrays}},
+            method::AbstractAdvectionIntegrator,
+            V,
+            grid_vi::NTuple{N, NTuple{N, T}},
+            grid::NTuple{N, T},
+            dt,
+        ) where {N, NF, T}
+        semilagrangian_advection_MQS!(F, F0, method, V, grid_vi, grid, dt)
+        return nothing
+    end
+
     function JustPIC._2D.centroid2particle!(
             Fp, xci, F::ROCArray, particles::Particles{AMDGPUBackend}
         )
@@ -650,6 +689,45 @@ module _3D
             dt,
         ) where {N, T}
         return advection_MQS!(particles, method, V, grid_vxi, dt)
+    end
+
+    function JustPIC._3D.semilagrangian_advection!(
+            F::Union{ROCArrays, NTuple{NF, ROCArrays}},
+            F0::Union{ROCArrays, NTuple{NF, ROCArrays}},
+            method::AbstractAdvectionIntegrator,
+            V,
+            grid_vi::NTuple{N, NTuple{N, T}},
+            grid::NTuple{N, T},
+            dt,
+        ) where {N, NF, T}
+        semilagrangian_advection!(F, F0, method, V, grid_vi, grid, dt)
+        return nothing
+    end
+
+    function JustPIC._3D.semilagrangian_advection_LinP!(
+            F::Union{ROCArrays, NTuple{NF, ROCArrays}},
+            F0::Union{ROCArrays, NTuple{NF, ROCArrays}},
+            method::AbstractAdvectionIntegrator,
+            V,
+            grid_vi::NTuple{N, NTuple{N, T}},
+            grid::NTuple{N, T},
+            dt,
+        ) where {N, NF, T}
+        semilagrangian_advection_LinP!(F, F0, method, V, grid_vi, grid, dt)
+        return nothing
+    end
+
+    function JustPIC._3D.semilagrangian_advection_MQS!(
+            F::Union{ROCArrays, NTuple{NF, ROCArrays}},
+            F0::Union{ROCArrays, NTuple{NF, ROCArrays}},
+            method::AbstractAdvectionIntegrator,
+            V,
+            grid_vi::NTuple{N, NTuple{N, T}},
+            grid::NTuple{N, T},
+            dt,
+        ) where {N, NF, T}
+        semilagrangian_advection_MQS!(F, F0, method, V, grid_vi, grid, dt)
+        return nothing
     end
 
     function JustPIC._3D.centroid2particle!(
