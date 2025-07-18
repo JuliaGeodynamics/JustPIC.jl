@@ -51,7 +51,7 @@ end
         idx::NTuple{N};
         backtracking::Bool = false
     ) where {N}
-    
+
     backtracking_sign = 1 - 2 * backtracking # flip sign if backtracking is true, used for backtracking particles during Semi-Lagrangian advection
     k1 = interp_velocity2particle(p0, grid_vi, dxi, V, idx)
     k2 = interp_velocity2particle(p0 .+ dt .* k1 ./ 2, grid_vi, dxi, V, idx)
@@ -73,7 +73,7 @@ end
         idx::NTuple;
         backtracking::Bool = false
     ) where {N, F}
-    
+
     backtracking_sign = 1 - 2 * backtracking # flip sign if backtracking is true, used for backtracking particles during Semi-Lagrangian advection
     k1 = interpolation_fn(p0, grid_vi, dxi, V, idx)
     k2 = interpolation_fn(p0 .+ backtracking_sign .* dt .* k1 ./ 2, grid_vi, dxi, V, idx)
