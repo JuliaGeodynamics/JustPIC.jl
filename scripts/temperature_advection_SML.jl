@@ -1,10 +1,11 @@
+using CUDA
 using JustPIC
 using JustPIC._2D
 
 # Threads is the default backend,
 # to run on a CUDA GPU load CUDA.jl (i.e. "using CUDA"),
 # and to run on an AMD GPU load AMDGPU.jl (i.e. "using AMDGPU")
-const backend = JustPIC.CPUBackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
+const backend = CUDABackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
 
 using GLMakie
 
@@ -43,9 +44,9 @@ function main()
     # Cell fields -------------------------------
     Vx = TA(backend)([vx_stream(x, y) for x in grid_vx[1], y in grid_vx[2]])
     Vy = TA(backend)([vy_stream(x, y) for x in grid_vy[1], y in grid_vy[2]])
-    T  = TA(backend)([y for x in xv, y in yv])
+    T = TA(backend)([y for x in xv, y in yv])
     T0 = TA(backend)([y for x in xv, y in yv])
-    V  = Vx, Vy
+    V = Vx, Vy
 
     dt = min(dx / maximum(abs.(Array(Vx))), dy / maximum(abs.(Array(Vy))))
     dt *= 0.75
@@ -54,11 +55,11 @@ function main()
 
     niter = 250
     for it in 1:niter
-        semilagrangian_advection!(T, T0, RungeKutta2(), V, (grid_vx, grid_vy), xvi, dt)
+        semilagrangian_advection!(T, T0, RungeKutta4(), V, (grid_vx, grid_vy), xvi, dt)
         # T[1,:]    .= T[2,:]
-        # T[end,:]  .= T[end-1,:] 
-        T[:, 1]   .= T[:, 2]
-        T[:, end] .= T[:, end-1] 
+        # T[end,:]  .= T[end-1,:]
+        T[:, 1] .= T[:, 2]
+        T[:, end] .= T[:, end - 1]
         copyto!(T0, T)
 
         if rem(it, 10) == 0
@@ -73,5 +74,3 @@ function main()
 end
 
 main()
-
-

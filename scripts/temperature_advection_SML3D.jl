@@ -53,7 +53,7 @@ function main()
     T = TA(backend)([z for x in xv, y in yv, z in zv])
     T0 = TA(backend)([z for x in xv, y in yv, z in zv])
     V = Vx, Vy, Vz
-    
+
     dt = min(dx / maximum(abs.(Vx)), dy / maximum(abs.(Vy)), dz / maximum(abs.(Vz))) / 2
     dt *= 0.75
 
@@ -62,15 +62,15 @@ function main()
     niter = 250
     for it in 1:niter
         semilagrangian_advection!(T, T0, RungeKutta2(), V, (grid_vx, grid_vy, grid_vz), xvi, dt)
-        T[:, 1, :]   .= T[:, 2, :]
-        T[:, end, :] .= T[:, end-1, :]
-        T[1, :, :]   .= T[2, :, :]
-        T[end, :, :] .= T[end-1, :, :]
+        T[:, 1, :] .= T[:, 2, :]
+        T[:, end, :] .= T[:, end - 1, :]
+        T[1, :, :] .= T[2, :, :]
+        T[end, :, :] .= T[end - 1, :, :]
 
         copyto!(T0, T)
 
         if rem(it, 10) == 0
-            f, ax, = heatmap(xvi[1:2]..., Array(T[:,1,:]), colormap = :batlow)
+            f, ax, = heatmap(xvi[1:2]..., Array(T[:, 1, :]), colormap = :batlow)
             save("figs/test_$(it).png", f)
             f
         end
@@ -80,5 +80,3 @@ function main()
 end
 
 main()
-
-
