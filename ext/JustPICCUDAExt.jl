@@ -243,8 +243,8 @@ module _2D
     end
 
     function JustPIC._2D.semilagrangian_advection!(
-            F::Union{CUArray, NTuple{NF, CUArray}},
-            F0::Union{CUArray, NTuple{NF, CUArray}},
+            F::Union{CuArray, NTuple{NF, CuArray}},
+            F0::Union{CuArray, NTuple{NF, CuArray}},
             method::AbstractAdvectionIntegrator,
             V,
             grid_vi::NTuple{N, NTuple{N, T}},
@@ -256,8 +256,8 @@ module _2D
     end
 
     function JustPIC._2D.semilagrangian_advection_LinP!(
-            F::Union{CUArray, NTuple{NF, CUArray}},
-            F0::Union{CUArray, NTuple{NF, CUArray}},
+            F::Union{CuArray, NTuple{NF, CuArray}},
+            F0::Union{CuArray, NTuple{NF, CuArray}},
             method::AbstractAdvectionIntegrator,
             V,
             grid_vi::NTuple{N, NTuple{N, T}},
@@ -269,8 +269,8 @@ module _2D
     end
 
     function JustPIC._2D.semilagrangian_advection_MQS!(
-            F::Union{CUArray, NTuple{NF, CUArray}},
-            F0::Union{CUArray, NTuple{NF, CUArray}},
+            F::Union{CuArray, NTuple{NF, CuArray}},
+            F0::Union{CuArray, NTuple{NF, CuArray}},
             method::AbstractAdvectionIntegrator,
             V,
             grid_vi::NTuple{N, NTuple{N, T}},
@@ -655,8 +655,8 @@ module _3D
     end
 
     function JustPIC._3D.semilagrangian_advection!(
-            F::Union{CUArray, NTuple{NF, CUArray}},
-            F0::Union{CUArray, NTuple{NF, CUArray}},
+            F::Union{CuArray, NTuple{NF, CuArray}},
+            F0::Union{CuArray, NTuple{NF, CuArray}},
             method::AbstractAdvectionIntegrator,
             V,
             grid_vi::NTuple{N, NTuple{N, T}},
@@ -668,8 +668,8 @@ module _3D
     end
 
     function JustPIC._3D.semilagrangian_advection_LinP!(
-            F::Union{CUArray, NTuple{NF, CUArray}},
-            F0::Union{CUArray, NTuple{NF, CUArray}},
+            F::Union{CuArray, NTuple{NF, CuArray}},
+            F0::Union{CuArray, NTuple{NF, CuArray}},
             method::AbstractAdvectionIntegrator,
             V,
             grid_vi::NTuple{N, NTuple{N, T}},
@@ -681,8 +681,8 @@ module _3D
     end
 
     function JustPIC._3D.semilagrangian_advection_MQS!(
-            F::Union{CUArray, NTuple{NF, CUArray}},
-            F0::Union{CUArray, NTuple{NF, CUArray}},
+            F::Union{CuArray, NTuple{NF, CuArray}},
+            F0::Union{CuArray, NTuple{NF, CuArray}},
             method::AbstractAdvectionIntegrator,
             V,
             grid_vi::NTuple{N, NTuple{N, T}},
