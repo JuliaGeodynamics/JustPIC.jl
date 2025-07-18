@@ -58,7 +58,7 @@ end
     end
 
     pᵢ_backtrack = advect_particle_SML(method, pᵢ, V, grid_vi, dxi, dt, interp_velocity2particle_MQS, I; backtracking = true)
-    I_backtrack = cell_index(pᵢ_backtrack, grid)
+    I_backtrack = cell_index(pᵢ_backtrack .- first.(grid), grid)
     F[I...] = _grid2particle(pᵢ_backtrack, grid, dxi, F0, I_backtrack)
 
     return nothing
@@ -83,7 +83,7 @@ end
     end
     # backtrack particle position
     pᵢ_backtrack = advect_particle_SML(method, pᵢ, V, grid_vi, dxi, dt, interp_velocity2particle_MQS, I; backtracking = true)
-    I_backtrack = cell_index(pᵢ_backtrack, grid)
+    I_backtrack = cell_index(pᵢ_backtrack .- first.(grid), grid)
     ntuple(Val(NF)) do i
         @inline
         # interpolate field F onto particle
