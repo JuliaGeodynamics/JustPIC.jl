@@ -413,6 +413,17 @@ module _2D
         return advect_markerchain!(chain, method, V, grid_vxi, dt)
     end
 
+    function JustPIC._2D.semilagrangian_advection_markerchain!(
+            chain::MarkerChain{CUDABackend},
+            method::AbstractAdvectionIntegrator,
+            V,
+            grid_vxi,
+            xvi,
+            dt,
+        )
+        return semilagrangian_advection_markerchain!(chain, method, V, grid_vxi, xvi, dt)
+    end
+
     function JustPIC._2D.compute_rock_fraction!(
             ratios, chain::MarkerChain{CUDABackend}, xvi, dxi
         )
