@@ -51,14 +51,14 @@ function main()
     nxcell, min_xcell, max_xcell = 12, 6, 24
     initial_elevation = Ly / 2
     chain = init_markerchain(backend, nxcell, min_xcell, max_xcell, xv, initial_elevation)
-    chain.h_vertices .= initial_elevation 
+    chain.h_vertices .= initial_elevation
     method = RungeKutta4()
 
     for _ in 1:125
         semilagrangian_advection_markerchain!(chain, method, V, grid_vxi, xvi, dt)
     end
 
-    f = Figure(size = (1200,1200))
+    f = Figure(size = (1200, 1200))
     ax = Axis(f[1, 1])
     # vector of shapes
     poly!(

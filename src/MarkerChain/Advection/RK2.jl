@@ -6,7 +6,7 @@
         local_limits,
         dxi,
         dt;
-        backtracking::Bool=false
+        backtracking::Bool = false
     ) where {T, N}
 
     # interpolate velocity to current location

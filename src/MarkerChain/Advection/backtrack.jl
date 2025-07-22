@@ -38,7 +38,7 @@ end
 
 # ParallelStencil function Runge-Kuttaadvection function for 3D staggered grids
 @parallel_indices (i) function semilagrangian_advection_markerchain_kernel!(
-        h_vertices, 
+        h_vertices,
         method::AbstractAdvectionIntegrator,
         V::NTuple{N, T},
         grid_vxi,
@@ -47,12 +47,12 @@ end
         dxi,
         dt,
     ) where {N, T}
-    
+
     hᵢ = h_vertices[i]
     pᵢ = grid[1][i], hᵢ
     # backtrack particle position
     _, hᵢ_new = advect_particle_markerchain(method, pᵢ, V, grid_vxi, local_limits, dxi, dt; backtracking = true)
     h_vertices[i] -= (hᵢ_new - h_vertices[i])
- 
+
     return nothing
 end
