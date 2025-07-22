@@ -227,7 +227,8 @@ end
         values(Δ),
         values(Nc)
     ) # random position by default
-
+    println("Type particles: ", typeof(particles))
+    println("Type index: ", typeof(particles.index))
     # Initialise phase field
     particle_args = phases, = init_cell_arrays(particles, Val(1))  # cool
 
