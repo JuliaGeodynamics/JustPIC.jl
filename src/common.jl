@@ -51,6 +51,11 @@ include("Particles/Advection/advection_LinP.jl")
 include("Particles/Advection/advection_MQS.jl")
 export advection!, advection_LinP!, advection_MQS!
 
+include("Particles/Advection/backtracking.jl")
+include("Particles/Advection/backtracking_LinP.jl")
+include("Particles/Advection/backtracking_MQS.jl")
+export semilagrangian_advection!, semilagrangian_advection_LinP!, semilagrangian_advection_MQS!
+
 include("Particles/injection.jl")
 export inject_particles!, inject_particles_phase!, clean_particles!
 
@@ -82,6 +87,9 @@ include("MarkerChain/Advection/RK2.jl")
 include("MarkerChain/Advection/RK4.jl")
 include("MarkerChain/Advection/advection.jl")
 export advection!, advect_markerchain!
+
+include("MarkerChain/Advection/backtrack.jl")
+export semilagrangian_advection_markerchain!
 
 include("MarkerChain/Advection/interp_velocity.jl")
 export interpolate_velocity_to_markerchain!

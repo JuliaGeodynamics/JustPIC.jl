@@ -40,7 +40,7 @@ end
         method::AbstractAdvectionIntegrator,
         V::NTuple{N, T},
         index,
-        grid,
+        grid_vi,
         local_limits,
         dxi,
         dt,
@@ -53,7 +53,7 @@ end
         # extract particle coordinates
         pᵢ = get_particle_coords(p, ipart, I...)
         # # advect particle
-        pᵢ_new = advect_particle(method, pᵢ, V, grid, local_limits, dxi, dt, I)
+        pᵢ_new = advect_particle(method, pᵢ, V, grid_vi, local_limits, dxi, dt, I)
         # update particle coordinates
         for k in 1:N
             @inbounds @index p[k][ipart, I...] = pᵢ_new[k]
@@ -66,6 +66,7 @@ end
 @inline function interp_velocity2particle(
         particle_coords::NTuple{N, Any},
         grid_vi,
+        grid_vi,
         local_limits,
         dxi,
         V::NTuple{N, Any},
@@ -74,6 +75,11 @@ end
     return ntuple(Val(N)) do i
         Base.@_inline_meta
         local_lims = local_limits[i]
+        v = if check_local_limits(local_lims, particle_coords)
+            interp_velocity2particle(particle_coords, grid_vi[i], dxi, V[i], idx)
+        else
+            Inf
+        end
         v = if check_local_limits(local_lims, particle_coords)
             interp_velocity2particle(particle_coords, grid_vi[i], dxi, V[i], idx)
         else

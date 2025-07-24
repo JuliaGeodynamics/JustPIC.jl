@@ -52,9 +52,6 @@ end
         2 * (I[i] - 1) + offsets[i]
     end
 
-    # if N == 3
-    #     @show indices size(index)
-    # end
     if all(indices .≤ size(index))
         _inject_particles!(args, coords, index, grid, di, di_quadrant, min_xcell, indices)
     end

@@ -173,16 +173,13 @@ end
         Base.@_inline_meta
         @inbounds begin
             Base.@nexprs $N i -> begin
-                # # unpack
-                # corrected_idx_i = idx[i]
-                # # compute offsets and corrections
-                # corrected_idx_i += @inline vertex_offset(
-                #     xi_vx[i][corrected_idx_i], particle[i], dxi[i]
-                # )
-                # cell_i = xi_vx[i][corrected_idx_i]
-
-                corrected_idx_i = cell_index(particle[i], xi_vx[i])
-                cell_i = @inbounds xi_vx[i][corrected_idx_i]
+                # unpack
+                corrected_idx_i = idx[i]
+                # compute offsets and corrections
+                corrected_idx_i += @inline vertex_offset(
+                    xi_vx[i][corrected_idx_i], particle[i], dxi[i]
+                )
+                cell_i = xi_vx[i][corrected_idx_i]
             end
 
             indices = Base.@ncall $N tuple corrected_idx
