@@ -3,7 +3,7 @@ using Statistics
 function semilagrangian_advection_markerchain!(
         chain::MarkerChain, method::AbstractAdvectionIntegrator, V, grid_vxi, grid, dt
     )
-    copyto!(chain.h_vertices0, chain.h_vertices)
+
     semilagrangian_advection!(chain, method, V, grid_vxi, grid, dt)
     # correct topo to conserve mass
     chain.h_vertices .+= mean(chain.h_vertices) - mean(chain.h_vertices0)
