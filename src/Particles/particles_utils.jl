@@ -99,7 +99,7 @@ function init_particles(
     nxcell = prod(nxdim)
     ncells = prod(nᵢ)
     np = max_xcell * ncells
-    pxᵢ = ntuple(_ -> @rand(nᵢ..., celldims = (max_xcell,)), Val(N))
+    pxᵢ = ntuple(_ -> @fill(NaN, nᵢ..., celldims = (max_xcell,)), Val(N))
     index = @fill(false, nᵢ..., celldims = (max_xcell,), eltype = Bool)
 
     dxi = compute_dx(coords)
@@ -114,37 +114,33 @@ function init_particles(
         end
 
         # fill index array
-        for l in 1:max_xcell
-            if l ≤ nxcell
-                if N == 2
-                    for i in axes(offsets[1], 1), j in axes(offsets[2], 1)
-                        ndim = 1
-                        @index pxᵢ[ndim][l, I...] = x0ᵢ[ndim] + offsets[ndim][i]
-                        ndim = 2
-                        @index pxᵢ[ndim][l, I...] = x0ᵢ[ndim] + offsets[ndim][j]
-                    end
-                elseif N == 3
-                    for i in axes(offsets[1], 1), j in axes(offsets[2], 1), k in axes(offsets[3], 1)
-                        ndim = 1
-                        @index pxᵢ[ndim][l, I...] = x0ᵢ[ndim] + offsets[ndim][i]
-                        ndim = 2
-                        @index pxᵢ[ndim][l, I...] = x0ᵢ[ndim] + offsets[ndim][j]
-                        ndim = 3
-                        @index pxᵢ[ndim][l, I...] = x0ᵢ[ndim] + offsets[ndim][k]
-                    end
-                else
-                    error("Unsupported number of dimensions: $N")
-                end
+        if N == 2
+            for i in axes(offsets[1], 1), j in axes(offsets[2], 1)
+                l = i + (j - 1) * nxdim[1]
+                ndim = 1
+                @index pxᵢ[ndim][l, I...] = x0ᵢ[ndim] + offsets[ndim][i]
+                # @show i, offsets[ndim][i]
+                ndim = 2
+                @index pxᵢ[ndim][l, I...] = x0ᵢ[ndim] + offsets[ndim][j]
+                
+                @index index[l, I...] = true
+            end
+        elseif N == 3
+            for i in axes(offsets[1], 1), j in axes(offsets[2], 1), k in axes(offsets[3], 1)
+                l = i + (j - 1) * nxdim[1] + (k - 1) * nxdim[1] * nxdim[2]
+                ndim = 1
+                @index pxᵢ[ndim][l, I...] = x0ᵢ[ndim] + offsets[ndim][i]
+                ndim = 2
+                @index pxᵢ[ndim][l, I...] = x0ᵢ[ndim] + offsets[ndim][j]
+                ndim = 3
+                @index pxᵢ[ndim][l, I...] = x0ᵢ[ndim] + offsets[ndim][k]
 
                 @index index[l, I...] = true
-
-            else
-                ntuple(Val(N)) do ndim
-                    @inline
-                    @index pxᵢ[ndim][l, I...] = NaN
-                end
             end
+        else
+            error("Unsupported number of dimensions: $N")
         end
+  
         return nothing
     end
 
