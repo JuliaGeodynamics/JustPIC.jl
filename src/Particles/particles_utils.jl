@@ -102,8 +102,8 @@ function init_particles(
     pxᵢ = ntuple(_ -> @rand(nᵢ..., celldims = (max_xcell,)), Val(N))
     index = @fill(false, nᵢ..., celldims = (max_xcell,), eltype = Bool)
 
-    dxi     = compute_dx(coords)
-    offsets = ntuple(i -> LinRange(0, dxi[i], nxdim[i] + 2)[2:end-1], Val(N))
+    dxi = compute_dx(coords)
+    offsets = ntuple(i -> LinRange(0, dxi[i], nxdim[i] + 2)[2:(end - 1)], Val(N))
 
     @parallel_indices (I...) function fill_coords_index(
             pxᵢ::NTuple{N, T}, index, coords, nxcell, max_xcell, offsets
@@ -134,13 +134,13 @@ function init_particles(
                     end
                 else
                     error("Unsupported number of dimensions: $N")
-                end 
+                end
 
                 @index index[l, I...] = true
 
             else
                 ntuple(Val(N)) do ndim
-                    @inline 
+                    @inline
                     @index pxᵢ[ndim][l, I...] = NaN
                 end
             end

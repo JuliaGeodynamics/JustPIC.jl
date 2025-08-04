@@ -27,8 +27,8 @@ g(x) = Point2f(
 
 function main()
     # Initialize particles -------------------------------
-    nxcell, max_xcell, min_xcell = 24, 30, 12
-    n = 256
+    nxcell, max_xcell, min_xcell = (5, 5), 30, 12
+    n = 32
     nx = ny = n - 1
     Lx = Ly = 1.0
     # nodal vertices
@@ -78,4 +78,10 @@ function main()
     return println("Finished")
 end
 
-main()
+# main()
+
+
+x, y = particles.coords
+scatter(x.data[:], y.data[:], markersize = 5, color = :red)
+
+
