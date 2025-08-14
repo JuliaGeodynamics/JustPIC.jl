@@ -46,9 +46,8 @@ function main()
     n = 32
     nx = ny = n - 1
     me, dims, = init_global_grid(
-        n - 1, n - 1, 0;
-        init_MPI = JustPIC.MPI.Initialized() ? false : true,
-        overlapx = 2, overlapy = 2
+        n - 1, n - 1, 1;
+        init_MPI = JustPIC.MPI.Initialized() ? false : true
     )
     Lx = Ly = 1.0
     dxi = dx, dy = Lx / (nx_g() - 1), Ly / (ny_g() - 1)
