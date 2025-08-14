@@ -24,7 +24,7 @@ ref_test:
   script:
     - julia --project -e 'using Pkg; Pkg.instantiate()'
     - julia --project -e 'using Pkg; Pkg.add("CUDA")'
-    - julia --project scripts/single_particle_advection_MPI.jl
+    - julia --project scripts/single_particle_advection_MPI_ci.jl
   variables:
     WITH_UENV_VIEW: 'juliaup'
     SLURM_JOB_NUM_NODES: 2

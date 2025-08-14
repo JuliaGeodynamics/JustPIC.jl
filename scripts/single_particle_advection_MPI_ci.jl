@@ -1,12 +1,15 @@
-using JustPIC
-using JustPIC._2D
+using CUDA
+using JustPIC, JustPIC._2D
 
 # Threads is the default backend,
 # to run on a CUDA GPU load CUDA.jl (i.e. "using CUDA"),
 # and to run on an AMD GPU load AMDGPU.jl (i.e. "using AMDGPU")
-const backend = JustPIC.CPUBackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
+const backend = CUDABackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
 
-using GLMakie
+using ParallelStencil
+@init_parallel_stencil(CUDA, Float64, 2)
+
+# using GLMakie
 
 @inline init_particle_fields_cellarrays(particles, ::Val{N}) where {N} = ntuple(_ -> @fill(0.0, size(particles.coords[1])..., celldims = (cellsize(particles.index))), Val(N))
 
@@ -118,37 +121,37 @@ function main()
             push!(p, p_i)
         end
 
-        if me == 0 && iter % 10 == 0
-            w = 0.504
-            offset = 0.5 - (w - 0.5)
-            f, ax, = lines(
-                [0, w, w, 0, 0],
-                [0, 0, w, w, 0],
-                linewidth = 3
-            )
-            lines!(
-                ax,
-                [0, w, w, 0, 0] .+ offset,
-                [0, 0, w, w, 0],
-                linewidth = 3
-            )
-            lines!(
-                ax,
-                [0, w, w, 0, 0] .+ offset,
-                [0, 0, w, w, 0] .+ offset,
-                linewidth = 3
-            )
-            lines!(
-                ax,
-                [0, w, w, 0, 0],
-                [0, 0, w, w, 0] .+ offset,
-                linewidth = 3
-            )
-            streamplot!(ax, g, LinRange(0, 1, 100), LinRange(0, 1, 100))
-            lines!(ax, p, color = :red)
-            scatter!(ax, p[end], color = :black)
-            save("figs/trajectory_MPI_$iter.png", f)
-        end
+        # if me == 0 && iter % 10 == 0
+        #     w = 0.504
+        #     offset = 0.5 - (w - 0.5)
+        #     f, ax, = lines(
+        #         [0, w, w, 0, 0],
+        #         [0, 0, w, w, 0],
+        #         linewidth = 3
+        #     )
+        #     lines!(
+        #         ax,
+        #         [0, w, w, 0, 0] .+ offset,
+        #         [0, 0, w, w, 0],
+        #         linewidth = 3
+        #     )
+        #     lines!(
+        #         ax,
+        #         [0, w, w, 0, 0] .+ offset,
+        #         [0, 0, w, w, 0] .+ offset,
+        #         linewidth = 3
+        #     )
+        #     lines!(
+        #         ax,
+        #         [0, w, w, 0, 0],
+        #         [0, 0, w, w, 0] .+ offset,
+        #         linewidth = 3
+        #     )
+        #     streamplot!(ax, g, LinRange(0, 1, 100), LinRange(0, 1, 100))
+        #     lines!(ax, p, color = :red)
+        #     scatter!(ax, p[end], color = :black)
+        #     save("figs/trajectory_MPI_$iter.png", f)
+        # end
     end
 
     return finalize_global_grid()
