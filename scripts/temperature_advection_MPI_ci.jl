@@ -39,7 +39,7 @@ function main()
         n - 1, n - 1, 1;
         init_MPI = MPI.Initialized() ? false : true,
         select_device = false
-        )
+    )
     Lx = Ly = 1.0
     dxi = dx, dy = Lx / (nx_g() - 1), Ly / (ny_g() - 1)
     # nodal vertices
