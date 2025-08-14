@@ -28,7 +28,7 @@ function checkpointing_particles(
         dt = dt,
         particle_args = particle_args,
         kwargs...,
-        )
+    )
 
 end
 
@@ -111,8 +111,8 @@ function checkpointing_particles(
         # Add any additional kwargs dynamically using their names as keys
         for (key, value) in pairs(kwargs)
             args[key] = isnothing(value) ? nothing :
-                       isa(value, AbstractArray) ? Array(value) :
-                       isa(value, Tuple) ? Array.(value) : value
+                isa(value, AbstractArray) ? Array(value) :
+                isa(value, Tuple) ? Array.(value) : value
         end
 
         jldsave(tmpfname; args...)
