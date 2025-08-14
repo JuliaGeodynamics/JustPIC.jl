@@ -1,4 +1,4 @@
-using CUDA
+# using CUDA
 using JustPIC, JustPIC._2D
 
 using ImplicitGlobalGrid
@@ -7,10 +7,12 @@ import MPI
 # Threads is the default backend,
 # to run on a CUDA GPU load CUDA.jl (i.e. "using CUDA"),
 # and to run on an AMD GPU load AMDGPU.jl (i.e. "using AMDGPU")
-const backend = CUDABackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
+# const backend = CUDABackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
+const backend = JustPIC.CPUBackend
 
 using ParallelStencil
-@init_parallel_stencil(CUDA, Float64, 2)
+# @init_parallel_stencil(CUDA, Float64, 2)
+@init_parallel_stencil(Threads, Float64, 2)
 
 # using GLMakie
 
@@ -29,7 +31,7 @@ function expand_range(x::AbstractArray, dx)
     x1, x2 = extrema(x)
     xI = x1 - dx
     xF = x2 + dx
-    return x = TA(vcat(xI, x, xF))
+    return x = TA(backend)(vcat(xI, x, xF))
 end
 
 # Analytical flow solution
@@ -54,16 +56,15 @@ function main()
     # nodal vertices
     xvi = xv, yv = let
         dummy = zeros(n, n)
-        xv = TA([x_g(i, dx, dummy) for i in axes(dummy, 1)])
-        yv = TA([y_g(i, dx, dummy) for i in axes(dummy, 2)])
+        xv = TA(backend)([x_g(i, dx, dummy) for i in axes(dummy, 1)])
+        yv = TA(backend)([y_g(i, dx, dummy) for i in axes(dummy, 2)])
         xv, yv
     end
     # nodal centers
     xci = xc, yc = let
         dummy = zeros(nx, ny)
-        xc = @zeros(nx)
-        xc .= TA([x_g(i, dx, dummy) for i in axes(dummy, 1)])
-        yc = TA([y_g(i, dx, dummy) for i in axes(dummy, 2)])
+        xc = TA(backend)([x_g(i, dx, dummy) for i in axes(dummy, 1)])
+        yc = TA(backend)([y_g(i, dx, dummy) for i in axes(dummy, 2)])
         xc, yc
     end
 
@@ -71,7 +72,7 @@ function main()
     grid_vx = xv, expand_range(yc, dy)
     grid_vy = expand_range(xc, dx), yv
 
-    particles = init_particle(
+    particles = init_particles(
         backend, nxcell, max_xcell, min_xcell, xv, yv, dxi..., nx, ny, me
     )
 
@@ -79,8 +80,8 @@ function main()
     particle_args = ()
 
     # Cell fields -------------------------------
-    Vx = TA([vx_stream(x, y) for x in grid_vx[1], y in grid_vx[2]])
-    Vy = TA([vy_stream(x, y) for x in grid_vy[1], y in grid_vy[2]])
+    Vx = TA(backend)([vx_stream(x, y) for x in grid_vx[1], y in grid_vx[2]])
+    Vy = TA(backend)([vy_stream(x, y) for x in grid_vy[1], y in grid_vy[2]])
     V = Vx, Vy
 
     # time step
