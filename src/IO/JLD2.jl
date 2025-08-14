@@ -14,6 +14,7 @@ function checkpointing_particles(
         t = nothing,
         dt = nothing,
         particle_args = nothing,
+        particle_args_reduced = nothing,
     )
     fname = checkpoint_name(dst)
     return checkpointing_particles(
@@ -26,6 +27,7 @@ function checkpointing_particles(
         t = t,
         dt = dt,
         particle_args = particle_args,
+        particle_args_reduced = particle_args_reduced,
     )
 end
 
@@ -39,6 +41,7 @@ function checkpointing_particles(
         t = nothing,
         dt = nothing,
         particle_args = nothing,
+        particle_args_reduced = nothing,
     )
     fname = checkpoint_name(dst, me)
     checkpointing_particles(
@@ -51,6 +54,7 @@ function checkpointing_particles(
         t = t,
         dt = dt,
         particle_args = particle_args,
+        particle_args_reduced = particle_args_reduced,
     )
     return nothing
 end
@@ -83,6 +87,7 @@ function checkpointing_particles(
         t = t,
         dt = dt,
         particle_args = particle_args,
+        particle_args_reduced = particle_args_reduced,
     )
     !isdir(dst) && mkpath(dst) # create folder in case it does not exist
 
@@ -99,6 +104,7 @@ function checkpointing_particles(
             :time => t,
             :timestep => dt,
             :particle_args => isnothing(particle_args) ? nothing : Array.(particle_args),
+            :particle_args_reduced => isnothing(particle_args_reduced) ? nothing : Array.(particle_args_reduced),
         )
         jldsave(tmpfname; args...)
 
