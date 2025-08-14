@@ -18,30 +18,30 @@ unit_test:
     SLURM_GPUS_PER_TASK: 1
     SLURM_TIMELIMIT: "00:30:00"
 
-ref_test:
-  extends: .uenv-runner-daint-gh200
-  image: julia/25.5:v1
-  script:
-    - julia --project -e 'using Pkg; Pkg.instantiate()'
-    - julia --project -e 'using Pkg; Pkg.add("CUDA")'
-    - julia --project scripts/single_particle_advection_MPI_ci.jl
-  variables:
-    WITH_UENV_VIEW: 'juliaup'
-    SLURM_JOB_NUM_NODES: 2
-    SLURM_NTASKS_PER_NODE: 4
-    SLURM_GPUS_PER_TASK: 1
-    SLURM_TIMELIMIT: "00:30:00"
-
 # ref_test:
-#   extends: .baremetal-runner-daint-gh200
+#   extends: .uenv-runner-daint-gh200
+#   image: julia/25.5:v1
 #   script:
-#     - echo "Preparing the test environment (single rank)"
-#     - srun -n 1 --uenv julia/25.5:v1 julia --project -e 'using Pkg; Pkg.instantiate()'
-#     - srun -n 1 --uenv julia/25.5:v1 julia --project -e 'using Pkg; Pkg.add("CUDA")'
-#     - echo "Running the reference test (multiple ranks)"
-#     - srun --uenv julia/25.5:v1 julia --project scripts/single_particle_advection_MPI_ci.jl
+#     - julia --project -e 'using Pkg; Pkg.instantiate()'
+#     - julia --project -e 'using Pkg; Pkg.add("CUDA")'
+#     - julia --project scripts/single_particle_advection_MPI_ci.jl
 #   variables:
+#     WITH_UENV_VIEW: 'juliaup'
 #     SLURM_JOB_NUM_NODES: 2
 #     SLURM_NTASKS_PER_NODE: 4
 #     SLURM_GPUS_PER_TASK: 1
 #     SLURM_TIMELIMIT: "00:30:00"
+
+ref_test:
+  extends: .baremetal-runner-daint-gh200
+  script:
+    - echo "Preparing the test environment (single rank)"
+    - srun -n 1 --uenv julia/25.5:v1 --view=juliaup julia --project -e 'using Pkg; Pkg.instantiate()'
+    - srun -n 1 --uenv julia/25.5:v1 --view=juliaup julia --project -e 'using Pkg; Pkg.add("CUDA")'
+    - echo "Running the reference test (multiple ranks)"
+    - srun --uenv julia/25.5:v1 --view=juliaup julia --project scripts/single_particle_advection_MPI_ci.jl
+  variables:
+    SLURM_JOB_NUM_NODES: 2
+    SLURM_NTASKS_PER_NODE: 4
+    SLURM_GPUS_PER_TASK: 1
+    SLURM_TIMELIMIT: "00:30:00"
