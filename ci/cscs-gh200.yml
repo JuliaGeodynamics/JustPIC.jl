@@ -1,16 +1,31 @@
 include:
   - remote: 'https://gitlab.com/cscs-ci/recipes/-/raw/master/templates/v2/.ci-ext.yml'
 
-job1:
+unit_test:
   extends: .uenv-runner-daint-gh200
   image: julia/25.5:v1
   script:
-    - echo $CUDA_VISIBLE_DEVICES
-    - echo $SLURM_LOCALID
-    - julia --project -e 'using InteractiveUtils; versioninfo()'
-    - julia --project -e 'using Pkg; Pkg.status()'
+  - julia -e 'println("Instantiating project")
+              using Pkg
+              Pkg.develop(; path=pwd())'
+  - julia -e 'println("Running tests")
+              using Pkg
+              Pkg.test("JustPIC"; test_args=["--backend=CUDA"])'
+  variables:
+    WITH_UENV_VIEW: 'juliaup'
+    SLURM_JOB_NUM_NODES: 1
+    SLURM_NTASKS_PER_NODE: 1
+    SLURM_GPUS_PER_TASK: 1
+    SLURM_TIMELIMIT: "00:30:00"
+
+ref_test:
+  extends: .uenv-runner-daint-gh200
+  image: julia/25.5:v1
+  script:
+    - julia --project scripts/single_particle_advection_MPI.jl
   variables:
     WITH_UENV_VIEW: 'juliaup'
     SLURM_JOB_NUM_NODES: 2
     SLURM_NTASKS_PER_NODE: 4
     SLURM_GPUS_PER_TASK: 1
+    SLURM_TIMELIMIT: "00:30:00"
