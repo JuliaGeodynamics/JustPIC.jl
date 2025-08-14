@@ -14,7 +14,7 @@ function checkpointing_particles(
         t = nothing,
         dt = nothing,
         particle_args = nothing,
-        particle_args_reduced = nothing,
+        kwargs...,
     )
     fname = checkpoint_name(dst)
     return checkpointing_particles(
@@ -27,8 +27,9 @@ function checkpointing_particles(
         t = t,
         dt = dt,
         particle_args = particle_args,
-        particle_args_reduced = particle_args_reduced,
-    )
+        kwargs...,
+        )
+
 end
 
 function checkpointing_particles(
@@ -41,7 +42,7 @@ function checkpointing_particles(
         t = nothing,
         dt = nothing,
         particle_args = nothing,
-        particle_args_reduced = nothing,
+        kwargs...,
     )
     fname = checkpoint_name(dst, me)
     checkpointing_particles(
@@ -54,7 +55,7 @@ function checkpointing_particles(
         t = t,
         dt = dt,
         particle_args = particle_args,
-        particle_args_reduced = particle_args_reduced,
+        kwargs...,
     )
     return nothing
 end
@@ -76,6 +77,7 @@ Save the state of particles and related data to a checkpoint file in a jld2 form
 - `t`: The current time to be saved. If nothing is stated, the default is `nothing`.
 - `dt`: The timestep to be saved. If nothing is stated, the default is `nothing`.
 - `particle_args`: Additional particle arguments to be saved. If nothing is stated, the default is `nothing`.
+- `kwargs`: Additional keyword arguments to be saved in the checkpoint file.
 """
 function checkpointing_particles(
         dst,
@@ -87,7 +89,7 @@ function checkpointing_particles(
         t = t,
         dt = dt,
         particle_args = particle_args,
-        particle_args_reduced = particle_args_reduced,
+        kwargs...,
     )
     !isdir(dst) && mkpath(dst) # create folder in case it does not exist
 
@@ -95,7 +97,7 @@ function checkpointing_particles(
         # Save the checkpoint file in the temporary directory
         tmpfname = joinpath(tmpdir, basename(fname))
 
-        # Prepare the arguments for jldsave
+        # Build args dict dynamically
         args = Dict(
             :particles => Array(particles),
             :phases => isnothing(phases) ? nothing : Array(phases),
@@ -104,8 +106,15 @@ function checkpointing_particles(
             :time => t,
             :timestep => dt,
             :particle_args => isnothing(particle_args) ? nothing : Array.(particle_args),
-            :particle_args_reduced => isnothing(particle_args_reduced) ? nothing : Array.(particle_args_reduced),
         )
+
+        # Add any additional kwargs dynamically using their names as keys
+        for (key, value) in pairs(kwargs)
+            args[key] = isnothing(value) ? nothing :
+                       isa(value, AbstractArray) ? Array(value) :
+                       isa(value, Tuple) ? Array.(value) : value
+        end
+
         jldsave(tmpfname; args...)
 
         # Move the checkpoint file from the temporary directory to the destination directory

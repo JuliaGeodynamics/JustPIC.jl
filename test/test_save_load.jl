@@ -24,13 +24,14 @@ const backend = JustPIC.CPUBackend
     phases, pT = JP2.init_cell_arrays(particles, Val(2))
     particle_args = (phases,pT)
     particle_args_reduced = (phases,)
+    particle_args_kwarg = (phases,)
     phase_ratios = JP2.PhaseRatios(backend, 2, ni)
     initial_elevation = Ly / 2
     chain = JP2.init_markerchain(backend, nxcell, min_xcell, max_xcell, xv, initial_elevation)
     @views particles.index.data[:, 1:3, 1] .= 1.0
     @views particles.index.data[:, 4:6, 1] .= 0.0
 
-    JP2.checkpointing_particles(pwd(), particles; phases = phases, phase_ratios = phase_ratios, chain = chain, particle_args = particle_args, particle_args_reduced = particle_args_reduced)
+    JP2.checkpointing_particles(pwd(), particles; phases = phases, phase_ratios = phase_ratios, chain = chain, particle_args = particle_args, particle_args_reduced = particle_args_reduced, particle_args_kwarg = particle_args_kwarg)
 
     # test type conversion
     @test eltype(eltype(Array(phases))) === Float64
@@ -78,10 +79,12 @@ const backend = JustPIC.CPUBackend
     chain3 = data1["chain"]
     particle_args3 = data1["particle_args"]
     particle_args_reduced3 = data1["particle_args_reduced"]
+    particle_args_kwarg3 = data1["particle_args_kwarg"]
 
     @test chain3 isa JustPIC.MarkerChain{JustPIC.CPUBackend}
     @test particle_args3 isa Tuple
     @test particle_args_reduced3 isa Tuple
+    @test particle_args_kwarg3 isa Tuple
     @test Array(particles).coords[1].data == particles3.coords[1].data
     @test Array(particles).coords[2].data == particles3.coords[2].data
     @test Array(particles).index.data == particles3.index.data
@@ -115,6 +118,7 @@ const backend = JustPIC.CPUBackend
         chain_gpu = T(chain)
         particle_args_gpu2 = T.(particle_args)
         particle_args_reduced_gpu2 = T.(particle_args_reduced)
+        particle_args_kwarg_gpu2 = T.(particle_args_kwarg)
 
         @test particles_gpu isa JustPIC.Particles{Backend}
         @test phase_ratios_gpu isa JustPIC.PhaseRatios{Backend}
@@ -131,6 +135,7 @@ const backend = JustPIC.CPUBackend
         @test chain_gpu isa JustPIC.MarkerChain{Backend}
         @test particle_args_gpu2 isa Tuple
         @test particle_args_reduced_gpu2 isa Tuple
+        @test particle_args_kwarg_gpu2 isa Tuple
         @test last(typeof(phases_gpu2).parameters) <: T{Float64, 3}
         @test size(particles_gpu2.coords[1].data) == size(permutedims(particles.coords[1].data, (3, 2, 1)))
         @test size(particles_gpu2.coords[2].data) == size(permutedims(particles.coords[2].data, (3, 2, 1)))
@@ -172,13 +177,14 @@ end
     phase_ratios = JP3.PhaseRatios(backend, 2, ni)
     particle_args = (phases,pT)
     particle_args_reduced = (phases,)
+    particle_args_kwarg = (phases,)
     initial_elevation = Ly / 2
     chain = JP2.init_markerchain(backend, nxcell, min_xcell, max_xcell, xv, initial_elevation)
 
     @views particles.index.data[:, 1:3, 1] .= 1.0
     @views particles.index.data[:, 4:6, 1] .= 0.0
 
-    JP3.checkpointing_particles(pwd(), particles; phases = phases, phase_ratios = phase_ratios, particle_args = particle_args, particle_args_reduced = particle_args_reduced)
+    JP3.checkpointing_particles(pwd(), particles; phases = phases, phase_ratios = phase_ratios, particle_args = particle_args, particle_args_reduced = particle_args_reduced, particle_args_kwarg = particle_args_kwarg)
 
     # test type conversion
     @test eltype(eltype(Array(phases))) === Float64
@@ -213,10 +219,12 @@ end
     chain3 = data1["chain"]
     particle_args3 = data1["particle_args"]
     particle_args_reduced3 = data1["particle_args_reduced"]
+    particle_args_kwarg3 = data1["particle_args_kwarg"]
 
     @test chain3 isa Nothing
     @test particle_args3 isa Tuple
     @test particle_args_reduced3 isa Tuple
+    @test particle_args_kwarg3 isa Tuple
     @test Array(particles).coords[1].data == particles2.coords[1].data
     @test Array(particles).coords[2].data == particles2.coords[2].data
     @test Array(particles).index.data == particles2.index.data
