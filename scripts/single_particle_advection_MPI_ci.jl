@@ -1,4 +1,4 @@
-# using CUDA
+using CUDA
 using JustPIC, JustPIC._2D
 
 using ImplicitGlobalGrid
@@ -7,12 +7,12 @@ import MPI
 # Threads is the default backend,
 # to run on a CUDA GPU load CUDA.jl (i.e. "using CUDA"),
 # and to run on an AMD GPU load AMDGPU.jl (i.e. "using AMDGPU")
-# const backend = CUDABackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
-const backend = JustPIC.CPUBackend
+const backend = CUDABackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
+# const backend = JustPIC.CPUBackend
 
 using ParallelStencil
-# @init_parallel_stencil(CUDA, Float64, 2)
-@init_parallel_stencil(Threads, Float64, 2)
+@init_parallel_stencil(CUDA, Float64, 2)
+# @init_parallel_stencil(Threads, Float64, 2)
 
 # using GLMakie
 
