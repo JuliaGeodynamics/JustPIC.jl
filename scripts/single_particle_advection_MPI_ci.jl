@@ -1,4 +1,5 @@
 using CUDA
+CUDA.allowscalar(true) # enable scalar operations on CUDA arrays
 using JustPIC, JustPIC._2D
 
 using ImplicitGlobalGrid
