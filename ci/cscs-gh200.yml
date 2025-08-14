@@ -40,7 +40,7 @@ ref_test:
     - srun -n 1 --uenv julia/25.5:v1 --view=juliaup julia --project -e 'using Pkg; Pkg.add("CUDA")'
     - echo "Running the reference test (multiple ranks)"
     # - srun --uenv julia/25.5:v1 --view=juliaup julia --project scripts/single_particle_advection_MPI_ci.jl
-    - srun --uenv julia/25.5:v1 --view=juliaup julia --project scripts/temperature_advection_MPI_ci
+    - srun --uenv julia/25.5:v1 --view=juliaup julia --project scripts/temperature_advection_MPI_ci.jl
   variables:
     SLURM_JOB_NUM_NODES: 2
     SLURM_NTASKS_PER_NODE: 4
