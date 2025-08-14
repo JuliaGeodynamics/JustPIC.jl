@@ -7,7 +7,7 @@ using JustPIC, JustPIC._2D
 # to run on a CUDA GPU load CUDA.jl (i.e. "using CUDA"),
 # and to run on an AMD GPU load AMDGPU.jl (i.e. "using AMDGPU")
 # const backend = JustPIC.CPUBackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
-const backend = CUDABackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
+# const backend = CUDABackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
 
 using GLMakie
 using ImplicitGlobalGrid
@@ -87,9 +87,9 @@ function main()
         advection!(particles, RungeKutta2(), V, (grid_vx, grid_vy), dt)
 
         # update halos
-        update_cell_halo!(particles.coords...)
-        update_cell_halo!(particle_args...)
-        update_cell_halo!(particles.index)
+        update_halo!(particles.coords...)
+        update_halo!(particle_args...)
+        update_halo!(particles.index)
         # shuffle particles
         move_particles!(particles, xvi, particle_args)
         # interpolate T from particle to grid
