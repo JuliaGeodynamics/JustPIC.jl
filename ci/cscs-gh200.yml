@@ -7,7 +7,7 @@ job1:
     - julia --project -e 'using InteractiveUtils; versioninfo()'
     - julia --project -e 'using Pkg; Pkg.status()'
   variables:
-    WITH_UENV_VIEW: 'juliaup, modules'
+    WITH_UENV_VIEW: 'juliaup'
     SLURM_JOB_NUM_NODES: 2
     SLURM_NTASKS_PER_NODE: 4
     SLURM_GPUS_PER_TASK: 1
