@@ -49,7 +49,8 @@ function main()
     nx = ny = n - 1
     me, dims, = init_global_grid(
         n - 1, n - 1, 1;
-        init_MPI = JustPIC.MPI.Initialized() ? false : true
+        init_MPI = JustPIC.MPI.Initialized() ? false : true,
+        select_device = false
     )
     Lx = Ly = 1.0
     dxi = dx, dy = Lx / (nx_g() - 1), Ly / (ny_g() - 1)
