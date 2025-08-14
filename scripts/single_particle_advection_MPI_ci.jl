@@ -10,6 +10,8 @@ import MPI
 const backend = CUDABackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
 # const backend = JustPIC.CPUBackend
 
+CUDA.allowscalar(true)
+
 using ParallelStencil
 @init_parallel_stencil(CUDA, Float64, 2)
 # @init_parallel_stencil(Threads, Float64, 2)
