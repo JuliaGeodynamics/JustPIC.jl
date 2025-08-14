@@ -1,6 +1,6 @@
 job1:
   extends: .uenv-runner-daint-gh200
-  image:  julia/25.5:v1
+  image: julia/25.5:v1
   script:
     - echo $CUDA_VISIBLE_DEVICES
     - echo $SLURM_LOCALID
