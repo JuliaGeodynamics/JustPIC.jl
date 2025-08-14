@@ -1,0 +1,13 @@
+job1:
+  extends: .uenv-runner-daint-gh200
+  image:  julia/25.5:v1
+  script:
+    - echo $CUDA_VISIBLE_DEVICES
+    - echo $SLURM_LOCALID
+    - julia --project -e 'using InteractiveUtils; versioninfo()'
+    - julia --project -e 'using Pkg; Pkg.status()'
+  variables:
+    WITH_UENV_VIEW: 'juliaup, modules'
+    SLURM_JOB_NUM_NODES: 2
+    SLURM_NTASKS_PER_NODE: 4
+    SLURM_GPUS_PER_TASK: 1
