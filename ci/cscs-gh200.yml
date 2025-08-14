@@ -23,6 +23,7 @@ ref_test:
   image: julia/25.5:v1
   script:
     - julia --project -e 'using Pkg; Pkg.instantiate()'
+    - julia --project -e 'using Pkg; Pkg.add("CUDA")'
     - julia --project scripts/single_particle_advection_MPI.jl
   variables:
     WITH_UENV_VIEW: 'juliaup'
