@@ -5,13 +5,16 @@ unit_test:
   extends: .uenv-runner-daint-gh200
   image: julia/25.5:v1
   script:
-  - julia -e 'println("Instantiating project");
-              using Pkg;
-              Pkg.activate(pwd())'
-  - julia -e 'println("Running tests");
-              using Pkg;
-              Pkg.activate(pwd());
-              Pkg.test("JustPIC"; test_args=["--backend=CUDA"])'
+    - export MPICH_GPU_SUPPORT_ENABLED=1
+    - export IGG_CUDAAWARE_MPI=1 # IGG
+    - export JULIA_CUDA_USE_COMPAT=false # IGG
+    - julia -e 'println("Instantiating project");
+                using Pkg;
+                Pkg.activate(pwd())'
+    - julia -e 'println("Running tests");
+                using Pkg;
+                Pkg.activate(pwd());
+                Pkg.test("JustPIC"; test_args=["--backend=CUDA"])'
   variables:
     WITH_UENV_VIEW: 'juliaup'
     SLURM_JOB_NUM_NODES: 1
@@ -22,6 +25,9 @@ unit_test:
 ref_test:
   extends: .baremetal-runner-daint-gh200
   script:
+    - export MPICH_GPU_SUPPORT_ENABLED=1
+    - export IGG_CUDAAWARE_MPI=1 # IGG
+    - export JULIA_CUDA_USE_COMPAT=false # IGG
     - echo "Preparing the test environment (single rank)"
     - srun -n 1 --uenv julia/25.5:v1 --view=juliaup julia --project=. -e 'using Pkg; Pkg.instantiate()'
     - srun -n 1 --uenv julia/25.5:v1 --view=juliaup julia --project=. -e 'using Pkg; Pkg.add("CUDA")'
