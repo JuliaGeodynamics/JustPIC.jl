@@ -22,7 +22,7 @@ const backend = JustPIC.CPUBackend
 
     particles = JP2.init_particles(backend, nxcell, max_xcell, min_xcell, xvi...)
     phases, pT = JP2.init_cell_arrays(particles, Val(2))
-    particle_args = (phases,pT)
+    particle_args = (phases, pT)
     particle_args_reduced = (phases,)
     particle_args_kwarg = (phases,)
     phase_ratios = JP2.PhaseRatios(backend, 2, ni)
@@ -175,16 +175,16 @@ end
     particles = JP3.init_particles(backend, nxcell, max_xcell, min_xcell, xvi...)
     phases, pT = JP3.init_cell_arrays(particles, Val(2))
     phase_ratios = JP3.PhaseRatios(backend, 2, ni)
-    particle_args = (phases,pT)
+    particle_args = (phases, pT)
     particle_args_reduced = (phases,)
     particle_args_kwarg = (phases,)
     initial_elevation = Ly / 2
     chain = JP2.init_markerchain(backend, nxcell, min_xcell, max_xcell, xv, initial_elevation)
-
+    it = 500
     @views particles.index.data[:, 1:3, 1] .= 1.0
     @views particles.index.data[:, 4:6, 1] .= 0.0
 
-    JP3.checkpointing_particles(pwd(), particles; phases = phases, phase_ratios = phase_ratios, particle_args = particle_args, particle_args_reduced = particle_args_reduced, particle_args_kwarg = particle_args_kwarg)
+    JP3.checkpointing_particles(pwd(), particles; phases = phases, phase_ratios = phase_ratios, particle_args = particle_args, particle_args_reduced = particle_args_reduced, particle_args_kwarg = particle_args_kwarg, it = it)
 
     # test type conversion
     @test eltype(eltype(Array(phases))) === Float64
@@ -220,6 +220,7 @@ end
     particle_args3 = data1["particle_args"]
     particle_args_reduced3 = data1["particle_args_reduced"]
     particle_args_kwarg3 = data1["particle_args_kwarg"]
+    it1 = data1["it"]
 
     @test chain3 isa Nothing
     @test particle_args3 isa Tuple
