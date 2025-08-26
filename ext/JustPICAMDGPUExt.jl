@@ -427,6 +427,11 @@ module _2D
         return nothing
     end
 
+    function JustPIC._2D.smooth_slopes!(chain::MarkerChain{AMDGPUBackend}, max_angle)
+        smooth_slopes!(chain, max_angle)
+        return nothing
+    end
+
     function JustPIC._2D.fill_chain_from_vertices!(
             chain::MarkerChain{AMDGPUBackend}, topo_y
         )

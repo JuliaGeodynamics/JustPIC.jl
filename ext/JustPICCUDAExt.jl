@@ -424,6 +424,11 @@ module _2D
         return semilagrangian_advection_markerchain!(chain, method, V, grid_vxi, xvi, dt)
     end
 
+    function JustPIC._2D.smooth_slopes!(chain::MarkerChain{CUDABackend}, max_angle)
+        smooth_slopes!(chain, max_angle)
+        return nothing
+    end
+
     function JustPIC._2D.compute_rock_fraction!(
             ratios, chain::MarkerChain{CUDABackend}, xvi, dxi
         )
