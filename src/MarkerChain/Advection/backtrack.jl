@@ -2,13 +2,13 @@ using Statistics
 
 function semilagrangian_advection_markerchain!(
         chain::MarkerChain, method::AbstractAdvectionIntegrator, V, grid_vxi, grid, dt;
-        max_slope_angle_deg = 45.0
+        max_slope_angle = 45.0
     )
 
     semilagrangian_advection!(chain, method, V, grid_vxi, grid, dt)
 
     # Apply LaMEM-style slope limiting
-    smooth_slopes!(chain, deg2rad(max_slope_angle_deg))
+    smooth_slopes!(chain, deg2rad(max_slope_angle))
 
     # Mass conservation
     chain.h_vertices .+= mean(chain.h_vertices) - mean(chain.h_vertices0)
@@ -66,3 +66,37 @@ end
 
     return nothing
 end
+
+# function compute_topography_vertex_with_neighbors!(chain::MarkerChain)
+#     (; coords, index, cell_vertices, h_vertices) = chain
+
+#     @parallel (1:length(cell_vertices)) _compute_h_vertex_with_neighbors!(
+#         h_vertices, coords, index, cell_vertices
+#     )
+
+#     return nothing
+# end
+
+# @parallel_indices (ivertex) function _compute_h_vertex_with_neighbors!(
+#         h_vertices, coords, index, cell_vertices
+#     )
+#     xcorner = cell_vertices[ivertex]
+
+#     # Find which cell this vertex belongs to
+#     I = max(1, min(length(index), ivertex))
+
+#     # Check if we're at the boundaries and handle accordingly
+#     if I == 1 || I == length(index)
+#         # For boundary vertices, use simpler interpolation
+#         x_cell = @cell coords[1][I]
+#         y_cell = @cell coords[2][I]
+#         h_vertices[ivertex] = interp1D_extremas(xcorner, x_cell, y_cell)
+#     else
+#         # For interior vertices, use the neighbor-aware interpolation
+#         x_cell = @cell coords[1][I]
+#         y_cell = @cell coords[2][I]
+#         h_vertices[ivertex] = interp1D_inner(xcorner, x_cell, y_cell, coords, I)
+#     end
+
+#     return nothing
+# end
