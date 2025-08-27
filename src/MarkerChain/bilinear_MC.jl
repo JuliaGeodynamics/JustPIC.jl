@@ -117,12 +117,10 @@ function smooth_slopes!(chain::MarkerChain, max_angle::Real)
 
     tan_max_angle = tan(max_angle)
 
-    # Create temporary array for smoothed values (avoid allocation inside kernel)
     h_smoothed = similar(h_vertices)
     copyto!(h_smoothed, h_vertices)  # Initialize with original values
 
-    # GPU-parallel smoothing kernel
-    @parallel (2:(n-1)) smooth_slopes_kernel!(
+    @parallel (2:(n - 1)) smooth_slopes_kernel!(
         h_smoothed, h_vertices, cell_vertices, tan_max_angle
     )
 
@@ -135,10 +133,10 @@ end
         h_smoothed, h_vertices, cell_vertices, tan_max_angle
     )
     # Each thread handles one vertex independently
-    dx_left = cell_vertices[i] - cell_vertices[i-1]
-    dx_right = cell_vertices[i+1] - cell_vertices[i]
-    dh_left = h_vertices[i] - h_vertices[i-1]
-    dh_right = h_vertices[i+1] - h_vertices[i]
+    dx_left = cell_vertices[i] - cell_vertices[i - 1]
+    dx_right = cell_vertices[i + 1] - cell_vertices[i]
+    dh_left = h_vertices[i] - h_vertices[i - 1]
+    dh_right = h_vertices[i + 1] - h_vertices[i]
 
     slope_left = abs(dh_left / dx_left)
     slope_right = abs(dh_right / dx_right)
@@ -146,7 +144,7 @@ end
     # If either adjacent slope is too steep, apply smoothing
     if slope_left > tan_max_angle || slope_right > tan_max_angle
         # Simple 3-point averaging
-        h_smoothed[i] = 0.25 * (h_vertices[i-1] + 2*h_vertices[i] + h_vertices[i+1])
+        h_smoothed[i] = 0.25 * (h_vertices[i - 1] + 2 * h_vertices[i] + h_vertices[i + 1])
     else
         # Keep original value
         h_smoothed[i] = h_vertices[i]
