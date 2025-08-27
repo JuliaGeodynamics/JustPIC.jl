@@ -66,37 +66,3 @@ end
 
     return nothing
 end
-
-# function compute_topography_vertex_with_neighbors!(chain::MarkerChain)
-#     (; coords, index, cell_vertices, h_vertices) = chain
-
-#     @parallel (1:length(cell_vertices)) _compute_h_vertex_with_neighbors!(
-#         h_vertices, coords, index, cell_vertices
-#     )
-
-#     return nothing
-# end
-
-# @parallel_indices (ivertex) function _compute_h_vertex_with_neighbors!(
-#         h_vertices, coords, index, cell_vertices
-#     )
-#     xcorner = cell_vertices[ivertex]
-
-#     # Find which cell this vertex belongs to
-#     I = max(1, min(length(index), ivertex))
-
-#     # Check if we're at the boundaries and handle accordingly
-#     if I == 1 || I == length(index)
-#         # For boundary vertices, use simpler interpolation
-#         x_cell = @cell coords[1][I]
-#         y_cell = @cell coords[2][I]
-#         h_vertices[ivertex] = interp1D_extremas(xcorner, x_cell, y_cell)
-#     else
-#         # For interior vertices, use the neighbor-aware interpolation
-#         x_cell = @cell coords[1][I]
-#         y_cell = @cell coords[2][I]
-#         h_vertices[ivertex] = interp1D_inner(xcorner, x_cell, y_cell, coords, I)
-#     end
-
-#     return nothing
-# end
