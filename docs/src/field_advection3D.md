@@ -35,9 +35,9 @@ Lx  = Ly = Lz = 1.0 # domain size
 ni  = nx, ny, nz
 Li  = Lx, Ly, Lz
 
-xvi = xv, yv, zv = ntuple(i -> range(0, Li[i], length=n), Val(3)) # cell vertices
-xci = xc, yc, zc = ntuple(i -> range(0+dxi[i]/2, Li[i]-dxi[i]/2, length=ni[i]), Val(3)) # cell centers
+xvi = xv, yv, zv = ntuple(i -> LinRange(0, Li[i], n), Val(3)) # cell vertices
 dxi = dx, dy, dz = ntuple(i -> xvi[i][2] - xvi[i][1], Val(3)) # cell size
+xci = xc, yc, zc = ntuple(i -> LinRange(0+dxi[i]/2, Li[i]-dxi[i]/2, ni[i]), Val(3)) # cell centers
 ```
 
 JustPIC uses staggered grids for the velocity field, so we need to define the staggered grid for Vx and Vy. We
@@ -57,7 +57,7 @@ function expand_range(x::AbstractRange)
     x1, x2 = extrema(x)
     xI = round(x1-dx; sigdigits=5)
     xF = round(x2+dx; sigdigits=5)
-    range(xI, xF, length=n+2)
+    LinRange(xI, xF, n+2)
 end
 ```
 
