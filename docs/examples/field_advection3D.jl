@@ -7,7 +7,7 @@ using JustPIC
 using JustPIC._3D
 
 # We need to specify what backend are we running our simulation on. For convenience we define the backend as a constant. In this case we use the CPU backend, but we could also use the CUDA (CUDABackend) or AMDGPU (AMDGPUBackend) backends.
-const backend = CPUBackend 
+const backend = JustPIC.CPUBackend 
 
 # we define an analytical flow solution to advected our particles
 vx_stream(x, z) =  250 * sin(π*x) * cos(π*z)
@@ -20,10 +20,10 @@ nx  = ny = nz = n-1 # number of cells in x and y
 Lx  = Ly = Lz = 1.0 # domain size
 ni  = nx, ny, nz
 Li  = Lx, Ly, Lz
+dxi = dx, dy, dz = Li ./ ni # cell size
 
-xvi = xv, yv, zv = ntuple(i -> range(0, Li[i], length=n), Val(3)) # cell vertices
-xci = xc, yc, zc = ntuple(i -> range(0+dxi[i]/2, Li[i]-dxi[i]/2, length=ni[i]), Val(3)) # cell centers
-dxi = dx, dy, dz = ntuple(i -> xvi[i][2] - xvi[i][1], Val(3)) # cell size
+xvi = xv, yv, zv = ntuple(i -> LinRange(0, Li[i], n), Val(3)) # cell vertices
+xci = xc, yc, zc = ntuple(i -> LinRange(0+dxi[i]/2, Li[i]-dxi[i]/2, ni[i]), Val(3)) # cell centers
 
 # JustPIC uses staggered grids for the velocity field, so we need to define the staggered grid for Vx and Vy. We 
 grid_vx = xv              , expand_range(yc), expand_range(zc) # staggered grid for Vx
@@ -37,7 +37,7 @@ function expand_range(x::AbstractRange)
     x1, x2 = extrema(x)
     xI = round(x1-dx; sigdigits=5)
     xF = round(x2+dx; sigdigits=5)
-    range(xI, xF, length=n+2)
+    LinRange(xI, xF, n+2)
 end
 
 # Next we initialize the particles
@@ -45,7 +45,7 @@ nxcell    = 24 # initial number of particles per cell
 max_xcell = 48 # maximum number of particles per cell
 min_xcell = 14 # minimum number of particles per cell
 particles = init_particles(
-    backend, nxcell, max_xcell, min_xcell, xvi, dxi, ni
+    backend, nxcell, max_xcell, min_xcell, xvi...
 )
 
 # and the velocity and field we want to advect (on the staggered grid)
