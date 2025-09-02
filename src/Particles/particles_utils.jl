@@ -35,9 +35,10 @@ function init_particles(
     return init_particles(backend, nxcell, max_xcell, min_xcell, xvi, di, ni; buffer = buffer)
 end
 
+# random distribution
 function init_particles(
         backend,
-        nxcell,
+        nxcell::Number,
         max_xcell,
         min_xcell,
         coords::NTuple{N, AbstractArray},
@@ -45,13 +46,91 @@ function init_particles(
         nᵢ::NTuple{N, I};
         buffer = 1 - 1.0e-5,
     ) where {N, T, I}
-    ncells = prod(nᵢ)
-    np = max_xcell * ncells
-    pxᵢ = ntuple(_ -> @rand(nᵢ..., celldims = (max_xcell,)), Val(N))
+
+    # number of particles per quadrant
+    NQ = N == 2 ? 4 : 8
+    np_quadrant = ceil(Int, nxcell / NQ)
+    nxcell = np_quadrant * NQ
+    max_xcell = max(nxcell, max_xcell)
+    np = max_xcell * prod(nᵢ)
+    pxᵢ = ntuple(_ -> @fill(NaN, nᵢ..., celldims = (max_xcell,)), Val(N))
     index = @fill(false, nᵢ..., celldims = (max_xcell,), eltype = Bool)
 
+
+    @parallel (@idx nᵢ) fill_coords_index(
+        pxᵢ, index, coords, dxᵢ, np_quadrant, buffer
+    )
+
+    return Particles(backend, pxᵢ, index, nxcell, max_xcell, min_xcell, np)
+end
+
+@parallel_indices (I...) function fill_coords_index(
+        pxᵢ::NTuple{N, T}, index, coords, dxᵢ, np_quadrant, buffer
+    ) where {N, T}
+    # lower-left corner of the cell
+    x0ᵢ = ntuple(Val(N)) do ndim
+        @inline
+        coords[ndim][I[ndim]]
+    end
+    masks = quadrant_masks(Val(N))
+    # fill index array
+    l = 0 # particle counter
+    for iq in eachindex(masks)
+        xcᵢ = x0ᵢ .+ dxᵢ ./ 2 .* masks[iq] # quadrant lower-left coordinates
+        for _ in 1:np_quadrant
+            l += 1
+            ntuple(Val(N)) do ndim
+                @inline
+                p_coord = xcᵢ[ndim] + dxᵢ[ndim] / 2 * rand()
+                @index pxᵢ[ndim][l, I...] = p_coord
+            end
+            @index index[l, I...] = true
+        end
+    end
+    return nothing
+end
+
+@inline quadrant_masks(::Val{2}) = (
+    (0, 0),
+    (1, 0),
+    (0, 1),
+    (1, 1),
+)
+
+@inline quadrant_masks(::Val{3}) = (
+    (0, 0, 0),
+    (1, 0, 0),
+    (0, 1, 0),
+    (1, 1, 0),
+    (0, 0, 1),
+    (1, 0, 1),
+    (0, 1, 1),
+    (1, 1, 1),
+)
+
+
+# regular distribution of markers
+function init_particles(
+        backend,
+        nxdim::NTuple{N, Integer},
+        max_xcell,
+        min_xcell,
+        coords::NTuple{N, AbstractArray},
+        dxᵢ::NTuple{N, T},
+        nᵢ::NTuple{N, I};
+        buffer = 1 - 1.0e-5,
+    ) where {N, T, I}
+    nxcell = prod(nxdim)
+    ncells = prod(nᵢ)
+    np = max_xcell * ncells
+    pxᵢ = ntuple(_ -> @fill(NaN, nᵢ..., celldims = (max_xcell,)), Val(N))
+    index = @fill(false, nᵢ..., celldims = (max_xcell,), eltype = Bool)
+
+    dxi = compute_dx(coords)
+    offsets = ntuple(i -> LinRange(0, dxi[i], nxdim[i] + 2)[2:(end - 1)], Val(N))
+
     @parallel_indices (I...) function fill_coords_index(
-            pxᵢ::NTuple{N, T}, index, coords, dxᵢ, nxcell, max_xcell, buffer
+            pxᵢ::NTuple{N, T}, index, coords, nxcell, max_xcell, offsets
         ) where {N, T}
         # lower-left corner of the cell
         x0ᵢ = ntuple(Val(N)) do ndim
@@ -59,26 +138,37 @@ function init_particles(
         end
 
         # fill index array
-        for l in 1:max_xcell
-            if l ≤ nxcell
-                ntuple(Val(N)) do ndim
-                    @index pxᵢ[ndim][l, I...] =
-                        x0ᵢ[ndim] +
-                        dxᵢ[ndim] * (@index(pxᵢ[ndim][l, I...]) * buffer + (1 - buffer) / 2)
-                end
-                @index index[l, I...] = true
+        if N == 2
+            for i in axes(offsets[1], 1), j in axes(offsets[2], 1)
+                l = i + (j - 1) * nxdim[1]
+                ndim = 1
+                @index pxᵢ[ndim][l, I...] = x0ᵢ[ndim] + offsets[ndim][i]
+                ndim = 2
+                @index pxᵢ[ndim][l, I...] = x0ᵢ[ndim] + offsets[ndim][j]
 
-            else
-                ntuple(Val(N)) do ndim
-                    @index pxᵢ[ndim][l, I...] = NaN
-                end
+                @index index[l, I...] = true
             end
+        elseif N == 3
+            for i in axes(offsets[1], 1), j in axes(offsets[2], 1), k in axes(offsets[3], 1)
+                l = i + (j - 1) * nxdim[1] + (k - 1) * nxdim[1] * nxdim[2]
+                ndim = 1
+                @index pxᵢ[ndim][l, I...] = x0ᵢ[ndim] + offsets[ndim][i]
+                ndim = 2
+                @index pxᵢ[ndim][l, I...] = x0ᵢ[ndim] + offsets[ndim][j]
+                ndim = 3
+                @index pxᵢ[ndim][l, I...] = x0ᵢ[ndim] + offsets[ndim][k]
+
+                @index index[l, I...] = true
+            end
+        else
+            error("Unsupported number of dimensions: $N")
         end
+
         return nothing
     end
 
     @parallel (@idx nᵢ) fill_coords_index(
-        pxᵢ, index, coords, dxᵢ, nxcell, max_xcell, buffer
+        pxᵢ, index, coords, nxcell, max_xcell, offsets
     )
 
     return Particles(backend, pxᵢ, index, nxcell, max_xcell, min_xcell, np)
