@@ -53,14 +53,12 @@ function init_particles(
     nxcell      = np_quadrant * NQ
     max_xcell   = max(nxcell, max_xcell)
     np          = max_xcell * prod(nᵢ)
-
-    # pxᵢ   = ntuple(_ -> @rand(nᵢ..., celldims = (max_xcell,)), Val(N))
     pxᵢ   = ntuple(_ -> @fill(NaN, nᵢ..., celldims = (max_xcell,)), Val(N))
     index = @fill(false, nᵢ..., celldims = (max_xcell,), eltype = Bool)
 
 
     @parallel (@idx nᵢ) fill_coords_index(
-        pxᵢ, index, coords, dxᵢ, nxcell, buffer
+        pxᵢ, index, coords, dxᵢ, np_quadrant, buffer
     )
 
     return Particles(backend, pxᵢ, index, nxcell, max_xcell, min_xcell, np)
@@ -79,7 +77,7 @@ end
     l = 0 # particle counter
     for iq in eachindex(masks)
         xcᵢ = x0ᵢ .+ dxᵢ ./ 2 .* masks[iq] # quadrant lower-left coordinates
-        for _ in np_quadrant
+        for _ in 1:np_quadrant
             l += 1
             ntuple(Val(N)) do ndim
                 @inline
@@ -145,7 +143,6 @@ function init_particles(
                 l = i + (j - 1) * nxdim[1]
                 ndim = 1
                 @index pxᵢ[ndim][l, I...] = x0ᵢ[ndim] + offsets[ndim][i]
-                # @show i, offsets[ndim][i]
                 ndim = 2
                 @index pxᵢ[ndim][l, I...] = x0ᵢ[ndim] + offsets[ndim][j]
                 
