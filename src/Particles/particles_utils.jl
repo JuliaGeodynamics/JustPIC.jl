@@ -48,12 +48,12 @@ function init_particles(
     ) where {N, T, I}
 
     # number of particles per quadrant
-    NQ          = N == 2 ? 4 : 8
+    NQ = N == 2 ? 4 : 8
     np_quadrant = ceil(Int, nxcell / NQ)
-    nxcell      = np_quadrant * NQ
-    max_xcell   = max(nxcell, max_xcell)
-    np          = max_xcell * prod(nᵢ)
-    pxᵢ   = ntuple(_ -> @fill(NaN, nᵢ..., celldims = (max_xcell,)), Val(N))
+    nxcell = np_quadrant * NQ
+    max_xcell = max(nxcell, max_xcell)
+    np = max_xcell * prod(nᵢ)
+    pxᵢ = ntuple(_ -> @fill(NaN, nᵢ..., celldims = (max_xcell,)), Val(N))
     index = @fill(false, nᵢ..., celldims = (max_xcell,), eltype = Bool)
 
 
@@ -65,8 +65,8 @@ function init_particles(
 end
 
 @parallel_indices (I...) function fill_coords_index(
-            pxᵢ::NTuple{N, T}, index, coords, dxᵢ, np_quadrant, buffer
-        ) where {N, T}
+        pxᵢ::NTuple{N, T}, index, coords, dxᵢ, np_quadrant, buffer
+    ) where {N, T}
     # lower-left corner of the cell
     x0ᵢ = ntuple(Val(N)) do ndim
         @inline
@@ -105,7 +105,7 @@ end
     (0, 0, 1),
     (1, 0, 1),
     (0, 1, 1),
-    (1, 1, 1)
+    (1, 1, 1),
 )
 
 
@@ -145,7 +145,7 @@ function init_particles(
                 @index pxᵢ[ndim][l, I...] = x0ᵢ[ndim] + offsets[ndim][i]
                 ndim = 2
                 @index pxᵢ[ndim][l, I...] = x0ᵢ[ndim] + offsets[ndim][j]
-                
+
                 @index index[l, I...] = true
             end
         elseif N == 3
@@ -163,7 +163,7 @@ function init_particles(
         else
             error("Unsupported number of dimensions: $N")
         end
-  
+
         return nothing
     end
 
