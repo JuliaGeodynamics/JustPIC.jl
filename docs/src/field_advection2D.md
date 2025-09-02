@@ -31,9 +31,9 @@ define the model domain
 n  = 256        # number of nodes
 nx = ny = n-1   # number of cells in x and y
 Lx = Ly = 1.0   # domain size
-xvi = xv, yv = range(0, Lx, length=n), range(0, Ly, length=n) # cell vertices
+xvi = xv, yv = LinRange(0, Lx, n), LinRange(0, Ly, n) # cell vertices
 dxi = dx, dy = xv[2] - xv[1], yv[2] - yv[1] # cell size
-xci = xc, yc = range(0+dx/2, Lx-dx/2, length=n-1), range(0+dy/2, Ly-dy/2, length=n-1) # cell centers
+xci = xc, yc = LinRange(0+dx/2, Lx-dx/2, n-1), LinRange(0+dy/2, Ly-dy/2, n-1) # cell centers
 ```
 
 JustPIC uses staggered grids for the velocity field, so we need to define the staggered grid for Vx and Vy. We
@@ -52,7 +52,7 @@ function expand_range(x::AbstractRange)
     x1, x2 = extrema(x)
     xI = round(x1-dx; sigdigits=5)
     xF = round(x2+dx; sigdigits=5)
-    range(xI, xF, length=n+2)
+    LinRange(xI, xF, n + 2)
 end
 ```
 
@@ -96,7 +96,7 @@ nothing #hide
 we can now start the simulation
 
 ```julia
-dt = min(dx / maximum(abs.(Array(Vx))),  dy / maximum(abs.(Array(Vy))));
+dt = min(dx / maximum(abs.(Array(Vx))),  dy / maximum(abs.(Array(Vy)))) / 2
 niter = 250
 for it in 1:niter
     advection!(particles, RungeKutta2(), V, (grid_vx, grid_vy), dt) # advect particles
