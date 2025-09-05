@@ -53,7 +53,7 @@ function main()
     volcano_center = 0.5
     volcano_height = 0.5
     volcano_width = 0.1
-    gaussian_elevation = volcano_height .* exp.(-((xv .- volcano_center).^2) ./ (2 * volcano_width^2))
+    gaussian_elevation = volcano_height .* exp.(-((xv .- volcano_center) .^ 2) ./ (2 * volcano_width^2))
     initial_elevation = Ly / 2
     chain = init_markerchain(backend, nxcell, min_xcell, max_xcell, xv, initial_elevation)
     steep_topography = Ly / 2 .+ gaussian_elevation
