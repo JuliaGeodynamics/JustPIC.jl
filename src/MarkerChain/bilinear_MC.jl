@@ -105,3 +105,48 @@ function _reconstruct_h_from_vertex_kernel!(
 
     return nothing
 end
+
+# LaMEM-style slope limiting for numerical stability
+function smooth_slopes!(chain::MarkerChain, max_angle::Real)
+    (; h_vertices, cell_vertices) = chain
+    n = length(h_vertices)
+
+    n < 3 && return nothing  # Need at least 3 vertices for smoothing
+
+    tan_max_angle = tan(max_angle)
+
+    h_smoothed = similar(h_vertices)
+    copyto!(h_smoothed, h_vertices)  # Initialize with original values
+
+    @parallel (2:(n - 1)) smooth_slopes_kernel!(
+        h_smoothed, h_vertices, cell_vertices, tan_max_angle
+    )
+
+    # Copy results back
+    copyto!(h_vertices, h_smoothed)
+    return nothing
+end
+
+@parallel_indices (i) function smooth_slopes_kernel!(
+        h_smoothed, h_vertices, cell_vertices, tan_max_angle
+    )
+    # Each thread handles one vertex independently
+    dx_left = cell_vertices[i] - cell_vertices[i - 1]
+    dx_right = cell_vertices[i + 1] - cell_vertices[i]
+    dh_left = h_vertices[i] - h_vertices[i - 1]
+    dh_right = h_vertices[i + 1] - h_vertices[i]
+
+    slope_left = abs(dh_left / dx_left)
+    slope_right = abs(dh_right / dx_right)
+
+    # If either adjacent slope is too steep, apply smoothing
+    if slope_left > tan_max_angle || slope_right > tan_max_angle
+        # Simple 3-point averaging
+        h_smoothed[i] = 0.25 * (h_vertices[i - 1] + 2 * h_vertices[i] + h_vertices[i + 1])
+    else
+        # Keep original value
+        h_smoothed[i] = h_vertices[i]
+    end
+
+    return nothing
+end
