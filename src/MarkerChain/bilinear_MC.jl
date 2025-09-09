@@ -111,9 +111,7 @@ function smooth_slopes!(chain::MarkerChain, max_angle::Real)
     (; h_vertices, cell_vertices) = chain
     n = length(h_vertices)
 
-    if n < 3
-        return  # Need at least 3 vertices for smoothing
-    end
+n < 3 && return nothing  # Need at least 3 vertices for smoothing
 
     tan_max_angle = tan(max_angle)
 
