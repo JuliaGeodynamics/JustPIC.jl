@@ -32,11 +32,11 @@ function init_particles(
     di = compute_dx(xvi)
     ni = @. length(xvi) - 1
 
-    return init_particles(backend, nxcell, max_xcell, min_xcell, xvi, di, ni)
+    return _init_particles(backend, nxcell, max_xcell, min_xcell, xvi, di, ni)
 end
 
 # random distribution
-function init_particles(
+function _init_particles(
         backend,
         nxcell::Number,
         max_xcell,
@@ -87,7 +87,7 @@ end
 end
 
 # regular distribution of markers
-function init_particles(
+function _init_particles(
         backend,
         nxdim::NTuple{N, Integer},
         max_xcell,

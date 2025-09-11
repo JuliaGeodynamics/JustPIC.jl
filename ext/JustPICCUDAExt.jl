@@ -195,7 +195,7 @@ module _2D
         di = compute_dx(xvi)
         ni = @. length(xvi) - 1
 
-        return _init_particles(backend, nxcell, max_xcell, min_xcell, xvi, di, ni)
+        return _init_particles(CUDABackend, nxcell, max_xcell, min_xcell, xvi, di, ni)
     end
 
     # function JustPIC._2D.init_particles(
@@ -638,7 +638,7 @@ module _3D
         di = compute_dx(xvi)
         ni = @. length(xvi) - 1
 
-        return _init_particles(backend, nxcell, max_xcell, min_xcell, xvi, di, ni)
+        return _init_particles(CUDABackend, nxcell, max_xcell, min_xcell, xvi, di, ni)
     end
 
     # function JustPIC._3D.init_particles(
