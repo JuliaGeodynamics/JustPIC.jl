@@ -27,24 +27,23 @@ Initialize the particles object.
 - `xvi`: Grid cells vertices
 """
 function init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi::Vararg{N, T}; buffer = 1 - 1.0e-5
+        backend, nxcell, max_xcell, min_xcell, xvi::Vararg{N, T}
     ) where {N, T}
     di = compute_dx(xvi)
     ni = @. length(xvi) - 1
 
-    return init_particles(backend, nxcell, max_xcell, min_xcell, xvi, di, ni; buffer = buffer)
+    return _init_particles(backend, nxcell, max_xcell, min_xcell, xvi, di, ni)
 end
 
 # random distribution
-function init_particles(
+function _init_particles(
         backend,
         nxcell::Number,
         max_xcell,
         min_xcell,
         coords::NTuple{N, AbstractArray},
         dxᵢ::NTuple{N, T},
-        nᵢ::NTuple{N, I};
-        buffer = 1 - 1.0e-5,
+        nᵢ::NTuple{N, I}
     ) where {N, T, I}
 
     # number of particles per quadrant
@@ -56,16 +55,15 @@ function init_particles(
     pxᵢ = ntuple(_ -> @fill(NaN, nᵢ..., celldims = (max_xcell,)), Val(N))
     index = @fill(false, nᵢ..., celldims = (max_xcell,), eltype = Bool)
 
-
     @parallel (@idx nᵢ) fill_coords_index(
-        pxᵢ, index, coords, dxᵢ, np_quadrant, buffer
+        pxᵢ, index, coords, dxᵢ, np_quadrant
     )
 
     return Particles(backend, pxᵢ, index, nxcell, max_xcell, min_xcell, np)
 end
 
 @parallel_indices (I...) function fill_coords_index(
-        pxᵢ::NTuple{N, T}, index, coords, dxᵢ, np_quadrant, buffer
+        pxᵢ::NTuple{N, T}, index, coords, dxᵢ, np_quadrant
     ) where {N, T}
     # lower-left corner of the cell
     x0ᵢ = ntuple(Val(N)) do ndim
@@ -76,13 +74,11 @@ end
     # fill index array
     l = 0 # particle counter
     for iq in eachindex(masks)
-        xcᵢ = x0ᵢ .+ dxᵢ ./ 2 .* masks[iq] # quadrant lower-left coordinates
+        xcᵢ = x0ᵢ .+ dxᵢ .* 0.5 .* masks[iq] # quadrant lower-left coordinates
         for _ in 1:np_quadrant
             l += 1
-            ntuple(Val(N)) do ndim
-                @inline
-                p_coord = xcᵢ[ndim] + dxᵢ[ndim] / 2 * rand()
-                @index pxᵢ[ndim][l, I...] = p_coord
+            for ndim in 1:N
+                @index pxᵢ[ndim][l, I...] = xcᵢ[ndim] + dxᵢ[ndim] / 2 * rand()
             end
             @index index[l, I...] = true
         end
@@ -90,35 +86,15 @@ end
     return nothing
 end
 
-@inline quadrant_masks(::Val{2}) = (
-    (0, 0),
-    (1, 0),
-    (0, 1),
-    (1, 1),
-)
-
-@inline quadrant_masks(::Val{3}) = (
-    (0, 0, 0),
-    (1, 0, 0),
-    (0, 1, 0),
-    (1, 1, 0),
-    (0, 0, 1),
-    (1, 0, 1),
-    (0, 1, 1),
-    (1, 1, 1),
-)
-
-
 # regular distribution of markers
-function init_particles(
+function _init_particles(
         backend,
         nxdim::NTuple{N, Integer},
         max_xcell,
         min_xcell,
         coords::NTuple{N, AbstractArray},
         dxᵢ::NTuple{N, T},
-        nᵢ::NTuple{N, I};
-        buffer = 1 - 1.0e-5,
+        nᵢ::NTuple{N, I}
     ) where {N, T, I}
     nxcell = prod(nxdim)
     ncells = prod(nᵢ)
@@ -130,7 +106,7 @@ function init_particles(
     offsets = ntuple(i -> LinRange(0, dxi[i], nxdim[i] + 2)[2:(end - 1)], Val(N))
 
     @parallel_indices (I...) function fill_coords_index(
-            pxᵢ::NTuple{N, T}, index, coords, nxcell, max_xcell, offsets
+            pxᵢ::NTuple{N, T}, index, coords, offsets
         ) where {N, T}
         # lower-left corner of the cell
         x0ᵢ = ntuple(Val(N)) do ndim
@@ -168,8 +144,26 @@ function init_particles(
     end
 
     @parallel (@idx nᵢ) fill_coords_index(
-        pxᵢ, index, coords, nxcell, max_xcell, offsets
+        pxᵢ, index, coords, offsets
     )
 
     return Particles(backend, pxᵢ, index, nxcell, max_xcell, min_xcell, np)
 end
+
+@inline quadrant_masks(::Val{2}) = (
+    (0, 0),
+    (1, 0),
+    (0, 1),
+    (1, 1),
+)
+
+@inline quadrant_masks(::Val{3}) = (
+    (0, 0, 0),
+    (1, 0, 0),
+    (0, 1, 0),
+    (1, 1, 0),
+    (0, 0, 1),
+    (1, 0, 1),
+    (0, 1, 1),
+    (1, 1, 1),
+)
