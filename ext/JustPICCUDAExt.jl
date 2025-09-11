@@ -192,9 +192,10 @@ module _2D
     function JustPIC._2D.init_particles(
             ::Type{CUDABackend}, nxcell, max_xcell, min_xcell, xvi::Vararg{N, T}
         ) where {N, T}
-        return init_particles(
-            CUDABackend, nxcell, max_xcell, min_xcell, xvi...
-        )
+        di = compute_dx(xvi)
+        ni = @. length(xvi) - 1
+
+        return _init_particles(backend, nxcell, max_xcell, min_xcell, xvi, di, ni)
     end
 
     # function JustPIC._2D.init_particles(
@@ -634,9 +635,10 @@ module _3D
     function JustPIC._3D.init_particles(
             ::Type{CUDABackend}, nxcell, max_xcell, min_xcell, xvi::Vararg{N, T}
         ) where {N, T}
-        return init_particles(
-            CUDABackend, nxcell, max_xcell, min_xcell, xvi...
-        )
+        di = compute_dx(xvi)
+        ni = @. length(xvi) - 1
+
+        return _init_particles(backend, nxcell, max_xcell, min_xcell, xvi, di, ni)
     end
 
     # function JustPIC._3D.init_particles(
