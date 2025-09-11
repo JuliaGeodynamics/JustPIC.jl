@@ -189,11 +189,13 @@ module _2D
         return SubgridDiffusionCellArrays(particles; loc = loc)
     end
 
+    backend, nxcell, max_xcell, min_xcell, xvi::Vararg{N, T}
+
     function JustPIC._2D.init_particles(
-            ::Type{CUDABackend}, nxcell, max_xcell, min_xcell, x, y
-        )
+            ::Type{CUDABackend}, nxcell, max_xcell, min_xcell, xvi::Vararg{N, T}
+        ) where {N, T}
         return init_particles(
-            CUDABackend, nxcell, max_xcell, min_xcell, x, y
+            CUDABackend, nxcell, max_xcell, min_xcell, xvi...
         )
     end
 
@@ -632,10 +634,10 @@ module _3D
     end
 
     function JustPIC._3D.init_particles(
-            ::Type{CUDABackend}, nxcell, max_xcell, min_xcell, x, y, z
-        )
+            ::Type{CUDABackend}, nxcell, max_xcell, min_xcell, xvi::Vararg{N, T}
+        ) where {N, T}
         return init_particles(
-            CUDABackend, nxcell, max_xcell, min_xcell, x, y, z
+            CUDABackend, nxcell, max_xcell, min_xcell, xvi...
         )
     end
 
