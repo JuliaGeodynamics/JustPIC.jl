@@ -219,7 +219,7 @@ module _2D
             coords::NTuple{N, AbstractArray},
             dxᵢ::NTuple{N, T},
             nᵢ::NTuple{N, I}
-        ) where {T, I}
+        ) where {N, T, I}
         return init_particles(
             CUDABackend, nxdim, max_xcell, min_xcell, coords, dxᵢ, nᵢ
         )
@@ -661,7 +661,7 @@ module _3D
             coords::NTuple{N, AbstractArray},
             dxᵢ::NTuple{N, T},
             nᵢ::NTuple{N, I}
-        ) where {T, I}
+        ) where {N, T, I}
         return init_particles(
             CUDABackend, nxdim, max_xcell, min_xcell, coords, dxᵢ, nᵢ
         )
