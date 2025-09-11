@@ -223,9 +223,7 @@ end
         nxcell,
         max_xcell,
         min_xcell,
-        values(verts),
-        values(Δ),
-        values(Nc)
+        values(verts)...,
     ) # random position by default
 
     # Initialise phase field
