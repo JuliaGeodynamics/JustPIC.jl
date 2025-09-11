@@ -27,12 +27,12 @@ Initialize the particles object.
 - `xvi`: Grid cells vertices
 """
 function init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi::Vararg{N, T}; buffer = 1 - 1.0e-5
+        backend, nxcell, max_xcell, min_xcell, xvi::Vararg{N, T}
     ) where {N, T}
     di = compute_dx(xvi)
     ni = @. length(xvi) - 1
 
-    return init_particles(backend, nxcell, max_xcell, min_xcell, xvi, di, ni; buffer = buffer)
+    return init_particles(backend, nxcell, max_xcell, min_xcell, xvi, di, ni)
 end
 
 # random distribution
@@ -43,8 +43,7 @@ function init_particles(
         min_xcell,
         coords::NTuple{N, AbstractArray},
         dxᵢ::NTuple{N, T},
-        nᵢ::NTuple{N, I};
-        buffer = 1 - 1.0e-5,
+        nᵢ::NTuple{N, I}
     ) where {N, T, I}
 
     # number of particles per quadrant
@@ -55,7 +54,6 @@ function init_particles(
     np = max_xcell * prod(nᵢ)
     pxᵢ = ntuple(_ -> @fill(NaN, nᵢ..., celldims = (max_xcell,)), Val(N))
     index = @fill(false, nᵢ..., celldims = (max_xcell,), eltype = Bool)
-
 
     @parallel (@idx nᵢ) fill_coords_index(
         pxᵢ, index, coords, dxᵢ, np_quadrant
@@ -88,25 +86,6 @@ end
     return nothing
 end
 
-@inline quadrant_masks(::Val{2}) = (
-    (0, 0),
-    (1, 0),
-    (0, 1),
-    (1, 1),
-)
-
-@inline quadrant_masks(::Val{3}) = (
-    (0, 0, 0),
-    (1, 0, 0),
-    (0, 1, 0),
-    (1, 1, 0),
-    (0, 0, 1),
-    (1, 0, 1),
-    (0, 1, 1),
-    (1, 1, 1),
-)
-
-
 # regular distribution of markers
 function init_particles(
         backend,
@@ -115,8 +94,7 @@ function init_particles(
         min_xcell,
         coords::NTuple{N, AbstractArray},
         dxᵢ::NTuple{N, T},
-        nᵢ::NTuple{N, I};
-        buffer = 1 - 1.0e-5,
+        nᵢ::NTuple{N, I}
     ) where {N, T, I}
     nxcell = prod(nxdim)
     ncells = prod(nᵢ)
@@ -171,3 +149,22 @@ function init_particles(
 
     return Particles(backend, pxᵢ, index, nxcell, max_xcell, min_xcell, np)
 end
+
+@inline quadrant_masks(::Val{2}) = (
+    (0, 0),
+    (1, 0),
+    (0, 1),
+    (1, 1),
+)
+
+@inline quadrant_masks(::Val{3}) = (
+    (0, 0, 0),
+    (1, 0, 0),
+    (0, 1, 0),
+    (1, 1, 0),
+    (0, 0, 1),
+    (1, 0, 1),
+    (0, 1, 1),
+    (1, 1, 1),
+)
+
