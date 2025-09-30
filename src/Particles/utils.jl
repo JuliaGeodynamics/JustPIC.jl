@@ -44,7 +44,8 @@ end
 end
 
 @inline compute_dx(::Tuple{}) = ()
-@inline compute_dx(grid::AbstractArray) = grid[3] - grid[2]
+@inline compute_dx(grid::AbstractRange) = grid[3] - grid[2]
+@inline compute_dx(grid::AbstractVector) = diff(grid)
 @inline compute_dx(grid::Tuple) = compute_dx(first(grid)), compute_dx(Base.tail(grid))...
 
 @inline function clamp_grid_lims(grid_lims::NTuple{N}, dxi::NTuple{N}) where {N}
@@ -56,8 +57,9 @@ end
     return clamped_limits
 end
 
-@inline function augment_lazy_grid(grid::NTuple{N}, dxi::NTuple{N}) where {N}
+function augment_lazy_grid(grid::NTuple{N}, dxi::NTuple{N}) where {N}
     xci_augmented = ntuple(Val(N)) do i
+        @inline
         (grid[i][1] - dxi[i]):dxi[i]:(grid[i][end] + dxi[i])
     end
     return xci_augmented

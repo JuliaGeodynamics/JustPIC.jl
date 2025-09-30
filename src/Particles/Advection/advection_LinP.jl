@@ -20,7 +20,7 @@ function advection_LinP!(
     ) where {N}
     interpolation_fn = interp_velocity2particle_LinP
 
-    dxi = compute_dx(first(grid_vi))
+    dxi = compute_dx.(grid_vi)
     (; coords, index) = particles
     # compute some basic stuff
     ni = size(index)
@@ -75,7 +75,7 @@ end
         Base.@_inline_meta
         local_lims = local_limits[i]
         v = if check_local_limits(local_lims, particle_coords)
-            interp_velocity2particle_LinP(particle_coords, grid_vi[i], dxi, V[i], Val(i), idx)
+            interp_velocity2particle_LinP(particle_coords, grid_vi[i], dxi[i], V[i], Val(i), idx)
         else
             Inf
         end
@@ -83,8 +83,9 @@ end
 end
 
 @inline function interp_velocity2particle_LinP(
-        p_i::Union{SVector, NTuple}, xi_vx::NTuple, dxi::NTuple, F::AbstractArray, ::Val{N}, idx
+        p_i::Union{SVector, NTuple}, xi_vx::NTuple, di::NTuple, F::AbstractArray, ::Val{N}, idx
     ) where {N}
+    dxi = @dxi di idx...
     # F and coordinates of the cell corners
     Fi, xci, indices = corner_field_nodes_LinP(F, p_i, xi_vx, dxi, idx)
 

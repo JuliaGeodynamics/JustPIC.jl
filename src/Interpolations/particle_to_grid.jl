@@ -2,7 +2,7 @@
 
 function particle2grid!(F, Fp, xi, particles)
     (; coords, index) = particles
-    dxi = grid_size(xi)
+    dxi = compute_dx(xi)
     @parallel (@idx size(F)) particle2grid!(F, Fp, xi, coords, index, dxi)
     return nothing
 end
@@ -36,7 +36,7 @@ function _particle2grid!(F, Fp, inode, jnode, xi::NTuple{2, T}, p, index, di) wh
                 doskip(index, ip, ivertex, jvertex) && continue
 
                 p_i = @index(px[ip, ivertex, jvertex]), @index(py[ip, ivertex, jvertex])
-                ω_i = distance_weight(xvertex, p_i; order = 1)
+                ω_i = distance_weight(xvertex, p_i; order = 2)
                 # ω_i = bilinear_weight(xvertex, p_i, di)
                 ω += ω_i
                 ωxF = fma(ω_i, @index(Fp[ip, ivertex, jvertex]), ωxF)
@@ -69,7 +69,7 @@ end
                     doskip(index, i, ivertex, jvertex) && continue
 
                     p_i = @index(px[i, ivertex, jvertex]), @index(py[i, ivertex, jvertex])
-                    ω_i = distance_weight(xvertex, p_i; order = 1)
+                    ω_i = distance_weight(xvertex, p_i; order = 2)
                     # ω_i = bilinear_weight(xvertex, p_i, di)
                     ω += ω_i
                     ωxF = ntuple(Val(N)) do j

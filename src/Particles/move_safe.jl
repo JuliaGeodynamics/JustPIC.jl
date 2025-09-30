@@ -67,13 +67,16 @@ function move_kernel!(
         coords,
         corner_xi,
         grid,
-        dxi,
+        di,
         index,
         domain_limits,
         args::NTuple{N2, T},
         idx::NTuple{N1, Int64},
     ) where {N1, N2, T}
+
     starting_point = 1
+    dxi            = @dxi di idx...
+
     # iterate over particles in child cell
     for ip in cellaxes(index)
         doskip(index, ip, idx...) && continue
@@ -98,7 +101,7 @@ function move_kernel!(
         #     cell_index(pᵢ[i], grid[i], dxi[i])
         # end
 
-        new_cell = cell_index_neighbour(pᵢ, corner_xi, dxi, idx)
+        new_cell = cell_index_neighbour(pᵢ, corner_xi, di, idx)
 
         # hold particle variables
         current_args = @inbounds cache_args(args, ip, idx)
@@ -109,10 +112,8 @@ function move_kernel!(
         # check whether there's empty space in parent cell
         # free_idx = find_free_memory(index, new_cell...)
         free_idx = find_free_memory(starting_point, index, new_cell...)
-        if free_idx == 0
-            # println("No free memory in the parent cell")
-            continue
-        end
+        # println("No free memory in the parent cell")
+        iszero(free_idx) && continue
         starting_point = free_idx
         # move particle and its fields to the first free memory location
         @inbounds @index index[free_idx, new_cell...] = true
@@ -124,20 +125,42 @@ end
 
 ## Utility functions
 
-function cell_index_neighbour(x, xc, dx, i::Integer)
-    xR = xc + dx
-    (xc ≤ x ≤ xR) && return i
-    (xc - dx < x < xc) && return i - 1
-    (xR < x < xc + 2 * dx) && return i + 1
-    return error("Particle moved more than one cell away from the parent cell")
-end
-
 function cell_index_neighbour(
         xᵢ::NTuple{N}, xcᵢ::NTuple{N}, dxᵢ::NTuple{N}, I::NTuple{N, Integer}
     ) where {N}
     return ntuple(Val(N)) do i
-        cell_index_neighbour(xᵢ[i], xcᵢ[i], dxᵢ[i], I[i])
+        cell_index_neighbour(xᵢ[i], xcᵢ[i], dxᵢ[i], I[i], I)
+        # cell_index_neighbour(xᵢ[i], xcᵢ[i], dxᵢ[i], I[i])
     end
+end
+
+# Case: regular grid
+function cell_index_neighbour(x, xc, dx::Number, i::Integer, I)
+    xR = xc + dx
+    (xc ≤ x ≤ xR) && return i
+    (xc - dx < x < xc) && return i - 1
+    (xR < x < xc + 2 * dx) && return i + 1
+    return error("Particle moved more than one cell away from the parent cell $I")
+end
+
+# Case: regularly refined grid
+function cell_index_neighbour(x, xC, dx::AbstractVector, i::Integer, I)
+    n = length(dx)
+    isleftboundary  = i == 1
+    isrightboundary = i == n
+    # grid sizes
+    dxL = dx[i - 1 * !isleftboundary]  # left cell
+    dxC = dx[i]                        # center cell
+    dxR = dx[i + 1 * !isrightboundary] # right cell
+    # grid corners
+    xL   = xC  - dxL
+    xR1  = xC  + dxC
+    xR2  = xR1 + dxR
+    # check where the particle is
+    (xL < x < xC)   && return i - 1
+    (xC ≤ x ≤ xR1)  && return i
+    (xR1 < x < xR2) && return i + 1
+    return error("Particle moved more than one cell away from the parent cell $I in $i, with xi $x")
 end
 
 function find_free_memory(index, I::Vararg{Int, N}) where {N}
@@ -244,14 +267,14 @@ end
 @parallel_indices (i, j) function _clean!(
         particle_coords::NTuple{2, Any}, grid::NTuple{2, Any}, dxi::NTuple{2, Any}, index, args
     )
-    clean_kernel!(particle_coords, grid, dxi, index, args, i, j)
+    clean_kernel!(particle_coords, grid, @dxi(dxi, i, j), index, args, i, j)
     return nothing
 end
 
 @parallel_indices (i, j, k) function _clean!(
         particle_coords::NTuple{3, Any}, grid::NTuple{3, Any}, dxi::NTuple{3, Any}, index, args
     )
-    clean_kernel!(particle_coords, grid, dxi, index, args, i, j, k)
+    clean_kernel!(particle_coords, grid, @dxi(dxi, i, j, k), index, args, i, j, k)
     return nothing
 end
 

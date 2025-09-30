@@ -16,7 +16,6 @@ function inject_particles!(particles::Particles, args, grid::NTuple{N}) where {N
     (; coords, index, min_xcell) = particles
     ni = size(index)
     di = compute_dx(grid)
-    di_quadrant = di ./ 2
     n_color = ntuple(i -> ceil(Int, ni[i] * 0.5), Val(N))
 
     # We need a color-coded parallel approach for shared memory devices because
@@ -24,7 +23,7 @@ function inject_particles!(particles::Particles, args, grid::NTuple{N}) where {N
     return if N == 2
         for offsetᵢ in 1:2, offsetⱼ in 1:2
             @parallel (@idx n_color) inject_particles!(
-                args, coords, index, grid, di, di_quadrant, min_xcell, (offsetᵢ, offsetⱼ)
+                args, coords, index, grid, di, min_xcell, (offsetᵢ, offsetⱼ)
             )
         end
     elseif N == 3
@@ -35,7 +34,6 @@ function inject_particles!(particles::Particles, args, grid::NTuple{N}) where {N
                 index,
                 grid,
                 di,
-                di_quadrant,
                 min_xcell,
                 (offsetᵢ, offsetⱼ, offsetₖ),
             )
@@ -46,20 +44,20 @@ function inject_particles!(particles::Particles, args, grid::NTuple{N}) where {N
 end
 
 @parallel_indices (I...) function inject_particles!(
-        args, coords, index, grid, di, di_quadrant, min_xcell, offsets::NTuple{N}
+        args, coords, index, grid, di, min_xcell, offsets::NTuple{N}
     ) where {N}
     indices = ntuple(Val(N)) do i
         2 * (I[i] - 1) + offsets[i]
     end
 
     if all(indices .≤ size(index))
-        _inject_particles!(args, coords, index, grid, di, di_quadrant, min_xcell, indices)
+        _inject_particles!(args, coords, index, grid, @dxi(di,I...) ./ 2, min_xcell, indices)
     end
     return nothing
 end
 
 function _inject_particles!(
-        args::NTuple{N, T}, coords, index, grid, di, di_quadrant, min_xcell, idx_cell
+        args::NTuple{N, T}, coords, index, grid, di_quadrant, min_xcell, idx_cell
     ) where {N, T}
 
     # coordinates of the lower-left corner of the cell
@@ -119,7 +117,6 @@ function inject_particles_phase!(
     (; coords, index, min_xcell) = particles
     ni = size(index)
     di = compute_dx(grid)
-    di_quadrant = di ./ 2
     n_color = ntuple(i -> ceil(Int, ni[i] * 0.5), Val(N))
 
     return if N == 2
@@ -132,7 +129,6 @@ function inject_particles_phase!(
                 index,
                 grid,
                 di,
-                di_quadrant,
                 min_xcell,
                 (offsetᵢ, offsetⱼ),
             )
@@ -147,7 +143,6 @@ function inject_particles_phase!(
                 index,
                 grid,
                 di,
-                di_quadrant,
                 min_xcell,
                 (offsetᵢ, offsetⱼ, offsetₖ),
             )
@@ -164,14 +159,16 @@ end
         coords,
         index,
         grid,
-        di,
-        di_quadrant,
+        dxi,
         min_xcell,
         offsets::NTuple{N},
     ) where {N}
     indices = ntuple(Val(N)) do i
         2 * (I[i] - 1) + offsets[i]
     end
+
+    di = @dxi(dxi,I...)
+    di_quadrant = di ./ 2
 
     if all(indices .≤ size(index))
         _inject_particles_phase!(

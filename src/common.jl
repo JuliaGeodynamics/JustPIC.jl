@@ -2,7 +2,7 @@ include("CellArrays/CellArrays.jl")
 export @cell, cellnum, cellaxes
 
 include("Utils.jl")
-export cell_array, add_ghost_nodes, add_global_ghost_nodes, doskip
+export cell_array, add_ghost_nodes, add_global_ghost_nodes, doskip, @dxi, @dx, @dy, @dz
 
 include("CellArrays/ImplicitGlobalGrid.jl")
 export update_cell_halo!

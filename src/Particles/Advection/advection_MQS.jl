@@ -20,7 +20,8 @@ function advection_MQS!(
     ) where {N}
     interpolation_fn = interp_velocity2particle_MQS
 
-    dxi = compute_dx(first(grid_vi))
+    # dxi = compute_dx(first(grid_vi))
+    dxi = compute_dx.(grid_vi)
     (; coords, index) = particles
     # compute some basic stuff
     ni = size(index)
@@ -75,7 +76,7 @@ end
         Base.@_inline_meta
         local_lims = local_limits[i]
         v = if check_local_limits(local_lims, particle_coords)
-            interp_velocity2particle_MQS(particle_coords, grid_vi[i], dxi, V[i], Val(i), idx)
+            interp_velocity2particle_MQS(particle_coords, grid_vi[i], dxi[i], V[i], Val(i), idx)
         else
             Inf
         end
@@ -88,7 +89,7 @@ end
     # F and coordinates of the cell corners
     Fi, xci, indices = corner_field_nodes_LinP(F, p_i, xi_vx, dxi, idx)
     # normalize particle coordinates
-    t = normalize_coordinates(p_i, xci, dxi)
+    t = normalize_coordinates(p_i, xci, @dxi(dxi, idx...))
     # Interpolate field F from pressure node onto particle
     V = if all(x -> 1 < x[1] < x[2] - 1, zip(indices, size(F)))
         MQS(F, Fi, t, indices..., Val(N))

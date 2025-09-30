@@ -42,9 +42,9 @@ function _init_particles(
         max_xcell,
         min_xcell,
         coords::NTuple{N, AbstractArray},
-        dxᵢ::NTuple{N, T},
+        dxᵢ::NTuple{N},
         nᵢ::NTuple{N, I}
-    ) where {N, T, I}
+    ) where {N, I}
 
     # number of particles per quadrant
     NQ = N == 2 ? 4 : 8
@@ -63,13 +63,14 @@ function _init_particles(
 end
 
 @parallel_indices (I...) function fill_coords_index(
-        pxᵢ::NTuple{N, T}, index, coords, dxᵢ, np_quadrant
+        pxᵢ::NTuple{N, T}, index, coords, di::NTuple{N}, np_quadrant
     ) where {N, T}
     # lower-left corner of the cell
     x0ᵢ = ntuple(Val(N)) do ndim
         @inline
         coords[ndim][I[ndim]]
     end
+    dxᵢ = @dxi di I...
     masks = quadrant_masks(Val(N))
     # fill index array
     l = 0 # particle counter
@@ -93,9 +94,9 @@ function _init_particles(
         max_xcell,
         min_xcell,
         coords::NTuple{N, AbstractArray},
-        dxᵢ::NTuple{N, T},
+        dxᵢ::NTuple{N, Number},
         nᵢ::NTuple{N, I}
-    ) where {N, T, I}
+    ) where {N, I}
     nxcell = prod(nxdim)
     ncells = prod(nᵢ)
     np = max_xcell * ncells
@@ -112,7 +113,6 @@ function _init_particles(
         x0ᵢ = ntuple(Val(N)) do ndim
             coords[ndim][I[ndim]]
         end
-
         # fill index array
         if N == 2
             for i in axes(offsets[1], 1), j in axes(offsets[2], 1)

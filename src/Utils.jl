@@ -54,3 +54,31 @@ function get_particle_coords(p::NTuple{N}, ip) where {N}
         @inbounds p[i][ip]
     end
 end
+
+macro dxi(args...)
+    return :(_dxi($(esc.(args)...)))
+end
+
+Base.@propagate_inbounds @inline _dxi(dxi::NTuple{2, Union{Number, AbstractVector}}, I::Integer, J::Integer) = _dx(dxi, I), _dy(dxi, J)
+Base.@propagate_inbounds @inline _dxi(dxi::NTuple{3, Union{Number, AbstractVector}}, I::Integer, J::Integer, K::Integer) = _dx(dxi, I), _dy(dxi, J), _dz(dxi, K)
+
+macro dx(args...)
+    return :(_dx($(esc.(args)...)))
+end
+
+Base.@propagate_inbounds @inline _dx(dx::NTuple{N, Union{Number, AbstractVector}}, I::Integer) where {N} = getindex_dxi(dx[1], I)
+
+macro dy(args...)
+    return :(_dy($(esc.(args)...)))
+end
+
+Base.@propagate_inbounds @inline _dy(dy::NTuple{N, Union{Number, AbstractVector}}, I::Integer) where {N} = getindex_dxi(dy[2], I)
+
+macro dz(args...)
+    return :(_dz($(esc.(args)...)))
+end
+
+Base.@propagate_inbounds @inline _dz(dz::NTuple{3, Union{Number, AbstractVector}}, I::Integer) = getindex_dxi(dz[3], I)
+
+Base.@propagate_inbounds @inline getindex_dxi(dxi::AbstractVector, I::Integer) = dxi[I]
+Base.@propagate_inbounds @inline getindex_dxi(dxi::Number, ::Integer) = dxi

@@ -18,7 +18,7 @@ function advection!(
         grid_vi::NTuple{N, NTuple{N, T}},
         dt,
     ) where {N, T}
-    dxi = compute_dx(first(grid_vi))
+    dxi = compute_dx.(grid_vi)
     (; coords, index) = particles
     # compute some basic stuff
     ni = size(index)
@@ -75,7 +75,7 @@ end
         Base.@_inline_meta
         local_lims = local_limits[i]
         v = if check_local_limits(local_lims, particle_coords)
-            interp_velocity2particle(particle_coords, grid_vi[i], dxi, V[i], idx)
+            interp_velocity2particle(particle_coords, grid_vi[i], dxi[i], V[i], idx)
         else
             Inf
         end
@@ -84,11 +84,12 @@ end
 
 # Interpolate velocity from staggered grid to particle. Innermost kernel
 @inline function interp_velocity2particle(
-        p_i::Union{SVector, NTuple}, xi_vx::NTuple, dxi::NTuple, F::AbstractArray, idx
+        p_i::Union{SVector, NTuple}, xi_vx::NTuple, di::NTuple, F::AbstractArray, idx
     )
     # F and coordinates at/of the cell corners
-    Fi, xci = corner_field_nodes(F, p_i, xi_vx, dxi, idx)
+    Fi, xci = corner_field_nodes(F, p_i, xi_vx)
     # normalize particle coordinates
+    dxi = @dxi di idx...
     ti = normalize_coordinates(p_i, xci, dxi)
     # Interpolate field F onto particle
     Fp = lerp(Fi, ti)
@@ -100,23 +101,19 @@ end
         F::AbstractArray{T, N},
         particle,
         xi_vx,
-        dxi,
-        idx::Union{SVector{N, Integer}, NTuple{N, Integer}},
-    ) where {N, T}
+    ) where {T, N}
     return quote
-        Base.@_inline_meta
-        begin
-            Base.@nexprs $N i -> begin
-                corrected_idx_i = cell_index(particle[i], xi_vx[i])
-                cell_i = @inbounds xi_vx[i][corrected_idx_i]
-            end
-
-            indices = Base.@ncall $N tuple corrected_idx
-            cells = Base.@ncall $N tuple cell
-
-            # F at the four centers
-            Fi = extract_field_corners(F, indices...)
+        @inline
+        Base.@nexprs $N i -> begin
+            corrected_idx_i = cell_index(particle[i], xi_vx[i])
+            cell_i = @inbounds xi_vx[i][corrected_idx_i]
         end
+
+        indices = Base.@ncall $N tuple corrected_idx
+        cells = Base.@ncall $N tuple cell
+
+        # F at the four centers
+        Fi = extract_field_corners(F, indices...)
 
         return Fi, cells
     end
