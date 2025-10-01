@@ -55,6 +55,10 @@ function get_particle_coords(p::NTuple{N}, ip) where {N}
     end
 end
 
+###############################
+# MACROS TO INDEX GRID ARRAYS #
+###############################
+
 macro dxi(args...)
     return :(_dxi($(esc.(args)...)))
 end
@@ -82,3 +86,32 @@ Base.@propagate_inbounds @inline _dz(dz::NTuple{3, Union{Number, AbstractVector}
 
 Base.@propagate_inbounds @inline getindex_dxi(dxi::AbstractVector, I::Integer) = dxi[I]
 Base.@propagate_inbounds @inline getindex_dxi(dxi::Number, ::Integer) = dxi
+
+#######################
+# BISECTION ALGORITHM #
+#######################
+
+"""
+    find_parent_cell_bisection(px::Number;, x::AbstractVector seed::Int=length(x) ÷ 2)
+
+Performs a find_parent_cell_bisection search on the vector `x` to find an index of the cell containing the coordinate `px`.
+
+# Arguments
+- `px::Number`: Coordinate of the point we want to locate.
+- `x::AbstractVector`: The input vector to search.
+- `seed::Int`: An integer seed that determines the starting point of the search.
+
+# Returns
+- An integer index indicating the position of the cell containing the coordinate `px`.
+"""
+find_parent_cell_bisection(px::Number, x::AbstractVector; seed::Int = length(x) ÷ 2) = find_parent_cell_bisection(px, x, 1, length(x), seed)
+find_parent_cell_bisection(px::NTuple{N, Number}, x::NTuple{N, AbstractVector}; seed::NTuple{N, Int} = length.(x) .÷ 2) where {N} = ntuple(i -> find_parent_cell_bisection(px[i], x[i]; seed = seed[i]), Val(N))
+
+@inline function find_parent_cell_bisection(px, x, lo, hi, seed)
+    # check if particle is already in the seed cell
+    x[seed] ≤ px ≤ x[seed + 1] && return seed
+    # otherwise bisect
+    isinright = x[seed] < px
+    lo, hi, seed = isinright ? (seed, hi, div(hi + seed, 2)) : (lo, seed, div(lo + seed, 2))
+    return find_parent_cell_bisection(px, x, lo, hi, seed)
+end

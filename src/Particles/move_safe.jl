@@ -75,7 +75,7 @@ function move_kernel!(
     ) where {N1, N2, T}
 
     starting_point = 1
-    dxi            = @dxi di idx...
+    dxi = @dxi di idx...
 
     # iterate over particles in child cell
     for ip in cellaxes(index)
@@ -101,7 +101,13 @@ function move_kernel!(
         #     cell_index(pᵢ[i], grid[i], dxi[i])
         # end
 
-        new_cell = cell_index_neighbour(pᵢ, corner_xi, di, idx)
+        # new_cell = cell_index_neighbour(pᵢ, corner_xi, di, idx)
+
+        new_cell = find_parent_cell_bisection(pᵢ, grid; seed = idx)
+
+        if any(>(1), new_cell .- idx)
+            error("Particle moved more than one cell away from the parent cell $idx to cell $new_cell")
+        end
 
         # hold particle variables
         current_args = @inbounds cache_args(args, ip, idx)
@@ -146,20 +152,21 @@ end
 # Case: regularly refined grid
 function cell_index_neighbour(x, xC, dx::AbstractVector, i::Integer, I)
     n = length(dx)
-    isleftboundary  = i == 1
+    isleftboundary = i == 1
     isrightboundary = i == n
     # grid sizes
     dxL = dx[i - 1 * !isleftboundary]  # left cell
     dxC = dx[i]                        # center cell
     dxR = dx[i + 1 * !isrightboundary] # right cell
     # grid corners
-    xL   = xC  - dxL
-    xR1  = xC  + dxC
-    xR2  = xR1 + dxR
+    xL = xC - dxL
+    xR1 = xC + dxC
+    xR2 = xR1 + dxR
     # check where the particle is
     (xL < x < xC)   && return i - 1
     (xC ≤ x ≤ xR1)  && return i
     (xR1 < x < xR2) && return i + 1
+
     return error("Particle moved more than one cell away from the parent cell $I in $i, with xi $x")
 end
 

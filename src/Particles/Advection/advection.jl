@@ -87,7 +87,7 @@ end
         p_i::Union{SVector, NTuple}, xi_vx::NTuple, di::NTuple, F::AbstractArray, idx
     )
     # F and coordinates at/of the cell corners
-    Fi, xci = corner_field_nodes(F, p_i, xi_vx)
+    Fi, xci = corner_field_nodes(F, p_i, xi_vx, idx)
     # normalize particle coordinates
     dxi = @dxi di idx...
     ti = normalize_coordinates(p_i, xci, dxi)
@@ -101,11 +101,12 @@ end
         F::AbstractArray{T, N},
         particle,
         xi_vx,
+        idx
     ) where {T, N}
     return quote
         @inline
         Base.@nexprs $N i -> begin
-            corrected_idx_i = cell_index(particle[i], xi_vx[i])
+            corrected_idx_i = find_parent_cell_bisection(particle[i], xi_vx[i]; seed = idx[i])
             cell_i = @inbounds xi_vx[i][corrected_idx_i]
         end
 

@@ -51,7 +51,7 @@ end
     end
 
     if all(indices .≤ size(index))
-        _inject_particles!(args, coords, index, grid, @dxi(di,I...) ./ 2, min_xcell, indices)
+        _inject_particles!(args, coords, index, grid, @dxi(di, indices...) ./ 2, min_xcell, indices)
     end
     return nothing
 end
@@ -62,21 +62,26 @@ function _inject_particles!(
 
     # coordinates of the lower-left corner of the cell
     xvi = corner_coordinate(grid, idx_cell)
+
     # coordinates of the lower-left corner of the cell quadrants
     xvi_quadrants = quadrant_corners(xvi, di_quadrant)
-    # cache coordinates of all particles inside parent cell
+
     min_xQuadrant = ceil(Int, min_xcell / length(xvi_quadrants))
 
     for vertex in xvi_quadrants
+
+        # cache coordinates of all particles inside parent cell
         pcell = extract_particle_cell_coordinates(coords, idx_cell...)
 
         # count current number of particles inside the cell
         particles_num = 0
         for i in cellaxes(index)
             (@index index[i, idx_cell...]) || continue
+
             # check if particle is in local quadrant
             pcoords = extract_particle_coordinates(pcell, i)
             isincell(pcoords, vertex, di_quadrant) || continue
+
             # if it's inside, accumulate
             particles_num += 1
         end
@@ -88,18 +93,25 @@ function _inject_particles!(
             !(@index index[i, idx_cell...]) || continue
 
             particles_num += 1
+
             # add at cellcenter + small random perturbation
             p_new = new_particle(vertex, di_quadrant)
+
+            # # uncomment below for debugging
+            # new_cell = find_parent_cell_bisection(p_new, grid; seed = idx_cell)
+            # @assert idx_cell == new_cell "Particle in parent cell $idx_cell injected in cell $new_cell"
+
             # fill new particles information
             fill_particle!(coords, p_new, i, idx_cell)
             @index index[i, idx_cell...] = true
+
             # add phase to new particle
             particle_idx, min_idx = index_min_distance(coords, p_new, index, i, idx_cell...)
             for j in 1:N
                 new_value = @index args[j][particle_idx, min_idx...]
                 @index args[j][i, idx_cell...] = new_value
             end
-            # @show particles_num
+
             # we are done with injection if
             particles_num ≥ min_xQuadrant && break
         end
@@ -167,7 +179,7 @@ end
         2 * (I[i] - 1) + offsets[i]
     end
 
-    di = @dxi(dxi,I...)
+    di = @dxi(dxi, indices...)
     di_quadrant = di ./ 2
 
     if all(indices .≤ size(index))
@@ -202,21 +214,25 @@ function _inject_particles_phase!(
     )
     # coordinates of the lower-left corner of the cell
     xvi = corner_coordinate(grid, idx_cell)
+
     # coordinates of the lower-left corner of the cell quadrants
     xvi_quadrants = quadrant_corners(xvi, di_quadrant)
-    # cache coordinates of all particles inside parent cell
     min_xQuadrant = ceil(Int, min_xcell / length(xvi_quadrants))
 
     for (ic, vertex) in enumerate(xvi_quadrants)
+
+        # cache coordinates of all particles inside parent cell
         pcell = extract_particle_cell_coordinates(coords, idx_cell...)
 
         # count current number of particles inside the cell
         particles_num = 0
         for i in cellaxes(index)
             (@index index[i, idx_cell...]) || continue
+
             # check if particle is in local quadrant
             pcoords = extract_particle_coordinates(pcell, i)
             isincell(pcoords, vertex, di_quadrant) || continue
+
             # if it's inside, accumulate
             particles_num += 1
         end
@@ -230,6 +246,7 @@ function _inject_particles_phase!(
             particles_num += 1
             # add at cellcenter + small random perturbation
             p_new = new_particle(vertex, di_quadrant)
+
             # add phase to new particle
             particle_idx, min_idx = index_min_distance(coords, p_new, index, i, idx_cell...)
             new_phase = @index particles_phases[particle_idx, min_idx...]
@@ -238,6 +255,7 @@ function _inject_particles_phase!(
             # fill new particle information
             fill_particle!(coords, p_new, i, idx_cell)
             @index index[i, idx_cell...] = true
+
             # interpolate fields into newly injected particle
             for j in eachindex(args)
                 tmp = _grid2particle(p_new, grid, di, fields[j], idx_cell)
@@ -245,7 +263,7 @@ function _inject_particles_phase!(
                 lower, upper = extrema(local_field)
                 @index args[j][i, idx_cell...] = clamp(tmp, lower, upper)
             end
-            # @show i, particles_num
+
             # we are done with injection if
             particles_num ≥ min_xQuadrant && break
         end
@@ -335,8 +353,8 @@ end
 
 @inline function new_particle(xvi::NTuple{N}, di::NTuple{N}) where {N}
     p_new = ntuple(Val(N)) do i
-        # xvi[i] + di[i] * (0.95 * rand() + 0.05)
-        xvi[i] + di[i] * rand()
+        xvi[i] + di[i] * (0.95 * rand() + 0.05)
+        # xvi[i] + di[i] * rand()
     end
     return p_new
 end
