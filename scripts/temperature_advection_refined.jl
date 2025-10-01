@@ -45,7 +45,7 @@ function findGrowthFactor(L, n, d0)
         c = (a+b) / 2.0
         err = checkGridLength(n, d0, c) - L
         if abs(err) < L / 1e3
-            println("Grid growth factor: $(c)")
+            # println("Grid growth factor: $(c)")
             return c 
         elseif err > 0
             b = c
@@ -143,61 +143,22 @@ function main()
     save("figs/test_0.png", f)
     f
 
-    niter = 50
-    # for it in 1:niter
-        advection!(particles, RungeKutta2(), V, grid_vi, dt)
+    niter = 250
+    for it in 1:niter
+        advection_LinP!(particles, RungeKutta2(), V, grid_vi, dt)
         move_particles!(particles, xvi, particle_args)
-        # inject_particles!(particles, (pT,), xvi)
+        inject_particles!(particles, (pT,), xvi)
         particle2grid!(T, pT, xvi, particles)
 
-    #     if rem(it, 1) == 0
-    #         f, ax, = heatmap(xvi..., Array(T), colormap = :batlow)
-    #         streamplot!(ax, g, xvi...)
-    #         save("figs/test_$(it).png", f)
-    #         f
-    #     end
-    # end
+        if rem(it, 10) == 0
+            f, ax, = heatmap(xvi..., Array(T), colormap = :batlow)
+            streamplot!(ax, g, xvi...)
+            save("figs/test_$(it).png", f)
+            f
+        end
+    end
 
     return println("Finished")
 end
 
 main()
-
-
-# px, py = particles.coords;
-# px, py = px.data[:], py.data[:];
-# idx = particles.index.data[:];
-# scatter(px[idx], py[idx], color = pT.data[:][idx], colormap = :batlow)
-
-# advection_MQS!(particles, RungeKutta2(), V, (grid_vx, grid_vy), dt)
-# move_particles!(particles, xvi, particle_args)
-
-# px, py = particles.coords;
-# px, py = px.data[:], py.data[:];
-# idx = particles.index.data[:];
-# scatter(px[idx], py[idx], color = pT.data[:][idx], colormap = :batlow)
-
-# # scatter!(px, py, color="red")
-# scatter(px, py, color="red")
-
-import JustPIC._2D as JP
-
-idx       = 16, 1
-grid      = xvi
-corner_xi = JP.corner_coordinate(grid, idx...)
-di        = JP.compute_dx(grid)
-dxi       = @dxi di idx...
-dxiL      = di[1][idx[1] .- 1]
-dxiR      = di[1][idx[1] .+ 1]
-px_cell   = particles.coords[1][idx...] 
-py_cell   = particles.coords[2][idx...]
-
-ip        = findfirst(px_cell .== 0.5111148788481209)
-pᵢ        = px_cell[ip], py_cell[ip]
-
-corner_xi[1] + dxi[1]
-corner_xi[1] + dxi[1] + dxiR
-
-dxi[1] / Vx[16, 1]
-dxi[2] / Vy[16, 1]
-
