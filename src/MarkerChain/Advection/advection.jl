@@ -101,7 +101,7 @@ end
         pᵢ::Union{SVector, NTuple}, xi_vx::NTuple, dxi::NTuple, F::AbstractArray
     )
     # F and coordinates at/of the cell corners
-    Fi, x_vertex_cell = corner_field_nodes(F, pᵢ, xi_vx, dxi)
+    Fi, x_vertex_cell = corner_field_nodes_MC(F, pᵢ, xi_vx, dxi)
     # normalize particle coordinates
     ti = normalize_coordinates(pᵢ, x_vertex_cell, dxi)
     # Interpolate field F onto particle
@@ -110,7 +110,7 @@ end
 end
 
 # Get field F and nodal indices of the cell corners where the particle is located
-@inline function corner_field_nodes(F::AbstractArray{T, N}, pᵢ, xi_vx, dxi) where {T, N}
+@inline function corner_field_nodes_MC(F::AbstractArray{T, N}, pᵢ, xi_vx, dxi) where {T, N}
     I = ntuple(Val(N)) do i
         Base.@_inline_meta
         cell_index(pᵢ[i], xi_vx[i], dxi[i])
