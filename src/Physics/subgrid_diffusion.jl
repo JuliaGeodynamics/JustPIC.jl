@@ -23,7 +23,7 @@ function SubgridDiffusionCellArrays(::T) where {T}
 end
 
 function subgrid_diffusion!(
-        pT, T_grid, ΔT_grid, subgrid_arrays, particles::Particles, xvi, di, dt; d = 1.0
+        pT, T_grid, ΔT_grid, subgrid_arrays, particles::Particles, xvi, dt; d = 1.0
     )
     # d = dimensionless numerical diffusion coefficient (0 ≤ d ≤ 1)
     (; pT0, pΔT, dt₀) = subgrid_arrays
@@ -32,7 +32,7 @@ function subgrid_diffusion!(
     @parallel (@idx ni) memcopy_cellarray!(pT0, pT)
     grid2particle!(pT, xvi, T_grid, particles)
 
-    @parallel (@idx ni) subgrid_diffusion!(pT, pT0, pΔT, dt₀, particles.index, d, di, dt)
+    @parallel (@idx ni) subgrid_diffusion!(pT, pT0, pΔT, dt₀, particles.index, d, dt)
     particle2grid!(subgrid_arrays.ΔT_subgrid, pΔT, xvi, particles)
 
     @parallel (@idx ni .+ 1) update_ΔT_subgrid!(subgrid_arrays.ΔT_subgrid, ΔT_grid)
@@ -44,7 +44,7 @@ function subgrid_diffusion!(
 end
 
 function subgrid_diffusion_centroid!(
-        pT, T_grid, ΔT_grid, subgrid_arrays, particles, xci, di, dt; d = 1.0
+        pT, T_grid, ΔT_grid, subgrid_arrays, particles, xci, dt; d = 1.0
     )
     # d = dimensionless numerical diffusion coefficient (0 ≤ d ≤ 1)
     (; pT0, pΔT, dt₀) = subgrid_arrays
@@ -53,7 +53,7 @@ function subgrid_diffusion_centroid!(
     @parallel memcopy_cellarray!(pT0, pT)
     centroid2particle!(pT, xci, T_grid, particles)
 
-    @parallel (@idx ni) subgrid_diffusion!(pT, pT0, pΔT, dt₀, particles.index, d, di, dt)
+    @parallel (@idx ni) subgrid_diffusion!(pT, pT0, pΔT, dt₀, particles.index, d, dt)
     particle2centroid!(subgrid_arrays.ΔT_subgrid, pΔT, xci, particles)
 
     @parallel (@idx ni) update_ΔT_subgrid!(subgrid_arrays.ΔT_subgrid, ΔT_grid)
@@ -71,7 +71,7 @@ end
     return nothing
 end
 
-@parallel_indices (I...) function subgrid_diffusion!(pT, pT0, pΔT, dt₀, index, d, di, dt)
+@parallel_indices (I...) function subgrid_diffusion!(pT, pT0, pΔT, dt₀, index, d, dt)
     for ip in cellaxes(pT)
         # early escape if there is no particle in this memory locations
         doskip(index, ip, I...) && continue

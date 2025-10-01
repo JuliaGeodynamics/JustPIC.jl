@@ -14,9 +14,10 @@ function phase_ratios_face!(
 end
 
 @parallel_indices (I...) function phase_ratios_face_kernel!(
-        ratio_faces, pxi::NTuple{N}, xci::NTuple{N}, di::NTuple{N, T}, phases, offsets
+        ratio_faces, pxi::NTuple{N}, xci::NTuple{N}, dxi::NTuple{N, T}, phases, offsets
     ) where {N, T}
 
+    di = @dxi(dxi, I...)
     # index corresponding to the cell center
     cell_center = getindex.(xci, I)
     cell_face = @. cell_center + di * offsets / 2
@@ -110,7 +111,7 @@ end
 @parallel_indices (I...) function phase_ratios_midpoint_kernel!(
         ratio_midpoints, pxi::NTuple, xci::NTuple, di::NTuple, phases, offsets
     )
-    _phase_ratios_midpoint_kernel!(ratio_midpoints, pxi, xci, di, phases, offsets, I...)
+    _phase_ratios_midpoint_kernel!(ratio_midpoints, pxi, xci, @dxi(di, I...), phases, offsets, I...)
     return nothing
 end
 

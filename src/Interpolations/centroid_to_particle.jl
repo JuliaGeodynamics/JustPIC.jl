@@ -14,7 +14,6 @@ function centroid2particle!(Fp, xci, F, particles)
 end
 
 function centroid2particle!(Fp, xci, F, coords, di::NTuple{N, T}) where {N, T}
-    # indices = ntuple(i -> 0:(length(xci[i]) + 1), Val(N))
     ni = size(Fp)
     @parallel (@idx ni) centroid2particle_classic!(Fp, F, xci, di, coords)
 
@@ -22,7 +21,7 @@ function centroid2particle!(Fp, xci, F, coords, di::NTuple{N, T}) where {N, T}
 end
 
 @parallel_indices (I...) function centroid2particle_classic!(Fp, F, xci, di, coords)
-    _centroid2particle_classic!(Fp, coords, xci, di, F, tuple(I...))
+    _centroid2particle_classic!(Fp, coords, xci, @dxi(di, I...), F, tuple(I...))
     return nothing
 end
 

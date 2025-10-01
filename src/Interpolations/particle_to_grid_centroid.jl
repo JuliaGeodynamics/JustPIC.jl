@@ -12,7 +12,7 @@ function particle2centroid!(F, Fp, xci::NTuple, particles::Particles)
 end
 
 @parallel_indices (I...) function _particle2centroid!(F, Fp, xci, coords, di)
-    _particle2centroid!(F, Fp, I..., xci, coords, di)
+    _particle2centroid!(F, Fp, I..., xci, coords, @dxi(di, I...))
     return nothing
 end
 
@@ -53,7 +53,7 @@ end
         # ignore lines below for unused allocations
         any(isnan, p_i) && continue
         # ω_i = bilinear_weight(xcenter, p_i, di)
-        ω_i = distance_weight(xcenter, p_i; order = 1)
+        ω_i = distance_weight(xcenter, p_i; order = 2)
 
         ω += ω_i
         ωxF = ntuple(Val(N)) do j

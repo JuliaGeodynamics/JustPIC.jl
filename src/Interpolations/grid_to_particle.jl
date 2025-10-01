@@ -5,6 +5,7 @@ function grid2particle!(Fp, xvi, F, particles)
     (; coords, index) = particles
     di = grid_size(xvi)
     ni = size(index)
+    
     @parallel (@idx ni) grid2particle_classic!(Fp, F, xvi, index, di, coords)
 
     return nothing
@@ -14,7 +15,7 @@ end
         Fp, F, xvi, index, di, particle_coords
     )
     _grid2particle_classic!(
-        Fp, particle_coords, xvi, di, F, index, tuple(I...), Val(cellnum(index))
+        Fp, particle_coords, xvi, @dxi(di, I...), F, index, tuple(I...), Val(cellnum(index))
     )
     return nothing
 end
@@ -94,7 +95,7 @@ end
 @parallel_indices (I...) function grid2particle_full!(
         Fp, F, F0, xvi, di, particle_coords, index, α
     )
-    _grid2particle_full!(Fp, particle_coords, xvi, di, F, F0, index, I, α)
+    _grid2particle_full!(Fp, particle_coords, xvi, @dxi(di, I...), F, F0, index, I, α)
     return nothing
 end
 

@@ -43,23 +43,23 @@ end
     return isinside(p[1], p[2], p[3], x[1], x[2], x[3])
 end
 
-# # normalize coordinates
-# @inline function normalize_coordinates(
-#         p::NTuple{N, A}, xi::NTuple{N, B}, di::NTuple{N, C}, idx::NTuple{N, D}
-#     ) where {N, A, B, C, D}
-#     return ntuple(i -> (p[i] - xi[i][idx[i]]) * inv(di[i]), Val(N))
-# end
-
 # normalize coordinates
 @inline function normalize_coordinates(
         p::NTuple{N, A}, xi::NTuple{N, B}, di::NTuple{N, C}, idx::NTuple{N, D}
     ) where {N, A, B, C, D}
-    dxᵢ = @dxi di idx...
-    return ntuple(Val(N)) do i
-        @inline
-        (p[i] - xi[i][idx[i]]) * inv(dxᵢ[i])
-    end
+    return ntuple(i -> (p[i] - xi[i][idx[i]]) * inv(di[i]), Val(N))
 end
+
+# # normalize coordinates
+# @inline function normalize_coordinates(
+#         p::NTuple{N, A}, xi::NTuple{N, B}, di::NTuple{N, C}, idx::NTuple{N, D}
+#     ) where {N, A, B, C, D}
+#     dxᵢ = @dxi di idx...
+#     return ntuple(Val(N)) do i
+#         @inline
+#         (p[i] - xi[i][idx[i]]) * inv(dxᵢ[i])
+#     end
+# end
 
 # normalize coordinates
 @inline function normalize_coordinates(

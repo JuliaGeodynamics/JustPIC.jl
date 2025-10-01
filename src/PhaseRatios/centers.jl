@@ -18,7 +18,7 @@ end
     cell_center = ntuple(i -> xci[i][I[i]], Val(N))
     # phase ratios weights (∑w = 1.0)
     w = phase_ratio_weights(
-        getindex.(pxi, I...), phases[I...], cell_center, di, nphases(ratio_centers)
+        getindex.(pxi, I...), phases[I...], cell_center, @dxi(di, I...), nphases(ratio_centers)
     )
     # update phase ratios array
     for k in 1:numphases(ratio_centers)
