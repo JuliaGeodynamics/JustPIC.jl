@@ -360,11 +360,10 @@ module _2D
             subgrid_arrays,
             particles::Particles{CUDABackend},
             xvi,
-            di,
             dt;
             d = 1.0,
         )
-        subgrid_diffusion!(pT, T_grid, ΔT_grid, subgrid_arrays, particles, xvi, di, dt; d = d)
+        subgrid_diffusion!(pT, T_grid, ΔT_grid, subgrid_arrays, particles, xvi, dt; d = d)
         return nothing
     end
 
@@ -375,12 +374,11 @@ module _2D
             subgrid_arrays,
             particles::Particles{CUDABackend},
             xvi,
-            di,
             dt;
             d = 1.0,
         )
         subgrid_diffusion_centroid!(
-            pT, T_grid, ΔT_grid, subgrid_arrays, particles, xvi, di, dt; d = d
+            pT, T_grid, ΔT_grid, subgrid_arrays, particles, xvi, dt; d = d
         )
         return nothing
     end
@@ -805,11 +803,10 @@ module _3D
             subgrid_arrays,
             particles::Particles{CUDABackend},
             xvi,
-            di,
             dt;
             d = 1.0,
         )
-        subgrid_diffusion!(pT, T_grid, ΔT_grid, subgrid_arrays, particles, xvi, di, dt; d = d)
+        subgrid_diffusion!(pT, T_grid, ΔT_grid, subgrid_arrays, particles, xvi, dt; d = d)
         return nothing
     end
 
@@ -820,12 +817,11 @@ module _3D
             subgrid_arrays,
             particles::Particles{CUDABackend},
             xvi,
-            di,
             dt;
             d = 1.0,
         )
         subgrid_diffusion_centroid!(
-            pT, T_grid, ΔT_grid, subgrid_arrays, particles, xvi, di, dt; d = d
+            pT, T_grid, ΔT_grid, subgrid_arrays, particles, xvi, dt; d = d
         )
         return nothing
     end
