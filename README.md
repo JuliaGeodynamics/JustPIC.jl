@@ -2,6 +2,7 @@
 [![DOI](https://zenodo.org/badge/507905159.svg)](https://zenodo.org/doi/10.5281/zenodo.10212675)
 [![CPU UnitTests](https://github.com/JuliaGeodynamics/JustPIC.jl/actions/workflows/UnitTests.yml/badge.svg)](https://github.com/JuliaGeodynamics/JustPIC.jl/actions/workflows/UnitTests.yml)
 [![GPU UnitTests](https://badge.buildkite.com/bb05ed7ef3b43f843a5ba4a976c27a724064d67955193accea.svg)](https://buildkite.com/julialang/justpic-dot-jl)
+[![CSCS UnitTests](https://gitlab.com/cscs-ci/ci-testing/webhook-ci/mirrors/6264856887055800/8444213376739374/badges/main/pipeline.svg?ignore_skipped=true)](https://gitlab.com/cscs-ci/ci-testing/webhook-ci/mirrors/6264856887055800/8444213376739374/-/pipelines)
 [![codecov](https://codecov.io/gh/JuliaGeodynamics/JustPIC.jl/graph/badge.svg?token=PN0AJZXK13)](https://codecov.io/gh/JuliaGeodynamics/JustPIC.jl)
 [![Aqua QA](https://raw.githubusercontent.com/JuliaTesting/Aqua.jl/master/badge.svg)](https://github.com/JuliaTesting/Aqua.jl)
 
