@@ -56,7 +56,7 @@ end
         pᵢ_new = advect_particle(method, pᵢ, V, grid_vi, local_limits, dxi, dt, I)
         # update particle coordinates
         for k in 1:N
-            @inbounds @index p[k][ipart, I...] = pᵢ_new[k]
+            @index p[k][ipart, I...] = pᵢ_new[k]
         end
     end
 
@@ -107,7 +107,7 @@ end
         @inline
         Base.@nexprs $N i -> begin
             corrected_idx_i = find_parent_cell_bisection(particle[i], xi_vx[i]; seed = idx[i])
-            cell_i = @inbounds xi_vx[i][corrected_idx_i]
+            cell_i = xi_vx[i][corrected_idx_i]
         end
 
         indices = Base.@ncall $N tuple corrected_idx

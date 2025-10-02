@@ -55,13 +55,13 @@ end
         doskip(index, ipart, I...) && continue
         # extract particle coordinates
         pᵢ = get_particle_coords(p, ipart, I...)
-        # # advect particle
+        # advect particle
         pᵢ_new = advect_particle(
             method, pᵢ, V, grid, local_limits, dxi, dt, interpolation_fn, I
         )
         # update particle coordinates
         for k in 1:N
-            @inbounds @index p[k][ipart, I...] = pᵢ_new[k]
+            @index p[k][ipart, I...] = pᵢ_new[k]
         end
     end
 
@@ -87,7 +87,7 @@ end
     ) where {N}
     dxi = @dxi di idx...
     # F and coordinates of the cell corners
-    Fi, xci, indices = corner_field_nodes_LinP(F, p_i, xi_vx, dxi, idx)
+    Fi, xci, indices = corner_field_nodes_LinP(F, p_i, xi_vx, idx)
 
     # normalize particle coordinates
     tL = normalize_coordinates(p_i, xci, dxi)
@@ -96,12 +96,13 @@ end
 
     V = if all(1 .< indices .< size(F) .- 1)
         # interpolate velocity to pressure nodes
-        FP = interpolate_V_to_P(F, xci, p_i, dxi, Val(N), indices...)
+        FP    = interpolate_V_to_P(F, xci, p_i, dxi, Val(N), indices...)
+        # FP    = Fi
         xci_P = correct_xci_to_pressure_point(xci, p_i, dxi, Val(N))
-        tP = normalize_coordinates(p_i, xci_P, dxi)
+        tP    = normalize_coordinates(p_i, xci_P, dxi)
         # Interpolate field F from pressure node onto particle
-        VP = lerp(FP, tP)
-        A = 2 / 3
+        VP    = lerp(FP, tP)
+        A     = 2 / 3
         A * VL + (1 - A) * VP
     else
         VL
@@ -162,22 +163,21 @@ end
         F::AbstractArray{T, N},
         particle,
         xi_vx,
-        dxi,
         idx::Union{SVector{N, Integer}, NTuple{N, Integer}},
     ) where {N, T}
     return quote
         Base.@_inline_meta
-        @inbounds begin
+        begin
             Base.@nexprs $N i -> begin
                 corrected_idx_i = find_parent_cell_bisection(particle[i], xi_vx[i]; seed = idx[i])
-                cell_i = @inbounds xi_vx[i][corrected_idx_i]
+                cell_i = xi_vx[i][corrected_idx_i]
             end
 
             indices = Base.@ncall $N tuple corrected_idx
             cells = Base.@ncall $N tuple cell
 
             # # F at the four centers
-            Fi = @inbounds extract_field_corners(F, indices...)
+            Fi = extract_field_corners(F, indices...)
 
             return Fi, cells, indices
         end

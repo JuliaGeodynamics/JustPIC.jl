@@ -59,7 +59,6 @@ function _move_particles!(coords, grid, dxi, index, domain_limits, idx, args)
     corner_xi = corner_coordinate(grid, idx)
     # iterate over neighbouring (child) cells
     move_kernel!(coords, corner_xi, grid, dxi, index, domain_limits, args, idx)
-
     return nothing
 end
 
@@ -89,7 +88,7 @@ function move_kernel!(
         # particle went of of the domain, get rid of it
         domain_check = !(indomain(pᵢ, domain_limits))
         if domain_check
-            @inbounds @index index[ip, idx...] = false
+            @index index[ip, idx...] = false
             empty_particle!(coords, ip, idx)
             empty_particle!(args, ip, idx)
         end
@@ -102,19 +101,20 @@ function move_kernel!(
         # end
 
         # hold particle variables
-        current_args = @inbounds cache_args(args, ip, idx)
+        current_args = cache_args(args, ip, idx)
+       
         # remove particle from child cell
-        @inbounds @index index[ip, idx...] = false
+        @index index[ip, idx...] = false
         empty_particle!(coords, ip, idx)
         empty_particle!(args, ip, idx)
+       
         # check whether there's empty space in parent cell
-        # free_idx = find_free_memory(index, new_cell...)
         free_idx = find_free_memory(starting_point, index, new_cell...)
-        # println("No free memory in the parent cell")
         iszero(free_idx) && continue
         starting_point = free_idx
+       
         # move particle and its fields to the first free memory location
-        @inbounds @index index[free_idx, new_cell...] = true
+        @index index[free_idx, new_cell...] = true
         fill_particle!(coords, pᵢ, free_idx, new_cell)
         fill_particle!(args, current_args, free_idx, new_cell)
     end
@@ -164,14 +164,14 @@ end
 
 function find_free_memory(index, I::Vararg{Int, N}) where {N}
     for i in cellaxes(index)
-        (@inbounds @index(index[i, I...])) || return i
+        (@index(index[i, I...])) || return i
     end
     return 0
 end
 
 function find_free_memory(initial_index::Integer, index::CellArray, I::Vararg{Int, N}) where {N}
     for i in initial_index:cellnum(index)
-        (@inbounds @index(index[i, I...])) || return i
+        (@index(index[i, I...])) || return i
     end
     return 0
 end
@@ -180,7 +180,7 @@ end
     return quote
         Base.@_inline_meta
         Base.Cartesian.@nexprs $N i ->
-        (@inbounds (domain_limits[i][1] < p[i] < domain_limits[i][2]) || return false)
+        ((domain_limits[i][1] < p[i] < domain_limits[i][2]) || return false)
         return true
     end
 end
@@ -189,7 +189,7 @@ end
     return quote
         Base.@_inline_meta
         Base.Cartesian.@nexprs $N i ->
-        @inbounds (1 ≤ idx_child[i] ≤ nxi[i] - 1) == false && return false
+        (1 ≤ idx_child[i] ≤ nxi[i] - 1) == false && return false
         return true
     end
 end
@@ -197,17 +197,17 @@ end
 @generated function isparticleempty(p::NTuple{N, T}) where {N, T}
     return quote
         Base.@_inline_meta
-        Base.Cartesian.@nexprs $N i -> @inbounds isnan(p[i]) && return true
+        Base.Cartesian.@nexprs $N i -> isnan(p[i]) && return true
         return false
     end
 end
 
 @inline function cache_args(args::NTuple{N1, T}, ip, I::NTuple{N2, Int64}) where {T, N1, N2}
-    return ntuple(i -> (@inbounds @index(args[i][ip, I...])), Val(N1))
+    return ntuple(i -> (@index(args[i][ip, I...])), Val(N1))
 end
 
 @inline function cache_args(args::NTuple{N}, ip, I::Integer) where {N}
-    return ntuple(i -> (@inbounds @index(args[i][ip, I])), Val(N))
+    return ntuple(i -> (@index(args[i][ip, I])), Val(N))
 end
 
 @inline function cache_particle(
@@ -249,7 +249,7 @@ end
         Base.Cartesian.@nexprs $N1 i -> begin
             Base.@_inline_meta
             tmp = p[i]
-            @inbounds @index tmp[ip, I...] = field[i]
+            @index tmp[ip, I...] = field[i]
         end
         return nothing
     end
@@ -348,7 +348,7 @@ end
 function count_particles(index, I::Vararg{Int, N}) where {N}
     count = 0
     for i in cellaxes(index)
-        @inbounds count += @index index[i, I...]
+        count += @index index[i, I...]
     end
     return count
 end
