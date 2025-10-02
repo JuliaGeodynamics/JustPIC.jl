@@ -1,10 +1,13 @@
-using JustPIC
-using JustPIC._2D
+# 
+using CUDA
+using JustPIC, JustPIC._2D
 
 # Threads is the default backend,
 # to run on a CUDA GPU load CUDA.jl (i.e. "using CUDA"),
 # and to run on an AMD GPU load AMDGPU.jl (i.e. "using AMDGPU")
-const backend = JustPIC.CPUBackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
+# const backend = JustPIC.CPUBackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
+const backend = CUDABackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
+
 
 using GLMakie
 
@@ -119,8 +122,14 @@ function main()
     grid_vy = expand_range(xc), yv
     grid_vi = grid_vx, grid_vy
 
+    xvi_device = TA(backend).(xvi)
+    grid_vi_device = (
+        TA(backend).(grid_vi[1]),
+        TA(backend).(grid_vi[2]),
+    )
+
     particles = init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi...,
+        backend, nxcell, max_xcell, min_xcell, xvi_device...,
     )
 
     # Cell fields -------------------------------
@@ -134,21 +143,16 @@ function main()
 
     # Advection test
     particle_args = pT, = init_cell_arrays(particles, Val(1))
-    grid2particle!(pT, xvi, T, particles)
+    grid2particle!(pT, xvi_device, T, particles)
 
     !isdir("figs") && mkdir("figs")
 
-    f, ax, = heatmap(xvi..., Array(T), colormap = :batlow)
-    streamplot!(ax, g, xvi...)
-    save("figs/test_0.png", f)
-    f
-
     niter = 250
     for it in 1:niter
-        advection_LinP!(particles, RungeKutta2(), V, grid_vi, dt)
-        move_particles!(particles, xvi, particle_args)
-        inject_particles!(particles, (pT,), xvi)
-        particle2grid!(T, pT, xvi, particles)
+        advection!(particles, RungeKutta2(), V, grid_vi_device, dt)
+        move_particles!(particles, xvi_device, particle_args)
+        inject_particles!(particles, (pT,), xvi_device)
+        particle2grid!(T, pT, xvi_device, particles)
 
         if rem(it, 10) == 0
             f, ax, = heatmap(xvi..., Array(T), colormap = :batlow)
