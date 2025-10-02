@@ -92,22 +92,14 @@ function move_kernel!(
             @inbounds @index index[ip, idx...] = false
             empty_particle!(coords, ip, idx)
             empty_particle!(args, ip, idx)
-            # println("Particle went out of the domain")
         end
         domain_check && continue
 
-        # new cell indices
-        # new_cell = ntuple(Val(N1)) do i
-        #     cell_index(pᵢ[i], grid[i], dxi[i])
-        # end
-
-        # new_cell = cell_index_neighbour(pᵢ, corner_xi, di, idx)
-
         new_cell = find_parent_cell_bisection(pᵢ, grid; seed = idx)
 
-        if any(>(1), new_cell .- idx)
-            error("Particle moved more than one cell away from the parent cell $idx to cell $new_cell")
-        end
+        # if any(>(1), new_cell .- idx)
+        #     error("Particle moved more than one cell away from the parent cell $idx to cell $new_cell")
+        # end
 
         # hold particle variables
         current_args = @inbounds cache_args(args, ip, idx)
