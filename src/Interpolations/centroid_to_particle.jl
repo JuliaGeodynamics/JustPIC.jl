@@ -8,7 +8,7 @@ Interpolates properties `F` that are defined on a mesh at center points with loc
 """
 function centroid2particle!(Fp, xci, F, particles)
     (; coords) = particles
-    di = grid_size(xci)
+    di = compute_dx.(xci)
     centroid2particle!(Fp, xci, F, coords, di)
     return nothing
 end
@@ -21,7 +21,7 @@ function centroid2particle!(Fp, xci, F, coords, di::NTuple{N, T}) where {N, T}
 end
 
 @parallel_indices (I...) function centroid2particle_classic!(Fp, F, xci, di, coords)
-    _centroid2particle_classic!(Fp, coords, xci, @dxi(di, I...), F, tuple(I...))
+    _centroid2particle_classic!(Fp, coords, xci, di, F, tuple(I...))
     return nothing
 end
 
@@ -40,7 +40,8 @@ end
         cell_index = shifted_index(pᵢ, xc, I)
         cell_index = clamp.(cell_index, 1, ni)
         # Interpolate field F onto particle
-        @index Fp[ip, I...] = _grid2particle(pᵢ, xci, di, F, cell_index)
+        # @show @dxi(di, cell_index...)
+        @index Fp[ip, I...] = _grid2particle(pᵢ, xci, @dxi(di, cell_index...), F, cell_index)
     end
     return nothing
 end
@@ -58,10 +59,10 @@ end
         # continue the kernel
         xc = ntuple(i -> xci[i][I[i]], Val(N))
         cell_index = shifted_index(pᵢ, xc, I)
-        cell_index = lamp.(cell_index, 1, ni)
+        cell_index = clamp.(cell_index, 1, ni)
         # Interpolate field F onto particle
         for n in 1:NF # should be unrolled
-            @index Fp[n][ip, I...] = _grid2particle(pᵢ, xci, di, F[n], cell_index)
+            @index Fp[n][ip, I...] = _grid2particle(pᵢ, xci, @dxi(di, cell_index...), F[n], cell_index)
         end
     end
     return nothing
