@@ -11,14 +11,29 @@ Advects the particles using the advection scheme defined by `method`.
 - `grid_vi`: Tuple containing the grids corresponding to `Vx`, `Vy`; and `Vz` in 3D.
 - `dt`: Time step.
 """
+advection!(
+    particles::Particles,
+    method::AbstractAdvectionIntegrator,
+    V,
+    grid_vi::NTuple{N, NTuple{N, T}},
+    dt,
+) where {N, T} = advection!(
+    particles,
+    method,
+    V,
+    grid_vi,
+    dt,
+    compute_dx.(grid_vi)
+)
+
 function advection!(
         particles::Particles,
         method::AbstractAdvectionIntegrator,
         V,
         grid_vi::NTuple{N, NTuple{N, T}},
         dt,
+        dxi
     ) where {N, T}
-    dxi = compute_dx.(grid_vi)
     (; coords, index) = particles
     # compute some basic stuff
     ni = size(index)

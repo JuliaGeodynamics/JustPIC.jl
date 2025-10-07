@@ -1,8 +1,9 @@
 ## Kernels to compute phase ratios at the vertices
 
-function phase_ratios_vertex!(phase_ratios::JustPIC.PhaseRatios, particles, xvi, phases)
+phase_ratios_vertex!(phase_ratios::JustPIC.PhaseRatios, particles, xvi, phases) = phase_ratios_vertex!(phase_ratios, particles, xvi, phases, compute_dx(xvi))
+
+function phase_ratios_vertex!(phase_ratios::JustPIC.PhaseRatios, particles, xvi, phases, di)
     ni = size(phases) .+ 1
-    di = compute_dx(xvi)
 
     @parallel (@idx ni) phase_ratios_vertex_kernel!(
         phase_ratios.vertex, particles.coords, xvi, di, phases

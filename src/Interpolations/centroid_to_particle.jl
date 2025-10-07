@@ -6,17 +6,12 @@
 
 Interpolates properties `F` that are defined on a mesh at center points with location `xci` to particles `Fp`.
 """
-function centroid2particle!(Fp, xci, F, particles)
-    (; coords) = particles
-    di = compute_dx.(xci)
-    centroid2particle!(Fp, xci, F, coords, di)
-    return nothing
-end
+centroid2particle!(Fp, xci, F, particles) = centroid2particle!(Fp, xci, F, particles, compute_dx.(xci))
 
-function centroid2particle!(Fp, xci, F, coords, di::NTuple{N, T}) where {N, T}
+function centroid2particle!(Fp, xci, F, particles, di)
+    (; coords) = particles
     ni = size(Fp)
     @parallel (@idx ni) centroid2particle_classic!(Fp, F, xci, di, coords)
-
     return nothing
 end
 

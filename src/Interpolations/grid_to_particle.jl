@@ -1,15 +1,18 @@
 ## CLASSIC PIC ------------------------------------------------------------------------------------------------
 
 # LAUNCHERS
-function grid2particle!(Fp, xvi, F, particles)
+
+grid2particle!(Fp, xvi, F, particles) = grid2particle!(Fp, xvi, F, particles, grid_size(xvi))
+
+function grid2particle!(Fp, xvi, F, particles, di)
     (; coords, index) = particles
-    di = grid_size(xvi)
     ni = size(index)
-    
+
     @parallel (@idx ni) grid2particle_classic!(Fp, F, xvi, index, di, coords)
 
     return nothing
 end
+
 
 @parallel_indices (I...) function grid2particle_classic!(
         Fp, F, xvi, index, di, particle_coords

@@ -11,16 +11,31 @@ Advects the particles using the advection scheme defined by `method`.
 - `grid_vi`: Tuple containing the grids corresponding to `Vx`, `Vy`; and `Vz` in 3D.
 - `dt`: Time step.
 """
+advection_LinP!(
+        particles::Particles,
+        method::AbstractAdvectionIntegrator,
+        V,
+        grid_vi::NTuple{N, NTuple{N}},
+        dt,
+    ) where {N} = advection_LinP!(
+        particles,
+        method,
+        V,
+        grid_vi::NTuple{N, NTuple{N}},
+        dt,
+        compute_dx.(grid_vi)
+    )
+
 function advection_LinP!(
         particles::Particles,
         method::AbstractAdvectionIntegrator,
         V,
         grid_vi::NTuple{N, NTuple{N}},
         dt,
+        di
     ) where {N}
     interpolation_fn = interp_velocity2particle_LinP
 
-    dxi = compute_dx.(grid_vi)
     (; coords, index) = particles
     # compute some basic stuff
     ni = size(index)
@@ -96,13 +111,13 @@ end
 
     V = if all(1 .< indices .< size(F) .- 1)
         # interpolate velocity to pressure nodes
-        FP    = interpolate_V_to_P(F, xci, p_i, dxi, Val(N), indices...)
+        FP = interpolate_V_to_P(F, xci, p_i, dxi, Val(N), indices...)
         # FP    = Fi
         xci_P = correct_xci_to_pressure_point(xci, p_i, dxi, Val(N))
-        tP    = normalize_coordinates(p_i, xci_P, dxi)
+        tP = normalize_coordinates(p_i, xci_P, dxi)
         # Interpolate field F from pressure node onto particle
-        VP    = lerp(FP, tP)
-        A     = 2 / 3
+        VP = lerp(FP, tP)
+        A = 2 / 3
         A * VL + (1 - A) * VP
     else
         VL

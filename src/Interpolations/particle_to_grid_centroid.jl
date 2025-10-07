@@ -4,10 +4,11 @@
 
 Interpolates properties `Fp` from particles to the grid `F` at center points that are defined by 1D coordinate arrays in `xci`
 """
-function particle2centroid!(F, Fp, xci::NTuple, particles::Particles)
+particle2centroid!(F, Fp, xci::NTuple, particles::Particles) = particle2centroid!(F, Fp, xci, particles, grid_size(xci))
+
+function particle2centroid!(F, Fp, xci::NTuple, particles::Particles, di)
     (; coords) = particles
-    dxi = grid_size(xci)
-    @parallel (@idx size(coords[1])) _particle2centroid!(F, Fp, xci, coords, dxi)
+    @parallel (@idx size(coords[1])) _particle2centroid!(F, Fp, xci, coords, di)
     return nothing
 end
 

@@ -94,7 +94,7 @@ function _init_particles(
         max_xcell,
         min_xcell,
         coords::NTuple{N, AbstractArray},
-        dxᵢ::NTuple{N, Number},
+        dxᵢ::NTuple{N},
         nᵢ::NTuple{N, I}
     ) where {N, I}
     nxcell = prod(nxdim)
@@ -103,18 +103,25 @@ function _init_particles(
     pxᵢ = ntuple(_ -> @fill(NaN, nᵢ..., celldims = (max_xcell,)), Val(N))
     index = @fill(false, nᵢ..., celldims = (max_xcell,), eltype = Bool)
 
-    dxi = compute_dx(coords)
-    offsets = ntuple(i -> LinRange(0, dxi[i], nxdim[i] + 2)[2:(end - 1)], Val(N))
+    di = compute_dx(coords)
+    # offsets = ntuple(i -> LinRange(0, dxi[i], nxdim[i] + 2)[2:(end - 1)], Val(N))
 
     @parallel_indices (I...) function fill_coords_index(
-            pxᵢ::NTuple{N, T}, index, coords, offsets
+            pxᵢ::NTuple{N, T}, index, coords, nxdim, di
         ) where {N, T}
+
+        dxi = @dxi di I...
+
         # lower-left corner of the cell
         x0ᵢ = ntuple(Val(N)) do ndim
             coords[ndim][I[ndim]]
         end
+
+        offsets = ntuple(i -> LinRange(0, dxi[i], nxdim[i] + 2)[2:(end - 1)], Val(N))
+        
         # fill index array
         if N == 2
+
             for i in axes(offsets[1], 1), j in axes(offsets[2], 1)
                 l = i + (j - 1) * nxdim[1]
                 ndim = 1
@@ -144,7 +151,7 @@ function _init_particles(
     end
 
     @parallel (@idx nᵢ) fill_coords_index(
-        pxᵢ, index, coords, offsets
+        pxᵢ, index, coords, nxdim, di
     )
 
     return Particles(backend, pxᵢ, index, nxcell, max_xcell, min_xcell, np)

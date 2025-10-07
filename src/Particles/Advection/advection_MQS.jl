@@ -11,17 +11,33 @@ Advects the particles using the advection scheme defined by `method`.
 - `grid_vi`: Tuple containing the grids corresponding to `Vx`, `Vy`; and `Vz` in 3D.
 - `dt`: Time step.
 """
+advection_MQS!(
+        particles::Particles,
+        method::AbstractAdvectionIntegrator,
+        V,
+        grid_vi::NTuple{N, NTuple{N}},
+        dt,
+    ) where {N} = advection_MQS!(
+        particles::Particles,
+        method::AbstractAdvectionIntegrator,
+        V,
+        grid_vi::NTuple{N, NTuple{N}},
+        dt,
+        compute_dx.(grid_vi)
+    ) 
+
+
 function advection_MQS!(
         particles::Particles,
         method::AbstractAdvectionIntegrator,
         V,
         grid_vi::NTuple{N, NTuple{N}},
         dt,
+        dxi
     ) where {N}
     interpolation_fn = interp_velocity2particle_MQS
 
     # dxi = compute_dx(first(grid_vi))
-    dxi = compute_dx.(grid_vi)
     (; coords, index) = particles
     # compute some basic stuff
     ni = size(index)

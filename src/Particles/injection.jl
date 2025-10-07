@@ -10,12 +10,14 @@ Injects particles if the number of particles in a given cell is such that `n < p
 - `args`: `CellArrays`s containing particle fields.
 - `grid`: The grid cell vertices.
 """
-function inject_particles!(particles::Particles, args, grid::NTuple{N}) where {N}
+inject_particles!(particles::Particles, args, grid::NTuple{N}) where {N} =
+inject_particles!(particles, args, grid, compute_dx(grid))
+
+function inject_particles!(particles::Particles, args, grid::NTuple{N}, di) where {N}
     # function implementation goes here
     # unpack
     (; coords, index, min_xcell) = particles
     ni = size(index)
-    di = compute_dx(grid)
     n_color = ntuple(i -> ceil(Int, ni[i] * 0.5), Val(N))
 
     # We need a color-coded parallel approach for shared memory devices because
@@ -121,14 +123,18 @@ function _inject_particles!(
 end
 
 # Injection of particles when multiple phases are present
+inject_particles_phase!(
+        particles::Particles, particles_phases, args, fields, grid::NTuple{N}
+    ) where {N} = inject_particles_phase!(
+        particles, particles_phases, args, fields, grid, compute_dx(grid)
+    ) 
 
 function inject_particles_phase!(
-        particles::Particles, particles_phases, args, fields, grid::NTuple{N}
+        particles::Particles, particles_phases, args, fields, grid::NTuple{N}, di
     ) where {N}
     # unpack
     (; coords, index, min_xcell) = particles
     ni = size(index)
-    di = compute_dx(grid)
     n_color = ntuple(i -> ceil(Int, ni[i] * 0.5), Val(N))
 
     return if N == 2

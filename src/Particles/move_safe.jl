@@ -8,9 +8,10 @@ Move particles in the given `particles` container according to the provided `gri
 - `grid`: The grid used for particle movement.
 - `args`: `CellArrays`s containing particle fields.
 """
-function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args) where {N}
-    # implementation goes here
-    dxi = compute_dx(grid)
+move_particles!(particles::AbstractParticles, grid::NTuple{N}, args) where {N} = move_particles!(particles, grid, args, compute_dx(grid))
+
+function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args, dxi) where {N}
+
     (; coords, index, max_xcell) = particles
     nxi = size(index)
     domain_limits = extrema.(grid)
@@ -102,17 +103,17 @@ function move_kernel!(
 
         # hold particle variables
         current_args = cache_args(args, ip, idx)
-       
+
         # remove particle from child cell
         @index index[ip, idx...] = false
         empty_particle!(coords, ip, idx)
         empty_particle!(args, ip, idx)
-       
+
         # check whether there's empty space in parent cell
         free_idx = find_free_memory(starting_point, index, new_cell...)
         iszero(free_idx) && continue
         starting_point = free_idx
-       
+
         # move particle and its fields to the first free memory location
         @index index[free_idx, new_cell...] = true
         fill_particle!(coords, pᵢ, free_idx, new_cell)

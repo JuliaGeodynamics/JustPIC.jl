@@ -1,10 +1,11 @@
 ## CELL FACES: AKA VELOCITY-NODES
 
+phase_ratios_face!(phase_face, particles, xci::NTuple{N}, phases, dimension) where {N} = phase_ratios_face!(phase_face, particles, xci::NTuple{N}, phases, dimension, compute_dx(xci))
+
 function phase_ratios_face!(
-        phase_face, particles, xci::NTuple{N}, phases, dimension
+        phase_face, particles, xci::NTuple{N}, phases, dimension, di
     ) where {N}
     ni = size(phases)
-    di = compute_dx(xci)
     offsets = face_offset(Val(N), dimension)
 
     @parallel (@idx ni) phase_ratios_face_kernel!(
