@@ -198,34 +198,6 @@ module _2D
         return _init_particles(CUDABackend, nxcell, max_xcell, min_xcell, xvi, di, ni)
     end
 
-    # function JustPIC._2D.init_particles(
-    #         ::Type{CUDABackend},
-    #         nxcell,
-    #         max_xcell::Number,
-    #         min_xcell,
-    #         coords::NTuple{2, AbstractArray},
-    #         dxᵢ::NTuple{2, T},
-    #         nᵢ::NTuple{2, I}
-    #     ) where {T, I}
-    #     return init_particles(
-    #         CUDABackend, nxcell, max_xcell, min_xcell, coords, dxᵢ, nᵢ
-    #     )
-    # end
-
-    # function JustPIC._2D.init_particles(
-    #         ::Type{CUDABackend},
-    #         nxdim::NTuple{N, Integer},
-    #         max_xcell,
-    #         min_xcell,
-    #         coords::NTuple{N, AbstractArray},
-    #         dxᵢ::NTuple{N, T},
-    #         nᵢ::NTuple{N, I}
-    #     ) where {N, T, I}
-    #     return init_particles(
-    #         CUDABackend, nxdim, max_xcell, min_xcell, coords, dxᵢ, nᵢ
-    #     )
-    # end
-
     function JustPIC._2D.advection!(
             particles::Particles{CUDABackend},
             method::AbstractAdvectionIntegrator,
@@ -234,6 +206,17 @@ module _2D
             dt,
         ) where {N, T}
         return advection!(particles, method, V, grid_vxi, dt)
+    end
+
+    function JustPIC._2D.advection!(
+            particles::Particles{CUDABackend},
+            method::AbstractAdvectionIntegrator,
+            V,
+            grid_vxi::NTuple{N, NTuple{N, T}},
+            dt,
+            di,
+        ) where {N, T}
+        return advection!(particles, method, V, grid_vxi, dt, di)
     end
 
     function JustPIC._2D.advection_LinP!(
@@ -246,6 +229,17 @@ module _2D
         return advection_LinP!(particles, method, V, grid_vxi, dt)
     end
 
+    function JustPIC._2D.advection_LinP!(
+            particles::Particles{CUDABackend},
+            method::AbstractAdvectionIntegrator,
+            V,
+            grid_vxi::NTuple{N, NTuple{N, T}},
+            dt,
+            di,
+        ) where {N, T}
+        return advection_LinP!(particles, method, V, grid_vxi, dt, di)
+    end
+
     function JustPIC._2D.advection_MQS!(
             particles::Particles{CUDABackend},
             method::AbstractAdvectionIntegrator,
@@ -254,6 +248,17 @@ module _2D
             dt,
         ) where {N, T}
         return advection_MQS!(particles, method, V, grid_vxi, dt)
+    end
+
+    function JustPIC._2D.advection_MQS!(
+            particles::Particles{CUDABackend},
+            method::AbstractAdvectionIntegrator,
+            V,
+            grid_vxi::NTuple{N, NTuple{N, T}},
+            dt,
+            di,
+        ) where {N, T}
+        return advection_MQS!(particles, method, V, grid_vxi, dt, di)
     end
 
     function JustPIC._2D.semilagrangian_advection!(
@@ -301,10 +306,22 @@ module _2D
         return centroid2particle!(Fp, xci, F, particles)
     end
 
+    function JustPIC._2D.centroid2particle!(
+            Fp, xci, F::CuArray, particles::Particles{CUDABackend}, di
+        )
+        return centroid2particle!(Fp, xci, F, particles, di)
+    end
+
     function JustPIC._2D.grid2particle!(
             Fp, xvi, F::CuArray, particles::Particles{CUDABackend}
         )
         return grid2particle!(Fp, xvi, F, particles)
+    end
+
+    function JustPIC._2D.grid2particle!(
+            Fp, xvi, F::CuArray, particles::Particles{CUDABackend}, di
+        )
+        return grid2particle!(Fp, xvi, F, particles, di)
     end
 
     function JustPIC._2D.particle2centroid!(
@@ -327,6 +344,12 @@ module _2D
         return inject_particles!(particles, args, grid)
     end
 
+    function JustPIC._2D.inject_particles!(
+            particles::Particles{CUDABackend}, args, grid::NTuple{N}, di
+        ) where {N}
+        return inject_particles!(particles, args, grid, di)
+    end
+
     function JustPIC._2D.force_injection!(particles::Particles{CUDABackend}, p_new, fields::NTuple{N, Any}, values::NTuple{N, Any}) where {N}
         force_injection!(particles, p_new, fields, values)
         return nothing
@@ -341,10 +364,23 @@ module _2D
         return nothing
     end
 
+    function JustPIC._2D.inject_particles_phase!(
+            particles::Particles{CUDABackend}, particles_phases, args, fields, grid::NTuple{N}, di
+        ) where {N}
+        inject_particles_phase!(particles::Particles, particles_phases, args, fields, grid, di)
+        return nothing
+    end
+
     function JustPIC._2D.move_particles!(
             particles::Particles{CUDABackend}, grid::NTuple{N}, args
         ) where {N}
         return move_particles!(particles, grid, args)
+    end
+
+    function JustPIC._2D.move_particles!(
+            particles::Particles{CUDABackend}, grid::NTuple{N}, args, di
+        ) where {N}
+        return move_particles!(particles, grid, args, di)
     end
 
     function JustPIC._2D.init_cell_arrays(
