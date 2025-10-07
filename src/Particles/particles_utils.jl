@@ -116,30 +116,28 @@ function _init_particles(
         x0ᵢ = ntuple(Val(N)) do ndim
             coords[ndim][I[ndim]]
         end
-
-        offsets = ntuple(i -> LinRange(0, dxi[i], nxdim[i] + 2)[2:(end - 1)], Val(N))
         
         # fill index array
+        local_dx = @. dxi / nxdim + 1
         if N == 2
-
-            for i in axes(offsets[1], 1), j in axes(offsets[2], 1)
+            for i in axes(nxdim[1], 1), j in axes(nxdim[2], 1)
                 l = i + (j - 1) * nxdim[1]
                 ndim = 1
-                @index pxᵢ[ndim][l, I...] = x0ᵢ[ndim] + offsets[ndim][i]
+                @index pxᵢ[ndim][l, I...] = x0ᵢ[ndim] + l * local_dx[ndim][i]
                 ndim = 2
-                @index pxᵢ[ndim][l, I...] = x0ᵢ[ndim] + offsets[ndim][j]
+                @index pxᵢ[ndim][l, I...] = x0ᵢ[ndim] + l * local_dx[ndim][j]
 
                 @index index[l, I...] = true
             end
         elseif N == 3
-            for i in axes(offsets[1], 1), j in axes(offsets[2], 1), k in axes(offsets[3], 1)
+            for i in axes(nxdim[1], 1), j in axes(nxdim[2], 1), k in axes(nxdim[3], 1)
                 l = i + (j - 1) * nxdim[1] + (k - 1) * nxdim[1] * nxdim[2]
                 ndim = 1
-                @index pxᵢ[ndim][l, I...] = x0ᵢ[ndim] + offsets[ndim][i]
+                @index pxᵢ[ndim][l, I...] = x0ᵢ[ndim] + l * local_dx[ndim][i]
                 ndim = 2
-                @index pxᵢ[ndim][l, I...] = x0ᵢ[ndim] + offsets[ndim][j]
+                @index pxᵢ[ndim][l, I...] = x0ᵢ[ndim] + l * local_dx[ndim][j]
                 ndim = 3
-                @index pxᵢ[ndim][l, I...] = x0ᵢ[ndim] + offsets[ndim][k]
+                @index pxᵢ[ndim][l, I...] = x0ᵢ[ndim] + l * local_dx[ndim][k]
 
                 @index index[l, I...] = true
             end
