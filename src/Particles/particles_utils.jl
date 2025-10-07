@@ -118,7 +118,7 @@ function _init_particles(
         end
         
         # fill index array
-        local_dx = @. dxi / nxdim + 1
+        local_dx = @. dxi / (nxdim + 1)
         if N == 2
             for i in axes(nxdim[1], 1), j in axes(nxdim[2], 1)
                 l = i + (j - 1) * nxdim[1]
