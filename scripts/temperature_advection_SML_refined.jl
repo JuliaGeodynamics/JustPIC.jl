@@ -1,11 +1,11 @@
-# using CUDA
+using CUDA
 using JustPIC, JustPIC._2D
 
 # Threads is the default backend,
 # to run on a CUDA GPU load CUDA.jl (i.e. "using CUDA"),
 # and to run on an AMD GPU load AMDGPU.jl (i.e. "using AMDGPU")
-const backend = JustPIC.CPUBackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
-# const backend = CUDABackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
+# const backend = JustPIC.CPUBackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
+const backend = CUDABackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
 
 using GLMakie
 
@@ -101,7 +101,6 @@ end
 function main()
 
     # Initialize particles -------------------------------
-    nxcell, max_xcell, min_xcell = 20, 30, 12
     nx  = 256 + 1 # vertices
     ny  = 128 + 1 # vertices
     Lx  = Ly = 1.0
@@ -110,7 +109,7 @@ function main()
     dy0 = Ly / ny
 
     # refined coordinates
-    xv, xc, dx  = makeExpoGrid(Lx, nx, dx0 / 5, 0e0)
+    xv, xc, dx  = makeExpoGrid(Lx, nx, dx0, 0e0)
     yv, yc, dy  = makeExpoGrid(Ly, ny, dy0, 0e0)
 
     xvi = xv, yv
@@ -128,10 +127,6 @@ function main()
     dx_velocity = JustPIC._2D.compute_dx.(grid_vi_device)
     dx_xvi      = JustPIC._2D.compute_dx(xvi_device)
 
-    particles = init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi_device...,
-    )
-
     # Cell fields -------------------------------
     Vx = TA(backend)([vx_stream(x, y) for x in grid_vx[1], y in grid_vx[2]])
     Vy = TA(backend)([vy_stream(x, y) for x in grid_vy[1], y in grid_vy[2]])
@@ -140,19 +135,21 @@ function main()
     V  = Vx, Vy
 
     dt  = min(minimum(dx) / maximum(abs.(Array(Vx))), minimum(dy) / maximum(abs.(Array(Vy))))
-    dt *= 0.75
+    dt *= 0.5
 
     !isdir("figs") && mkdir("figs")
 
-    niter = 1500
+    niter = 250
     for it in 1:niter
         @show it
-        semilagrangian_advection!(T, T0, RungeKutta4(), V, grid_vi_device, xvi_device, dt)
-        T[:, 1] .= T[:, 2]
+        semilagrangian_advection!(T, T0, RungeKutta2(), V, grid_vi_device, xvi_device, dt)
+        T[1, :]   .= T[2, :]
+        T[end, :] .= T[end - 1, :]
+        T[:, 1]   .= T[:, 2]
         T[:, end] .= T[:, end - 1]
         copyto!(T0, T)
 
-        if rem(it, 25) == 0
+        if rem(it, 10) == 0
             f, ax, = heatmap(xvi..., Array(T), colormap = :batlow)
             streamplot!(ax, g, xvi...)
             save("figs/test_$(it).png", f)
