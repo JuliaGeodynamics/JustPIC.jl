@@ -52,7 +52,6 @@ end
         dt,
     ) where {N, T}
 
-    di_vertex   = @dxi(dxi_vertex, I...)
     # extract particle coordinates
     pᵢ = ntuple(Val(N)) do i
         # extract particle coordinates from the grid
@@ -63,7 +62,8 @@ end
     I_backtrack = ntuple(Val(N)) do i
         find_parent_cell_bisection(pᵢ_backtrack[i], grid[i]; seed = I[i])
     end
-    F[I...] = _grid2particle(pᵢ_backtrack, grid, di_vertex, F, I_backtrack)
+    di_vertex = @dxi(dxi_vertex, I_backtrack...)
+    F[I...]   = _grid2particle(pᵢ_backtrack, grid, di_vertex, F, I_backtrack)
     return nothing
 end
 
