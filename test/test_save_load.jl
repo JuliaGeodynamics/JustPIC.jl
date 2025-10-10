@@ -104,7 +104,7 @@ const backend = JustPIC.CPUBackend
 
     if isCUDA || isAMDGPU
         T = isCUDA ? CuArray : ROCArray
-        Backend = isCUDA ? CUDABackend : AMDGPUBackend
+        Backend = isCUDA ? CUDABackend : JustPIC.AMDGPUBackend
 
         particles2 = Array(particles)
         phases2 = Array(phases)
@@ -258,7 +258,7 @@ end
 
     if isCUDA || isAMDGPU
         T = isCUDA ? CuArray : ROCArray
-        Backend = isCUDA ? CUDABackend : AMDGPUBackend
+        Backend = isCUDA ? CUDABackend : JustPIC.AMDGPUBackend
 
         particles2 = Array(particles)
         phases2 = Array(phases)
