@@ -7,11 +7,11 @@ using JustPIC, JustPIC._2D
 # to run on a CUDA GPU load CUDA.jl (i.e. "using CUDA"),
 # and to run on an AMD GPU load AMDGPU.jl (i.e. "using AMDGPU")
 # const backend = JustPIC.CPUBackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
-# const backend = CUDABackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
+const backend = CUDABackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
 
-using GLMakie
+# using GLMakie
 using ImplicitGlobalGrid
-using MPI: MPI
+import MPI
 
 # Analytical flow solution
 vx_stream(x, y) = 250 * sin(π * x) * cos(π * y)
@@ -35,7 +35,11 @@ function main()
     nxcell, max_xcell, min_xcell = 24, 40, 1
     n = 64
     nx = ny = n - 1
-    me, dims, = init_global_grid(n - 1, n - 1, 1; init_MPI = MPI.Initialized() ? false : true)
+    me, dims, = init_global_grid(
+        n - 1, n - 1, 1;
+        init_MPI = MPI.Initialized() ? false : true,
+        select_device = false
+    )
     Lx = Ly = 1.0
     dxi = dx, dy = Lx / (nx_g() - 1), Ly / (ny_g() - 1)
     # nodal vertices
@@ -87,9 +91,9 @@ function main()
         advection!(particles, RungeKutta2(), V, (grid_vx, grid_vy), dt)
 
         # update halos
-        update_halo!(particles.coords...)
-        update_halo!(particle_args...)
-        update_halo!(particles.index)
+        update_cell_halo!(particles.coords...)
+        update_cell_halo!(particle_args...)
+        update_cell_halo!(particles.index)
         # shuffle particles
         move_particles!(particles, xvi, particle_args)
         # interpolate T from particle to grid
@@ -98,39 +102,39 @@ function main()
         @views T_nohalo .= T[2:(end - 1), 2:(end - 1)]
         gather!(Array(T_nohalo), T_v)
 
-        if me == 0 && iter % 1 == 0
-            x_global = range(0, Lx, length = size(T_v, 1))
-            y_global = range(0, Ly, length = size(T_v, 2))
-            f, ax, = heatmap(x_global, y_global, T_v)
-            w = 0.504
-            offset = 0.5 - (w - 0.5)
-            lines!(
-                ax,
-                [0, w, w, 0, 0],
-                [0, 0, w, w, 0],
-                linewidth = 3
-            )
-            lines!(
-                ax,
-                [0, w, w, 0, 0] .+ offset,
-                [0, 0, w, w, 0],
-                linewidth = 3
-            )
-            lines!(
-                ax,
-                [0, w, w, 0, 0] .+ offset,
-                [0, 0, w, w, 0] .+ offset,
-                linewidth = 3
-            )
-            lines!(
-                ax,
-                [0, w, w, 0, 0],
-                [0, 0, w, w, 0] .+ offset,
-                linewidth = 3
-            )
+        # if me == 0 && iter % 1 == 0
+        #     x_global = range(0, Lx, length = size(T_v, 1))
+        #     y_global = range(0, Ly, length = size(T_v, 2))
+        #     f, ax, = heatmap(x_global, y_global, T_v)
+        #     w = 0.504
+        #     offset = 0.5 - (w - 0.5)
+        #     lines!(
+        #         ax,
+        #         [0, w, w, 0, 0],
+        #         [0, 0, w, w, 0],
+        #         linewidth = 3
+        #     )
+        #     lines!(
+        #         ax,
+        #         [0, w, w, 0, 0] .+ offset,
+        #         [0, 0, w, w, 0],
+        #         linewidth = 3
+        #     )
+        #     lines!(
+        #         ax,
+        #         [0, w, w, 0, 0] .+ offset,
+        #         [0, 0, w, w, 0] .+ offset,
+        #         linewidth = 3
+        #     )
+        #     lines!(
+        #         ax,
+        #         [0, w, w, 0, 0],
+        #         [0, 0, w, w, 0] .+ offset,
+        #         linewidth = 3
+        #     )
 
-            save("figs/T_MPI_$iter.png", f)
-        end
+        #     save("figs/T_MPI_$iter.png", f)
+        # end
 
         # px = particles.coords[1].data[:]
         # py = particles.coords[2].data[:]
