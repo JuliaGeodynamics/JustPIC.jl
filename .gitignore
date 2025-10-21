@@ -29,6 +29,9 @@ out/
 *.png
 *.csv
 *.pdf
+*.vti
+*.vtm
+*.jld2
 
 # VSCode
 .vscode

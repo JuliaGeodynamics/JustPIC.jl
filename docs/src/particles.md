@@ -45,3 +45,39 @@ struct PassiveMarkers{Backend,T} <: AbstractParticles
 end
 ```
 Where `coords` is a tuple containing the coordinates of the particles; and `np` is the number of passive markers.
+
+## Particle initialization
+
+Particles can be initialized as randomly distributed, or regularly spaced. As seen in the examples below, if `nxcell` is a scalar integer, particles will be randomly initialized. If `nxcell` is a tuple integers (with length 2 in 2D, and length 3 in 3D), particles will regularly spaced, with the elements of the tuple being the number of particles per dimension.
+
+### Randomly distributed particles
+
+```julia
+backend   = JustPIC.CPUBackend # device backend
+nxcell    = 24  # initial number of randomly distributed particles
+max_xcell = 48  # maximum number of particles per cell
+min_xcell = 12  # minimum number of particles per cell
+n         = 32  # number of cells per dimension
+Lx   = Ly = 1.0 # domain size
+xvi       = LinRange(0, Lx, n), LinRange(0, Ly, n) # nodal vertices
+## initialize particles object with randomly distributed coordinates
+particles = init_particles(
+    backend, nxcell, max_xcell, min_xcell, xvi...,
+)
+```
+
+### Regularly spaces particles
+
+```julia
+backend   = JustPIC.CPUBackend # device backend
+nxcell    = (5, 5)  # number of evenly spaced particles in the x- and y- dimensions
+max_xcell = 48      # maximum number of particles per cell
+min_xcell = 12      # minimum number of particles per cell
+n         = 32      # number of cells per dimension
+Lx   = Ly = 1.0     # domain size
+xvi       = LinRange(0, Lx, n), LinRange(0, Ly, n) # nodal vertices
+## initialize particles object with randomly distributed coordinates
+particles = init_particles(
+    backend, nxcell, max_xcell, min_xcell, xvi...,
+)
+```
