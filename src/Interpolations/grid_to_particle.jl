@@ -2,7 +2,7 @@
 
 # LAUNCHERS
 
-grid2particle!(Fp, xvi, F, particles) = grid2particle!(Fp, xvi, F, particles, grid_size(xvi))
+grid2particle!(Fp, xvi, F, particles) = grid2particle!(Fp, xvi, F, particles, compute_dx.(xvi))
 
 function grid2particle!(Fp, xvi, F, particles, di)
     (; coords, index) = particles

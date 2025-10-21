@@ -36,7 +36,7 @@ end
         interpolation_fn::F,
         I::NTuple;
         backtracking::Bool = false
-    ) where {N, F}
+    ) where {N, F<:Function}
 
     # interpolate velocity to current location
     vp0 = interpolation_fn(p0, grid_vi, local_limits, dxi, V, I)

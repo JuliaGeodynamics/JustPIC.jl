@@ -102,9 +102,9 @@ end
         p_i::Union{SVector, NTuple}, xi_vx::NTuple, di::NTuple, F::AbstractArray, idx
     )
     # F and coordinates at/of the cell corners
-    Fi, xci = corner_field_nodes(F, p_i, xi_vx, idx)
+    Fi, xci, indices = corner_field_nodes(F, p_i, xi_vx, idx)
     # normalize particle coordinates
-    dxi = @dxi di idx...
+    dxi = @dxi di indices...
     ti = normalize_coordinates(p_i, xci, dxi)
     # Interpolate field F onto particle
     Fp = lerp(Fi, ti)
@@ -126,12 +126,12 @@ end
         end
 
         indices = Base.@ncall $N tuple corrected_idx
-        cells = Base.@ncall $N tuple cell
+        xci = Base.@ncall $N tuple cell
 
         # F at the four centers
         Fi = extract_field_corners(F, indices...)
 
-        return Fi, cells
+        return Fi, xci, indices
     end
 end
 

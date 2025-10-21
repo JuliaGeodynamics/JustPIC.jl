@@ -97,9 +97,9 @@ function move_kernel!(
 
         new_cell = find_parent_cell_bisection(pᵢ, grid; seed = idx)
 
-        # if any(>(1), new_cell .- idx)
-        #     error("Particle moved more than one cell away from the parent cell $idx to cell $new_cell")
-        # end
+        if any(>(1), new_cell .- idx)
+            error("Particle moved more than one cell away from the parent cell $idx to cell $new_cell")
+        end
 
         # hold particle variables
         current_args = cache_args(args, ip, idx)
