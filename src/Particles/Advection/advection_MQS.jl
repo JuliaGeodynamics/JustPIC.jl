@@ -103,7 +103,7 @@ end
         p_i::Union{SVector, NTuple}, xi_vx::NTuple, dxi::NTuple, F::AbstractArray, ::Val{N}, idx
     ) where {N}
     # F and coordinates of the cell corners
-    Fi, xci, indices = corner_field_nodes_LinP(F, p_i, xi_vx, dxi, idx)
+    Fi, xci, indices = corner_field_nodes_LinP(F, p_i, xi_vx, idx)
     # normalize particle coordinates
     t = normalize_coordinates(p_i, xci, @dxi(dxi, idx...))
     # Interpolate field F from pressure node onto particle
