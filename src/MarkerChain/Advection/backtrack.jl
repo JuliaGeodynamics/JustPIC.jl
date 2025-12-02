@@ -1,13 +1,23 @@
 using Statistics
 
 function semilagrangian_advection_markerchain!(
-        chain::MarkerChain, method::AbstractAdvectionIntegrator, V, grid_vxi, grid, dt
+        chain::MarkerChain, method::AbstractAdvectionIntegrator, V, grid_vxi, grid, dt;
+        max_slope_angle = 45.0
     )
-    copyto!(chain.h_vertices0, chain.h_vertices)
+
     semilagrangian_advection!(chain, method, V, grid_vxi, grid, dt)
-    # correct topo to conserve mass
+
+    # Apply LaMEM-style slope limiting
+    smooth_slopes!(chain, deg2rad(max_slope_angle))
+
+    # Mass conservation
     chain.h_vertices .+= mean(chain.h_vertices) - mean(chain.h_vertices0)
+
+    # Reconstruct particles from the updated vertices
+    reconstruct_chain_from_vertices!(chain)
     # update old nodal topography
+    copyto!(chain.h_vertices0, chain.h_vertices)
+
     return nothing
 end
 

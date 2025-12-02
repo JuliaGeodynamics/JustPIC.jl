@@ -427,6 +427,11 @@ module _2D
         return nothing
     end
 
+    function JustPIC._2D.smooth_slopes!(chain::MarkerChain{AMDGPUBackend}, max_angle)
+        smooth_slopes!(chain, max_angle)
+        return nothing
+    end
+
     function JustPIC._2D.fill_chain_from_vertices!(
             chain::MarkerChain{AMDGPUBackend}, topo_y
         )
@@ -450,9 +455,10 @@ module _2D
             V,
             grid_vxi,
             xvi,
-            dt,
+            dt;
+            max_slope_angle = 45.0,
         )
-        return semilagrangian_advection_markerchain!(chain, method, V, grid_vxi, xvi, dt)
+        return semilagrangian_advection_markerchain!(chain, method, V, grid_vxi, xvi, dt; max_slope_angle = max_slope_angle)
     end
 
     function JustPIC._2D.compute_rock_fraction!(

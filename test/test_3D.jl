@@ -31,7 +31,7 @@ vy_stream(x, z) = 0.0
 vz_stream(x, z) = -250 * cos(π * x) * sin(π * z)
 
 @testset "Interpolations 3D" begin
-    nxcell, max_xcell, min_xcell = 12, 12, 1
+    nxcell, max_xcell, min_xcell = 16, 16, 1
     n = 5 # number of vertices
     nx = ny = nz = n - 1
     ni = nx, ny, nz

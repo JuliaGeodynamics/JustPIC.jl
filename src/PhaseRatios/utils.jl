@@ -33,7 +33,7 @@ function phase_ratio_weights(
         pxi::NTuple{NP, C}, ph::SVector{N1, T}, cell_center, di, ::Val{NC}
     ) where {N1, NC, NP, T, C}
 
-    # Initiaze phase ratio weights
+    # Initialize phase ratio weights
     w = ntuple(_ -> zero(T), Val(NC))
 
     for i in eachindex(ph)
