@@ -11,6 +11,8 @@ unit_test:
     - julia -e 'println("Instantiating project");
                 using Pkg;
                 Pkg.activate(pwd())'
+    - julia -e 'using Pkg; Pkg.add(name="CUDA", version="5.8.2");'
+    - julia -e 'using Pkg; Pkg.status(); using CUDA; CUDA.versioninfo();'
     - julia -e 'println("Running tests");
                 using Pkg;
                 Pkg.activate(pwd());
