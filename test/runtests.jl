@@ -55,6 +55,13 @@ function runtests()
         catch
             nfail += 1
         end
+        try
+            printstyled("Running MarkerSurface tests\n"; bold = true, color = :white)
+            run(`$(Base.julia_cmd()) --startup-file=no --project=. $(joinpath(testdir, "test_marker_surface.jl"))`)
+            run(`$(Base.julia_cmd()) --startup-file=no --project=. $(joinpath(testdir, "test_marker_surface_extended.jl"))`)
+        catch
+            nfail += 1
+        end
     else
         # 2D tests --------------------------------------------------
         printstyled("Running 2D tests\n"; bold = true, color = :white)
