@@ -1,10 +1,9 @@
 """
     advect_marker_surface!(surf::MarkerSurface, V, xvi, dt;
                            max_slope_angle=0.0,
-                           Exx=0.0, Eyy=0.0, Rxx=0.0, Ryy=0.0)
+                           Exx=0.0, Eyy=0.0, bg_ref_x=0.0, bg_ref_y=0.0)
 
-Main driver to advect the free surface. This mirrors LaMEM's `FreeSurfAdvect`:
-
+Main driver to advect the free surface:
 1. Interpolate velocities from the 3D grid to surface nodes
 2. Advect topography using the deformed-grid triangle method
 3. Smooth topography spikes (if `max_slope_angle > 0`)
@@ -16,20 +15,19 @@ Main driver to advect the free surface. This mirrors LaMEM's `FreeSurfAdvect`:
 - `dt`   : time step
 - `max_slope_angle` : maximum slope angle in **degrees** (default `0.0` = no smoothing)
 - `Exx, Eyy` : background strain rates (default `0.0`)
-- `Rxx, Ryy` : rotation reference points (default `0.0`)
+- `bg_ref_x, bg_ref_y` : rotation reference points (default `0.0`)
 """
 function advect_marker_surface!(
         surf::MarkerSurface, V::NTuple{3, Any},
-        xvi::NTuple{3, Any}, dt::Real;
-        max_slope_angle::Real = 45.0,
-        Exx::Real = 0.0, Eyy::Real = 0.0,
-        Rxx::Real = 0.0, Ryy::Real = 0.0,
+        xvi::NTuple{3, Any}, dt;
+        max_slope_angle = 45.0,
+        Exx = 0.0, Eyy = 0.0
     )
     # Step 1: Interpolate velocities to surface nodes
     interpolate_velocity_to_surface_vertices!(surf, V, xvi)
 
     # Step 2: Advect topography
-    advect_surface_topo!(surf, dt; Exx = Exx, Eyy = Eyy, Rxx = Rxx, Ryy = Ryy)
+    advect_surface_topo!(surf, dt; Exx = Exx, Eyy = Eyy)
 
     # Step 3: Smooth topography spikes
     smooth_surface_max_angle!(surf, max_slope_angle)
@@ -60,8 +58,8 @@ followed by slope smoothing and mass conservation.
 """
 function semilagrangian_advect_surface!(
         surf::MarkerSurface, V::NTuple{3, Any},
-        xvi::NTuple{3, Any}, dt::Real;
-        max_slope_angle::Real = 45.0,
+        xvi::NTuple{3, Any}, dt;
+        max_slope_angle = 45.0,
     )
     # Save current state
     copyto!(surf.topo0, surf.topo)

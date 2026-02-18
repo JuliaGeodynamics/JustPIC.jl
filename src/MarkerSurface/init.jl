@@ -77,7 +77,6 @@ end
     compute_avg_topo(surf::MarkerSurface)
 
 Compute and return the average topography over all surface vertices.
-Mirrors LaMEM's `FreeSurfGetAvgTopo`.
 """
 function compute_avg_topo(surf::MarkerSurface)
     return sum(surf.topo) / length(surf.topo)

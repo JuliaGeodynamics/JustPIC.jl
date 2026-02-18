@@ -5,8 +5,6 @@ Interpolate the 3D velocity field `V = (Vx, Vy, Vz)` onto the free surface
 nodes. Each surface node at position `(xv[i], yv[j], topo[i,j])` receives
 trilinearly interpolated velocity values.
 
-This mirrors LaMEM's `FreeSurfGetVelComp`.
-
 # Arguments
 - `surf` : the `MarkerSurface`
 - `V`    : tuple `(Vx, Vy, Vz)` of 3D velocity arrays

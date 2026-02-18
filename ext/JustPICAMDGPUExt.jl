@@ -862,20 +862,22 @@ module _3D
         return compute_avg_topo(surf)
     end
 
-    function JustPIC._3D.set_topo_from_array!(surf::JustPIC.MarkerSurface{AMDGPUBackend}, z)
+    function JustPIC._3D.set_topo_from_array!(surf::JustPIC.MarkerSurface{AMDGPUBackend}, z::AbstractMatrix)
         set_topo_from_array!(surf, z)
         return nothing
     end
 
     function JustPIC._3D.interpolate_velocity_to_surface_vertices!(
-            surf::JustPIC.MarkerSurface{AMDGPUBackend}, V, xvi
-        )
+            surf::JustPIC.MarkerSurface{AMDGPUBackend},
+            V::NTuple{3,AbstractArray{T,3}},
+            xvi::NTuple{3,Any},
+        ) where {T}
         interpolate_velocity_to_surface_vertices!(surf, V, xvi)
         return nothing
     end
 
     function JustPIC._3D.smooth_surface_max_angle!(
-            surf::JustPIC.MarkerSurface{AMDGPUBackend}, max_slope_angle
+            surf::JustPIC.MarkerSurface{AMDGPUBackend}, max_slope_angle::Real
         )
         smooth_surface_max_angle!(surf, max_slope_angle)
         return nothing
@@ -896,14 +898,14 @@ module _3D
     end
 
     function JustPIC._3D.advect_marker_surface!(
-            surf::JustPIC.MarkerSurface{AMDGPUBackend}, V, xvi, dt; kwargs...
+            surf::JustPIC.MarkerSurface{AMDGPUBackend}, V::NTuple{3,Any}, xvi::NTuple{3,Any}, dt; kwargs...
         )
         advect_marker_surface!(surf, V, xvi, dt; kwargs...)
         return nothing
     end
 
     function JustPIC._3D.semilagrangian_advect_surface!(
-            surf::JustPIC.MarkerSurface{AMDGPUBackend}, V, xvi, dt; kwargs...
+            surf::JustPIC.MarkerSurface{AMDGPUBackend}, V::NTuple{3,Any}, xvi::NTuple{3,Any}, dt; kwargs...
         )
         semilagrangian_advect_surface!(surf, V, xvi, dt; kwargs...)
         return nothing
@@ -913,22 +915,6 @@ module _3D
             ratios, surf::JustPIC.MarkerSurface{AMDGPUBackend}, xvi, dxi
         )
         compute_rock_fraction!(ratios, surf, xvi, dxi)
-        return nothing
-    end
-
-    # NOTE: Erosion/sedimentation canonical implementation is now in JustRelax.jl
-    # These forwarding methods are kept for backward compatibility.
-    function JustPIC._3D.apply_erosion!(
-            surf::JustPIC.MarkerSurface{AMDGPUBackend}, dt, time; kwargs...
-        )
-        apply_erosion!(surf, dt, time; kwargs...)
-        return nothing
-    end
-
-    function JustPIC._3D.apply_sedimentation!(
-            surf::JustPIC.MarkerSurface{AMDGPUBackend}, dt, time; kwargs...
-        )
-        apply_sedimentation!(surf, dt, time; kwargs...)
         return nothing
     end
 

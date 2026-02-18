@@ -1,31 +1,3 @@
-# ══════════════════════════════════════════════════════════════════════════ #
-#       compute_rock_fraction!  —  3D MarkerSurface dispatch                #
-# ══════════════════════════════════════════════════════════════════════════ #
-#
-# This is the 3D counterpart of `compute_rock_fraction!` in
-# `MarkerChain/areas.jl` (2D). Both share the same function name so that
-# user code can call `compute_rock_fraction!(ratios, surface, xvi, dxi)`
-# regardless of dimensionality.
-#
-# The `ratios` argument is duck-typed: it must expose the same fields as
-# JustRelax's `RockRatio` struct (`.center`, `.vertex`, `.Vx`, `.Vy`,
-# `.Vz`, `.xy`, `.yz`, `.xz`).
-#
-# Cell-center rock fractions are computed exactly via the triangular-prism
-# intersection algorithm (LaMEM's `FreeSurfGetAirPhaseRatio`), using
-# GridGeometryUtils (GGU) types for cell geometry—mirroring how the 2D
-# `areas.jl` uses `Segment`, `Rectangle`, and `cell_rock_area`:
-#   • `BBox{3}` for cell geometry  (cf. `Rectangle` in 2D)
-#   • `volume()` for cell volume   (cf. `area()` in 2D)
-#   • `cell_rock_volume()` helper  (cf. `cell_rock_area()` in 2D)
-#   • `is_surface_above_cell()` / `is_surface_below_cell()`
-#       (cf. `is_chain_above_cell` / `is_chain_below_cell` in 2D)
-#
-# Staggered-node values (vertex, velocity, shear-stress) are derived by
-# averaging neighbouring center values — standard staggered-grid
-# interpolation, consistent with how `update_rock_ratio!` operates in JR.
-# ══════════════════════════════════════════════════════════════════════════ #
-
 """
     compute_rock_fraction!(ratios, surf::MarkerSurface, xvi, dxi)
 
@@ -65,9 +37,7 @@ function compute_rock_fraction!(ratios, surf::MarkerSurface, xvi, dxi)
     return nothing
 end
 
-# ──────────────────────────────────────────────────────────────────────────── #
-#       Cell-center computation (prism intersection, using GGU types)        #
-# ──────────────────────────────────────────────────────────────────────────── #
+# Cell-center
 
 function compute_volume_below_surface_centers!(ratio_center, surf, xvi)
     topo = surf.topo
@@ -104,9 +74,7 @@ end
     return nothing
 end
 
-# ──────────────────────────────────────────────────────────────────────────── #
-#               Center → staggered averaging kernels (3D)                    #
-# ──────────────────────────────────────────────────────────────────────────── #
+# Center - vertex
 
 @parallel_indices (i, j, k) function _avg_center_to_vertex_3D!(vertex, center)
     nx, ny, nz = size(center)
@@ -218,18 +186,12 @@ end
     return nothing
 end
 
-# ──────────────────────────────────────────────────────────────────────────── #
-#    Geometry helpers: cell_rock_volume (3D analogue of cell_rock_area)      #
-#    cf. MarkerChain/areas.jl for the 2D equivalent pattern                  #
-# ──────────────────────────────────────────────────────────────────────────── #
-
 """
     is_surface_above_cell(zmin_surface, cell::BBox{3})
 
 Check whether the topographic surface is entirely above (or at) the cell top.
-Analogous to `is_chain_above_cell` in 2D `MarkerChain/areas.jl`.
 """
-@inline function is_surface_above_cell(zmin_surface::Real, cell::BBox{3})
+@inline function is_surface_above_cell(zmin_surface, cell::BBox{3})
     ztop = cell.origin[3] + cell.d
     return GridGeometryUtils.geq_r(zmin_surface, ztop)
 end
@@ -238,9 +200,8 @@ end
     is_surface_below_cell(zmax_surface, cell::BBox{3})
 
 Check whether the topographic surface is entirely below (or at) the cell bottom.
-Analogous to `is_chain_below_cell` in 2D `MarkerChain/areas.jl`.
 """
-@inline function is_surface_below_cell(zmax_surface::Real, cell::BBox{3})
+@inline function is_surface_below_cell(zmax_surface, cell::BBox{3})
     zbot = cell.origin[3]
     return GridGeometryUtils.leq_r(zmax_surface, zbot)
 end
@@ -250,9 +211,6 @@ end
 
 Compute the rock fraction of a 3D cell based on the topographic surface heights
 at the four cell corners. Returns a value clamped to [0, 1].
-
-This is the 3D analogue of `cell_rock_area(s::Segment, r::Rectangle)` in
-`MarkerChain/areas.jl`.
 """
 @inline function cell_rock_volume(cz1, cz2, cz3, cz4, cell::BBox{3, T}) where {T}
     zmin_surf = min(cz1, cz2, cz3, cz4)
@@ -272,15 +230,10 @@ This is the 3D analogue of `cell_rock_area(s::Segment, r::Rectangle)` in
     return A
 end
 
-# ──────────────────────────────────────────────────────────────────────────── #
-#          Prism intersection (LaMEM algorithm, using GGU volume())          #
-# ──────────────────────────────────────────────────────────────────────────── #
-
 """
     _intersecting_rock_fraction(cz1, cz2, cz3, cz4, cell::BBox{3})
 
-Compute the rock fraction via the 4-triangle prism intersection algorithm
-(LaMEM's `FreeSurfGetAirPhaseRatio`).  Uses `volume(cell)` from GGU.
+Compute the rock fraction via the 4-triangle prism intersection algorithm. Uses `volume(cell)` from GGU.
 """
 @inline function _intersecting_rock_fraction(cz1, cz2, cz3, cz4, cell::BBox{3})
     # Cell geometry from GGU BBox
@@ -320,16 +273,14 @@ Compute the volume of a triangular prism (with a slanted top surface defined
 by the topography) that is inside the cell bounded by `[bot, top]` in z,
 normalized by `vcell`.
 
-This is the Julia equivalent of LaMEM's `IntersectTriangularPrism`.
-
 # Returns
 Rock fraction contributed by this triangle (in [0, 0.25] for a 4-triangle cell).
 """
 @inline function _intersect_triangular_prism(
         cx::NTuple, cy::NTuple, cz::NTuple,
-        tri::NTuple{3, Int}, vcell::Real,
-        bot::Real, top::Real;
-        tol::Real = 1.0e-12,
+        tri::NTuple{3, Int}, vcell,
+        bot, top;
+        tol = 1.0e-12,
     )
     ia, ib, ic = tri
     xa, ya, za = cx[ia], cy[ia], cz[ia]
@@ -365,7 +316,6 @@ end
     _prism_volume_above_level(xa,ya,za, xb,yb,zb, xc,yc,zc, level, dh)
 
 Compute double the volume of the triangular prism above a horizontal `level` plane.
-Uses the same edge-intersection approach as LaMEM's macros.
 """
 @inline function _prism_volume_above_level(
         xa, ya, za, xb, yb, zb, xc, yc, zc, level, dh
@@ -411,7 +361,7 @@ end
 """
     _get_volume_prism(x1,y1,z1, x2,y2,z2, x3,y3,z3, level)
 
-Compute double the volume of a prism above `level`, as done by LaMEM's GET_VOLUME_PRISM macro.
+Compute double the volume of a prism above `level`
 """
 @inline function _get_volume_prism(x1, y1, z1, x2, y2, z2, x3, y3, z3, level)
     avg_z = (z1 + z2 + z3) / 3.0

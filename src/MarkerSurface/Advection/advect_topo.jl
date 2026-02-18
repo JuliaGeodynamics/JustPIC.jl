@@ -18,11 +18,21 @@ In-place version: fill pre-allocated `p` (length `n+2`) from `arr` (length `n`).
 """
 function _pad_extrap_1d!(p::AbstractVector, arr::AbstractVector)
     n = length(arr)
-    @inbounds begin
-        p[2:(n + 1)] .= arr
-        p[1] = 2 * arr[1] - arr[2]
-        p[end] = 2 * arr[n] - arr[n - 1]
-    end
+    # Interior copy
+    @parallel (1:n) _pad_copy_1d_kernel!(p, arr)
+    # Boundary extrapolation (single thread, no branching)
+    @parallel (1:1) _pad_boundary_1d_kernel!(p, arr, n)
+    return nothing
+end
+
+@parallel_indices (i) function _pad_copy_1d_kernel!(p, arr)
+    @inbounds p[i + 1] = arr[i]
+    return nothing
+end
+
+@parallel_indices (i) function _pad_boundary_1d_kernel!(p, arr, n)
+    @inbounds p[1]     = 2 * arr[1] - arr[2]
+    @inbounds p[n + 2] = 2 * arr[n] - arr[n - 1]
     return nothing
 end
 
@@ -46,55 +56,76 @@ In-place version: fill pre-allocated `p` (size `(nx+2, ny+2)`) from `arr` (size 
 """
 function _pad_extrap_2d!(p::AbstractMatrix, arr::AbstractMatrix)
     nx, ny = size(arr)
-    @inbounds begin
-        # Interior
-        p[2:(nx + 1), 2:(ny + 1)] .= arr
-        # Edges (linear extrapolation)
-        for j in 1:ny
-            p[1, j + 1] = 2 * arr[1, j] - arr[2, j]
-            p[nx + 2, j + 1] = 2 * arr[nx, j] - arr[nx - 1, j]
-        end
-        for i in 1:nx
-            p[i + 1, 1] = 2 * arr[i, 1] - arr[i, 2]
-            p[i + 1, ny + 2] = 2 * arr[i, ny] - arr[i, ny - 1]
-        end
-        # Corners (extrapolate from already-computed edges)
-        p[1, 1] = 2 * p[2, 1] - p[3, 1]
-        p[1, ny + 2] = 2 * p[2, ny + 2] - p[3, ny + 2]
-        p[nx + 2, 1] = 2 * p[nx + 1, 1] - p[nx, 1]
-        p[nx + 2, ny + 2] = 2 * p[nx + 1, ny + 2] - p[nx, ny + 2]
-    end
+    # Interior copy
+    @parallel (1:nx, 1:ny) _pad_copy_2d_kernel!(p, arr)
+    # Edge extrapolation
+    @parallel (1:ny) _pad_left_edge_kernel!(p, arr)
+    @parallel (1:ny) _pad_right_edge_kernel!(p, arr, nx)
+    @parallel (1:nx) _pad_bottom_edge_kernel!(p, arr)
+    @parallel (1:nx) _pad_top_edge_kernel!(p, arr, ny)
+    # Corner extrapolation (single thread, no branching)
+    @parallel (1:1) _pad_corners_2d_kernel!(p, arr, nx, ny)
+    return nothing
+end
+
+@parallel_indices (i, j) function _pad_copy_2d_kernel!(p, arr)
+    @inbounds p[i + 1, j + 1] = arr[i, j]
+    return nothing
+end
+
+@parallel_indices (j) function _pad_left_edge_kernel!(p, arr)
+    @inbounds p[1, j + 1] = 2 * arr[1, j] - arr[2, j]
+    return nothing
+end
+
+@parallel_indices (j) function _pad_right_edge_kernel!(p, arr, nx)
+    @inbounds p[nx + 2, j + 1] = 2 * arr[nx, j] - arr[nx - 1, j]
+    return nothing
+end
+
+@parallel_indices (i) function _pad_bottom_edge_kernel!(p, arr)
+    @inbounds p[i + 1, 1] = 2 * arr[i, 1] - arr[i, 2]
+    return nothing
+end
+
+@parallel_indices (i) function _pad_top_edge_kernel!(p, arr, ny)
+    @inbounds p[i + 1, ny + 2] = 2 * arr[i, ny] - arr[i, ny - 1]
+    return nothing
+end
+
+@parallel_indices (i) function _pad_corners_2d_kernel!(p, arr, nx, ny)
+    # Bottom-left
+    @inbounds p[1, 1] = 4 * arr[1, 1] - 2 * arr[1, 2] - 2 * arr[2, 1] + arr[2, 2]
+    # Top-left
+    @inbounds p[1, ny + 2] = 4 * arr[1, ny] - 2 * arr[1, ny - 1] - 2 * arr[2, ny] + arr[2, ny - 1]
+    # Bottom-right
+    @inbounds p[nx + 2, 1] = 4 * arr[nx, 1] - 2 * arr[nx, 2] - 2 * arr[nx - 1, 1] + arr[nx - 1, 2]
+    # Top-right
+    @inbounds p[nx + 2, ny + 2] = 4 * arr[nx, ny] - 2 * arr[nx, ny - 1] - 2 * arr[nx - 1, ny] + arr[nx - 1, ny - 1]
     return nothing
 end
 
 """
-    advect_surface_topo!(surf::MarkerSurface, dt;
-                         Exx=0.0, Eyy=0.0, Rxx=0.0, Ryy=0.0)
+     advect_surface_topo!(surf::MarkerSurface, dt; Exx=0.0, Eyy=0.0)
 
 Advect the topography on the free surface mesh using the velocity field
 already interpolated onto the surface nodes (`surf.vx`, `surf.vy`, `surf.vz`).
 
-This implements the LaMEM `FreeSurfAdvectTopo` algorithm with improved
-boundary treatment:
 1. Pad topography and velocity arrays with linearly extrapolated ghost nodes
-   to avoid degenerate stencils at domain boundaries.
+    to avoid degenerate stencils at domain boundaries.
 2. For each surface node, build a local 3×3 "deformed grid" using neighboring
-   node positions displaced by `dt*v`.
+    node positions displaced by `dt*v`.
 3. Subdivide the deformed cell into 16 triangles (9 corner + 4 midpoint nodes).
-4. Find which triangle contains the (possibly background-strained) target
-   position and perform barycentric interpolation of the z-coordinate.
+4. Find which triangle contains the target position and perform barycentric interpolation of the z-coordinate.
 
 # Arguments
 - `surf` : the `MarkerSurface`
 - `dt`   : time step
 - `Exx, Eyy` : background strain rates in x,y directions (default `0.0`)
-- `Rxx, Ryy` : rotation points for background strain (default `0.0`)
 """
 function advect_surface_topo!(
-        surf::MarkerSurface, dt::Real;
-        Exx::Real = 0.0, Eyy::Real = 0.0,
-        Rxx::Real = 0.0, Ryy::Real = 0.0,
-    )
+     surf::MarkerSurface, dt;
+     Exx = 0.0, Eyy = 0.0)
     xv = surf.xv
     yv = surf.yv
     topo = surf.topo
@@ -106,7 +137,7 @@ function advect_surface_topo!(
     # Save old topography
     copyto!(surf.topo0, topo)
 
-    # Use pre-allocated workspace buffers (zero-alloc hot path)
+    # Use pre-allocated workspace buffers
     ws = surf.workspace
     advected = ws.advected
     xvp = ws.xvp
@@ -125,7 +156,7 @@ function advect_surface_topo!(
     _pad_extrap_2d!(vzp, vz)
 
     @parallel (1:nx1, 1:ny1) _advect_surface_topo_kernel!(
-        advected, xvp, yvp, topop, vxp, vyp, vzp, dt, Exx, Eyy, Rxx, Ryy
+        advected, xvp, yvp, topop, vxp, vyp, vzp, dt, Exx, Eyy
     )
 
     # Copy advected topography back
@@ -135,11 +166,10 @@ function advect_surface_topo!(
 end
 
 @parallel_indices (i, j) function _advect_surface_topo_kernel!(
-        advected, xvp, yvp, topop, vxp, vyp, vzp, dt, Exx, Eyy, Rxx, Ryy
+        advected, xvp, yvp, topop, vxp, vyp, vzp, dt, Exx, Eyy
     )
     # The 16-triangle subdivision topology (0-indexed vertex IDs → 1-indexed)
     # Vertices 0-8 are the 3x3 grid nodes, 9-12 are cell-center midpoints
-    # Same topology as LaMEM's FreeSurfAdvectTopo
     tria = (
         # Inner layer (center-connected triangles)
         (5, 6, 13), (5, 13, 8), (5, 8, 12), (5, 12, 4),
@@ -148,7 +178,6 @@ end
         (6, 9, 13), (9, 8, 13), (8, 7, 12), (7, 4, 12),
         (4, 1, 10), (1, 2, 10), (2, 3, 11), (3, 6, 11),
     )
-
     # Padded indices (offset by 1 for the ghost layer)
     ip = i + 1
     jp = j + 1
@@ -226,9 +255,9 @@ end
     all_cy = (cy..., cy10, cy11, cy12, cy13)
     all_cz = (cz..., cz10, cz11, cz12, cz13)
 
-    # Updated target position with background strain
-    Xt = X + dt * Exx * (X - Rxx)
-    Yt = Y + dt * Eyy * (Y - Ryy)
+    # Updated target position with background strain (if needed)
+    Xt = X + dt * Exx * X
+    Yt = Y + dt * Eyy * Y
 
     # Search through the 16 triangles
     Z = zero(Float64)
@@ -262,16 +291,14 @@ Check if point (xp, yp) lies inside the triangle defined by indices `tri`
 into coordinate arrays `(cx, cy, cz)`, and compute the barycentric
 interpolation of the z-coordinate.
 
-This is the Julia equivalent of LaMEM's `InterpolateTriangle`.
-
 # Returns
 - `(true, z_interpolated)` if the point is inside the triangle
 - `(false, 0.0)` otherwise
 """
 @inline function _interpolate_triangle(
         cx::NTuple, cy::NTuple, cz::NTuple,
-        tri::NTuple{3, Int}, xp::Real, yp::Real;
-        tol::Real = 1.0e-10,
+        tri::NTuple{3, Int}, xp, yp;
+        tol = 1.0e-10,
     )
     ia, ib, ic = tri
 

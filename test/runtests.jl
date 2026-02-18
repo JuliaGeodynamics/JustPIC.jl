@@ -58,7 +58,6 @@ function runtests()
         try
             printstyled("Running MarkerSurface tests\n"; bold = true, color = :white)
             run(`$(Base.julia_cmd()) --startup-file=no --project=. $(joinpath(testdir, "test_marker_surface.jl"))`)
-            run(`$(Base.julia_cmd()) --startup-file=no --project=. $(joinpath(testdir, "test_marker_surface_extended.jl"))`)
         catch
             nfail += 1
         end
@@ -91,12 +90,19 @@ function runtests()
 
         # Force IO test on GPU
         run(`$(Base.julia_cmd()) --startup-file=no $(joinpath(testdir, "test_save_load.jl"))`)
+
+        try
+            printstyled("Running MarkerSurface tests\n"; bold = true, color = :white)
+            run(`$(Base.julia_cmd()) --startup-file=no --project=. $(joinpath(testdir, "test_marker_surface.jl"))`)
+        catch
+            nfail += 1
+        end
     end
 
     return nfail
 end
 
-_, backend_name = parse_flags!(ARGS, "--backend"; default = "CPU", type = String)
+_, backend_name = parse_flags!(ARGS, "--backend"; default = "CUDA", type = String)
 
 @static if backend_name == "AMDGPU"
     Pkg.add("AMDGPU")

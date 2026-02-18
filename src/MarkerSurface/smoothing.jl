@@ -28,7 +28,7 @@ function smooth_surface_max_angle!(surf::MarkerSurface, max_slope_angle::Real)
     tan_max = tan(deg2rad(max_slope_angle))
 
     # Step 1: compute cell-center topography and mark cells exceeding max slope
-    # Use pre-allocated workspace buffers (zero-alloc hot path)
+    # Use pre-allocated workspace buffers
     cell_topo = surf.workspace.cell_topo
     affected = surf.workspace.affected
     fill!(cell_topo, 0.0)
@@ -39,7 +39,7 @@ function smooth_surface_max_angle!(surf::MarkerSurface, max_slope_angle::Real)
     )
 
     # If no cells are affected, return
-    any(x -> x != 0, affected) || return nothing
+    any(!iszero, affected) || return nothing
 
     # Step 2: smooth nodal topography
     @parallel (1:nx1, 1:ny1) _smooth_step2_kernel!(
