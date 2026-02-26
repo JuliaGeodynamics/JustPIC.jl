@@ -145,6 +145,17 @@ AMDGPU.ROCArray(particles::JustPIC.Particles{JustPIC.AMDGPUBackend}) = particles
 AMDGPU.ROCArray(phase_ratios::JustPIC.PhaseRatios{JustPIC.AMDGPUBackend}) = phase_ratios
 AMDGPU.ROCArray(CA::CellArray) = AMDGPU.ROCArray(eltype(eltype(CA)), CA)
 
+function AMDGPU.ROCArray(surf::JustPIC.MarkerSurface)
+    return JustPIC.MarkerSurface(
+        JustPIC.AMDGPUBackend,
+        ROCArray(surf.topo), ROCArray(surf.topo0),
+        ROCArray(surf.vx), ROCArray(surf.vy), ROCArray(surf.vz),
+        ROCArray(surf.xv), ROCArray(surf.yv),
+        surf.air_phase,
+    )
+end
+AMDGPU.ROCArray(surf::JustPIC.MarkerSurface{JustPIC.AMDGPUBackend}) = surf
+
 module _2D
     using AMDGPU
     using ImplicitGlobalGrid
@@ -836,6 +847,74 @@ module _3D
         subgrid_diffusion_centroid!(
             pT, T_grid, ΔT_grid, subgrid_arrays, particles, xvi, di, dt; d = d
         )
+        return nothing
+    end
+
+    ## MarkerSurface (3D free surface tracking)
+
+    function JustPIC._3D.init_marker_surface(
+            ::Type{AMDGPUBackend}, xv, yv, initial_elevation; kwargs...
+        )
+        return init_marker_surface(AMDGPUBackend, xv, yv, initial_elevation; kwargs...)
+    end
+
+    function JustPIC._3D.compute_avg_topo(surf::JustPIC.MarkerSurface{AMDGPUBackend})
+        return compute_avg_topo(surf)
+    end
+
+    function JustPIC._3D.set_topo_from_array!(surf::JustPIC.MarkerSurface{AMDGPUBackend}, z::AbstractMatrix)
+        set_topo_from_array!(surf, z)
+        return nothing
+    end
+
+    function JustPIC._3D.interpolate_velocity_to_surface_vertices!(
+            surf::JustPIC.MarkerSurface{AMDGPUBackend},
+            V::NTuple{3,AbstractArray{T,3}},
+            xvi::NTuple{3,Any},
+        ) where {T}
+        interpolate_velocity_to_surface_vertices!(surf, V, xvi)
+        return nothing
+    end
+
+    function JustPIC._3D.smooth_surface_max_angle!(
+            surf::JustPIC.MarkerSurface{AMDGPUBackend}, max_slope_angle::Real
+        )
+        smooth_surface_max_angle!(surf, max_slope_angle)
+        return nothing
+    end
+
+    function JustPIC._3D.smooth_surface_diffusive!(
+            surf::JustPIC.MarkerSurface{AMDGPUBackend}, niter::Int=1; kwargs...
+        )
+        smooth_surface_diffusive!(surf, niter; kwargs...)
+        return nothing
+    end
+
+    function JustPIC._3D.advect_surface_topo!(
+            surf::JustPIC.MarkerSurface{AMDGPUBackend}, dt; kwargs...
+        )
+        advect_surface_topo!(surf, dt; kwargs...)
+        return nothing
+    end
+
+    function JustPIC._3D.advect_marker_surface!(
+            surf::JustPIC.MarkerSurface{AMDGPUBackend}, V::NTuple{3,Any}, xvi::NTuple{3,Any}, dt; kwargs...
+        )
+        advect_marker_surface!(surf, V, xvi, dt; kwargs...)
+        return nothing
+    end
+
+    function JustPIC._3D.semilagrangian_advect_surface!(
+            surf::JustPIC.MarkerSurface{AMDGPUBackend}, V::NTuple{3,Any}, xvi::NTuple{3,Any}, dt; kwargs...
+        )
+        semilagrangian_advect_surface!(surf, V, xvi, dt; kwargs...)
+        return nothing
+    end
+
+    function JustPIC._3D.compute_rock_fraction!(
+            ratios, surf::JustPIC.MarkerSurface{AMDGPUBackend}, xvi, dxi
+        )
+        compute_rock_fraction!(ratios, surf, xvi, dxi)
         return nothing
     end
 

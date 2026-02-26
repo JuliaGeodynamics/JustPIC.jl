@@ -94,6 +94,25 @@ export semilagrangian_advection_markerchain!
 include("MarkerChain/Advection/interp_velocity.jl")
 export interpolate_velocity_to_markerchain!
 
+## MARKER SURFACE RELATED FILES (3D free surface tracking)
+include("MarkerSurface/init.jl")
+export init_marker_surface, compute_avg_topo, set_topo_from_array!
+
+include("MarkerSurface/interp_velocity.jl")
+export interpolate_velocity_to_surface_vertices!
+
+include("MarkerSurface/smoothing.jl")
+export smooth_surface_max_angle!, smooth_surface_diffusive!
+
+include("MarkerSurface/Advection/advect_topo.jl")
+export advect_surface_topo!
+
+include("MarkerSurface/Advection/advection.jl")
+export advect_marker_surface!, semilagrangian_advect_surface!
+
+include("MarkerSurface/areas.jl")
+export compute_rock_fraction!
+
 ## PASSIVE MARKERS RELATED FILES
 
 include("PassiveMarkers/init.jl")
