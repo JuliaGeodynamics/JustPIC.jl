@@ -216,10 +216,10 @@ module _2D
     end
 
     function JustPIC._2D.init_particles(
-            ::Type{AMDGPUBackend}, nxcell, max_xcell, min_xcell, x, y, z; buffer = 1 - 1.0e-5
+            ::Type{AMDGPUBackend}, nxcell, max_xcell, min_xcell, x, y; buffer = 1 - 1.0e-5
         )
         return init_particles(
-            AMDGPUBackend, nxcell, max_xcell, min_xcell, x, y, z; buffer = buffer
+            AMDGPUBackend, nxcell, max_xcell, min_xcell, x, y; buffer = buffer
         )
     end
 
@@ -228,9 +228,9 @@ module _2D
             nxcell,
             max_xcell,
             min_xcell,
-            coords::NTuple{3, AbstractArray},
-            dxᵢ::NTuple{3, T},
-            nᵢ::NTuple{3, I};
+            coords::NTuple{2, AbstractArray},
+            dxᵢ::NTuple{2, T},
+            nᵢ::NTuple{2, I};
             buffer = 1 - 1.0e-5,
         ) where {T, I}
         return init_particles(
@@ -269,8 +269,8 @@ module _2D
     end
 
     function JustPIC._2D.semilagrangian_advection!(
-            F::Union{ROCArrays, NTuple{NF, ROCArrays}},
-            F0::Union{ROCArrays, NTuple{NF, ROCArrays}},
+            F::Union{ROCArray, NTuple{NF, ROCArray}},
+            F0::Union{ROCArray, NTuple{NF, ROCArray}},
             method::AbstractAdvectionIntegrator,
             V,
             grid_vi::NTuple{N, NTuple{N, T}},
@@ -282,8 +282,8 @@ module _2D
     end
 
     function JustPIC._2D.semilagrangian_advection_LinP!(
-            F::Union{ROCArrays, NTuple{NF, ROCArrays}},
-            F0::Union{ROCArrays, NTuple{NF, ROCArrays}},
+            F::Union{ROCArray, NTuple{NF, ROCArray}},
+            F0::Union{ROCArray, NTuple{NF, ROCArray}},
             method::AbstractAdvectionIntegrator,
             V,
             grid_vi::NTuple{N, NTuple{N, T}},
@@ -295,8 +295,8 @@ module _2D
     end
 
     function JustPIC._2D.semilagrangian_advection_MQS!(
-            F::Union{ROCArrays, NTuple{NF, ROCArrays}},
-            F0::Union{ROCArrays, NTuple{NF, ROCArrays}},
+            F::Union{ROCArray, NTuple{NF, ROCArray}},
+            F0::Union{ROCArray, NTuple{NF, ROCArray}},
             method::AbstractAdvectionIntegrator,
             V,
             grid_vi::NTuple{N, NTuple{N, T}},
@@ -709,8 +709,8 @@ module _3D
     end
 
     function JustPIC._3D.semilagrangian_advection!(
-            F::Union{ROCArrays, NTuple{NF, ROCArrays}},
-            F0::Union{ROCArrays, NTuple{NF, ROCArrays}},
+            F::Union{ROCArray, NTuple{NF, ROCArray}},
+            F0::Union{ROCArray, NTuple{NF, ROCArray}},
             method::AbstractAdvectionIntegrator,
             V,
             grid_vi::NTuple{N, NTuple{N, T}},
@@ -722,8 +722,8 @@ module _3D
     end
 
     function JustPIC._3D.semilagrangian_advection_LinP!(
-            F::Union{ROCArrays, NTuple{NF, ROCArrays}},
-            F0::Union{ROCArrays, NTuple{NF, ROCArrays}},
+            F::Union{ROCArray, NTuple{NF, ROCArray}},
+            F0::Union{ROCArray, NTuple{NF, ROCArray}},
             method::AbstractAdvectionIntegrator,
             V,
             grid_vi::NTuple{N, NTuple{N, T}},
@@ -735,8 +735,8 @@ module _3D
     end
 
     function JustPIC._3D.semilagrangian_advection_MQS!(
-            F::Union{ROCArrays, NTuple{NF, ROCArrays}},
-            F0::Union{ROCArrays, NTuple{NF, ROCArrays}},
+            F::Union{ROCArray, NTuple{NF, ROCArray}},
+            F0::Union{ROCArray, NTuple{NF, ROCArray}},
             method::AbstractAdvectionIntegrator,
             V,
             grid_vi::NTuple{N, NTuple{N, T}},
