@@ -100,9 +100,11 @@ end
 @inline function interp_velocity2particle_LinP(
         p_i::Union{SVector, NTuple}, xi_vx::NTuple, di::NTuple, F::AbstractArray, ::Val{N}, idx
     ) where {N}
-    dxi = @dxi di idx...
     # F and coordinates of the cell corners
     Fi, xci, indices = corner_field_nodes_LinP(F, p_i, xi_vx, idx)
+    # Recompute the local spacing from the corrected parent cell. On nonuniform
+    # grids the seed cell `idx` may differ from the actual interpolation cell.
+    dxi = @dxi di indices...
 
     # normalize particle coordinates
     tL = normalize_coordinates(p_i, xci, dxi)

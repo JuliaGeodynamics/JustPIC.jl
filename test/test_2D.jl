@@ -35,6 +35,15 @@ function expand_range(x::AbstractRange)
     return LinRange(xI, xF, n + 2)
 end
 
+function expand_range(x::AbstractVector)
+    dx_left = x[2] - x[1]
+    dx_right = x[end] - x[end - 1]
+    x1, x2 = extrema(x)
+    xI = x1 - dx_left
+    xF = x2 + dx_right
+    return vcat(xI, x, xF)
+end
+
 # Analytical flow solution
 vx_stream(x, y) = 250 * sin(π * x) * cos(π * y)
 vy_stream(x, y) = -250 * cos(π * x) * sin(π * y)
@@ -120,6 +129,64 @@ end
     i, j = _2D.cell_index((px, py), xv)
     @test x[i] ≤ px < x[i + 1]
     @test y[j] ≤ py < y[j + 1]
+end
+
+@testset "Refined grid advection helpers 2D" begin
+    xv = TA(backend)([0.0, 0.1, 0.3, 0.6, 1.0])
+    yv = TA(backend)(collect(LinRange(0.0, 1.0, 5)))
+    xc = TA(backend)([(xv[i] + xv[i + 1]) / 2 for i in 1:(length(xv) - 1)])
+    yc = TA(backend)([(yv[i] + yv[i + 1]) / 2 for i in 1:(length(yv) - 1)])
+
+    grid_vx = xv, TA(backend)(expand_range(Array(yc)))
+    grid_vy = TA(backend)(expand_range(Array(xc))), yv
+    grid_vi = grid_vx, grid_vy
+    dxi_velocity = JustPIC._2D.compute_dx.(grid_vi)
+    dxi_vertex = JustPIC._2D.compute_dx((xv, yv))
+
+    p = (0.22, 0.48)
+    idx = (3, 3)
+    corrected_idx = (
+        JustPIC._2D.find_parent_cell_bisection(p[1], xv; seed = idx[1]),
+        JustPIC._2D.find_parent_cell_bisection(p[2], yv; seed = idx[2]),
+    )
+
+    Vx = TA(backend)([2.0 * x + y for x in Array(grid_vx[1]), y in Array(grid_vx[2])])
+    Vy = TA(backend)([x - 3.0 * y for x in Array(grid_vy[1]), y in Array(grid_vy[2])])
+
+    v_linp = JustPIC._2D.interp_velocity2particle_LinP(p, grid_vi, dxi_velocity, (Vx, Vy), idx)
+    v_mqs = JustPIC._2D.interp_velocity2particle_MQS(p, grid_vi, dxi_velocity, (Vx, Vy), idx)
+    v_linp_corrected = JustPIC._2D.interp_velocity2particle_LinP(p, grid_vi, dxi_velocity, (Vx, Vy), corrected_idx)
+    v_mqs_corrected = JustPIC._2D.interp_velocity2particle_MQS(p, grid_vi, dxi_velocity, (Vx, Vy), corrected_idx)
+
+    @test all(v_linp .≈ v_linp_corrected)
+    @test all(v_mqs .≈ v_mqs_corrected)
+
+    F0 = TA(backend)([x + 2.0 * y for x in Array(xv), y in Array(yv)])
+    F_linp = similar(F0)
+    F_mqs = similar(F0)
+    copyto!(F_linp, F0)
+    copyto!(F_mqs, F0)
+
+    Vx_const = TA(backend)(fill(0.08, size(Vx)))
+    Vy_const = TA(backend)(fill(0.02, size(Vy)))
+    dt = 1.0
+
+    semilagrangian_advection_LinP!((F_linp,), (F0,), RungeKutta2(), (Vx_const, Vy_const), grid_vi, (xv, yv), dt)
+    semilagrangian_advection_MQS!((F_mqs,), (F0,), RungeKutta2(), (Vx_const, Vy_const), grid_vi, (xv, yv), dt)
+
+    p_backtrack = (xv[3] - 0.08, yv[3] - 0.02)
+    I_backtrack = (
+        JustPIC._2D.find_parent_cell_bisection(p_backtrack[1], xv; seed = 3),
+        JustPIC._2D.find_parent_cell_bisection(p_backtrack[2], yv; seed = 3),
+    )
+    di_backtrack = (dxi_vertex[1][I_backtrack[1]], dxi_vertex[2][I_backtrack[2]])
+    expected = JustPIC._2D._grid2particle(
+        p_backtrack, (xv, yv), di_backtrack, F0, I_backtrack
+    )
+    @test F_linp[3, 3] ≈ expected atol = 1e-12 rtol = 1e-12
+    @test F_mqs[3, 3] ≈ expected atol = 1e-12 rtol = 1e-12
+    @test F_linp[3, 3] ≈ F_mqs[3, 3] atol = 1e-12 rtol = 1e-12
+    @test F_linp[3, 3] != F0[3, 3]
 end
 
 @testset "Passive markers 2D" begin

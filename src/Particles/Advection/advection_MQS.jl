@@ -104,8 +104,11 @@ end
     ) where {N}
     # F and coordinates of the cell corners
     Fi, xci, indices = corner_field_nodes_LinP(F, p_i, xi_vx, idx)
+    # Recompute the local spacing from the corrected parent cell. On nonuniform
+    # grids the seed cell `idx` may differ from the actual interpolation cell.
+    di = @dxi(dxi, indices...)
     # normalize particle coordinates
-    t = normalize_coordinates(p_i, xci, @dxi(dxi, idx...))
+    t = normalize_coordinates(p_i, xci, di)
     # Interpolate field F from pressure node onto particle
     V = if all(x -> 1 < x[1] < x[2] - 1, zip(indices, size(F)))
         MQS(F, Fi, t, indices..., Val(N))
