@@ -48,6 +48,16 @@ end
 @inline compute_dx(grid::AbstractVector) = diff(grid)
 @inline compute_dx(grid::Tuple) = compute_dx(first(grid)), compute_dx(Base.tail(grid))...
 
+function compute_dx(xi::NTuple{N, AbstractVector}, I) where N
+    di = ntuple(Val(N)) do i
+        @inline 
+        ii = I[i]
+        x = xi[i] 
+        x[ii + 1] - x[ii + 1]
+    end
+    return di
+end
+
 @inline function clamp_grid_lims(grid_lims::NTuple{N}, dxi::NTuple{N}) where {N}
     clamped_limits = ntuple(Val(N)) do i
         @inline
