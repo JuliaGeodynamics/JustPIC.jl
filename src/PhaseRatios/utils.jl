@@ -2,11 +2,11 @@
 function update_phase_ratios!(
         phase_ratios::JustPIC.PhaseRatios{B, T}, particles, xci, xvi, phases
     ) where {B, T <: AbstractMatrix}
-    phase_ratios_center!(phase_ratios, particles, xci, phases)
+    phase_ratios_center!(phase_ratios, particles, xci, xvi, phases)
     phase_ratios_vertex!(phase_ratios, particles, xvi, phases)
     # velocity nodes
-    phase_ratios_face!(phase_ratios.Vx, particles, xci, phases, :x)
-    phase_ratios_face!(phase_ratios.Vy, particles, xci, phases, :y)
+    phase_ratios_face!(phase_ratios.Vx, particles, xci, xvi, phases, :x)
+    phase_ratios_face!(phase_ratios.Vy, particles, xci, xvi, phases, :y)
     return nothing
 end
 
@@ -14,16 +14,16 @@ end
 function update_phase_ratios!(
         phase_ratios::JustPIC.PhaseRatios{B, T}, particles, xci, xvi, phases
     ) where {B, T <: AbstractArray}
-    phase_ratios_center!(phase_ratios, particles, xci, phases)
+    phase_ratios_center!(phase_ratios, particles, xci, xvi, phases)
     phase_ratios_vertex!(phase_ratios, particles, xvi, phases)
     # velocity nodes
-    phase_ratios_face!(phase_ratios.Vx, particles, xci, phases, :x)
-    phase_ratios_face!(phase_ratios.Vy, particles, xci, phases, :y)
-    phase_ratios_face!(phase_ratios.Vz, particles, xci, phases, :z)
+    phase_ratios_face!(phase_ratios.Vx, particles, xci, xvi, phases, :x)
+    phase_ratios_face!(phase_ratios.Vy, particles, xci, xvi, phases, :y)
+    phase_ratios_face!(phase_ratios.Vz, particles, xci, xvi, phases, :z)
     # shear stress nodes
-    phase_ratios_midpoint!(phase_ratios.xy, particles, xci, phases, :xy)
-    phase_ratios_midpoint!(phase_ratios.yz, particles, xci, phases, :yz)
-    phase_ratios_midpoint!(phase_ratios.xz, particles, xci, phases, :xz)
+    phase_ratios_midpoint!(phase_ratios.xy, particles, xci, xvi, phases, :xy)
+    phase_ratios_midpoint!(phase_ratios.yz, particles, xci, xvi, phases, :yz)
+    phase_ratios_midpoint!(phase_ratios.xz, particles, xci, xvi, phases, :xz)
     return nothing
 end
 

@@ -1,25 +1,26 @@
 ## Kernels to compute phase ratios at the centers
 
-phase_ratios_center!(phase_ratios::JustPIC.PhaseRatios, particles, xci, phases) = phase_ratios_center!(phase_ratios, particles, xci, phases, compute_dx(xci))
 
-function phase_ratios_center!(phase_ratios::JustPIC.PhaseRatios, particles, xci, phases, di)
+function phase_ratios_center!(phase_ratios::JustPIC.PhaseRatios, particles, xci, xvi, phases)
     ni = size(phases)
 
     @parallel (@idx ni) phase_ratios_center_kernel!(
-        phase_ratios.center, particles.coords, xci, di, phases
+        phase_ratios.center, particles.coords, xci, xvi, phases
     )
     return nothing
 end
 
 @parallel_indices (I...) function phase_ratios_center_kernel!(
-        ratio_centers, pxi::NTuple{N}, xci::NTuple{N}, di::NTuple{N}, phases
+        ratio_centers, pxi::NTuple{N}, xci::NTuple{N}, xvi::NTuple{N}, phases
     ) where {N}
 
+    # compute dxi
+    di = compute_dx(xvi, I)
     # index corresponding to the cell center
     cell_center = ntuple(i -> xci[i][I[i]], Val(N))
     # phase ratios weights (∑w = 1.0)
     w = phase_ratio_weights(
-        getindex.(pxi, I...), phases[I...], cell_center, @dxi(di, I...), nphases(ratio_centers)
+        getindex.(pxi, I...), phases[I...], cell_center, di, nphases(ratio_centers)
     )
     # update phase ratios array
     for k in 1:numphases(ratio_centers)
@@ -28,3 +29,4 @@ end
 
     return nothing
 end
+

@@ -1,35 +1,35 @@
 ## CELL FACES: AKA VELOCITY-NODES
 
-phase_ratios_face!(phase_face, particles, xci::NTuple{N}, phases, dimension) where {N} = phase_ratios_face!(phase_face, particles, xci::NTuple{N}, phases, dimension, compute_dx(xci))
-
 function phase_ratios_face!(
-        phase_face, particles, xci::NTuple{N}, phases, dimension, di
+        phase_face, particles, xci::NTuple{N}, xvi::NTuple{N}, phases, dimension
     ) where {N}
     ni = size(phases)
     offsets = face_offset(Val(N), dimension)
 
     @parallel (@idx ni) phase_ratios_face_kernel!(
-        phase_face, particles.coords, xci, di, phases, offsets
+        phase_face, particles.coords, xci, xvi, phases, offsets
     )
     return nothing
 end
 
 @parallel_indices (I...) function phase_ratios_face_kernel!(
-        ratio_faces, pxi::NTuple{N}, xci::NTuple{N}, dxi::NTuple{N, T}, phases, offsets
-    ) where {N, T}
+        ratio_faces, pxi::NTuple{N}, xci::NTuple{N}, xvi::NTuple{N}, phases, offsets
+    ) where {N}
 
-    di = @dxi(dxi, I...)
     # index corresponding to the cell center
+    di = compute_dx(xvi, I)
     cell_center = getindex.(xci, I)
     cell_face = @. cell_center + di * offsets / 2
     ni = size(phases)
     NC = nphases(ratio_faces)
-    w = ntuple(_ -> zero(T), NC)
+    w = ntuple(_ -> 0e0, NC)
 
     # general case
     for offsetsᵢ in (ntuple(_ -> 0, Val(N)), offsets)
         cell_index = min.(I .+ offsetsᵢ, ni)
         all(@. 0 < cell_index < ni + 1) || continue
+
+        di = compute_dx(xvi, cell_index)
 
         for ip in cellaxes(phases)
             p = get_particle_coords(pxi, ip, cell_index...)
@@ -51,7 +51,7 @@ end
     if isboundary(offsets, I)
         # index corresponding to the cell center
         cell_face = @. cell_center - di * offsets / 2
-        w = ntuple(_ -> zero(T), NC)
+        w = ntuple(_ -> 0e0, NC)
 
         for ip in cellaxes(phases)
             p = get_particle_coords(pxi, ip, I...)

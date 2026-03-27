@@ -53,7 +53,7 @@ function compute_dx(xi::NTuple{N, AbstractVector}, I) where N
         @inline 
         ii = I[i]
         x = xi[i] 
-        x[ii + 1] - x[ii + 1]
+        x[ii + 1] - x[ii]
     end
     return di
 end

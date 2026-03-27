@@ -535,11 +535,11 @@ module _2D
     function JustPIC._2D.update_phase_ratios!(
             phase_ratios::JustPIC.PhaseRatios{CUDABackend, T}, particles, xci, xvi, phases
         ) where {T <: AbstractMatrix}
-        phase_ratios_center!(phase_ratios, particles, xci, phases)
+        phase_ratios_center!(phase_ratios, particles, xci, xvi, phases)
         phase_ratios_vertex!(phase_ratios, particles, xvi, phases)
         # velocity nodes
-        phase_ratios_face!(phase_ratios.Vx, particles, xci, phases, :x)
-        phase_ratios_face!(phase_ratios.Vy, particles, xci, phases, :y)
+        phase_ratios_face!(phase_ratios.Vx, particles, xci, xvi, phases, :x)
+        phase_ratios_face!(phase_ratios.Vy, particles, xci, xvi, phases, :y)
         return nothing
     end
 

@@ -1,25 +1,24 @@
 ## Kernels to compute phase ratios at the vertices
 
-phase_ratios_vertex!(phase_ratios::JustPIC.PhaseRatios, particles, xvi, phases) = phase_ratios_vertex!(phase_ratios, particles, xvi, phases, compute_dx(xvi))
 
-function phase_ratios_vertex!(phase_ratios::JustPIC.PhaseRatios, particles, xvi, phases, di)
+function phase_ratios_vertex!(phase_ratios::JustPIC.PhaseRatios, particles, xvi, phases)
     ni = size(phases) .+ 1
 
     @parallel (@idx ni) phase_ratios_vertex_kernel!(
-        phase_ratios.vertex, particles.coords, xvi, di, phases
+        phase_ratios.vertex, particles.coords, xvi, phases
     )
     return nothing
 end
 
 @parallel_indices (I...) function phase_ratios_vertex_kernel!(
-        ratio_vertices, pxi::NTuple{3}, xvi::NTuple{3}, dxi::NTuple{3, T}, phases
+        ratio_vertices, pxi::NTuple{3}, xvi::NTuple{3, T}, phases
     ) where {T}
-    di = @dxi(dxi, I...)
+    
     # index corresponding to the cell center
     cell_vertex = xvi[1][I[1]], xvi[2][I[2]], xvi[3][I[3]]
     ni = size(phases)
     NC = nphases(ratio_vertices)
-    w = ntuple(_ -> zero(T), NC)
+    w = ntuple(_ -> 0e0, NC)
 
     for offsetᵢ in -1:0, offsetⱼ in -1:0, offsetₖ in -1:0
         i_cell = I[1] + offsetᵢ
@@ -30,6 +29,7 @@ end
         0 < k_cell < ni[3] + 1 || continue
 
         cell_index = i_cell, j_cell, k_cell
+        di = compute_dx(xvi, (i_cell, j_cell, k_cell))
 
         for ip in cellaxes(phases)
             p = @index(pxi[1][ip, cell_index...]),
@@ -61,15 +61,14 @@ end
 end
 
 @parallel_indices (I...) function phase_ratios_vertex_kernel!(
-        ratio_vertices, pxi::NTuple{2}, xvi::NTuple{2}, dxi::NTuple{2, T}, phases
-    ) where {T}
-
-    di = @dxi(dxi, I...)
+        ratio_vertices, pxi::NTuple{2}, xvi::NTuple{2}, phases
+    )
+    
     # index corresponding to the cell center
     cell_vertex = xvi[1][I[1]], xvi[2][I[2]]
     ni = size(phases)
     NC = nphases(ratio_vertices)
-    w = ntuple(_ -> zero(T), NC)
+    w = ntuple(_ -> 0e0, NC)
 
     for offsetᵢ in -1:0, offsetⱼ in -1:0
         i_cell = I[1] + offsetᵢ
@@ -78,6 +77,7 @@ end
         !(0 < j_cell < ni[2] + 1) && continue
 
         cell_index = i_cell, j_cell
+        di = compute_dx(xvi, (i_cell, j_cell))
 
         for ip in cellaxes(phases)
             p = @index(pxi[1][ip, cell_index...]), @index(pxi[2][ip, cell_index...])
