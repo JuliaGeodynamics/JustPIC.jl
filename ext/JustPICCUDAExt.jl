@@ -330,6 +330,14 @@ module _2D
         return particle2centroid!(F, Fp, xi, particles)
     end
 
+    function JustPIC._2D.particle2centroid!(
+            F, Fp, xci::NTuple, particles::Particles{CUDABackend}, di
+        )
+        (; coords) = particles
+        @parallel (@idx size(coords[1])) _particle2centroid!(F, Fp, xci, coords, di)
+        return nothing
+    end
+
     function JustPIC._2D.particle2grid!(F::CuArray, Fp, xi, particles)
         return particle2grid!(F, Fp, xi, particles)
     end
@@ -788,6 +796,12 @@ module _3D
             F::CuArray, Fp, xi::NTuple, particles::Particles{CUDABackend}
         )
         return particle2centroid!(F, Fp, xi, particles)
+    end
+
+    function JustPIC._3D.particle2centroid!(
+            F, Fp, xci::NTuple, particles::Particles{CUDABackend}, di
+        )
+        return particle2centroid!(F, Fp, xci, particles, di)
     end
 
     function JustPIC._3D.particle2grid!(

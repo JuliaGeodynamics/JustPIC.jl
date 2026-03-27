@@ -325,6 +325,12 @@ module _2D
         return particle2centroid!(F, Fp, xi, particles)
     end
 
+    function JustPIC._2D.particle2centroid!(
+            F, Fp, xci::NTuple, particles::Particles{AMDGPUBackend}, di
+        )
+        return particle2centroid!(F, Fp, xci, particles, di)
+    end
+
     function JustPIC._2D.particle2grid!(
             F::ROCArray, Fp, xi, particles::Particles{AMDGPUBackend}
         )
@@ -761,6 +767,12 @@ module _3D
             F::ROCArray, Fp, xi::NTuple, particles::Particles{AMDGPUBackend}
         )
         return particle2centroid!(F, Fp, xi, particles)
+    end
+
+    function JustPIC._3D.particle2centroid!(
+            F, Fp, xci::NTuple, particles::Particles{AMDGPUBackend}, di
+        )
+        return particle2centroid!(F, Fp, xci, particles, di)
     end
 
     function JustPIC._3D.particle2grid!(
