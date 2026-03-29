@@ -1,16 +1,27 @@
 """
-    move_particles!(particles::AbstractParticles, grid, args)
+    move_particles!(particles::AbstractParticles, args)
 
-Move particles in the given `particles` container according to the provided `grid` and particles fields in `args`.
+Reassign particles to the correct parent cells after their coordinates have been
+updated.
+
+This routine keeps the coordinate arrays in `particles` and the companion fields
+in `args` sorted by parent cell, preserving the package's spatially local memory
+layout.
 
 # Arguments
-- `particles`: The container of particles to be moved.
-- `grid`: The grid used for particle movement.
-- `args`: `CellArrays`s containing particle fields.
+- `particles`: particle container whose coordinates have already been modified.
+- `args`: tuple of per-particle fields that must move together with the particle
+  coordinates.
+
+# Notes
+- Particles that leave the domain are discarded.
+- `args` must use the same cell layout as `particles.coords`.
+- The public entry point uses the vertex grid and spacing stored in `particles`.
 """
-function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args) where {N}
-    # implementation goes here
-    dxi = compute_dx(grid)
+move_particles!(particles::AbstractParticles, args) = move_particles!(particles, particles.xvi, args, particles.di.vertex)
+
+function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args, dxi) where {N}
+
     (; coords, index, max_xcell) = particles
     nxi = size(index)
     domain_limits = extrema.(grid)
@@ -59,7 +70,6 @@ function _move_particles!(coords, grid, dxi, index, domain_limits, idx, args)
     corner_xi = corner_coordinate(grid, idx)
     # iterate over neighbouring (child) cells
     move_kernel!(coords, corner_xi, grid, dxi, index, domain_limits, args, idx)
-
     return nothing
 end
 
@@ -67,13 +77,16 @@ function move_kernel!(
         coords,
         corner_xi,
         grid,
-        dxi,
+        di,
         index,
         domain_limits,
         args::NTuple{N2, T},
         idx::NTuple{N1, Int64},
     ) where {N1, N2, T}
+
     starting_point = 1
+    dxi = @dxi di idx...
+
     # iterate over particles in child cell
     for ip in cellaxes(index)
         doskip(index, ip, idx...) && continue
@@ -86,36 +99,33 @@ function move_kernel!(
         # particle went of of the domain, get rid of it
         domain_check = !(indomain(pᵢ, domain_limits))
         if domain_check
-            @inbounds @index index[ip, idx...] = false
+            @index index[ip, idx...] = false
             empty_particle!(coords, ip, idx)
             empty_particle!(args, ip, idx)
-            # println("Particle went out of the domain")
         end
         domain_check && continue
 
-        # new cell indices
-        # new_cell = ntuple(Val(N1)) do i
-        #     cell_index(pᵢ[i], grid[i], dxi[i])
+        new_cell = find_parent_cell_bisection(pᵢ, grid; seed = idx)
+
+        # if any(>(1), new_cell .- idx)
+        #     error("Particle moved more than one cell away from the parent cell $idx to cell $new_cell")
         # end
 
-        new_cell = cell_index_neighbour(pᵢ, corner_xi, dxi, idx)
-
         # hold particle variables
-        current_args = @inbounds cache_args(args, ip, idx)
+        current_args = cache_args(args, ip, idx)
+
         # remove particle from child cell
-        @inbounds @index index[ip, idx...] = false
+        @index index[ip, idx...] = false
         empty_particle!(coords, ip, idx)
         empty_particle!(args, ip, idx)
+
         # check whether there's empty space in parent cell
-        # free_idx = find_free_memory(index, new_cell...)
         free_idx = find_free_memory(starting_point, index, new_cell...)
-        if free_idx == 0
-            # println("No free memory in the parent cell")
-            continue
-        end
+        iszero(free_idx) && continue
         starting_point = free_idx
+
         # move particle and its fields to the first free memory location
-        @inbounds @index index[free_idx, new_cell...] = true
+        @index index[free_idx, new_cell...] = true
         fill_particle!(coords, pᵢ, free_idx, new_cell)
         fill_particle!(args, current_args, free_idx, new_cell)
     end
@@ -124,32 +134,55 @@ end
 
 ## Utility functions
 
-function cell_index_neighbour(x, xc, dx, i::Integer)
-    xR = xc + dx
-    (xc ≤ x ≤ xR) && return i
-    (xc - dx < x < xc) && return i - 1
-    (xR < x < xc + 2 * dx) && return i + 1
-    return error("Particle moved more than one cell away from the parent cell")
-end
-
 function cell_index_neighbour(
         xᵢ::NTuple{N}, xcᵢ::NTuple{N}, dxᵢ::NTuple{N}, I::NTuple{N, Integer}
     ) where {N}
     return ntuple(Val(N)) do i
-        cell_index_neighbour(xᵢ[i], xcᵢ[i], dxᵢ[i], I[i])
+        cell_index_neighbour(xᵢ[i], xcᵢ[i], dxᵢ[i], I[i], I)
+        # cell_index_neighbour(xᵢ[i], xcᵢ[i], dxᵢ[i], I[i])
     end
+end
+
+# Case: regular grid
+function cell_index_neighbour(x, xc, dx::Number, i::Integer, I)
+    xR = xc + dx
+    (xc ≤ x ≤ xR) && return i
+    (xc - dx < x < xc) && return i - 1
+    (xR < x < xc + 2 * dx) && return i + 1
+    return error("Particle moved more than one cell away from the parent cell $I")
+end
+
+# Case: regularly refined grid
+function cell_index_neighbour(x, xC, dx::AbstractVector, i::Integer, I)
+    n = length(dx)
+    isleftboundary = i == 1
+    isrightboundary = i == n
+    # grid sizes
+    dxL = dx[i - 1 * !isleftboundary]  # left cell
+    dxC = dx[i]                        # center cell
+    dxR = dx[i + 1 * !isrightboundary] # right cell
+    # grid corners
+    xL = xC - dxL
+    xR1 = xC + dxC
+    xR2 = xR1 + dxR
+    # check where the particle is
+    (xL < x < xC)   && return i - 1
+    (xC ≤ x ≤ xR1)  && return i
+    (xR1 < x < xR2) && return i + 1
+
+    return error("Particle moved more than one cell away from the parent cell $I in $i, with xi $x")
 end
 
 function find_free_memory(index, I::Vararg{Int, N}) where {N}
     for i in cellaxes(index)
-        (@inbounds @index(index[i, I...])) || return i
+        (@index(index[i, I...])) || return i
     end
     return 0
 end
 
 function find_free_memory(initial_index::Integer, index::CellArray, I::Vararg{Int, N}) where {N}
     for i in initial_index:cellnum(index)
-        (@inbounds @index(index[i, I...])) || return i
+        (@index(index[i, I...])) || return i
     end
     return 0
 end
@@ -158,7 +191,7 @@ end
     return quote
         Base.@_inline_meta
         Base.Cartesian.@nexprs $N i ->
-        (@inbounds (domain_limits[i][1] < p[i] < domain_limits[i][2]) || return false)
+        ((domain_limits[i][1] < p[i] < domain_limits[i][2]) || return false)
         return true
     end
 end
@@ -167,7 +200,7 @@ end
     return quote
         Base.@_inline_meta
         Base.Cartesian.@nexprs $N i ->
-        @inbounds (1 ≤ idx_child[i] ≤ nxi[i] - 1) == false && return false
+        (1 ≤ idx_child[i] ≤ nxi[i] - 1) == false && return false
         return true
     end
 end
@@ -175,17 +208,17 @@ end
 @generated function isparticleempty(p::NTuple{N, T}) where {N, T}
     return quote
         Base.@_inline_meta
-        Base.Cartesian.@nexprs $N i -> @inbounds isnan(p[i]) && return true
+        Base.Cartesian.@nexprs $N i -> isnan(p[i]) && return true
         return false
     end
 end
 
 @inline function cache_args(args::NTuple{N1, T}, ip, I::NTuple{N2, Int64}) where {T, N1, N2}
-    return ntuple(i -> (@inbounds @index(args[i][ip, I...])), Val(N1))
+    return ntuple(i -> (@index(args[i][ip, I...])), Val(N1))
 end
 
 @inline function cache_args(args::NTuple{N}, ip, I::Integer) where {N}
-    return ntuple(i -> (@inbounds @index(args[i][ip, I])), Val(N))
+    return ntuple(i -> (@index(args[i][ip, I])), Val(N))
 end
 
 @inline function cache_particle(
@@ -227,12 +260,21 @@ end
         Base.Cartesian.@nexprs $N1 i -> begin
             Base.@_inline_meta
             tmp = p[i]
-            @inbounds @index tmp[ip, I...] = field[i]
+            @index tmp[ip, I...] = field[i]
         end
         return nothing
     end
 end
 
+"""
+    clean_particles!(particles, grid, args)
+
+Remove invalid or inactive particle slots and keep particle-associated fields in
+`args` consistent with the particle storage layout.
+
+This is typically used after particle deletion or reinjection to compact each
+cell's active particle block.
+"""
 function clean_particles!(particles::Particles, grid, args)
     (; coords, index) = particles
     dxi = compute_dx(grid)
@@ -244,14 +286,14 @@ end
 @parallel_indices (i, j) function _clean!(
         particle_coords::NTuple{2, Any}, grid::NTuple{2, Any}, dxi::NTuple{2, Any}, index, args
     )
-    clean_kernel!(particle_coords, grid, dxi, index, args, i, j)
+    clean_kernel!(particle_coords, grid, @dxi(dxi, i, j), index, args, i, j)
     return nothing
 end
 
 @parallel_indices (i, j, k) function _clean!(
         particle_coords::NTuple{3, Any}, grid::NTuple{3, Any}, dxi::NTuple{3, Any}, index, args
     )
-    clean_kernel!(particle_coords, grid, dxi, index, args, i, j, k)
+    clean_kernel!(particle_coords, grid, @dxi(dxi, i, j, k), index, args, i, j, k)
     return nothing
 end
 
@@ -326,7 +368,7 @@ end
 function count_particles(index, I::Vararg{Int, N}) where {N}
     count = 0
     for i in cellaxes(index)
-        @inbounds count += @index index[i, I...]
+        count += @index index[i, I...]
     end
     return count
 end

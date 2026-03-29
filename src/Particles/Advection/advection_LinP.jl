@@ -1,26 +1,39 @@
-# Main Runge-Kutta advection function for 2D staggered grids
 """
-    advection!(particles::Particles, method::AbstractAdvectionIntegrator, V, grid_vi::NTuple{N,NTuple{N,T}}, dt)
+    advection_LinP!(particles, method, V, grid_vi, dt)
 
-Advects the particles using the advection scheme defined by `method`.
+Advect particles using the linear-plus-pressure (`LinP`) velocity interpolation
+scheme.
 
-# Arguments
-- `particles`: Particles object to be advected.
-- `method`: Time integration method (`Euler` or `RungeKutta2`).
-- `V`: Tuple containing `Vx`, `Vy`; and `Vz` in 3D.
-- `grid_vi`: Tuple containing the grids corresponding to `Vx`, `Vy`; and `Vz` in 3D.
-- `dt`: Time step.
+This variant uses the same time integrators as `advection!` but evaluates
+velocities with the `LinP` reconstruction near staggered pressure points.
+
+This method is useful when you want the interpolation behavior described in the
+velocity-interpolation documentation under `LinP`.
 """
+advection_LinP!(
+    particles::Particles,
+    method::AbstractAdvectionIntegrator,
+    V,
+    dt,
+) = advection_LinP!(
+    particles,
+    method,
+    V,
+    particles.xi_velocity,
+    dt,
+    particles.di.velocity,
+)
+
 function advection_LinP!(
         particles::Particles,
         method::AbstractAdvectionIntegrator,
         V,
         grid_vi::NTuple{N, NTuple{N}},
         dt,
+        di
     ) where {N}
     interpolation_fn = interp_velocity2particle_LinP
 
-    dxi = compute_dx(first(grid_vi))
     (; coords, index) = particles
     # compute some basic stuff
     ni = size(index)
@@ -55,13 +68,13 @@ end
         doskip(index, ipart, I...) && continue
         # extract particle coordinates
         pᵢ = get_particle_coords(p, ipart, I...)
-        # # advect particle
+        # advect particle
         pᵢ_new = advect_particle(
             method, pᵢ, V, grid, local_limits, dxi, dt, interpolation_fn, I
         )
         # update particle coordinates
         for k in 1:N
-            @inbounds @index p[k][ipart, I...] = pᵢ_new[k]
+            @index p[k][ipart, I...] = pᵢ_new[k]
         end
     end
 
@@ -75,7 +88,7 @@ end
         Base.@_inline_meta
         local_lims = local_limits[i]
         v = if check_local_limits(local_lims, particle_coords)
-            interp_velocity2particle_LinP(particle_coords, grid_vi[i], dxi, V[i], Val(i), idx)
+            interp_velocity2particle_LinP(particle_coords, grid_vi[i], dxi[i], V[i], Val(i), idx)
         else
             Inf
         end
@@ -83,10 +96,13 @@ end
 end
 
 @inline function interp_velocity2particle_LinP(
-        p_i::Union{SVector, NTuple}, xi_vx::NTuple, dxi::NTuple, F::AbstractArray, ::Val{N}, idx
+        p_i::Union{SVector, NTuple}, xi_vx::NTuple, di::NTuple, F::AbstractArray, ::Val{N}, idx
     ) where {N}
     # F and coordinates of the cell corners
-    Fi, xci, indices = corner_field_nodes_LinP(F, p_i, xi_vx, dxi, idx)
+    Fi, xci, indices = corner_field_nodes_LinP(F, p_i, xi_vx, idx)
+    # Recompute the local spacing from the corrected parent cell. On nonuniform
+    # grids the seed cell `idx` may differ from the actual interpolation cell.
+    dxi = @dxi di indices...
 
     # normalize particle coordinates
     tL = normalize_coordinates(p_i, xci, dxi)
@@ -96,6 +112,7 @@ end
     V = if all(1 .< indices .< size(F) .- 1)
         # interpolate velocity to pressure nodes
         FP = interpolate_V_to_P(F, xci, p_i, dxi, Val(N), indices...)
+        # FP    = Fi
         xci_P = correct_xci_to_pressure_point(xci, p_i, dxi, Val(N))
         tP = normalize_coordinates(p_i, xci_P, dxi)
         # Interpolate field F from pressure node onto particle
@@ -161,22 +178,21 @@ end
         F::AbstractArray{T, N},
         particle,
         xi_vx,
-        dxi,
         idx::Union{SVector{N, Integer}, NTuple{N, Integer}},
     ) where {N, T}
     return quote
         Base.@_inline_meta
-        @inbounds begin
+        begin
             Base.@nexprs $N i -> begin
-                corrected_idx_i = cell_index(particle[i], xi_vx[i])
-                cell_i = @inbounds xi_vx[i][corrected_idx_i]
+                corrected_idx_i = find_parent_cell_bisection(particle[i], xi_vx[i]; seed = idx[i])
+                cell_i = xi_vx[i][corrected_idx_i]
             end
 
             indices = Base.@ncall $N tuple corrected_idx
             cells = Base.@ncall $N tuple cell
 
             # # F at the four centers
-            Fi = @inbounds extract_field_corners(F, indices...)
+            Fi = extract_field_corners(F, indices...)
 
             return Fi, cells, indices
         end

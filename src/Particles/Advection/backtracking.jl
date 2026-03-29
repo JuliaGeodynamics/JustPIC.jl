@@ -1,18 +1,16 @@
 """
-    semilagrangian_advection!F, F0, integrator, V, grid_vi, grid, dt)
+    semilagrangian_advection!(F, F0, method, V, grid_vi, grid, dt)
 
-Performs semi-Lagrangian advection by backtracking particle positions in a velocity field.
-This function updates the positions and/or properties of particles according to the semi-Lagrangian scheme.
+Advect a grid field with a semi-Lagrangian backtracking step.
 
-# Arguments
+Each destination node in `F` is traced backward through the velocity field `V`,
+then sampled from `F0` on the vertex grid `grid`. `grid_vi` contains the
+staggered coordinates associated with the velocity components.
 
-- `F`: The new state of the grid field (e.g., density, temperature).
-- `F0`: The current state of the grid field (used for interpolation).
-- `integrator`: The numerical integrator to use for advection (e.g., Euler, Rk2, RK4).
-- `V`: The velocity field at the particle positions.
-- `grid_vi`: The grid cell indices for the velocity field.
-- `grid`: The spatial grid information.
-- `dt`: The time step for the advection.
+# Notes
+- `F` is overwritten in place.
+- `F0` is the source field from the previous step.
+- For tuple-valued fields, each component is backtracked independently.
 """
 function semilagrangian_advection!(
         F,
@@ -23,7 +21,8 @@ function semilagrangian_advection!(
         grid::NTuple{N, T},
         dt,
     ) where {N, T}
-    dxi = compute_dx(first(grid_vi))
+    dxi_velocity = compute_dx.(grid_vi)
+    dxi_vertex = compute_dx(grid)
     # compute some basic stuff
     ni = size(F)
     ranges = ntuple(Val(N)) do i
@@ -31,7 +30,7 @@ function semilagrangian_advection!(
     end
     # launch parallel backtrack kernel
     @parallel (ranges) backtrack_kernel!(
-        F, F0, method, V, grid_vi, grid, dxi, dt
+        F, F0, method, V, grid_vi, grid, dxi_velocity, dxi_vertex, dt
     )
 
     return nothing
@@ -46,7 +45,8 @@ end
         V::NTuple{N, T},
         grid_vi,
         grid,
-        dxi,
+        dxi_velocity,
+        dxi_vertex,
         dt,
     ) where {N, T}
 
@@ -56,9 +56,12 @@ end
         @inbounds grid[i][I[i]]
     end
     # backtrack particle
-    pᵢ_backtrack = advect_particle_SML(method, pᵢ, V, grid_vi, dxi, dt, I; backtracking = true)
-    I_backtrack = cell_index(pᵢ_backtrack, grid)
-    F[I...] = _grid2particle(pᵢ_backtrack, grid, dxi, F, I_backtrack)
+    pᵢ_backtrack = advect_particle_SML(method, pᵢ, V, grid_vi, dxi_velocity, dt, I; backtracking = true)
+    I_backtrack = ntuple(Val(N)) do i
+        find_parent_cell_bisection(pᵢ_backtrack[i], grid[i]; seed = I[i])
+    end
+    di_vertex = @dxi(dxi_vertex, I_backtrack...)
+    F[I...] = _grid2particle(pᵢ_backtrack, grid, di_vertex, F, I_backtrack)
     return nothing
 end
 
@@ -69,23 +72,26 @@ end
         V::NTuple{N, T},
         grid_vi,
         grid,
-        dxi,
+        dxi_velocity,
+        dxi_vertex,
         dt,
     ) where {NF, N, T}
 
+    di_vertex = @dxi(di_vertex, I...)
     # extract particle coordinates
     pᵢ = ntuple(Val(N)) do i
         @inline
-        # extract particle coordinates from the grid
         @inbounds grid[i][I[i]]
     end
     # backtrack particle position
-    pᵢ_backtrack = advect_particle_SML(method, pᵢ, V, grid_vi, dxi, dt, I; backtracking = true)
-    I_backtrack = cell_index(pᵢ_backtrack, grid)
+    pᵢ_backtrack = advect_particle_SML(method, pᵢ, V, grid_vi, dxi_velocity, dt, I; backtracking = true)
+    I_backtrack = ntuple(Val(N)) do i
+        find_parent_cell_bisection(pᵢ_backtrack[i], grid[i]; seed = I[i])
+    end
     ntuple(Val(NF)) do i
         @inline
         # interpolate field F onto particle
-        F[i][I...] = _grid2particle(pᵢ_backtrack, grid, dxi, F0[i], I_backtrack)
+        F[i][I...] = _grid2particle(pᵢ_backtrack, grid, di_vertex, F0[i], I_backtrack)
     end
 
     return nothing
@@ -100,6 +106,6 @@ end
     ) where {N}
     return ntuple(Val(N)) do i
         @inline
-        interp_velocity2particle(particle_coords, grid_vi[i], dxi, V[i], idx)
+        interp_velocity2particle(particle_coords, grid_vi[i], dxi[i], V[i], idx)
     end
 end

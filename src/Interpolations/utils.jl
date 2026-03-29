@@ -1,5 +1,5 @@
 @inline function parent_cell(
-        p::NTuple{N, A}, di::NTuple{N, B}, xci::NTuple{N, B}
+        p::NTuple{N, A}, di::NTuple{N, AbstractRange}, xci::NTuple{N, B}
     ) where {N, A, B}
     ni = length.(xci)
     return ntuple(i -> min(Int((p[i] - xci[i]) ÷ di[i] + 1), ni[i]), Val(N))
@@ -49,6 +49,17 @@ end
     ) where {N, A, B, C, D}
     return ntuple(i -> (p[i] - xi[i][idx[i]]) * inv(di[i]), Val(N))
 end
+
+# # normalize coordinates
+# @inline function normalize_coordinates(
+#         p::NTuple{N, A}, xi::NTuple{N, B}, di::NTuple{N, C}, idx::NTuple{N, D}
+#     ) where {N, A, B, C, D}
+#     dxᵢ = @dxi di idx...
+#     return ntuple(Val(N)) do i
+#         @inline
+#         (p[i] - xi[i][idx[i]]) * inv(dxᵢ[i])
+#     end
+# end
 
 # normalize coordinates
 @inline function normalize_coordinates(
@@ -150,7 +161,7 @@ end
     # unpack
     idx_x, idx_y, idx_z = idx
     px, py, pz = pxi
-    dx, dy, dz = di
+    dx, dy, dz = @dxi di idx...
     x, y, z = xi[1][idx_x], xi[2][idx_x], xi[3][idx_x]
     # compute offsets and corrections
     offset_x = (px - x) > 0 ? 1 : 0

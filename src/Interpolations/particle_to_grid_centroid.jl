@@ -2,17 +2,21 @@
 """
     particle2centroid!(F, Fp, xci::NTuple, particles::Particles)
 
-Interpolates properties `Fp` from particles to the grid `F` at center points that are defined by 1D coordinate arrays in `xci`
+Interpolate particle-centered values `Fp` to cell centers `F`.
+
+`xci` contains the 1D coordinate arrays of the cell centers. This is the
+cell-centered counterpart to `particle2grid!` and mutates `F` in place.
 """
-function particle2centroid!(F, Fp, xci::NTuple, particles::Particles)
+particle2centroid!(F, Fp, xci::NTuple, particles::Particles) = particle2centroid!(F, Fp, xci, particles, grid_size(xci))
+
+function particle2centroid!(F, Fp, xci::NTuple, particles::Particles, di)
     (; coords) = particles
-    dxi = grid_size(xci)
-    @parallel (@idx size(coords[1])) _particle2centroid!(F, Fp, xci, coords, dxi)
+    @parallel (@idx size(coords[1])) _particle2centroid!(F, Fp, xci, coords, di)
     return nothing
 end
 
 @parallel_indices (I...) function _particle2centroid!(F, Fp, xci, coords, di)
-    _particle2centroid!(F, Fp, I..., xci, coords, di)
+    _particle2centroid!(F, Fp, I..., xci, coords, @dxi(di, I...))
     return nothing
 end
 
@@ -53,7 +57,7 @@ end
         # ignore lines below for unused allocations
         any(isnan, p_i) && continue
         # ω_i = bilinear_weight(xcenter, p_i, di)
-        ω_i = distance_weight(xcenter, p_i; order = 1)
+        ω_i = distance_weight(xcenter, p_i; order = 2)
 
         ω += ω_i
         ωxF = ntuple(Val(N)) do j

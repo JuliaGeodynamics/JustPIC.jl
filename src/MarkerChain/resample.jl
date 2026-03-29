@@ -1,3 +1,12 @@
+"""
+    resample!(chain::MarkerChain)
+
+Resample the markers within each chain cell when the chain becomes too sparse or
+too distorted.
+
+This keeps the marker spacing reasonably regular, which improves interpolation
+quality and the stability of subsequent marker-chain operations.
+"""
 function resample!(chain::MarkerChain)
 
     # resampling launch kernel

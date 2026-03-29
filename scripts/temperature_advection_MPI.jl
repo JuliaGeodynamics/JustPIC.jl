@@ -58,7 +58,7 @@ function main()
     grid_vy = expand_range(xc), yv
 
     particles = init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi...
+        backend, nxcell, max_xcell, min_xcell, grid_vx, grid_vy
     )
 
     # Cell fields -------------------------------
@@ -77,30 +77,30 @@ function main()
 
     # Advection test
     particle_args = pT, = init_cell_arrays(particles, Val(1))
-    grid2particle!(pT, xvi, T, particles)
+    grid2particle!(pT, T, particles)
 
     niter = 250
     for iter in 1:niter
         me == 0 && @show iter
 
         # advect particles
-        advection!(particles, RungeKutta2(), V, (grid_vx, grid_vy), dt)
+        advection!(particles, RungeKutta2(), V, dt)
 
         # update halos
         update_cell_halo!(particles.coords...)
         update_cell_halo!(particle_args...)
         update_cell_halo!(particles.index)
         # shuffle particles
-        move_particles!(particles, xvi, particle_args)
+        move_particles!(particles, particle_args)
         # interpolate T from particle to grid
-        particle2grid!(T, pT, xvi, particles)
+        particle2grid!(T, pT, particles)
 
         @views T_nohalo .= T[2:(end - 1), 2:(end - 1)]
         gather!(Array(T_nohalo), T_v)
 
         if me == 0 && iter % 1 == 0
-            x_global = range(0, Lx, length = size(T_v, 1))
-            y_global = range(0, Ly, length = size(T_v, 2))
+            x_global = LinRange(0, Lx, size(T_v, 1))
+            y_global = LinRange(0, Ly, size(T_v, 2))
             f, ax, = heatmap(x_global, y_global, T_v)
             w = 0.504
             offset = 0.5 - (w - 0.5)

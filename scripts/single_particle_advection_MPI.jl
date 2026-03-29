@@ -97,13 +97,13 @@ function main()
     for iter in 1:niter
 
         # advect particles
-        advection!(particles, RungeKutta2(2 / 3), V, (grid_vx, grid_vy), dt)
+        advection!(particles, RungeKutta2(2 / 3), V, dt)
         # update halos
         update_cell_halo!(particles.coords..., particle_args...)
         update_cell_halo!(particles.index)
 
         # shuffle particles
-        move_particles!(particles, xvi, particle_args)
+        move_particles!(particles, particle_args)
 
         # gather particle data - for plotting only
         @views px_nohalo .= particles.coords[1].data[1, :, 2:(end - 1)]
