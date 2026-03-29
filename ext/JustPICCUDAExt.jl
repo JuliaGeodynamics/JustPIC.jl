@@ -232,14 +232,22 @@ module _2D
     end
 
     function JustPIC._2D.init_particles(
-            ::Type{CUDABackend}, nxcell, max_xcell, min_xcell, xvi::Vararg{N, T}
-        ) where {N, T}
-        return init_particles(CUDABackend, nxcell, max_xcell, min_xcell, xvi...)
+            ::Type{CUDABackend},
+            nxcell,
+            max_xcell,
+            min_xcell,
+            xi_vel::Vararg{NTuple{N2, AbstractVector}, N1},
+        ) where {N1, N2}
+        return init_particles(CUDABackend, nxcell, max_xcell, min_xcell, xi_vel...)
     end
 
     function JustPIC._2D.init_particles(
-            ::Type{CUDABackend}, nxcell, max_xcell, min_xcell, xi_vel::NTuple{N}
-        ) where {N}
+            ::Type{CUDABackend},
+            nxcell,
+            max_xcell,
+            min_xcell,
+            xi_vel::NTuple{N, NTuple{N, T}},
+        ) where {N, T <: AbstractVector}
         return init_particles(CUDABackend, nxcell, max_xcell, min_xcell, xi_vel)
     end
 
@@ -780,14 +788,22 @@ module _3D
     end
 
     function JustPIC._3D.init_particles(
-            ::Type{CUDABackend}, nxcell, max_xcell, min_xcell, xvi::Vararg{N, T}
-        ) where {N, T}
-        return init_particles(CUDABackend, nxcell, max_xcell, min_xcell, xvi...)
+            ::Type{CUDABackend},
+            nxcell,
+            max_xcell,
+            min_xcell,
+            xi_vel::Vararg{NTuple{N2, AbstractVector}, N1},
+        ) where {N1, N2}
+        return init_particles(CUDABackend, nxcell, max_xcell, min_xcell, xi_vel...)
     end
 
     function JustPIC._3D.init_particles(
-            ::Type{CUDABackend}, nxcell, max_xcell, min_xcell, xi_vel::NTuple{N}
-        ) where {N}
+            ::Type{CUDABackend},
+            nxcell,
+            max_xcell,
+            min_xcell,
+            xi_vel::NTuple{N, NTuple{N, T}},
+        ) where {N, T <: AbstractVector}
         return init_particles(CUDABackend, nxcell, max_xcell, min_xcell, xi_vel)
     end
 

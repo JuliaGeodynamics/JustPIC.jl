@@ -68,7 +68,7 @@ nxcell    = 24 # initial number of particles per cell
 max_xcell = 48 # maximum number of particles per cell
 min_xcell = 14 # minimum number of particles per cell
 particles = init_particles(
-    backend, nxcell, max_xcell, min_xcell, xvi...
+    backend, nxcell, max_xcell, min_xcell, grid_vx, grid_vy, grid_vz
 )
 ```
 
@@ -103,7 +103,7 @@ dt = min(dx / maximum(abs.(Vx)), dy / maximum(abs.(Vy)), dz / maximum(abs.(Vz)))
 
 niter = 250
 for it in 1:niter
-    advection!(particles, RungeKutta2(), V, (grid_vx, grid_vy, grid_vz), dt) # advect particles
+    advection!(particles, RungeKutta2(), V, dt)                               # advect particles
     move_particles!(particles, particle_args)                                # move particles in the memory
     inject_particles!(particles, (pT, ))                                     # inject particles if needed
     particle2grid!(T, pT, particles)                                         # interpolate particles to the grid

@@ -76,10 +76,14 @@ max_xcell = 48  # maximum number of particles per cell
 min_xcell = 12  # minimum number of particles per cell
 n         = 32  # number of cells per dimension
 Lx   = Ly = 1.0 # domain size
-xvi       = LinRange(0, Lx, n), LinRange(0, Ly, n) # nodal vertices
+xvi       = xv, yv = LinRange(0, Lx, n), LinRange(0, Ly, n) # nodal vertices
+dxi       = dx, dy = xv[2] - xv[1], yv[2] - yv[1]
+xci       = xc, yc = LinRange(dx / 2, Lx - dx / 2, n - 1), LinRange(dy / 2, Ly - dy / 2, n - 1)
+grid_vx   = xv, LinRange(first(yc) - dy, last(yc) + dy, length(yc) + 2)
+grid_vy   = LinRange(first(xc) - dx, last(xc) + dx, length(xc) + 2), yv
 ## initialize particles object with randomly distributed coordinates
 particles = init_particles(
-    backend, nxcell, max_xcell, min_xcell, xvi...,
+    backend, nxcell, max_xcell, min_xcell, grid_vx, grid_vy,
 )
 ```
 
@@ -92,10 +96,14 @@ max_xcell = 48      # maximum number of particles per cell
 min_xcell = 12      # minimum number of particles per cell
 n         = 32      # number of cells per dimension
 Lx   = Ly = 1.0     # domain size
-xvi       = LinRange(0, Lx, n), LinRange(0, Ly, n) # nodal vertices
+xvi       = xv, yv = LinRange(0, Lx, n), LinRange(0, Ly, n) # nodal vertices
+dxi       = dx, dy = xv[2] - xv[1], yv[2] - yv[1]
+xci       = xc, yc = LinRange(dx / 2, Lx - dx / 2, n - 1), LinRange(dy / 2, Ly - dy / 2, n - 1)
+grid_vx   = xv, LinRange(first(yc) - dy, last(yc) + dy, length(yc) + 2)
+grid_vy   = LinRange(first(xc) - dx, last(xc) + dx, length(xc) + 2), yv
 ## initialize particles object with randomly distributed coordinates
 particles = init_particles(
-    backend, nxcell, max_xcell, min_xcell, xvi...,
+    backend, nxcell, max_xcell, min_xcell, grid_vx, grid_vy,
 )
 ```
 
