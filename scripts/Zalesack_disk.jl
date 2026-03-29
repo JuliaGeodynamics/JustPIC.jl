@@ -63,10 +63,9 @@ function main()
     # staggered grid velocity nodal locations
     grid_vx = xv, expand_range(yc)
     grid_vy = expand_range(xc), yv
-    grid_vxi = grid_vx, grid_vy
 
     particles = init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi...
+        backend, nxcell, max_xcell, min_xcell, grid_vx, grid_vy
     )
 
     # Cell fields -------------------------------
@@ -96,7 +95,7 @@ function main()
     # inject_particles!(particles, (pT, ))
     local f
     while t ≤ tmax
-        advection!(particles, RungeKutta2(), V, grid_vxi, dt)
+        advection!(particles, RungeKutta2(), V, dt)
         move_particles!(particles, particle_args)
         inject_particles!(particles, (pT,))
         particle2grid!(T, pT, particles)

@@ -133,7 +133,7 @@ function _phase_ratios_midpoint_kernel!(
         phases,
         offsets,
         I::Vararg{Int, N},
-    ) where {N, T}
+    ) where {N}
     MASK_3D = (1, 0, 0), (0, 1, 0), (0, 0, 1), (1, 1, 1)
 
     # index corresponding to the cell center

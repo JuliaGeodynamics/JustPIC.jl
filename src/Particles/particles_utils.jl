@@ -40,7 +40,7 @@ function init_particles(
         nxcell::Number,
         max_xcell,
         min_xcell,
-        xi_vel_cpu::NTuple{N},
+        xi_vel_cpu::NTuple{N, NTuple{N, Vector}},
     ) where {N}
 
     function center_coordinates(xi_vel::NTuple{3})
@@ -67,6 +67,63 @@ function init_particles(
     di_center = diff.(xci)
     di_vel = ntuple(i -> (diff.(xi_vel[i])), Val(N))
     di = (; center = TA(backend).(di_center), vertex = TA(backend).(di_vertex), velocity = di_vel)
+
+    _di = (;
+        center = map(x -> inv.(x), di.center),
+        vertex = map(x -> inv.(x), di.vertex),
+        velocity = map(x -> map(y -> inv.(y), x), di.velocity),
+    )
+
+    nᵢ = length.(xci)
+
+    # number of particles per quadrant
+    NQ = N == 2 ? 4 : 8
+    np_quadrant = ceil(Int, nxcell / NQ)
+    nxcell = np_quadrant * NQ
+    max_xcell = max(nxcell, max_xcell)
+    np = max_xcell * prod(nᵢ)
+    pxᵢ = ntuple(_ -> @fill(NaN, nᵢ..., celldims = (max_xcell,)), Val(N))
+    index = @fill(false, nᵢ..., celldims = (max_xcell,), eltype = Bool)
+
+    @parallel (@idx nᵢ) fill_coords_index(
+        pxᵢ, index, xvi, di.vertex, np_quadrant
+    )
+
+    return Particles(backend, pxᵢ, index, nxcell, max_xcell, min_xcell, np, di, _di, xci, xvi, xi_vel)
+end
+
+function init_particles(
+        backend,
+        nxcell::Number,
+        max_xcell,
+        min_xcell,
+        xi_vel_cpu::NTuple{N, NTuple{N, LinRange}},
+    ) where {N}
+
+    function center_coordinates(xi_vel::NTuple{3})
+        xci = (
+            xi_vel[2][1][2:(end - 1)],
+            xi_vel[1][2][2:(end - 1)],
+            xi_vel[1][3][2:(end - 1)],
+        )
+        return xci
+    end
+    function center_coordinates(xi_vel::NTuple{2})
+        xci = (
+            xi_vel[2][1][2:(end - 1)],
+            xi_vel[1][2][2:(end - 1)],
+        )
+        return xci
+    end
+ 
+    xi_vel = ntuple(i -> xi_vel_cpu[i], Val(N))
+    xci = center_coordinates(xi_vel)
+    xvi = ntuple(i -> xi_vel[i][i], Val(N))
+
+    di_vertex = getindex.(xvi, 2) .- first.(xvi)
+    di_center = getindex.(xci, 2) .- first.(xci)    
+    di_vel = ntuple(i -> getindex.(xi_vel[i], 2) .- first.(xi_vel[i]), Val(N))
+    di = (; center = di_center, vertex = di_vertex, velocity = di_vel)
 
     _di = (;
         center = map(x -> inv.(x), di.center),

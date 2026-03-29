@@ -122,7 +122,7 @@ function main()
 
         t += Δt
 
-        # advection!(particles, RungeKutta2(), values(V), (grid_vx, grid_vy), Δt)
+        # advection!(particles, RungeKutta2(), values(V), Δt)
         # advection_LinP!(particles, RungeKutta2(), values(V), (grid_vx, grid_vy), Δt)
         advection_MQS!(particles, RungeKutta2(), values(V), Δt)
         move_particles!(particles, particle_args)

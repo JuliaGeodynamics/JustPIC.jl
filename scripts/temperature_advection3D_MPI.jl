@@ -51,9 +51,10 @@ function main()
     grid_vx = xv, add_ghost_nodes(yc, dy, (0.0, Ly)), add_ghost_nodes(zc, dz, (0.0, Lz))
     grid_vy = add_ghost_nodes(xc, dx, (0.0, Lx)), yv, add_ghost_nodes(zc, dz, (0.0, Lz))
     grid_vz = add_ghost_nodes(xc, dx, (0.0, Lx)), add_ghost_nodes(yc, dy, (0.0, Ly)), zv
+    grid_vel = grid_vx, grid_vy, grid_vz
 
     particles = init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi...
+        backend, nxcell, max_xcell, min_xcell, grid_vel...
     )
 
     # Cell fields -------------------------------
@@ -81,7 +82,7 @@ function main()
         me == 0 && @show iter
 
         # advect particles
-        advection!(particles, RungeKutta2(), V, (grid_vx, grid_vy, grid_vz), dt)
+        advection!(particles, RungeKutta2(), V, dt)
 
         # update halos
         update_cell_halo!(particles.coords...)
@@ -97,8 +98,8 @@ function main()
         gather!(T_nohalo, T_v)
 
         if me == 0 && iter % 10 == 0
-            x_global = range(0, Lx, length = size(T_v, 1))
-            z_global = range(0, Lz, length = size(T_v, 3))
+            x_global = LinRange(0, Lx, size(T_v, 1))
+            z_global = LinRange(0, Lz, size(T_v, 3))
             f, = heatmap(x_global, z_global, T_v[:, 2, :])
             save("figs/T_MPI_$iter.png", f)
         end

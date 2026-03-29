@@ -56,9 +56,6 @@ function main()
     T = TA(backend)([incircles(x, y, xc, yc, r1, r2) * 1.0e0 for x in xv, y in yv])
     V = Vx, Vy
 
-    # dt = min(dx / maximum(abs.(Array(Vx))), dy / maximum(abs.(Array(Vy))))
-    # dt *= 0.75
-
     dt = 0.018 / 1
 
     # Advection test

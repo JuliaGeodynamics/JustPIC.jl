@@ -41,7 +41,7 @@ function main()
     grid_vy = expand_range(xc), yv
 
     particles = init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi...,
+        backend, nxcell, max_xcell, min_xcell, grid_vx, grid_vy
     )
 
     # Cell fields -------------------------------
@@ -61,7 +61,7 @@ function main()
 
     niter = 250
     for it in 1:niter
-        advection!(particles, RungeKutta4(), V, (grid_vx, grid_vy), dt)
+        advection!(particles, RungeKutta4(), V, dt)
         move_particles!(particles, particle_args)
         inject_particles!(particles, (pT,))
 

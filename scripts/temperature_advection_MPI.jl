@@ -58,7 +58,7 @@ function main()
     grid_vy = expand_range(xc), yv
 
     particles = init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi...
+        backend, nxcell, max_xcell, min_xcell, grid_vx, grid_vy
     )
 
     # Cell fields -------------------------------
@@ -84,7 +84,7 @@ function main()
         me == 0 && @show iter
 
         # advect particles
-        advection!(particles, RungeKutta2(), V, (grid_vx, grid_vy), dt)
+        advection!(particles, RungeKutta2(), V, dt)
 
         # update halos
         update_cell_halo!(particles.coords...)
@@ -99,8 +99,8 @@ function main()
         gather!(Array(T_nohalo), T_v)
 
         if me == 0 && iter % 1 == 0
-            x_global = range(0, Lx, length = size(T_v, 1))
-            y_global = range(0, Ly, length = size(T_v, 2))
+            x_global = LinRange(0, Lx, size(T_v, 1))
+            y_global = LinRange(0, Ly, size(T_v, 2))
             f, ax, = heatmap(x_global, y_global, T_v)
             w = 0.504
             offset = 0.5 - (w - 0.5)

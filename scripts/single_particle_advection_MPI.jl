@@ -97,7 +97,7 @@ function main()
     for iter in 1:niter
 
         # advect particles
-        advection!(particles, RungeKutta2(2 / 3), V, (grid_vx, grid_vy), dt)
+        advection!(particles, RungeKutta2(2 / 3), V, dt)
         # update halos
         update_cell_halo!(particles.coords..., particle_args...)
         update_cell_halo!(particles.index)

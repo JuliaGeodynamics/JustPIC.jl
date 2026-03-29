@@ -71,6 +71,7 @@ vz_stream(x, z) = -250 * cos(π * x) * sin(π * z)
     pT_copy = copy(pT)
     @test particles_copy.index.data[:] == particles.index.data[:]
     @test pT_copy.data[:] == pT.data[:]
+    GC.gc()
 end
 
 @testset "Particles initialization 3D" begin
@@ -101,6 +102,7 @@ end
     @test particles1.min_xcell == particles2.min_xcell
     @test particles1.max_xcell == particles2.max_xcell
     @test particles1.np == particles2.np
+    GC.gc()
 end
 
 @testset "Subgrid diffusion 3D" begin
@@ -131,6 +133,7 @@ end
     @test arrays.pT0.data isa TA(backend)
     @test arrays.pΔT.data isa TA(backend)
     @test arrays.dt₀.data isa TA(backend)
+    GC.gc()
 end
 
 @testset "Cell index 3D" begin
@@ -156,6 +159,7 @@ end
     @test x[i] ≤ px < x[i + 1]
     @test y[j] ≤ py < y[j + 1]
     @test z[k] ≤ pz < z[k + 1]
+    GC.gc()
 end
 
 @testset "Passive markers 3D" begin
@@ -213,6 +217,7 @@ end
 
     @test x_marker ≈ P_marker
     @test z_marker ≈ T_marker
+    GC.gc()
 end
 
 function test_advection_3D()
@@ -242,7 +247,11 @@ function test_advection_3D()
     T = TA(backend)([z for x in xv, y in yv, z in zv])
     T0 = deepcopy(T)
     V = Vx, Vy, Vz
-    dt = min(dx / maximum(abs.(Vx)), dy / maximum(abs.(Vy)), dz / maximum(abs.(Vz))) / 4
+    dt = min(
+        dx / maximum(abs.(Vx)), 
+        dy / maximum(abs.(Vy)), 
+        dz / maximum(abs.(Vz))
+    ) / 4
 
     # Initialize particles -------------------------------
     nxcell, max_xcell, min_xcell = 125, 150, 100
@@ -285,3 +294,7 @@ end
 # @testset "Miniapps" begin
 #     @test test_advection()
 # end
+
+@edit  particles = _3D.init_particles(
+        backend, nxcell, max_xcell, min_xcell, grid_vel...
+    )

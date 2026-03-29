@@ -122,14 +122,13 @@ function main()
     grid_vy = expand_range(xc), yv
     grid_vi = grid_vx, grid_vy
 
-    xvi_device = TA(backend).(xvi)
     grid_vi_device = (
         TA(backend).(grid_vi[1]),
         TA(backend).(grid_vi[2]),
     )
 
     particles = init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi_device...,
+        backend, nxcell, max_xcell, min_xcell, grid_vi...,
     )
 
     # Cell fields -------------------------------
@@ -149,7 +148,7 @@ function main()
 
     niter = 250
     for it in 1:niter
-        advection!(particles, RungeKutta2(), V, grid_vi_device, dt)
+        advection!(particles, RungeKutta2(), V, dt)
         move_particles!(particles, particle_args)
         inject_particles!(particles, (pT,))
         particle2grid!(T, pT, particles)

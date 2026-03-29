@@ -46,11 +46,11 @@ function main()
     grid_vx = xv, expand_range(yc), expand_range(zc)
     grid_vy = expand_range(xc), yv, expand_range(zc)
     grid_vz = expand_range(xc), expand_range(yc), zv
-
+    grid_vel = grid_vx, grid_vy, grid_vz
     # Initialize particles -------------------------------
     nxcell, max_xcell, min_xcell = 25, 50, 10
     particles = init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi...
+        backend, nxcell, max_xcell, min_xcell, grid_vel...
     )
 
     # Cell fields -------------------------------
@@ -67,15 +67,15 @@ function main()
     grid2particle!(pT, T, particles)
 
     niter = 100
-    for _ in 1:niter
-        advection!(particles, RungeKutta2(), V, (grid_vx, grid_vy, grid_vz), dt)
+    for it in 1:niter
+        advection!(particles, RungeKutta2(), V, dt)
         move_particles!(particles, particle_args)
         # reseed
         inject_particles!(particles, (pT,))
     end
     particle2grid!(T, pT, particles)
 
-    return f, = heatmap(xvi[1], xvi[3], Array(T[:, Int(div(n, 2)), :]), colormap = :batlow)
+    f, = heatmap(xvi[1], xvi[3], Array(T[:, Int(div(n, 2)), :]), colormap = :batlow)
 
 end
 

@@ -124,12 +124,6 @@ function main()
     grid_vy = expand_range(xc), yv
     grid_vi = grid_vx, grid_vy
 
-    xvi_device = TA(backend).(xvi)
-    grid_vi_device = (
-        TA(backend).(grid_vi[1]),
-        TA(backend).(grid_vi[2]),
-    )
-
     particles = init_particles(
         backend, nxcell, max_xcell, min_xcell, grid_vi...,
     )
