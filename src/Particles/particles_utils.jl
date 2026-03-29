@@ -28,10 +28,20 @@ particles = init_particles(CPUBackend, 24, 48, 12, xvi...)
 ```
 """
 function init_particles(
-        backend, nxcell, max_xcell, min_xcell, xi_vel::Vararg{N, T}
-    ) where {N, T}
+        backend, nxcell, max_xcell, min_xcell, xi_vel::Vararg{NTuple{N2, AbstractVector}, N1}
+    ) where {N1, N2}
 
     return init_particles(backend, nxcell, max_xcell, min_xcell, xi_vel)
+end
+
+function init_particles(
+        ::Any,
+        ::Number,
+        ::Any,
+        ::Any,
+        ::Tuple{},
+    )
+    throw(ArgumentError("The velocity grid cannot be empty"))
 end
 
 # random distribution

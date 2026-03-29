@@ -25,6 +25,15 @@ function expand_range(x::AbstractRange)
     return LinRange(xI, xF, n + 2)
 end
 
+function expand_range(x::Vector)
+    dx_left = x[2] - x[1]
+    dx_right = x[end] - x[end - 1]
+    x1, x2 = extrema(x)
+    xI = x1 - dx_left
+    xF = x2 + dx_right
+    return vcat(xI, x, xF)
+end
+
 # Analytical flow solution
 vx_stream(x, z) = 250 * sin(π * x) * cos(π * z)
 vy_stream(x, z) = 0.0
@@ -162,6 +171,30 @@ end
     GC.gc()
 end
 
+@testset "Refined grid particle initialization 3D" begin
+    xv = [0.0, 0.1, 0.25, 0.55, 1.0]
+    yv = [0.0, 0.2, 0.45, 0.8, 1.0]
+    zv = [0.0, 0.15, 0.35, 0.65, 1.0]
+    xvi = (xv, yv, zv)
+    xci = ntuple(i -> [(xvi[i][j] + xvi[i][j + 1]) / 2 for j in 1:(length(xvi[i]) - 1)], Val(3))
+    grid_vi = (
+        (xv, expand_range(xci[2]), expand_range(xci[3])),
+        (expand_range(xci[1]), yv, expand_range(xci[3])),
+        (expand_range(xci[1]), expand_range(xci[2]), zv),
+    )
+
+    nxcell, max_xcell, min_xcell = 8, 12, 4
+    particles = _3D.init_particles(
+        backend, nxcell, max_xcell, min_xcell, grid_vi...,
+    )
+
+    @test Array.(particles.xvi) == xvi
+    @test Array.(particles.xci) == xci
+    @test Array.(particles.xi_vel[1]) == grid_vi[1]
+    @test Array.(particles.xi_vel[2]) == grid_vi[2]
+    @test Array.(particles.xi_vel[3]) == grid_vi[3]
+end
+
 @testset "Passive markers 3D" begin
     n = 32
     nx = ny = nz = n - 1
@@ -280,6 +313,60 @@ function test_advection_3D()
     return err
 end
 
+function test_advection_3D_refined()
+    xv = [0.0, 0.04, 0.09, 0.16, 0.25, 0.37, 0.52, 0.68, 0.84, 1.0]
+    yv = [0.0, 0.05, 0.11, 0.20, 0.31, 0.44, 0.58, 0.73, 0.87, 1.0]
+    zv = [0.0, 0.03, 0.08, 0.15, 0.26, 0.40, 0.56, 0.72, 0.88, 1.0]
+    xvi = (xv, yv, zv)
+    xc = [(xv[i] + xv[i + 1]) / 2 for i in 1:(length(xv) - 1)]
+    yc = [(yv[i] + yv[i + 1]) / 2 for i in 1:(length(yv) - 1)]
+    zc = [(zv[i] + zv[i + 1]) / 2 for i in 1:(length(zv) - 1)]
+
+    grid_vx = xv, expand_range(yc), expand_range(zc)
+    grid_vy = expand_range(xc), yv, expand_range(zc)
+    grid_vz = expand_range(xc), expand_range(yc), zv
+
+    Vx = TA(backend)([vx_stream(x, z) for x in grid_vx[1], y in grid_vx[2], z in grid_vx[3]])
+    Vy = TA(backend)([vy_stream(x, z) for x in grid_vy[1], y in grid_vy[2], z in grid_vy[3]])
+    Vz = TA(backend)([vz_stream(x, z) for x in grid_vz[1], y in grid_vz[2], z in grid_vz[3]])
+    T = TA(backend)([z for x in xv, y in yv, z in zv])
+    T0 = deepcopy(T)
+    V = Vx, Vy, Vz
+
+    dx_min = minimum(diff(xv))
+    dy_min = minimum(diff(yv))
+    dz_min = minimum(diff(zv))
+    dt = min(
+        dx_min / maximum(abs.(Vx)),
+        dy_min / maximum(abs.(Vy)),
+        dz_min / maximum(abs.(Vz)),
+    ) / 4
+
+    nxcell, max_xcell, min_xcell = 125, 150, 100
+    particles = _3D.init_particles(
+        backend, nxcell, max_xcell, min_xcell,  grid_vx, grid_vy, grid_vz,
+    )
+
+    particle_args = pT, = _3D.init_cell_arrays(particles, Val(1))
+    _3D.grid2particle!(pT, T, particles)
+    sumT = sum(T)
+
+    niter = 5
+    for _ in 1:niter
+        _3D.particle2grid!(T, pT, particles)
+        copyto!(T0, T)
+        _3D.advection!(particles, _3D.RungeKutta2(), V, dt)
+        _3D.move_particles!(particles, particle_args)
+        _3D.inject_particles!(particles, (pT,))
+        _3D.grid2particle!(pT, T, particles)
+    end
+
+    sumT_final = sum(T)
+    err = abs(sumT - sumT_final) / sumT
+    println(err)
+    return err
+end
+
 function test_advection()
     err = 0.0e0
     for _ in 1:5
@@ -291,10 +378,18 @@ function test_advection()
     return passed
 end
 
-# @testset "Miniapps" begin
-#     @test test_advection()
-# end
+function test_advection_refined()
+    err = 0.0e0
+    for _ in 1:5
+        err = test_advection_3D_refined()
+        !isnan(err) && break
+    end
+    tol = 1.0e-1
+    passed = err < tol
+    return passed
+end
 
-@edit  particles = _3D.init_particles(
-        backend, nxcell, max_xcell, min_xcell, grid_vel...
-    )
+@testset "Miniapps" begin
+    @test test_advection()
+    @test test_advection_refined()
+end

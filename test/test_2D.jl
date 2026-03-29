@@ -35,7 +35,7 @@ function expand_range(x::AbstractRange)
     return LinRange(xI, xF, n + 2)
 end
 
-function expand_range(x::AbstractVector)
+function expand_range(x::Vector)
     dx_left = x[2] - x[1]
     dx_right = x[end] - x[end - 1]
     x1, x2 = extrema(x)
@@ -192,6 +192,30 @@ end
     @test F_mqs[3, 3] ≈ expected atol = 1.0e-12 rtol = 1.0e-12
     @test F_linp[3, 3] ≈ F_mqs[3, 3] atol = 1.0e-12 rtol = 1.0e-12
     @test F_linp[3, 3] != F0[3, 3]
+end
+
+@testset "Refined grid particle initialization 2D" begin
+    xv = [0.0, 0.1, 0.3, 0.6, 1.0]
+    yv = [0.0, 0.2, 0.5, 0.7, 1.0]
+    xvi = (xv, yv)
+    xci = (
+        [(xv[i] + xv[i + 1]) / 2 for i in 1:(length(xv) - 1)],
+        [(yv[i] + yv[i + 1]) / 2 for i in 1:(length(yv) - 1)],
+    )
+    grid_vi = (
+        (xv, expand_range(xci[2])),
+        (expand_range(xci[1]), yv),
+    )
+
+    nxcell, max_xcell, min_xcell = 8, 12, 4
+    particles = _2D.init_particles(
+        backend, nxcell, max_xcell, min_xcell, grid_vi...,
+    )
+
+    @test Array.(particles.xvi) == xvi
+    @test Array.(particles.xci) == xci
+    @test Array.(particles.xi_vel[1]) == grid_vi[1]
+    @test Array.(particles.xi_vel[2]) == grid_vi[2]
 end
 
 @testset "Passive markers 2D" begin
@@ -394,6 +418,58 @@ function test_advection_2D()
     return passed
 end
 
+function advection_test_2D_refined()
+    nxcell, max_xcell, min_xcell = 25, 50, 10
+    xv = [0.0, 0.05, 0.12, 0.21, 0.32, 0.45, 0.60, 0.77, 0.91, 1.0]
+    yv = [0.0, 0.04, 0.10, 0.18, 0.29, 0.43, 0.58, 0.74, 0.89, 1.0]
+    xvi = (xv, yv)
+    xc = [(xv[i] + xv[i + 1]) / 2 for i in 1:(length(xv) - 1)]
+    yc = [(yv[i] + yv[i + 1]) / 2 for i in 1:(length(yv) - 1)]
+    grid_vx = xv, expand_range(yc)
+    grid_vy = expand_range(xc), yv
+
+    particles = _2D.init_particles(
+        backend, nxcell, max_xcell, min_xcell, grid_vx, grid_vy,
+    )
+
+    Vx = TA(backend)([vx_stream(x, y) for x in grid_vx[1], y in grid_vx[2]])
+    Vy = TA(backend)([vy_stream(x, y) for x in grid_vy[1], y in grid_vy[2]])
+    T = TA(backend)([y for x in xv, y in yv])
+    T0 = deepcopy(T)
+    V = Vx, Vy
+
+    dx_min = minimum(diff(xv))
+    dy_min = minimum(diff(yv))
+    dt = min(dx_min / maximum(abs.(Array(Vx))), dy_min / maximum(abs.(Array(Vy)))) / 2
+
+    particle_args = pT, = init_cell_arrays(particles, Val(1))
+    _2D.grid2particle!(pT, T, particles)
+
+    sumT = sum(T)
+
+    niter = 25
+    for _ in 1:niter
+        _2D.particle2grid!(T, pT, particles)
+        copyto!(T0, T)
+        _2D.advection!(particles, RungeKutta2(2 / 3), V, dt)
+        _2D.move_particles!(particles, particle_args)
+        _2D.inject_particles!(particles, (pT,))
+        _2D.grid2particle!(pT, T, particles)
+    end
+
+    sumT_final = sum(T)
+
+    return abs(sumT - sumT_final) / sumT
+end
+
+function test_advection_2D_refined()
+    err = advection_test_2D_refined()
+    tol = 1.0e-1
+    passed = err < tol
+
+    return passed
+end
+
 function test_rotating_circle()
     # Initialize particles -------------------------------
     nxcell, max_xcell, min_xcell = 25, 50, 10
@@ -460,6 +536,10 @@ end
 @testset "Miniapps" begin
     @testset "1. Advection 2D" begin
         @test test_advection_2D()
+    end
+
+    @testset "1b. Advection 2D refined grid" begin
+        @test test_advection_2D_refined()
     end
 
     @testset "2. Rotating circle 2D" begin
