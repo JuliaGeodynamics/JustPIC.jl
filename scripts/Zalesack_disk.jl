@@ -32,15 +32,15 @@ The Zalesak disk is a circle of radius `R` centered at (`xc`, `yc`),
 with a vertical rectangular slot of width `slot_width` and depth `slot_depth`
 cut out from the disk (the slot extends downward from the disk center).
 """
-function in_zalesak_disk(x, y; xc=0.5, yc=0.75, R=0.15, slot_width=0.05, slot_depth=0.25)
+function in_zalesak_disk(x, y; xc = 0.5, yc = 0.75, R = 0.15, slot_width = 0.05, slot_depth = 0.25)
     # Check if point is inside the circular disk
     inside_circle = (x - xc)^2 + (y - yc)^2 <= R^2
 
     # Define the slot region (a vertical rectangle centered on xc)
-    slot_left   = xc - slot_width / 2
-    slot_right  = xc + slot_width / 2
+    slot_left = xc - slot_width / 2
+    slot_right = xc + slot_width / 2
     slot_bottom = yc - R
-    slot_top    = yc - R + slot_depth
+    slot_top = yc - R + slot_depth
 
     inside_slot = (slot_left <= x <= slot_right) && (slot_bottom <= y <= slot_top)
 
@@ -55,12 +55,12 @@ function main()
     nx = ny = n - 1
     Lx = Ly = 1.0
     # nodal vertices
-   # nodal vertices
+    # nodal vertices
     xvi = xv, yv = LinRange(0, Lx, n), LinRange(0, Ly, n)
     dxi = dx, dy = xv[2] - xv[1], yv[2] - yv[1]
     # nodal centers
     xc, yc = LinRange(0 + dx / 2, Lx - dx / 2, n - 1), LinRange(0 + dy / 2, Ly - dy / 2, n - 1)
-      # staggered grid velocity nodal locations
+    # staggered grid velocity nodal locations
     grid_vx = xv, expand_range(yc)
     grid_vy = expand_range(xc), yv
     grid_vxi = grid_vx, grid_vy
@@ -75,9 +75,9 @@ function main()
 
     xc0 = yc0 = 0.25
     R = 20 * dx
-    T = TA(backend)([ in_zalesak_disk(x, y;R=0.1, slot_width=0.05/2, slot_depth=0.15) * 1.0 for x in xv, y in yv])
+    T = TA(backend)([ in_zalesak_disk(x, y; R = 0.1, slot_width = 0.05 / 2, slot_depth = 0.15) * 1.0 for x in xv, y in yv])
     T0 = deepcopy(T)
-    
+
     V = Vx, Vy
 
     w = π * 1.0e-5  # angular velocity

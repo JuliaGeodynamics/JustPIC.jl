@@ -50,16 +50,16 @@ function main()
     dt *= 0.1
     # Advection test
     particle_args = pT, = init_cell_arrays(particles, Val(1))
-    grid2particle!(pT, xvi, T, particles)
+    grid2particle!(pT, T, particles)
 
     !isdir("figs") && mkdir("figs")
 
     niter = 1000
     for it in 1:niter
         advection!(particles, RungeKutta2(), V, (grid_vx, grid_vy), dt)
-        move_particles!(particles, xvi, particle_args)
-        inject_particles!(particles, (pT,), xvi)
-        particle2grid!(T, pT, xvi, particles)
+        move_particles!(particles, particle_args)
+        inject_particles!(particles, (pT,))
+        particle2grid!(T, pT, particles)
 
         if rem(it, 10) == 0
             f, ax, = heatmap(xvi..., Array(T), colormap = :batlow)
