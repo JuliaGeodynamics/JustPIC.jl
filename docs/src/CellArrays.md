@@ -37,7 +37,7 @@ julia> CA[1,1]
  20.0
 ```
 
-It is however useful to read and mutate the data of the `CellArray` object directly, without instantiating a `StaticArray`. For this porpuse, `JustPIC` exports the macro `@index` to directly read and mutate the individual elements of the cell. 
+It is however useful to read and mutate the data of the `CellArray` object directly, without instantiating a `StaticArray`. For this purpose, `JustPIC` exports the macro `@index` to directly read and mutate the individual elements of the cell. 
 
 For example, to read a single element of `CA`:
 
