@@ -59,10 +59,15 @@ vi_stream(x) = π * 1.0e-5 * (x - 0.5)
     # nodal vertices
     xvi = xv, yv = LinRange(0, Lx, n), LinRange(0, Ly, n)
     dxi = dx, dy = xv[2] - xv[1], yv[2] - yv[1]
-
+    # nodal centers
+    xc, yc = LinRange(0 + dx / 2, Lx - dx / 2, n - 1), LinRange(0 + dy / 2, Ly - dy / 2, n - 1)
+    # staggered grid velocity nodal locations
+    grid_vx = xv, expand_range(yc)
+    grid_vy = expand_range(xc), yv
+    grid_vel = grid_vx, grid_vx
     # Initialize particles & particle fields
     particles = _2D.init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi...,
+        backend, nxcell, max_xcell, min_xcell, grid_vel...,
     )
 
     arrays = _2D.SubgridDiffusionCellArrays(particles)
@@ -93,11 +98,11 @@ end
     grid_vy = expand_range(xc), yv
 
     particles1 = _2D.init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi...,
+        backend, nxcell, max_xcell, min_xcell, (grid_vx, grid_vy)...,
     )
 
     particles2 = _2D.init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi...,
+        backend, nxcell, max_xcell, min_xcell, (grid_vx, grid_vy)...,
     )
 
     @test particles1.min_xcell == particles2.min_xcell
@@ -283,6 +288,9 @@ end
         V.y[i, j] = -verts.y[j] * ε̇bg
     end
 
+    grid_vx = (verts.x, cents_ext.y)
+    grid_vy = (cents_ext.x, verts.y)
+
     # Initialize particles -------------------------------
     nxcell, max_xcell, min_xcell = 60, 80, 50
     particles = init_particles(
@@ -290,7 +298,7 @@ end
         nxcell,
         max_xcell,
         min_xcell,
-        values(verts)...,
+        (grid_vx, grid_vy)...,
     ) # random position by default
 
     # Initialise phase field
@@ -299,7 +307,7 @@ end
     @parallel InitialFieldsParticles!(phases, particles.coords..., particles.index)
 
     phase_ratios = JustPIC._2D.PhaseRatios(backend, 2, values(Nc))
-    update_phase_ratios!(phase_ratios, particles, values(cents), values(verts), phases)
+    update_phase_ratios!(phase_ratios, particles, phases)
 
     @test all(extrema(sum(phase_ratios.vertex.data, dims = 2)) .≈ 1)
     @test all(extrema(sum(phase_ratios.center.data, dims = 2)) .≈ 1)
@@ -311,16 +319,15 @@ end
     Δt = C * min(Δ...) / max(maximum(abs.(V.x)), maximum(abs.(V.y)))
 
     # Create necessary tuples
-    grid_vx = (verts.x, cents_ext.y)
-    grid_vy = (cents_ext.x, verts.y)
+    
     Vxc = 0.5 * (V.x[1:(end - 1), 2:(end - 1)] .+ V.x[2:(end - 0), 2:(end - 1)])
     Vyc = 0.5 * (V.y[2:(end - 1), 1:(end - 1)] .+ V.y[2:(end - 1), 2:(end - 0)])
 
     for it in 1:Nt
-        advection!(particles, RungeKutta2(), values(V), (grid_vx, grid_vy), Δt)
-        move_particles!(particles, values(verts), particle_args)
-        inject_particles_phase!(particles, phases, (), (), values(verts))
-        update_phase_ratios!(phase_ratios, particles, values(cents), values(verts), phases)
+        advection!(particles, RungeKutta2(), values(V), Δt)
+        move_particles!(particles, particle_args)
+        inject_particles_phase!(particles, phases, (), ())
+        update_phase_ratios!(phase_ratios, particles, phases)
     end
 
     @test all(extrema(sum(phase_ratios.vertex.data, dims = 2)) .≈ 1)
@@ -345,7 +352,7 @@ function advection_test_2D()
     grid_vy = expand_range(xc), yv
 
     particles = _2D.init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi...,
+        backend, nxcell, max_xcell, min_xcell, (grid_vx, grid_vy)...,
     )
 
     # Cell fields -------------------------------
@@ -359,18 +366,18 @@ function advection_test_2D()
 
     # Advection test
     particle_args = pT, = init_cell_arrays(particles, Val(1))
-    _2D.grid2particle!(pT, xvi, T, particles)
+    _2D.grid2particle!(pT, T, particles)
 
     sumT = sum(T)
 
     niter = 25
     for it in 1:niter
-        _2D.particle2grid!(T, pT, xvi, particles)
+        _2D.particle2grid!(T, pT, particles)
         copyto!(T0, T)
-        _2D.advection!(particles, RungeKutta2(2 / 3), V, (grid_vx, grid_vy), dt)
-        _2D.move_particles!(particles, xvi, particle_args)
-        _2D.inject_particles!(particles, (pT,), xvi)
-        _2D.grid2particle!(pT, xvi, T, particles)
+        _2D.advection!(particles, RungeKutta2(2 / 3), V, dt)
+        _2D.move_particles!(particles, particle_args)
+        _2D.inject_particles!(particles, (pT,))
+        _2D.grid2particle!(pT, T, particles)
     end
 
     sumT_final = sum(T)
@@ -403,7 +410,7 @@ function test_rotating_circle()
     grid_vy = expand_range(xc), yv
 
     particles = _2D.init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi...,
+        backend, nxcell, max_xcell, min_xcell, (grid_vx, grid_vy)...,
     )
 
     # Cell fields -------------------------------
@@ -421,18 +428,18 @@ function test_rotating_circle()
     dt = 200.0
 
     particle_args = pT, = init_cell_arrays(particles, Val(1))
-    _2D.grid2particle!(pT, xvi, T, particles)
+    _2D.grid2particle!(pT, T, particles)
 
     t = 0
     it = 0
     sumT = sum(T)
     while t ≤ tmax
-        _2D.particle2grid!(T, pT, xvi, particles)
+        _2D.particle2grid!(T, pT, particles)
         copyto!(T0, T)
-        _2D.advection!(particles, _2D.RungeKutta2(), V, (grid_vx, grid_vy), dt)
-        _2D.move_particles!(particles, xvi, particle_args)
-        _2D.inject_particles!(particles, (pT,), xvi)
-        _2D.grid2particle!(pT, xvi, T, particles)
+        _2D.advection!(particles, _2D.RungeKutta2(), V, dt)
+        _2D.move_particles!(particles, particle_args)
+        _2D.inject_particles!(particles, (pT,))
+        _2D.grid2particle!(pT, T, particles)
         t += dt
         it += 1
     end

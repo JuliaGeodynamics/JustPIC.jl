@@ -10,6 +10,25 @@ import JustPIC._3D as JP3
 
 const backend = JustPIC.CPUBackend
 
+
+function expand_range(x::AbstractRange)
+    dx = x[2] - x[1]
+    n = length(x)
+    x1, x2 = extrema(x)
+    xI = x1 - dx
+    xF = x2 + dx
+    return LinRange(xI, xF, n + 2)
+end
+
+function expand_range(x::AbstractVector)
+    dx_left = x[2] - x[1]
+    dx_right = x[end] - x[end - 1]
+    x1, x2 = extrema(x)
+    xI = x1 - dx_left
+    xF = x2 + dx_right
+    return vcat(xI, x, xF)
+end
+
 @testset "Save and load 2D" begin
     # Initialize particles -------------------------------
     nxcell, max_xcell, min_xcell = 6, 6, 6
@@ -18,9 +37,16 @@ const backend = JustPIC.CPUBackend
     ni = nx, ny
     Lx = Ly = 1.0
     # nodal vertices
-    xvi = xv, yv = range(0, Lx, length = n), range(0, Ly, length = n)
+    xvi = xv, yv = LinRange(0, Lx, n), LinRange(0, Ly, n)
+    dxi = dx, dy = xv[2] - xv[1], yv[2] - yv[1]
+    # nodal centers
+    xc, yc = LinRange(0 + dx / 2, Lx - dx / 2, n - 1), LinRange(0 + dy / 2, Ly - dy / 2, n - 1)
+    # staggered grid velocity nodal locations
+    grid_vx = xv, expand_range(yc)
+    grid_vy = expand_range(xc), yv
+    grid_vel = grid_vx, grid_vx
 
-    particles = JP2.init_particles(backend, nxcell, max_xcell, min_xcell, xvi...)
+    particles = JP2.init_particles(backend, nxcell, max_xcell, min_xcell, grid_vel...)
     phases, pT = JP2.init_cell_arrays(particles, Val(2))
     particle_args = (phases, pT)
     particle_args_reduced = (phases,)
@@ -169,10 +195,20 @@ end
     nx = ny = nz = n - 1
     ni = nx, ny, nz
     Lx = Ly = Lz = 1.0
+    Li = Lx, Ly, Lz
     # nodal vertices
-    xvi = xv, yv, zv = range(0, Lx, length = n), range(0, Ly, length = n), range(0, Lz, length = n)
+    xvi = xv, yv, zv = ntuple(i -> LinRange(0, Li[i], n), Val(3))
+    # grid spacing
+    dxi = dx, dy, dz = ntuple(i -> xvi[i][2] - xvi[i][1], Val(3))
+    # nodal centers
+    xci = xc, yc, zc = ntuple(i -> LinRange(0 + dxi[i] / 2, Li[i] - dxi[i] / 2, ni[i]), Val(3))
+    # staggered grid velocity nodal locations
+    grid_vx = xv, expand_range(yc), expand_range(zc)
+    grid_vy = expand_range(xc), yv, expand_range(zc)
+    grid_vz = expand_range(xc), expand_range(yc), zv
+    grid_vel = grid_vx, grid_vy, grid_vz
 
-    particles = JP3.init_particles(backend, nxcell, max_xcell, min_xcell, xvi...)
+    particles = JP3.init_particles(backend, nxcell, max_xcell, min_xcell, grid_vel...)
     phases, pT = JP3.init_cell_arrays(particles, Val(2))
     phase_ratios = JP3.PhaseRatios(backend, 2, ni)
     particle_args = (phases, pT)

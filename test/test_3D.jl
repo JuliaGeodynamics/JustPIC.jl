@@ -43,23 +43,28 @@ vz_stream(x, z) = -250 * cos(π * x) * sin(π * z)
     dxi = dx, dy, dz = ntuple(i -> xvi[i][2] - xvi[i][1], Val(3))
     # nodal centers
     xci = xc, yc, zc = ntuple(i -> LinRange(0 + dxi[i] / 2, Li[i] - dxi[i] / 2, ni[i]), Val(3))
+    # staggered grid velocity nodal locations
+    grid_vx = xv, expand_range(yc), expand_range(zc)
+    grid_vy = expand_range(xc), yv, expand_range(zc)
+    grid_vz = expand_range(xc), expand_range(yc), zv
+    grid_vel = grid_vx, grid_vy, grid_vz
     # Initialize particles -------------------------------
     particles = _3D.init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi...
+        backend, nxcell, max_xcell, min_xcell, grid_vel...
     )
     pT, = _3D.init_cell_arrays(particles, Val(1))
     # Linear field at the vertices
     T = TA(backend)([z for x in xv, y in yv, z in zv])
     T0 = TA(backend)([z for x in xv, y in yv, z in zv])
     # Grid to particle test
-    _3D.grid2particle!(pT, xvi, T, particles)
+    _3D.grid2particle!(pT, T, particles)
     @test pT ≈ particles.coords[3]
     # Grid to particle test
     _3D.grid2particle_flip!(pT, xvi, T, T0, particles)
     @test pT ≈ particles.coords[3]
     # Particle to grid test
     T2 = similar(T)
-    _3D.particle2grid!(T2, pT, xvi, particles)
+    _3D.particle2grid!(T2, pT, particles)
     @test norm(T2 .- T) / length(T) < 1.0e-1
     # test copy function
     particles_copy = copy(particles)
@@ -81,12 +86,17 @@ end
     dxi = dx, dy, dz = ntuple(i -> xvi[i][2] - xvi[i][1], Val(3))
     # nodal centers
     xci = xc, yc, zc = ntuple(i -> LinRange(0 + dxi[i] / 2, Li[i] - dxi[i] / 2, ni[i]), Val(3))
+    # staggered grid velocity nodal locations
+    grid_vx = xv, expand_range(yc), expand_range(zc)
+    grid_vy = expand_range(xc), yv, expand_range(zc)
+    grid_vz = expand_range(xc), expand_range(yc), zv
+    grid_vel = grid_vx, grid_vy, grid_vz
     # Initialize particles -------------------------------
     particles1 = _3D.init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi...
+        backend, nxcell, max_xcell, min_xcell, grid_vel...
     )
     particles2 = _3D.init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi...
+        backend, nxcell, max_xcell, min_xcell, grid_vel...
     )
     @test particles1.min_xcell == particles2.min_xcell
     @test particles1.max_xcell == particles2.max_xcell
@@ -106,9 +116,14 @@ end
     dxi = dx, dy, dz = ntuple(i -> xvi[i][2] - xvi[i][1], Val(3))
     # nodal centers
     xci = xc, yc, zc = ntuple(i -> LinRange(0 + dxi[i] / 2, Li[i] - dxi[i] / 2, ni[i]), Val(3))
+    # staggered grid velocity nodal locations
+    grid_vx = xv, expand_range(yc), expand_range(zc)
+    grid_vy = expand_range(xc), yv, expand_range(zc)
+    grid_vz = expand_range(xc), expand_range(yc), zv
+    grid_vel = grid_vx, grid_vy, grid_vz
     # Initialize particles -------------------------------
     particles = _3D.init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi...
+        backend, nxcell, max_xcell, min_xcell, grid_vel...
     )
     arrays = _3D.SubgridDiffusionCellArrays(particles)
     # Test they are allocated in the right backend
@@ -160,11 +175,12 @@ end
     grid_vx = xv, expand_range(yc), expand_range(zc)
     grid_vy = expand_range(xc), yv, expand_range(zc)
     grid_vz = expand_range(xc), expand_range(yc), zv
+    grid_vel = grid_vx, grid_vy, grid_vz
 
     # Initialize particles -------------------------------
     nxcell, max_xcell, min_xcell = 24, 24, 3
     particles = _3D.init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi...
+        backend, nxcell, max_xcell, min_xcell, grid_vel...
     )
 
     # Cell fields -------------------------------
@@ -201,7 +217,7 @@ end
 
 function test_advection_3D()
 
-    n = 64
+    n = 16
     nx = ny = nz = n - 1
     Lx = Ly = Lz = 1.0
     ni = nx, ny, nz
@@ -217,6 +233,7 @@ function test_advection_3D()
     grid_vx = xv, expand_range(yc), expand_range(zc)
     grid_vy = expand_range(xc), yv, expand_range(zc)
     grid_vz = expand_range(xc), expand_range(yc), zv
+    grid_vel = grid_vx, grid_vy, grid_vz
 
     # Cell fields -------------------------------
     Vx = TA(backend)([vx_stream(x, z) for x in grid_vx[1], y in grid_vx[2], z in grid_vx[3]])
@@ -230,23 +247,23 @@ function test_advection_3D()
     # Initialize particles -------------------------------
     nxcell, max_xcell, min_xcell = 125, 150, 100
     particles = _3D.init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi...
+        backend, nxcell, max_xcell, min_xcell, grid_vel...
     )
 
     # Advection test
     particle_args = pT, = _3D.init_cell_arrays(particles, Val(1))
-    _3D.grid2particle!(pT, xvi, T, particles)
+    _3D.grid2particle!(pT, T, particles)
     sumT = sum(T)
 
     niter = 5
     for _ in 1:niter
-        _3D.particle2grid!(T, pT, xvi, particles)
+        _3D.particle2grid!(T, pT, particles)
         copyto!(T0, T)
-        _3D.advection!(particles, _3D.RungeKutta2(), V, (grid_vx, grid_vy, grid_vz), dt)
-        _3D.move_particles!(particles, xvi, particle_args)
+        _3D.advection!(particles, _3D.RungeKutta2(), V, dt)
+        _3D.move_particles!(particles, particle_args)
         # reseed
-        _3D.inject_particles!(particles, (pT,), xvi)
-        _3D.grid2particle!(pT, xvi, T, particles)
+        _3D.inject_particles!(particles, (pT,))
+        _3D.grid2particle!(pT, T, particles)
     end
     sumT_final = sum(T)
     err = abs(sumT - sumT_final) / sumT
