@@ -1,23 +1,32 @@
 ## CELL FACES: AKA VELOCITY-NODES
 
 function phase_ratios_face!(
-        phase_face, particles, xci::NTuple{N}, xvi::NTuple{N}, phases, dimension
-    ) where {N}
+        phase_face, particles::Particles{B, N}, phases, dimension
+    ) where {B, N}
     ni = size(phases)
     offsets = face_offset(Val(N), dimension)
-
+    idx_di  = if dimension === :x
+        1
+    elseif dimension === :y
+        2
+    elseif dimension === :z
+        3
+    else
+        throw(ArgumentError("dimension must be :x, :y or :z"))
+    end
     @parallel (@idx ni) phase_ratios_face_kernel!(
-        phase_face, particles.coords, xci, xvi, phases, offsets
+        phase_face, particles.coords, particles.xci, particles.di.velocity[idx_di], phases, offsets
     )
     return nothing
 end
 
 @parallel_indices (I...) function phase_ratios_face_kernel!(
-        ratio_faces, pxi::NTuple{N}, xci::NTuple{N}, xvi::NTuple{N}, phases, offsets
+        ratio_faces, pxi::NTuple{N}, xci::NTuple{N}, dᵢ::NTuple{N}, phases, offsets
     ) where {N}
 
     # index corresponding to the cell center
-    di = compute_dx(xvi, I)
+    di = @dxi(dᵢ, I...)
+
     cell_center = getindex.(xci, I)
     cell_face = @. cell_center + di * offsets / 2
     ni = size(phases)
@@ -29,7 +38,7 @@ end
         cell_index = min.(I .+ offsetsᵢ, ni)
         all(@. 0 < cell_index < ni + 1) || continue
 
-        di = compute_dx(xvi, cell_index)
+        di = @dxi(dᵢ, cell_index...)
 
         for ip in cellaxes(phases)
             p = get_particle_coords(pxi, ip, cell_index...)
@@ -97,22 +106,21 @@ end
 ## MIDPOINTS: AKA SHEAR STRESS-NODES (ONLY IN 3D)
 
 function phase_ratios_midpoint!(
-        phase_midpoint, particles, xci::NTuple{N}, phases, dimension
-    ) where {N}
+        phase_midpoint, particles::Particles{B, N}, phases, dimension
+    ) where {B, N}
     ni = size(phases)
-    di = compute_dx(xci)
     offsets = midpoint_offset(Val(N), dimension)
-
+    dxi_midpoints = midpoint_grid_spacing(particles.di, dimension::Symbol)
     @parallel (@idx ni) phase_ratios_midpoint_kernel!(
-        phase_midpoint, particles.coords, xci, di, phases, offsets
+        phase_midpoint, particles.coords, particles.xci, particles.di.vertex, dxi_midpoints, phases, offsets
     )
     return nothing
 end
 
 @parallel_indices (I...) function phase_ratios_midpoint_kernel!(
-        ratio_midpoints, pxi::NTuple, xci::NTuple, di::NTuple, phases, offsets
+        ratio_midpoints, pxi::NTuple, xci::NTuple, dxi_vertex, dxi_midpoints, phases, offsets
     )
-    _phase_ratios_midpoint_kernel!(ratio_midpoints, pxi, xci, @dxi(di, I...), phases, offsets, I...)
+    _phase_ratios_midpoint_kernel!(ratio_midpoints, pxi, xci, dxi_vertex, dxi_midpoints, phases, offsets, I...)
     return nothing
 end
 
@@ -120,7 +128,8 @@ function _phase_ratios_midpoint_kernel!(
         ratio_midpoints,
         pxi::NTuple{N},
         xci::NTuple{N},
-        di::NTuple{N, T},
+        dxi_vertex, 
+        dxi_midpoints,
         phases,
         offsets,
         I::Vararg{Int, N},
@@ -129,17 +138,20 @@ function _phase_ratios_midpoint_kernel!(
 
     # index corresponding to the cell center
     cell_center = getindex.(xci, I)
+    di = @dxi(dxi_vertex, I...)
     cell_midpoint = @. cell_center + di * offsets / 2
     ni = size(phases)
     nm = size(ratio_midpoints)
     NC = nphases(ratio_midpoints)
-    w = ntuple(_ -> zero(T), NC)
+    w = ntuple(_ -> 0e0, NC)
 
     # general case
     for mask in MASK_3D
         offsetsᵢ = offsets .* mask
         cell_index = min.(I .+ offsetsᵢ, ni)
+        
         all(cell_index .≤ nm) || continue
+        di = @dxi(dxi_vertex, cell_index...)
 
         for ip in cellaxes(phases)
             p = get_particle_coords(pxi, ip, cell_index...)
@@ -166,13 +178,17 @@ function _phase_ratios_midpoint_kernel!(
             midpoint_index = I .+ offset_boundaryᵢ
             # index corresponding to the cell center
             flip_sign_mask = (0, 0, 0) .- offset_boundary # need to add dxi if we are in the last boundary
+            di = @dxi(dxi_vertex, min.(I, ni)...)
+            
             cell_midpoint = @. cell_center - (di * offsets * flip_sign_mask) / 2
-            w = ntuple(_ -> zero(T), NC)
+            w = ntuple(_ -> 0e0, NC)
 
             for mask in MASK_3D
                 offsetsᵢ = offsets .* mask
                 cell_index = min.(I .+ offsetsᵢ, ni)
                 all(cell_index .≤ nm) || continue
+                di = @dxi(dxi_vertex, cell_index...)
+
                 for ip in cellaxes(phases)
                     p = get_particle_coords(pxi, ip, cell_index...)
                     any(isnan, p) && continue
@@ -209,4 +225,17 @@ end
 function lastboundary_offset(offsets::NTuple{3}, I::NTuple{3}, ni::NTuple{3})
     @inline
     return Base.@ntuple 3 i -> @inbounds Int(ni[i] == (offsets[i] * I[i]))
+end
+
+@inline function midpoint_grid_spacing(di, dimension::Symbol)
+    (;center, vertex) = di 
+    return di_midpoint = if dimension === :xy
+        (vertex[1], vertex[2], center[3])
+    elseif dimension === :yz
+        (center[1], vertex[2], vertex[3])
+    elseif dimension === :xz
+        (vertex[1], center[2], vertex[3])
+    else
+        throw("Unknown dimensions. Valid dimensions are :xy, :yz, :xz")
+    end
 end

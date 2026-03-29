@@ -1,5 +1,14 @@
 using Statistics
 
+"""
+    semilagrangian_advection_markerchain!(chain, method, V, grid_vxi, grid, dt; max_slope_angle = 45.0)
+
+Backtrack a marker chain through `V` and update the chain geometry with a
+semi-Lagrangian step.
+
+The optional `max_slope_angle` limiter is used while reconstructing the interface
+to avoid excessively steep local segments.
+"""
 function semilagrangian_advection_markerchain!(
         chain::MarkerChain, method::AbstractAdvectionIntegrator, V, grid_vxi, grid, dt;
         max_slope_angle = 45.0

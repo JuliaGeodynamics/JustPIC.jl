@@ -1,18 +1,11 @@
 """
-    semilagrangian_advection_MQS!, F0, integrator, V, grid_vi, grid, dt)
+    semilagrangian_advection_MQS!(F, F0, method, V, grid_vi, grid, dt)
 
-Performs semi-Lagrangian advection by backtracking particle positions in a velocity field.
-This function updates the positions and/or properties of particles according to the semi-Lagrangian scheme.
+Semi-Lagrangian advection variant that evaluates backtracked velocities with the
+`MQS` interpolation scheme.
 
-# Arguments
-
-- `F`: The new state of the grid field (e.g., density, temperature).
-- `F0`: The current state of the grid field (used for interpolation).
-- `integrator`: The numerical integrator to use for advection (e.g., Euler, Rk2, RK4).
-- `V`: The velocity field at the particle positions.
-- `grid_vi`: The grid cell indices for the velocity field.
-- `grid`: The spatial grid information.
-- `dt`: The time step for the advection.
+Use this when the advecting velocity should be reconstructed with the `MQS`
+scheme instead of plain linear interpolation.
 """
 function semilagrangian_advection_MQS!(
         F,

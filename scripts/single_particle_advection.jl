@@ -63,7 +63,7 @@ function main()
     niter = 250
     for _ in 1:niter
         advection!(particles, RungeKutta2(2 / 3), V, (grid_vx, grid_vy), dt)
-        move_particles!(particles, xvi, particle_args)
+        move_particles!(particles, particle_args)
 
         pxv = particles.coords[1].data
         pyv = particles.coords[2].data

@@ -103,7 +103,7 @@ function main()
         update_cell_halo!(particles.index)
 
         # shuffle particles
-        move_particles!(particles, xvi, particle_args)
+        move_particles!(particles, particle_args)
 
         # gather particle data - for plotting only
         @views px_nohalo .= particles.coords[1].data[1, :, 2:(end - 1)]

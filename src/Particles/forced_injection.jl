@@ -1,16 +1,17 @@
 """
-    force_injection!(particles::Particles{Backend}, p_new, fields::NTuple{N, Any}, values::NTuple{N, Any}) where {Backend, N}
+    force_injection!(particles, p_new, fields, values)
 
-Forcefully injects new particles into the `particles` object. This function modifies the `particles` object in place.
+Insert particles from `p_new` directly into free particle slots.
 
 # Arguments
-- `particles::Particles{Backend}`: The particles object to be modified.
-- `p_new`: The new particles to be injected.
-- `fields::NTuple{N, Any}`: A tuple containing the fields to be updated.
-- `values::NTuple{N, Any}`: A tuple containing the values corresponding to the fields.
+- `particles`: destination `Particles` container.
+- `p_new`: per-cell collection of coordinates to inject; `NaN` marks empty input slots.
+- `fields`: tuple of particle fields to initialize together with the coordinates.
+- `values`: values written into each corresponding entry of `fields`.
 
-# Returns
-- Nothing. This function modifies the `particles` object in place.
+# Notes
+- This is a low-level routine: it does not search for nearest-neighbor values.
+- Injection only happens into currently inactive particle slots.
 """
 function force_injection!(particles::Particles{Backend}, p_new, fields::NTuple{N, Any}, values::NTuple{N, Any}) where {Backend, N}
     (; coords, index) = particles
@@ -20,13 +21,10 @@ function force_injection!(particles::Particles{Backend}, p_new, fields::NTuple{N
 end
 
 """
-    force_injection!(particles::Particles{Backend}, p_new) where {Backend}
+    force_injection!(particles, p_new)
 
-Forces the injection of new particles into the existing `particles` collection. This function modifies the `particles` in place by adding the new particles specified in `p_new`.
-
-# Arguments
-- `particles::Particles{Backend}`: The existing collection of particles to which new particles will be added. The type of backend is specified by the `Backend` parameter.
-- `p_new`: The new particles to be injected into the existing collection.
+Convenience method for `force_injection!` when no companion particle fields need
+to be initialized.
 """
 force_injection!(particles::Particles{Backend}, p_new) where {Backend} = force_injection!(particles, p_new, (), ())
 

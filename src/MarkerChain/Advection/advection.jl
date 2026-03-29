@@ -1,5 +1,17 @@
 using Statistics
 
+"""
+    advect_markerchain!(chain, method, V, grid_vxi, dt)
+
+Advect a marker chain for one time step and rebuild its derived topography data.
+
+This convenience wrapper runs marker advection, reassigns markers to cells,
+resamples the chain, updates vertex elevations, and enforces mean-height
+conservation.
+
+Use this when evolving a free surface or interface represented by a
+`MarkerChain`.
+"""
 function advect_markerchain!(
         chain::MarkerChain, method::AbstractAdvectionIntegrator, V, grid_vxi, dt
     )
@@ -22,6 +34,15 @@ function advect_markerchain!(
 end
 
 # Two-step Runge-Kutta advection scheme for marker chains
+"""
+    advection!(chain::MarkerChain, method, V, grid_vi, dt)
+
+Advect the marker coordinates in `chain` through the staggered velocity field `V`
+without performing resampling or topography reconstruction.
+
+This lower-level method is useful if you want to customize the post-advection
+marker-chain processing yourself.
+"""
 function advection!(
         chain::MarkerChain,
         method::AbstractAdvectionIntegrator,

@@ -14,41 +14,58 @@ There are three type of `AbstractParticles` types:
 
 ### Simulation particles
 ```julia
-struct Particles{Backend,N,M,I,T1,T2} <: AbstractParticles
+struct Particles{Backend,N,I,T1,T2,D,V} <: AbstractParticles
     coords::NTuple{N,T1}
     index::T2
     nxcell::I
     max_xcell::I
     min_xcell::I
     np::I
+    di::D
+    _di::D
+    xci::NTuple{N,V}
+    xvi::NTuple{N,V}
+    xi_vel::NTuple{N,NTuple{N,V}}
 end
 ```
-Where `coords` is a tuple containing the coordinates of the particles; `index` is a `BitArray` where `true` if in the correspondent `CellArray` there is an active particle, otherwise false; `nxcell`, `min_xcell`, `max_xcell` are the initial, minimum and maximum number of particles per cell; and, `np` is the initial number of particles.
+Where `coords` is a tuple containing the particle coordinates; `index` marks active slots in each cell; `nxcell`, `min_xcell`, and `max_xcell` are the initial, minimum, and maximum number of particles per cell; and `np` is the total number of particle slots. The container also stores grid metadata:
+
+- `di` and `_di`: direct and inverse grid spacings for center, vertex, and velocity grids.
+- `xci`: cell-center coordinates.
+- `xvi`: vertex coordinates.
+- `xi_vel`: staggered velocity-grid coordinates.
+
+These extra fields are what allow high-level helpers such as `move_particles!`, `grid2particle!`, `particle2grid!`, `inject_particles!`, `update_phase_ratios!`, and `subgrid_diffusion!` to use the short `(..., particles, ...)` call forms without passing the grids explicitly every time.
     
-### Passive markers
+### Marker chain
 ```julia
 struct MarkerChain{Backend,N,M,I,T1,T2,TV} <: AbstractParticles
     coords::NTuple{N,T1}
-    index::T2
+    coords0::NTuple{N,T1}
+    h_vertices::T2
+    h_vertices0::T2
     cell_vertices::TV 
+    index::T2
     max_xcell::I
     min_xcell::I
 end
 ```
-Where `coords` is a tuple containing the coordinates of the particles; `index` is an `BitArray` where `true` if in the correspondent `CellArray` there is an active particle, otherwise false; `cell_vertices` is the lower-left corner (`(x,)` in 2D, `(x,y)` in 3D) of the cell containing those particles;and, `min_xcell`, `max_xcell` are theminimum and maximum number of particles per cell.
+Where `coords` and `coords0` store the current and previous marker coordinates, `h_vertices` and `h_vertices0` store the current and previous topography sampled at grid vertices, `cell_vertices` holds the horizontal vertex coordinates of the chain grid, `index` marks active marker slots, and `min_xcell`/`max_xcell` define the allowed markers per cell.
 
-### Marker chain
+### Passive markers
 ```julia
 struct PassiveMarkers{Backend,T} <: AbstractParticles
     coords::T
     np::Int64
 end
 ```
-Where `coords` is a tuple containing the coordinates of the particles; and `np` is the number of passive markers.
+Where `coords` contains the tracer coordinates and `np` is the total number of passive markers.
 
 ## Particle initialization
 
-Particles can be initialized as randomly distributed, or regularly spaced. As seen in the examples below, if `nxcell` is a scalar integer, particles will be randomly initialized. If `nxcell` is a tuple integers (with length 2 in 2D, and length 3 in 3D), particles will regularly spaced, with the elements of the tuple being the number of particles per dimension.
+Particles can be initialized as randomly distributed, or regularly spaced. If `nxcell` is a scalar integer, particles are initialized randomly within each cell. If `nxcell` is a tuple of integers, particles are initialized on a regular layout, with one entry per coordinate direction.
+
+After construction, the returned `Particles` object already contains the derived center, vertex, and staggered velocity grids needed by the higher-level APIs.
 
 ### Randomly distributed particles
 
@@ -81,3 +98,17 @@ particles = init_particles(
     backend, nxcell, max_xcell, min_xcell, xvi...,
 )
 ```
+
+## Convenience APIs
+
+Once `particles` has been initialized, most particle-grid transfer and maintenance routines use the geometry stored in the container directly:
+
+```julia
+grid2particle!(Fp, F, particles)
+particle2grid!(F, Fp, particles)
+move_particles!(particles, particle_args)
+inject_particles!(particles, particle_args)
+update_phase_ratios!(phase_ratios, particles, phases)
+```
+
+This is the preferred high-level style for simulation code, tests, and examples.

@@ -103,7 +103,7 @@ g(x) = Point2f(
 @inline incircles(x,y, xc, yc, r1, r2) = r1^2 ≤ (x - xc)^2 + (y - yc)^2 ≤ r2^2
 
 function main()
-   # Initialize particles -------------------------------
+    # Initialize particles -------------------------------
     nxcell, max_xcell, min_xcell = 25, 35, 10
     n = 101
     nx = ny = n - 1
@@ -131,7 +131,7 @@ function main()
     )
 
     particles = init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi...,
+        backend, nxcell, max_xcell, min_xcell, grid_vi...,
     )
 
     # Cell fields -------------------------------
@@ -148,7 +148,7 @@ function main()
 
     # Advection test
     particle_args = pT, = init_cell_arrays(particles, Val(1))
-    grid2particle!(pT, xvi, T, particles)
+    grid2particle!(pT, T, particles)
 
     fname = "figs_$dt"
     !isdir(fname) && mkdir(fname)
@@ -159,10 +159,10 @@ function main()
     # for it in 1:niter
     while t < 3
         it += 1 
-        advection!(particles, RungeKutta2(), V, grid_vi_device, dt)
-        move_particles!(particles, xvi_device, particle_args)
-        inject_particles!(particles, (pT,), xvi_device)
-        particle2grid!(T, pT, xvi_device, particles)
+        advection!(particles, RungeKutta2(), V, dt)
+        move_particles!(particles, particle_args)
+        inject_particles!(particles, (pT,))
+        particle2grid!(T, pT, particles)
 
         t += dt
         if rem(it, 10) == 0
@@ -178,4 +178,4 @@ function main()
     return println("Finished")
 end
 
-main()
+# main()

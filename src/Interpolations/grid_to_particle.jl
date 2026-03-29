@@ -2,7 +2,28 @@
 
 # LAUNCHERS
 
-grid2particle!(Fp, xvi, F, particles) = grid2particle!(Fp, xvi, F, particles, compute_dx.(xvi))
+"""
+    grid2particle!(Fp, F, particles)
+    grid2particle!(Fp, xvi, F, particles, di)
+
+Interpolate a nodal field `F` to particle values `Fp`.
+
+`Fp` is updated in place for every active particle in `particles`.
+
+# Arguments
+- `Fp`: destination particle field, or tuple of particle fields.
+- `F`: source nodal field.
+- `particles`: particle container that provides positions and active slots.
+- `xvi`: optional explicit vertex coordinates for lower-level/internal use.
+- `di`: optional precomputed grid spacing for lower-level/internal use.
+
+# Notes
+- `Fp` must be allocated with the same cell layout as `particles.coords`.
+- `grid2particle!(Fp, F, particles)` is the public convenience entry point and
+  reads the vertex grid and spacing from `particles`.
+"""
+
+grid2particle!(Fp, F, particles) = grid2particle!(Fp, particles.xvi, F, particles, particles.di.vertex)
 
 function grid2particle!(Fp, xvi, F, particles, di)
     (; coords, index) = particles
@@ -86,6 +107,21 @@ end
 
 # LAUNCHERS
 
+"""
+    grid2particle_flip!(Fp, xvi, F, F0, particles; α = 0.0)
+
+Update particle values with a PIC/FLIP blend.
+
+`α = 1` gives pure PIC, `α = 0` gives pure FLIP, and intermediate values blend
+between the two updates.
+
+# Arguments
+- `Fp`: particle field to update in place.
+- `F`: current grid field.
+- `F0`: previous grid field.
+- `particles`: particle container.
+- `α`: PIC fraction in the PIC/FLIP blend.
+"""
 function grid2particle_flip!(Fp, xvi, F, F0, particles; α = 0.0)
     di = grid_size(xvi)
     (; coords, index) = particles

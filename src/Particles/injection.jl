@@ -1,17 +1,22 @@
 ## PARTICLE INJECTION FUNCTIONS
 
 """
-    inject_particles!(particles::Particles, args, grid)
+    inject_particles!(particles::Particles, args)
 
-Injects particles if the number of particles in a given cell is such that `n < particles.min_xcell`.
+Inject particles into cells whose occupancy falls below `particles.min_xcell`.
 
 # Arguments
 - `particles`: The particles object.
-- `args`: `CellArrays`s containing particle fields.
-- `grid`: The grid cell vertices.
+- `args`: tuple of particle fields that should be populated for newly injected particles.
+
+# Notes
+- New particles are placed quadrant-by-quadrant inside the cell.
+- New field values are copied from the nearest existing particle in the same
+  neighborhood.
+- The public entry point uses the vertex grid and cell spacing stored in
+  `particles`.
 """
-inject_particles!(particles::Particles, args, grid::NTuple{N}) where {N} =
-inject_particles!(particles, args, grid, compute_dx(grid))
+inject_particles!(particles::Particles, args) = inject_particles!(particles, args, particles.xvi, particles.di.vertex)
 
 function inject_particles!(particles::Particles, args, grid::NTuple{N}, di) where {N}
     # function implementation goes here
@@ -123,10 +128,22 @@ function _inject_particles!(
 end
 
 # Injection of particles when multiple phases are present
+"""
+    inject_particles_phase!(particles, particles_phases, args, fields, grid)
+
+Inject particles into under-populated cells while also copying phase labels and
+field values from nearby particles.
+
+This is the phase-aware variant of `inject_particles!`.
+
+`particles_phases` stores a phase id per particle slot, while `args`/`fields`
+hold companion particle properties that must be initialized consistently for the
+new particles.
+"""
 inject_particles_phase!(
-        particles::Particles, particles_phases, args, fields, grid::NTuple{N}
-    ) where {N} = inject_particles_phase!(
-        particles, particles_phases, args, fields, grid, compute_dx(grid)
+        particles::Particles, particles_phases, args, fields
+    ) = inject_particles_phase!(
+        particles, particles_phases, args, fields, particles.xvi, particles.di.vertex
     ) 
 
 function inject_particles_phase!(

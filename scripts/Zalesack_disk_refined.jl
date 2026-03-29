@@ -164,7 +164,7 @@ function main()
     dt = 200.0
 
     particle_args = pT, = init_cell_arrays(particles, Val(1))
-    grid2particle!(pT, xvi, T, particles)
+    grid2particle!(pT, T, particles)
 
     t      = 0
     it     = 0
@@ -178,10 +178,10 @@ function main()
     local f
     while t ≤ tmax
         advection!(particles, RungeKutta2(), V, grid_vi_device, dt)
-        move_particles!(particles, xvi_device, particle_args)
+        move_particles!(particles, particle_args)
         
-        inject_particles!(particles, (pT,), xvi_device)
-        particle2grid!(T, pT, xvi_device, particles)
+        inject_particles!(particles, (pT,))
+        particle2grid!(T, pT, particles)
 
         t += dt
         it += 1

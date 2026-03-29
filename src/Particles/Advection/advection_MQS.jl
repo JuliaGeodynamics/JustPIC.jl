@@ -1,31 +1,31 @@
-# Main Runge-Kutta advection function for 2D staggered grids
 """
-    advection!(particles::Particles, method::AbstractAdvectionIntegrator, V, grid_vi::NTuple{N,NTuple{N,T}}, dt)
+    advection_MQS!(particles, method, V, dt)
 
-Advects the particles using the advection scheme defined by `method`.
+Advect particles using the monotonic quadratic spline (`MQS`) velocity
+interpolation scheme.
 
-# Arguments
-- `particles`: Particles object to be advected.
-- `method`: Time integration method (`Euler` or `RungeKutta2`).
-- `V`: Tuple containing `Vx`, `Vy`; and `Vz` in 3D.
-- `grid_vi`: Tuple containing the grids corresponding to `Vx`, `Vy`; and `Vz` in 3D.
-- `dt`: Time step.
+Compared with `advection!`, this method reconstructs staggered velocities with
+`MQS` where enough stencil support is available.
+
+Near boundaries or when the required stencil is unavailable, the implementation
+falls back to linear interpolation.
+
+The public entry point reads the staggered velocity coordinates and spacing from
+`particles.xi_vel` and `particles.di.velocity`.
 """
 advection_MQS!(
         particles::Particles,
         method::AbstractAdvectionIntegrator,
         V,
-        grid_vi::NTuple{N, NTuple{N}},
         dt,
-    ) where {N} = advection_MQS!(
-        particles::Particles,
-        method::AbstractAdvectionIntegrator,
+    ) = advection_MQS!(
+        particles,
+        method,
         V,
-        grid_vi::NTuple{N, NTuple{N}},
+        particles.xi_vel,
         dt,
-        compute_dx.(grid_vi)
+        particles.di.velocity
     ) 
-
 
 function advection_MQS!(
         particles::Particles,

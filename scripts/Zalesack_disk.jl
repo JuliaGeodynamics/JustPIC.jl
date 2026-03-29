@@ -88,18 +88,18 @@ function main()
     dt = 200.0
 
     particle_args = pT, = init_cell_arrays(particles, Val(1))
-    grid2particle!(pT, xvi, T, particles)
+    grid2particle!(pT, T, particles)
 
     t = 0
     it = 0
     t_pic = 0.0
-    # inject_particles!(particles, (pT, ), xvi)
+    # inject_particles!(particles, (pT, ))
     local f
     while t ≤ tmax
         advection!(particles, RungeKutta2(), V, grid_vxi, dt)
-        move_particles!(particles, xvi, particle_args)
-        inject_particles!(particles, (pT,), xvi)
-        particle2grid!(T, pT, xvi, particles)
+        move_particles!(particles, particle_args)
+        inject_particles!(particles, (pT,))
+        particle2grid!(T, pT, particles)
 
         # semilagrangian_advection!(T, T0, RungeKutta2(), V, (grid_vx, grid_vy), xvi, dt)
         # # T[1,:]    .= T[2,:]

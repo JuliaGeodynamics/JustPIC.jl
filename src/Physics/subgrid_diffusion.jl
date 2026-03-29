@@ -1,3 +1,15 @@
+"""
+    SubgridDiffusionCellArrays(particles; loc = :vertex)
+
+Allocate scratch storage used by the subgrid thermal diffusion routines.
+
+The returned object stores old particle temperatures, per-particle temperature
+increments, characteristic diffusion timescales, and a grid-sized accumulation
+buffer.
+
+`loc` selects whether the accumulation buffer should match a vertex-based or
+cell-centered grid layout.
+"""
 struct SubgridDiffusionCellArrays{CA, T}
     pT0::CA # particle old temperature
     pΔT::CA # particle temperature increment
@@ -22,27 +34,53 @@ function SubgridDiffusionCellArrays(::T) where {T}
     throw(ArgumentError("SubgridDiffusionCellArrays: $T backend not supported"))
 end
 
+"""
+    subgrid_diffusion!(pT, T_grid, ΔT_grid, subgrid_arrays, particles, dt; d = 1.0)
+
+Apply the vertex-based subgrid diffusion correction to particle temperatures.
+
+Temperatures are interpolated from the grid to particles, relaxed using the local
+subgrid model, mapped back to the grid as a correction, and then reapplied to the
+particle temperatures.
+
+# Arguments
+- `pT`: particle temperature field updated in place.
+- `T_grid`: source temperature on the vertex grid.
+- `ΔT_grid`: resolved-grid temperature increment.
+- `subgrid_arrays`: scratch storage created with `SubgridDiffusionCellArrays`.
+- `particles`: particle container.
+- `dt`: timestep.
+- `d`: dimensionless subgrid diffusion coefficient.
+"""
 function subgrid_diffusion!(
-        pT, T_grid, ΔT_grid, subgrid_arrays, particles::Particles, xvi, dt; d = 1.0
+        pT, T_grid, ΔT_grid, subgrid_arrays, particles::Particles, dt; d = 1.0
     )
     # d = dimensionless numerical diffusion coefficient (0 ≤ d ≤ 1)
     (; pT0, pΔT, dt₀) = subgrid_arrays
     ni = size(pT)
 
     @parallel (@idx ni) memcopy_cellarray!(pT0, pT)
-    grid2particle!(pT, xvi, T_grid, particles)
+    grid2particle!(pT, T_grid, particles)
 
     @parallel (@idx ni) subgrid_diffusion!(pT, pT0, pΔT, dt₀, particles.index, d, dt)
-    particle2grid!(subgrid_arrays.ΔT_subgrid, pΔT, xvi, particles)
+    particle2grid!(subgrid_arrays.ΔT_subgrid, pΔT, particles)
 
     @parallel (@idx ni .+ 1) update_ΔT_subgrid!(subgrid_arrays.ΔT_subgrid, ΔT_grid)
-    grid2particle!(pΔT, xvi, subgrid_arrays.ΔT_subgrid, particles)
+    grid2particle!(pΔT, subgrid_arrays.ΔT_subgrid, particles)
 
     @parallel (@idx ni) update_particle_temperature!(pT, pT0, pΔT)
 
     return nothing
 end
 
+"""
+    subgrid_diffusion_centroid!(pT, T_grid, ΔT_grid, subgrid_arrays, particles, xci, dt; d = 1.0)
+
+Centroid-grid variant of `subgrid_diffusion!`.
+
+Use this when the resolved temperature field lives at cell centers instead of
+vertices.
+"""
 function subgrid_diffusion_centroid!(
         pT, T_grid, ΔT_grid, subgrid_arrays, particles, xci, dt; d = 1.0
     )

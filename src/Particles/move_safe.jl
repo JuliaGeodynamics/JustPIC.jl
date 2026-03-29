@@ -1,14 +1,24 @@
 """
-    move_particles!(particles::AbstractParticles, grid, args)
+    move_particles!(particles::AbstractParticles, args)
 
-Move particles in the given `particles` container according to the provided `grid` and particles fields in `args`.
+Reassign particles to the correct parent cells after their coordinates have been
+updated.
+
+This routine keeps the coordinate arrays in `particles` and the companion fields
+in `args` sorted by parent cell, preserving the package's spatially local memory
+layout.
 
 # Arguments
-- `particles`: The container of particles to be moved.
-- `grid`: The grid used for particle movement.
-- `args`: `CellArrays`s containing particle fields.
+- `particles`: particle container whose coordinates have already been modified.
+- `args`: tuple of per-particle fields that must move together with the particle
+  coordinates.
+
+# Notes
+- Particles that leave the domain are discarded.
+- `args` must use the same cell layout as `particles.coords`.
+- The public entry point uses the vertex grid and spacing stored in `particles`.
 """
-move_particles!(particles::AbstractParticles, grid::NTuple{N}, args) where {N} = move_particles!(particles, grid, args, compute_dx(grid))
+move_particles!(particles::AbstractParticles, args) = move_particles!(particles, particles.xvi, args, particles.di.vertex)
 
 function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args, dxi) where {N}
 
@@ -256,6 +266,15 @@ end
     end
 end
 
+"""
+    clean_particles!(particles, grid, args)
+
+Remove invalid or inactive particle slots and keep particle-associated fields in
+`args` consistent with the particle storage layout.
+
+This is typically used after particle deletion or reinjection to compact each
+cell's active particle block.
+"""
 function clean_particles!(particles::Particles, grid, args)
     (; coords, index) = particles
     dxi = compute_dx(grid)

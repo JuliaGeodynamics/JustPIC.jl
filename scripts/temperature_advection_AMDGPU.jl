@@ -51,13 +51,13 @@ function main()
 
     # Advection test
     particle_args = pT, = init_cell_arrays(particles, Val(1))
-    grid2particle!(pT, xvi, T, particles)
+    grid2particle!(pT, T, particles)
 
     niter = 150
     for _ in 1:niter
         advection!(particles, RungeKutta2(2 / 3), V, (grid_vx, grid_vy), dt)
-        move_particles!(particles, xvi, particle_args)
-        particle2grid!(T, pT, xvi, particles)
+        move_particles!(particles, particle_args)
+        particle2grid!(T, pT, particles)
     end
 
     f, ax, = heatmap(xvi..., Array(T), colormap = :batlow)

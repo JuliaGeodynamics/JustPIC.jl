@@ -1,17 +1,17 @@
 ## Kernels to compute phase ratios at the vertices
 
 
-function phase_ratios_vertex!(phase_ratios::JustPIC.PhaseRatios, particles, xvi, phases)
+function phase_ratios_vertex!(phase_ratios::JustPIC.PhaseRatios, particles, phases)
     ni = size(phases) .+ 1
 
     @parallel (@idx ni) phase_ratios_vertex_kernel!(
-        phase_ratios.vertex, particles.coords, xvi, phases
+        phase_ratios.vertex, particles.coords, particles.xvi, particles.di.vertex, phases
     )
     return nothing
 end
 
 @parallel_indices (I...) function phase_ratios_vertex_kernel!(
-        ratio_vertices, pxi::NTuple{3}, xvi::NTuple{3, T}, phases
+        ratio_vertices, pxi::NTuple{3}, xvi::NTuple{3, T}, dᵢ, phases
     ) where {T}
     
     # index corresponding to the cell center
@@ -29,7 +29,7 @@ end
         0 < k_cell < ni[3] + 1 || continue
 
         cell_index = i_cell, j_cell, k_cell
-        di = compute_dx(xvi, (i_cell, j_cell, k_cell))
+        di = @dxi dᵢ cell_index...
 
         for ip in cellaxes(phases)
             p = @index(pxi[1][ip, cell_index...]),
@@ -61,7 +61,7 @@ end
 end
 
 @parallel_indices (I...) function phase_ratios_vertex_kernel!(
-        ratio_vertices, pxi::NTuple{2}, xvi::NTuple{2}, phases
+        ratio_vertices, pxi::NTuple{2}, xvi::NTuple{2}, dᵢ, phases
     )
     
     # index corresponding to the cell center
@@ -77,7 +77,7 @@ end
         !(0 < j_cell < ni[2] + 1) && continue
 
         cell_index = i_cell, j_cell
-        di = compute_dx(xvi, (i_cell, j_cell))
+        di = @dxi dᵢ cell_index...
 
         for ip in cellaxes(phases)
             p = @index(pxi[1][ip, cell_index...]), @index(pxi[2][ip, cell_index...])

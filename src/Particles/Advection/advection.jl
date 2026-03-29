@@ -1,29 +1,30 @@
-# Main Runge-Kutta advection function for 2D staggered grids
 """
     advection!(particles::Particles, method::AbstractAdvectionIntegrator, V, grid_vi::NTuple{N,NTuple{N,T}}, dt)
 
-Advects the particles using the advection scheme defined by `method`.
+Advect `particles` through the staggered velocity field `V` over a time step `dt`.
+
+`grid_vi` contains the coordinate tuples associated with each staggered velocity
+component. The particle coordinates are updated in place.
 
 # Arguments
-- `particles`: Particles object to be advected.
-- `method`: Time integration method (`Euler` or `RungeKutta2`).
-- `V`: Tuple containing `Vx`, `Vy`; and `Vz` in 3D.
-- `grid_vi`: Tuple containing the grids corresponding to `Vx`, `Vy`; and `Vz` in 3D.
-- `dt`: Time step.
+- `particles`: `Particles` container to advect.
+- `method`: time integrator such as `Euler()`, `RungeKutta2()`, or `RungeKutta4()`.
+- `V`: tuple of staggered velocity component arrays.
+- `grid_vi`: tuple of coordinate tuples matching the staggering of `V`.
+- `dt`: timestep.
 """
 advection!(
     particles::Particles,
     method::AbstractAdvectionIntegrator,
     V,
-    grid_vi::NTuple{N, NTuple{N, T}},
     dt,
-) where {N, T} = advection!(
+) = advection!(
     particles,
     method,
     V,
-    grid_vi,
+    particles.xi_vel,
     dt,
-    compute_dx.(grid_vi)
+    particles.di.velocity
 )
 
 function advection!(

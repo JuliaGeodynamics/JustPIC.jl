@@ -4,7 +4,11 @@
 """
     centroid2particle!(Fp, xci, F, particles)
 
-Interpolates properties `F` that are defined on a mesh at center points with location `xci` to particles `Fp`.
+Interpolate cell-centered field values `F` to particle values `Fp`.
+
+`xci` contains the center coordinates of the grid carrying `F`. The destination
+`Fp` is mutated in place and may be either a single particle field or a tuple of
+particle fields.
 """
 centroid2particle!(Fp, xci, F, particles) = centroid2particle!(Fp, xci, F, particles, compute_dx.(xci))
 

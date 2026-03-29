@@ -1,29 +1,27 @@
-# Main Runge-Kutta advection function for 2D staggered grids
 """
-    advection!(particles::Particles, method::AbstractAdvectionIntegrator, V, grid_vi::NTuple{N,NTuple{N,T}}, dt)
+    advection_LinP!(particles, method, V, grid_vi, dt)
 
-Advects the particles using the advection scheme defined by `method`.
+Advect particles using the linear-plus-pressure (`LinP`) velocity interpolation
+scheme.
 
-# Arguments
-- `particles`: Particles object to be advected.
-- `method`: Time integration method (`Euler` or `RungeKutta2`).
-- `V`: Tuple containing `Vx`, `Vy`; and `Vz` in 3D.
-- `grid_vi`: Tuple containing the grids corresponding to `Vx`, `Vy`; and `Vz` in 3D.
-- `dt`: Time step.
+This variant uses the same time integrators as `advection!` but evaluates
+velocities with the `LinP` reconstruction near staggered pressure points.
+
+This method is useful when you want the interpolation behavior described in the
+velocity-interpolation documentation under `LinP`.
 """
 advection_LinP!(
         particles::Particles,
         method::AbstractAdvectionIntegrator,
         V,
-        grid_vi::NTuple{N, NTuple{N}},
         dt,
-    ) where {N} = advection_LinP!(
+    ) = advection_LinP!(
         particles,
         method,
         V,
-        grid_vi::NTuple{N, NTuple{N}},
+        particles.xi_velocity,
         dt,
-        compute_dx.(grid_vi)
+        particles.di.velocity,
     )
 
 function advection_LinP!(

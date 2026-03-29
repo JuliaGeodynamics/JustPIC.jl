@@ -55,7 +55,7 @@ function main()
 
     # Advection test
     particle_args = pT, = init_cell_arrays(particles, Val(1))
-    grid2particle!(pT, xvi, T, particles)
+    grid2particle!(pT, T, particles)
 
     !isdir("figs") && mkdir("figs")
 
@@ -63,10 +63,10 @@ function main()
     for it in 1:niter
         to = TimerOutput()
         @timeit to "advect" advection!(particles, RungeKutta2(2 / 3), V, (grid_vx, grid_vy), dt)
-        @timeit to "move" move_particles!(particles, xvi, particle_args)
-        @timeit to "injection" inject_particles!(particles, (pT,), xvi)
-        @timeit to "p2g" particle2grid!(T, pT, xvi, particles)
-        @timeit to "g2p" grid2particle!(pT, xvi, T, particles)
+        @timeit to "move" move_particles!(particles, particle_args)
+        @timeit to "injection" inject_particles!(particles, (pT,))
+        @timeit to "p2g" particle2grid!(T, pT, particles)
+        @timeit to "g2p" grid2particle!(pT, T, particles)
         @show to
 
         if rem(it, 10) == 0

@@ -1,8 +1,29 @@
 ## LAUNCHERS
 
-function particle2grid!(F, Fp, xi, particles)
-    (; coords, index) = particles
-    @parallel (@idx size(F)) particle2grid!(F, Fp, xi, coords, index)
+"""
+    particle2grid!(F, Fp, particles)
+
+Interpolate particle-centered values `Fp` onto the grid nodes `F`.
+
+The operation is performed in place and supports both scalar fields and tuples
+of component arrays.
+
+# Arguments
+- `F`: destination nodal array, or tuple of nodal arrays.
+- `Fp`: particle field stored with the same cell layout as `particles`.
+- `particles`: the `Particles` container supplying particle coordinates and
+  active-slot information. Its stored `xvi` coordinates define the target
+  vertex grid.
+
+# Notes
+- This routine mutates `F` in place.
+- The interpolation loops over nodes and nearby cells, which avoids atomics on
+  the particles themselves.
+"""
+function particle2grid!(F, Fp, particles)
+    (; coords, index, xvi) = particles
+
+    @parallel (@idx size(F)) particle2grid!(F, Fp, xvi, coords, index)
     return nothing
 end
 

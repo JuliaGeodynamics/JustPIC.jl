@@ -40,13 +40,13 @@ function main()
     xvi = xv, yv = LinRange(0, Lx, n), LinRange(0, Ly, n)
     dxi = dx, dy = xv[2] - xv[1], yv[2] - yv[1]
     # nodal centers
-    xc, yc = LinRange(0 + dx / 2, Lx - dx / 2, n - 1), LinRange(0 + dy / 2, Ly - dy / 2, n - 1)
+    xci = xc, yc = LinRange(0 + dx / 2, Lx - dx / 2, n - 1), LinRange(0 + dy / 2, Ly - dy / 2, n - 1)
     # staggered grid velocity nodal locations
     grid_vx = xv, expand_range(yc)
     grid_vy = expand_range(xc), yv
-
+    grid_vel = grid_vx, grid_vy
     particles = init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi...,
+        backend, nxcell, max_xcell, min_xcell, grid_vel...,
     )
 
     # Cell fields -------------------------------
@@ -63,7 +63,7 @@ function main()
 
     # Advection test
     particle_args = pT, = init_cell_arrays(particles, Val(1))
-    grid2particle!(pT, xvi, T, particles)
+    grid2particle!(pT, T, particles)
 
     fname = "donut_figs_$dt"
     !isdir(fname) && mkdir(fname)
@@ -73,11 +73,11 @@ function main()
     it = 0
     # for it in 1:niter
     while t < 3
-        it += 1 
-        advection_MQS!(particles, RungeKutta2(), V, (grid_vx, grid_vy), dt)
-        move_particles!(particles, xvi, particle_args)
-        inject_particles!(particles, (pT,), xvi)
-        particle2grid!(T, pT, xvi, particles)
+        @show it += 1 
+        advection!(particles, RungeKutta2(), V, dt)
+        move_particles!(particles, particle_args)
+        inject_particles!(particles, (pT,))
+        particle2grid!(T, pT, particles)
         t += dt
         if rem(it, 10) == 0
             f = Figure(size = (800, 160)) 

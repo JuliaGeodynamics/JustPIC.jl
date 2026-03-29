@@ -1,18 +1,16 @@
 """
-    semilagrangian_advection!F, F0, integrator, V, grid_vi, grid, dt)
+    semilagrangian_advection!(F, F0, method, V, grid_vi, grid, dt)
 
-Performs semi-Lagrangian advection by backtracking particle positions in a velocity field.
-This function updates the positions and/or properties of particles according to the semi-Lagrangian scheme.
+Advect a grid field with a semi-Lagrangian backtracking step.
 
-# Arguments
+Each destination node in `F` is traced backward through the velocity field `V`,
+then sampled from `F0` on the vertex grid `grid`. `grid_vi` contains the
+staggered coordinates associated with the velocity components.
 
-- `F`: The new state of the grid field (e.g., density, temperature).
-- `F0`: The current state of the grid field (used for interpolation).
-- `integrator`: The numerical integrator to use for advection (e.g., Euler, Rk2, RK4).
-- `V`: The velocity field at the particle positions.
-- `grid_vi`: The grid cell indices for the velocity field.
-- `grid`: The spatial grid information.
-- `dt`: The time step for the advection.
+# Notes
+- `F` is overwritten in place.
+- `F0` is the source field from the previous step.
+- For tuple-valued fields, each component is backtracked independently.
 """
 function semilagrangian_advection!(
         F,

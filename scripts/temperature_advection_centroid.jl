@@ -67,8 +67,8 @@ function main()
     for it in 1:niter
         @show it
         advection!(particles, RungeKutta2(), V, (grid_vx, grid_vy), dt)
-        move_particles!(particles, xvi, particle_args)
-        inject_particles!(particles, (pT,), xci)
+        move_particles!(particles, particle_args)
+        inject_particles!(particles, (pT,))
         @assert all(x -> Tmin ≤ x ≤ Tmax, Array(pT.data[particles.index.data]))
         particle2centroid!(T, pT, xci, particles)
         @assert all(x -> Tmin ≤ x ≤ Tmax, Array(T))

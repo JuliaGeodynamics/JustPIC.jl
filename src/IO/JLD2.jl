@@ -61,23 +61,25 @@ function checkpointing_particles(
 end
 
 """
-    checkpointing_particles(dst, particles;phases=nothing, phase_ratios=nothing, chain=nothing, t=nothing, dt=nothing, particle_args=nothing)
+    checkpointing_particles(dst, particles; phases=nothing, phase_ratios=nothing, chain=nothing, t=nothing, dt=nothing, particle_args=nothing)
 
-Save the state of particles and related data to a checkpoint file in a jld2 format. The name of the checkpoint file is `particles_checkpoint.jld2`.
+Write particle state and optional companion data to a JLD2 checkpoint.
 
+By default the file is saved as `particles_checkpoint.jld2` in `dst`. Additional
+keyword arguments are serialized into the checkpoint after being converted to
+plain Julia arrays where needed.
 
-# Arguments
-- `dst`: The destination directory where the checkpoint file will be saved.
-- `particles`: The array of particles to be saved.
+# Common keywords
+- `phases`: per-particle phase labels.
+- `phase_ratios`: `PhaseRatios` container to checkpoint.
+- `chain`: marker-chain state.
+- `t`: simulation time.
+- `dt`: timestep size.
+- `particle_args`: tuple of extra particle-carried fields.
 
-## Keyword Arguments
-- `phases`: The array of phases associated with the particles. If nothing is stated, the default is `nothing`.
-- `phase_ratios`: The array of phase ratios. If nothing is stated, the default is `nothing`.
-- `chain`: The chain data to be saved. If nothing is stated, the default is `nothing`.
-- `t`: The current time to be saved. If nothing is stated, the default is `nothing`.
-- `dt`: The timestep to be saved. If nothing is stated, the default is `nothing`.
-- `particle_args`: Additional particle arguments to be saved. If nothing is stated, the default is `nothing`.
-- `kwargs`: Additional keyword arguments to be saved in the checkpoint file.
+# Notes
+- Arrays are converted to plain Julia arrays before serialization so the
+  checkpoint can be reloaded independently of the active backend.
 """
 function checkpointing_particles(
         dst,
