@@ -48,11 +48,11 @@ end
 @inline compute_dx(grid::AbstractVector) = diff(grid)
 @inline compute_dx(grid::Tuple) = compute_dx(first(grid)), compute_dx(Base.tail(grid))...
 
-function compute_dx(xi::NTuple{N, AbstractVector}, I) where N
+function compute_dx(xi::NTuple{N, AbstractVector}, I) where {N}
     di = ntuple(Val(N)) do i
-        @inline 
+        @inline
         ii = I[i]
-        x = xi[i] 
+        x = xi[i]
         x[ii + 1] - x[ii]
     end
     return di

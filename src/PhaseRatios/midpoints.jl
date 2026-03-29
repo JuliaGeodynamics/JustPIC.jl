@@ -5,7 +5,7 @@ function phase_ratios_face!(
     ) where {B, N}
     ni = size(phases)
     offsets = face_offset(Val(N), dimension)
-    idx_di  = if dimension === :x
+    idx_di = if dimension === :x
         1
     elseif dimension === :y
         2
@@ -31,7 +31,7 @@ end
     cell_face = @. cell_center + di * offsets / 2
     ni = size(phases)
     NC = nphases(ratio_faces)
-    w = ntuple(_ -> 0e0, NC)
+    w = ntuple(_ -> 0.0e0, NC)
 
     # general case
     for offsetsᵢ in (ntuple(_ -> 0, Val(N)), offsets)
@@ -60,7 +60,7 @@ end
     if isboundary(offsets, I)
         # index corresponding to the cell center
         cell_face = @. cell_center - di * offsets / 2
-        w = ntuple(_ -> 0e0, NC)
+        w = ntuple(_ -> 0.0e0, NC)
 
         for ip in cellaxes(phases)
             p = get_particle_coords(pxi, ip, I...)
@@ -128,7 +128,7 @@ function _phase_ratios_midpoint_kernel!(
         ratio_midpoints,
         pxi::NTuple{N},
         xci::NTuple{N},
-        dxi_vertex, 
+        dxi_vertex,
         dxi_midpoints,
         phases,
         offsets,
@@ -143,13 +143,13 @@ function _phase_ratios_midpoint_kernel!(
     ni = size(phases)
     nm = size(ratio_midpoints)
     NC = nphases(ratio_midpoints)
-    w = ntuple(_ -> 0e0, NC)
+    w = ntuple(_ -> 0.0e0, NC)
 
     # general case
     for mask in MASK_3D
         offsetsᵢ = offsets .* mask
         cell_index = min.(I .+ offsetsᵢ, ni)
-        
+
         all(cell_index .≤ nm) || continue
         di = @dxi(dxi_vertex, cell_index...)
 
@@ -179,9 +179,9 @@ function _phase_ratios_midpoint_kernel!(
             # index corresponding to the cell center
             flip_sign_mask = (0, 0, 0) .- offset_boundary # need to add dxi if we are in the last boundary
             di = @dxi(dxi_vertex, min.(I, ni)...)
-            
+
             cell_midpoint = @. cell_center - (di * offsets * flip_sign_mask) / 2
-            w = ntuple(_ -> 0e0, NC)
+            w = ntuple(_ -> 0.0e0, NC)
 
             for mask in MASK_3D
                 offsetsᵢ = offsets .* mask
@@ -228,7 +228,7 @@ function lastboundary_offset(offsets::NTuple{3}, I::NTuple{3}, ni::NTuple{3})
 end
 
 @inline function midpoint_grid_spacing(di, dimension::Symbol)
-    (;center, vertex) = di 
+    (; center, vertex) = di
     return di_midpoint = if dimension === :xy
         (vertex[1], vertex[2], center[3])
     elseif dimension === :yz

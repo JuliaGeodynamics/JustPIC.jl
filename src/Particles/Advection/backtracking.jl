@@ -22,7 +22,7 @@ function semilagrangian_advection!(
         dt,
     ) where {N, T}
     dxi_velocity = compute_dx.(grid_vi)
-    dxi_vertex   = compute_dx(grid)
+    dxi_vertex = compute_dx(grid)
     # compute some basic stuff
     ni = size(F)
     ranges = ntuple(Val(N)) do i
@@ -61,7 +61,7 @@ end
         find_parent_cell_bisection(pᵢ_backtrack[i], grid[i]; seed = I[i])
     end
     di_vertex = @dxi(dxi_vertex, I_backtrack...)
-    F[I...]   = _grid2particle(pᵢ_backtrack, grid, di_vertex, F, I_backtrack)
+    F[I...] = _grid2particle(pᵢ_backtrack, grid, di_vertex, F, I_backtrack)
     return nothing
 end
 
@@ -77,7 +77,7 @@ end
         dt,
     ) where {NF, N, T}
 
-    di_vertex   = @dxi(di_vertex, I...)
+    di_vertex = @dxi(di_vertex, I...)
     # extract particle coordinates
     pᵢ = ntuple(Val(N)) do i
         @inline

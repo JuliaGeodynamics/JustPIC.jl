@@ -13,12 +13,12 @@ end
 @parallel_indices (I...) function phase_ratios_vertex_kernel!(
         ratio_vertices, pxi::NTuple{3}, xvi::NTuple{3, T}, dᵢ, phases
     ) where {T}
-    
+
     # index corresponding to the cell center
     cell_vertex = xvi[1][I[1]], xvi[2][I[2]], xvi[3][I[3]]
     ni = size(phases)
     NC = nphases(ratio_vertices)
-    w = ntuple(_ -> 0e0, NC)
+    w = ntuple(_ -> 0.0e0, NC)
 
     for offsetᵢ in -1:0, offsetⱼ in -1:0, offsetₖ in -1:0
         i_cell = I[1] + offsetᵢ
@@ -63,12 +63,12 @@ end
 @parallel_indices (I...) function phase_ratios_vertex_kernel!(
         ratio_vertices, pxi::NTuple{2}, xvi::NTuple{2}, dᵢ, phases
     )
-    
+
     # index corresponding to the cell center
     cell_vertex = xvi[1][I[1]], xvi[2][I[2]]
     ni = size(phases)
     NC = nphases(ratio_vertices)
-    w = ntuple(_ -> 0e0, NC)
+    w = ntuple(_ -> 0.0e0, NC)
 
     for offsetᵢ in -1:0, offsetⱼ in -1:0
         i_cell = I[1] + offsetᵢ

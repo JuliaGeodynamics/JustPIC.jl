@@ -188,9 +188,9 @@ end
     expected = JustPIC._2D._grid2particle(
         p_backtrack, (xv, yv), di_backtrack, F0, I_backtrack
     )
-    @test F_linp[3, 3] ≈ expected atol = 1e-12 rtol = 1e-12
-    @test F_mqs[3, 3] ≈ expected atol = 1e-12 rtol = 1e-12
-    @test F_linp[3, 3] ≈ F_mqs[3, 3] atol = 1e-12 rtol = 1e-12
+    @test F_linp[3, 3] ≈ expected atol = 1.0e-12 rtol = 1.0e-12
+    @test F_mqs[3, 3] ≈ expected atol = 1.0e-12 rtol = 1.0e-12
+    @test F_linp[3, 3] ≈ F_mqs[3, 3] atol = 1.0e-12 rtol = 1.0e-12
     @test F_linp[3, 3] != F0[3, 3]
 end
 
@@ -319,7 +319,7 @@ end
     Δt = C * min(Δ...) / max(maximum(abs.(V.x)), maximum(abs.(V.y)))
 
     # Create necessary tuples
-    
+
     Vxc = 0.5 * (V.x[1:(end - 1), 2:(end - 1)] .+ V.x[2:(end - 0), 2:(end - 1)])
     Vyc = 0.5 * (V.y[2:(end - 1), 1:(end - 1)] .+ V.y[2:(end - 1), 2:(end - 0)])
 

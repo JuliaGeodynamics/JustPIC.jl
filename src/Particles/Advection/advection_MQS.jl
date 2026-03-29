@@ -14,18 +14,18 @@ The public entry point reads the staggered velocity coordinates and spacing from
 `particles.xi_vel` and `particles.di.velocity`.
 """
 advection_MQS!(
-        particles::Particles,
-        method::AbstractAdvectionIntegrator,
-        V,
-        dt,
-    ) = advection_MQS!(
-        particles,
-        method,
-        V,
-        particles.xi_vel,
-        dt,
-        particles.di.velocity
-    ) 
+    particles::Particles,
+    method::AbstractAdvectionIntegrator,
+    V,
+    dt,
+) = advection_MQS!(
+    particles,
+    method,
+    V,
+    particles.xi_vel,
+    dt,
+    particles.di.velocity
+)
 
 function advection_MQS!(
         particles::Particles,

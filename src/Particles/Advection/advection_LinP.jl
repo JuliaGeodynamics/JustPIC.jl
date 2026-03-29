@@ -11,18 +11,18 @@ This method is useful when you want the interpolation behavior described in the
 velocity-interpolation documentation under `LinP`.
 """
 advection_LinP!(
-        particles::Particles,
-        method::AbstractAdvectionIntegrator,
-        V,
-        dt,
-    ) = advection_LinP!(
-        particles,
-        method,
-        V,
-        particles.xi_velocity,
-        dt,
-        particles.di.velocity,
-    )
+    particles::Particles,
+    method::AbstractAdvectionIntegrator,
+    V,
+    dt,
+) = advection_LinP!(
+    particles,
+    method,
+    V,
+    particles.xi_velocity,
+    dt,
+    particles.di.velocity,
+)
 
 function advection_LinP!(
         particles::Particles,

@@ -40,7 +40,7 @@ struct Particles{Backend, N, I, T1, T2, D, V} <: AbstractParticles
             xci::NTuple{N, V},
             xvi::NTuple{N, V},
             xi_vel::NTuple{N, NTuple{N, V}},
-            ) where {B, N, I, T1, T2, D, V}
+        ) where {B, N, I, T1, T2, D, V}
         return new{B, N, I, T1, T2, D, V}(coords, index, nxcell, max_xcell, min_xcell, np, di, _di, xci, xvi, xi_vel)
     end
 end

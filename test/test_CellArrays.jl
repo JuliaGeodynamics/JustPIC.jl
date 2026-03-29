@@ -126,7 +126,7 @@ end
     grid_vy = expand_range(xc), yv, expand_range(zc)
     grid_vz = expand_range(xc), expand_range(yc), zv
     grid_vel = grid_vx, grid_vy, grid_vz
-   
+
     nxcell, max_xcell, min_xcell = 125, 125, 125
     particles = JustPIC._3D.init_particles(
         backend, nxcell, max_xcell, min_xcell, grid_vel...,

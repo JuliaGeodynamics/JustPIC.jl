@@ -141,10 +141,10 @@ hold companion particle properties that must be initialized consistently for the
 new particles.
 """
 inject_particles_phase!(
-        particles::Particles, particles_phases, args, fields
-    ) = inject_particles_phase!(
-        particles, particles_phases, args, fields, particles.xvi, particles.di.vertex
-    ) 
+    particles::Particles, particles_phases, args, fields
+) = inject_particles_phase!(
+    particles, particles_phases, args, fields, particles.xvi, particles.di.vertex
+)
 
 function inject_particles_phase!(
         particles::Particles, particles_phases, args, fields, grid::NTuple{N}, di

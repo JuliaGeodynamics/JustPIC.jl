@@ -45,20 +45,20 @@ function init_particles(
 
     function center_coordinates(xi_vel::NTuple{3})
         xci = (
-            xi_vel[2][1][2:end-1],
-            xi_vel[1][2][2:end-1],
-            xi_vel[1][3][2:end-1],
+            xi_vel[2][1][2:(end - 1)],
+            xi_vel[1][2][2:(end - 1)],
+            xi_vel[1][3][2:(end - 1)],
         )
         return xci
     end
     function center_coordinates(xi_vel::NTuple{2})
         xci = (
-            xi_vel[2][1][2:end-1],
-            xi_vel[1][2][2:end-1],
+            xi_vel[2][1][2:(end - 1)],
+            xi_vel[1][2][2:(end - 1)],
         )
         return xci
     end
-    
+
     xi_vel = ntuple(i -> TA(backend).(xi_vel_cpu[i]), Val(N))
     xci = center_coordinates(xi_vel)
     xvi = ntuple(i -> xi_vel[i][i], Val(N))
@@ -74,7 +74,7 @@ function init_particles(
         velocity = map(x -> map(y -> inv.(y), x), di.velocity),
     )
 
-    nᵢ = length.(xci) 
+    nᵢ = length.(xci)
 
     # number of particles per quadrant
     NQ = N == 2 ? 4 : 8
@@ -146,7 +146,7 @@ function _init_particles(
         x0ᵢ = ntuple(Val(N)) do ndim
             coords[ndim][I[ndim]]
         end
-        
+
         # fill index array
         local_dx = @. dxi / (nxdim + 1)
         if N == 2
