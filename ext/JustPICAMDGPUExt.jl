@@ -176,7 +176,7 @@ end
 AMDGPU.ROCArray(particles::JustPIC.Particles{JustPIC.AMDGPUBackend}) = particles
 AMDGPU.ROCArray(phase_ratios::JustPIC.PhaseRatios{JustPIC.AMDGPUBackend}) = phase_ratios
 AMDGPU.ROCArray(CA::CellArray) = AMDGPU.ROCArray(eltype(eltype(CA)), CA)
-
+AMDGPU.ROCArray(::Type{Float64}, A::Vector{Float64}) = AMDGPU.ROCArray(A)
 module _2D
     using AMDGPU
     using ImplicitGlobalGrid

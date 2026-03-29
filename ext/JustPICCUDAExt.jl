@@ -148,7 +148,7 @@ end
 CUDA.CuArray(particles::JustPIC.Particles{CUDABackend}) = particles
 CUDA.CuArray(phase_ratios::JustPIC.PhaseRatios{CUDABackend}) = phase_ratios
 CUDA.CuArray(CA::CellArray) = CUDA.CuArray(eltype(eltype(CA)), CA)
-
+CUDA.CuArray(::Type{Float64}, A::Vector{Float64}) = CUDA.CuArray(A)
 module _2D
     using CUDA
     using ImplicitGlobalGrid
