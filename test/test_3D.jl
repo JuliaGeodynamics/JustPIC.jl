@@ -217,7 +217,7 @@ end
 
 function test_advection_3D()
 
-    n = 16
+    n = 64
     nx = ny = nz = n - 1
     Lx = Ly = Lz = 1.0
     ni = nx, ny, nz
