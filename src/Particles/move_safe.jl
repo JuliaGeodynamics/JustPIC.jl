@@ -20,51 +20,6 @@ layout.
 """
 move_particles!(particles::AbstractParticles, args) = move_particles!(particles, particles.xvi, args, particles.di.vertex)
 
-# function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args, dxi) where {N}
-
-#     (; coords, index, max_xcell) = particles
-#     nxi = size(index)
-#     domain_limits = extrema.(grid)
-#     n_color = ntuple(i -> ceil(Int, nxi[i] / 3), Val(N))
-
-#     # make some space for incoming particles
-#     # @parallel (@idx nxi) empty_particles!(coords, index, max_xcell, args)
-#     # move particles
-#     if N == 2 # 2D case
-#         nthreads = (16, 16)
-#         nblocks = ceil.(Int, n_color ./ nthreads)
-#         for offsetᵢ in 1:3, offsetⱼ in 1:3
-#             @parallel (@idx n_color) nblocks nthreads move_particles_ps!(
-#                 coords, grid, dxi, index, domain_limits, args, (offsetᵢ, offsetⱼ)
-#             )
-#         end
-#     elseif N == 3 # 3D case
-#         nthreads = (16, 16, 1)
-#         nblocks = ceil.(Int, n_color ./ nthreads)
-#         for offsetᵢ in 1:3, offsetⱼ in 1:3, offsetₖ in 1:3
-#             @parallel (@idx n_color) nblocks nthreads move_particles_ps!(
-#                 coords, grid, dxi, index, domain_limits, args, (offsetᵢ, offsetⱼ, offsetₖ)
-#             )
-#         end
-#     else
-#         error(ThrowArgument("The dimension of the problem must be either 2 or 3"))
-#     end
-#     return nothing
-# end
-
-# @parallel_indices (I...) function move_particles_ps!(
-#         coords, grid, dxi, index, domain_limits, args, offsets::NTuple{N}
-#     ) where {N}
-#     indices = ntuple(Val(N)) do i
-#         3 * (I[i] - 1) + offsets[i]
-#     end
-
-#     if all(indices .≤ size(index))
-#         _move_particles!(coords, grid, dxi, index, domain_limits, indices, args)
-#     end
-#     return nothing
-# end
-
 function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args, dxi) where {N}
 
     (; coords, index, max_xcell) = particles
@@ -73,19 +28,64 @@ function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args, dx
     n_color = ntuple(i -> ceil(Int, nxi[i] / 3), Val(N))
 
     # make some space for incoming particles
-    @parallel (@idx nxi) move_particles_ps!(
-        coords, grid, dxi, index, domain_limits, args
-    )
+    # @parallel (@idx nxi) empty_particles!(coords, index, max_xcell, args)
+    # move particles
+    if N == 2 # 2D case
+        nthreads = (16, 16)
+        nblocks = ceil.(Int, n_color ./ nthreads)
+        for offsetᵢ in 1:3, offsetⱼ in 1:3
+            @parallel (@idx n_color) nblocks nthreads move_particles_ps!(
+                coords, grid, dxi, index, domain_limits, args, (offsetᵢ, offsetⱼ)
+            )
+        end
+    elseif N == 3 # 3D case
+        nthreads = (16, 16, 1)
+        nblocks = ceil.(Int, n_color ./ nthreads)
+        for offsetᵢ in 1:3, offsetⱼ in 1:3, offsetₖ in 1:3
+            @parallel (@idx n_color) nblocks nthreads move_particles_ps!(
+                coords, grid, dxi, index, domain_limits, args, (offsetᵢ, offsetⱼ, offsetₖ)
+            )
+        end
+    else
+        error(ThrowArgument("The dimension of the problem must be either 2 or 3"))
+    end
     return nothing
 end
 
 @parallel_indices (I...) function move_particles_ps!(
-        coords, grid, dxi, index, domain_limits, args
-    )
+        coords, grid, dxi, index, domain_limits, args, offsets::NTuple{N}
+    ) where {N}
+    indices = ntuple(Val(N)) do i
+        3 * (I[i] - 1) + offsets[i]
+    end
 
-    _move_particles!(coords, grid, dxi, index, domain_limits, I, args)
+    if all(indices .≤ size(index))
+        _move_particles!(coords, grid, dxi, index, domain_limits, indices, args)
+    end
     return nothing
 end
+
+# function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args, dxi) where {N}
+
+#     (; coords, index, max_xcell) = particles
+#     nxi = size(index)
+#     domain_limits = extrema.(grid)
+#     n_color = ntuple(i -> ceil(Int, nxi[i] / 3), Val(N))
+
+#     # make some space for incoming particles
+#     @parallel (@idx nxi) move_particles_ps!(
+#         coords, grid, dxi, index, domain_limits, args
+#     )
+#     return nothing
+# end
+
+# @parallel_indices (I...) function move_particles_ps!(
+#         coords, grid, dxi, index, domain_limits, args
+#     )
+
+#     _move_particles!(coords, grid, dxi, index, domain_limits, I, args)
+#     return nothing
+# end
 
 function _move_particles!(coords, grid, dxi, index, domain_limits, idx, args)
     # coordinate of the lower-most-left coordinate of the parent cell
@@ -127,13 +127,13 @@ function move_kernel!(
         end
         domain_check && continue
 
-        # new_cell = find_parent_cell_bisection(pᵢ, grid, idx)
-        new_cell = look_around(pᵢ, grid, idx)
+        new_cell = find_parent_cell_bisection(pᵢ, grid, idx)
         # @assert new_cell == cell_index(pᵢ, grid)
 
-        # if maximum(new_cell .- idx) > 1
-        #     @ps_show new_cell idx
-        # end
+        if maximum(new_cell .- idx) > 1
+            @show (new_cell, idx, ip)
+            error()
+        end
 
         # hold particle variables
         current_args = cache_args(args, ip, idx)
@@ -171,7 +171,7 @@ function look_around(px, x, I)
         # !(1 ≤ ii ≤ length(x)) && continue
         # x[ii] ≤ px ≤ x[ii + 1] && return I + i
     end
-    return I
+    return Inf
 end
 
 ## Utility functions

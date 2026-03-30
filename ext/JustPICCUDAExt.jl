@@ -241,7 +241,7 @@ module _2D
             min_xcell,
             xi_vel::Vararg{NTuple{N2, AbstractVector}, N1},
         ) where {N1, N2}
-        return init_particles(CUDABackend, nxcell, max_xcell, min_xcell, xi_vel...)
+        return init_particles(CUDABackend, nxcell, max_xcell, min_xcell, xi_vel)
     end
 
     function JustPIC._2D.init_particles(
@@ -384,9 +384,9 @@ module _2D
     end
 
     function JustPIC._2D.centroid2particle!(
-            Fp, xci, F::CuArray, particles::Particles{CUDABackend}
+            Fp, F::CuArray, particles::Particles{CUDABackend}
         )
-        return centroid2particle!(Fp, xci, F, particles)
+        return centroid2particle!(Fp, F, particles)
     end
 
     function JustPIC._2D.centroid2particle!(
@@ -968,9 +968,15 @@ module _3D
     end
 
     function JustPIC._3D.centroid2particle!(
-            Fp, xci, F::CuArray, particles::Particles{CUDABackend}
+            Fp, F::CuArray, particles::Particles{CUDABackend}
         )
-        return centroid2particle!(Fp, xci, F, particles)
+        return centroid2particle!(Fp, F, particles)
+    end
+
+    function JustPIC._3D.centroid2particle!(
+            Fp, xci, F::CuArray, particles::Particles{CUDABackend}, di
+        )
+        return centroid2particle!(Fp, xci, F, particles, di)
     end
 
     function JustPIC._3D.grid2particle!(

@@ -10,7 +10,7 @@ JustPIC.TA(::Type{AMDGPUBackend}) = ROCArray
 function ROCCellArray(
         ::Type{T}, ::UndefInitializer, dims::NTuple{N, Int}
     ) where {T <: CellArrays.Cell, N}
-    return CellArrays.CellArray{T, N, 0, AMDGPU.ROCCellArrayArray{eltype(T), 3}}(undef, dims)
+    return CellArrays.CellArray{T, N, 0, AMDGPU.ROCCellArray{eltype(T), 3}}(undef, dims)
 end
 function ROCCellArray(
         ::Type{T}, ::UndefInitializer, dims::Int...
@@ -178,7 +178,7 @@ AMDGPU.ROCArray(phase_ratios::JustPIC.PhaseRatios{JustPIC.AMDGPUBackend}) = phas
 AMDGPU.ROCArray(CA::CellArray) = AMDGPU.ROCArray(eltype(eltype(CA)), CA)
 AMDGPU.ROCArray(::Type{Float64}, A::Vector{Float64}) = AMDGPU.ROCArray(A)
 AMDGPU.ROCArray(::Type{T}, x::Number) where {T <: AbstractFloat} = x
-AMDGPU.ROCArray(::Type{T}, x::LinRange) where {T <: AbstractFloat} = x
+AMDGPU.ROCArray(::Type{T}, x::AbstractRange) where {T <: AbstractFloat} = x
 AMDGPU.ROCArray(x::T) where {T <: AbstractFloat} = x
 
 module _2D
@@ -372,8 +372,8 @@ module _2D
     end
 
     function JustPIC._2D.semilagrangian_advection!(
-            F::Union{ROCArrays, NTuple{NF, ROCArrays}},
-            F0::Union{ROCArrays, NTuple{NF, ROCArrays}},
+            F::Union{ROCArray, NTuple{NF, ROCArray}},
+            F0::Union{ROCArray, NTuple{NF, ROCArray}},
             method::AbstractAdvectionIntegrator,
             V,
             grid_vi::NTuple{N, NTuple{N, T}},
@@ -385,8 +385,8 @@ module _2D
     end
 
     function JustPIC._2D.semilagrangian_advection_LinP!(
-            F::Union{ROCArrays, NTuple{NF, ROCArrays}},
-            F0::Union{ROCArrays, NTuple{NF, ROCArrays}},
+            F::Union{ROCArray, NTuple{NF, ROCArray}},
+            F0::Union{ROCArray, NTuple{NF, ROCArray}},
             method::AbstractAdvectionIntegrator,
             V,
             grid_vi::NTuple{N, NTuple{N, T}},
@@ -398,8 +398,8 @@ module _2D
     end
 
     function JustPIC._2D.semilagrangian_advection_MQS!(
-            F::Union{ROCArrays, NTuple{NF, ROCArrays}},
-            F0::Union{ROCArrays, NTuple{NF, ROCArrays}},
+            F::Union{ROCArray, NTuple{NF, ROCArray}},
+            F0::Union{ROCArray, NTuple{NF, ROCArray}},
             method::AbstractAdvectionIntegrator,
             V,
             grid_vi::NTuple{N, NTuple{N, T}},
@@ -411,9 +411,15 @@ module _2D
     end
 
     function JustPIC._2D.centroid2particle!(
-            Fp, xci, F::ROCArray, particles::Particles{AMDGPUBackend}
+            Fp, F::ROCArray, particles::Particles{AMDGPUBackend}
         )
-        return centroid2particle!(Fp, xci, F, particles)
+        return centroid2particle!(Fp, F, particles)
+    end
+
+    function JustPIC._2D.centroid2particle!(
+            Fp, xci, F::ROCArray, particles::Particles{AMDGPUBackend}, di
+        )
+        return centroid2particle!(Fp, xci, F, particles, di)
     end
 
     function JustPIC._2D.grid2particle!(
@@ -918,8 +924,8 @@ module _3D
     end
 
     function JustPIC._3D.semilagrangian_advection!(
-            F::Union{ROCArrays, NTuple{NF, ROCArrays}},
-            F0::Union{ROCArrays, NTuple{NF, ROCArrays}},
+            F::Union{ROCArray, NTuple{NF, ROCArray}},
+            F0::Union{ROCArray, NTuple{NF, ROCArray}},
             method::AbstractAdvectionIntegrator,
             V,
             grid_vi::NTuple{N, NTuple{N, T}},
@@ -931,8 +937,8 @@ module _3D
     end
 
     function JustPIC._3D.semilagrangian_advection_LinP!(
-            F::Union{ROCArrays, NTuple{NF, ROCArrays}},
-            F0::Union{ROCArrays, NTuple{NF, ROCArrays}},
+            F::Union{ROCArray, NTuple{NF, ROCArray}},
+            F0::Union{ROCArray, NTuple{NF, ROCArray}},
             method::AbstractAdvectionIntegrator,
             V,
             grid_vi::NTuple{N, NTuple{N, T}},
@@ -944,8 +950,8 @@ module _3D
     end
 
     function JustPIC._3D.semilagrangian_advection_MQS!(
-            F::Union{ROCArrays, NTuple{NF, ROCArrays}},
-            F0::Union{ROCArrays, NTuple{NF, ROCArrays}},
+            F::Union{ROCArray, NTuple{NF, ROCArray}},
+            F0::Union{ROCArray, NTuple{NF, ROCArray}},
             method::AbstractAdvectionIntegrator,
             V,
             grid_vi::NTuple{N, NTuple{N, T}},
@@ -957,9 +963,15 @@ module _3D
     end
 
     function JustPIC._3D.centroid2particle!(
-            Fp, xci, F::ROCArray, particles::Particles{AMDGPUBackend}
+            Fp, F::ROCArray, particles::Particles{AMDGPUBackend}
         )
-        return centroid2particle!(Fp, xci, F, particles)
+        return centroid2particle!(Fp, F, particles)
+    end
+
+    function JustPIC._3D.centroid2particle!(
+            Fp, xci, F::ROCArray, particles::Particles{AMDGPUBackend}, di
+        )
+        return centroid2particle!(Fp, xci, F, particles, di)
     end
 
     function JustPIC._3D.grid2particle!(

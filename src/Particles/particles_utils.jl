@@ -107,8 +107,8 @@ function init_particles(
         nxcell::Number,
         max_xcell,
         min_xcell,
-        xi_vel_cpu::NTuple{N, NTuple{N, LinRange}},
-    ) where {N}
+        xi_vel_cpu::NTuple{N, NTuple{N, R}},
+    ) where {N, R<:AbstractRange}
 
     function center_coordinates(xi_vel::NTuple{3})
         xci = (
