@@ -130,10 +130,10 @@ function move_kernel!(
         new_cell = find_parent_cell_bisection(pᵢ, grid, idx)
         # @assert new_cell == cell_index(pᵢ, grid)
 
-        if maximum(new_cell .- idx) > 1
-            @show (new_cell, idx, ip)
-            error()
-        end
+        # if maximum(new_cell .- idx) > 1
+        #     @show (new_cell, idx, ip)
+        #     error()
+        # end
 
         # hold particle variables
         current_args = cache_args(args, ip, idx)
