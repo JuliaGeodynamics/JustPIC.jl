@@ -177,9 +177,9 @@ AMDGPU.ROCArray(particles::JustPIC.Particles{JustPIC.AMDGPUBackend}) = particles
 AMDGPU.ROCArray(phase_ratios::JustPIC.PhaseRatios{JustPIC.AMDGPUBackend}) = phase_ratios
 AMDGPU.ROCArray(CA::CellArray) = AMDGPU.ROCArray(eltype(eltype(CA)), CA)
 AMDGPU.ROCArray(::Type{Float64}, A::Vector{Float64}) = AMDGPU.ROCArray(A)
-AMDGPU.ROCArray(::Type{T}, x::Number) where {T<:AbstractFloat} = x
-AMDGPU.ROCArray(::Type{T}, x::LinRange) where {T<:AbstractFloat} = x
-AMDGPU.ROCArray(x::T) where {T<:AbstractFloat} = x
+AMDGPU.ROCArray(::Type{T}, x::Number) where {T <: AbstractFloat} = x
+AMDGPU.ROCArray(::Type{T}, x::LinRange) where {T <: AbstractFloat} = x
+AMDGPU.ROCArray(x::T) where {T <: AbstractFloat} = x
 
 module _2D
     using AMDGPU

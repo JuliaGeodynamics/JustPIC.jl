@@ -148,9 +148,9 @@ end
 CUDA.CuArray(particles::JustPIC.Particles{CUDABackend}) = particles
 CUDA.CuArray(phase_ratios::JustPIC.PhaseRatios{CUDABackend}) = phase_ratios
 CUDA.CuArray(CA::CellArray) = CUDA.CuArray(eltype(eltype(CA)), CA)
-CUDA.CuArray(::Type{T}, x::Number) where {T<:AbstractFloat} = x
-CUDA.CuArray(::Type{T}, x::LinRange) where {T<:AbstractFloat} = x
-CUDA.CuArray(x::T) where {T<:AbstractFloat} = x
+CUDA.CuArray(::Type{T}, x::Number) where {T <: AbstractFloat} = x
+CUDA.CuArray(::Type{T}, x::LinRange) where {T <: AbstractFloat} = x
+CUDA.CuArray(x::T) where {T <: AbstractFloat} = x
 
 module _2D
     using CUDA
