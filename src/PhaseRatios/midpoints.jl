@@ -15,7 +15,8 @@ function phase_ratios_face!(
         throw(ArgumentError("dimension must be :x, :y or :z"))
     end
     @parallel (@idx ni) phase_ratios_face_kernel!(
-        phase_face, particles.coords, particles.xci, particles.di.velocity[idx_di], phases, offsets
+        phase_face, particles.coords, particles.xci, particles.di.vertex, phases, offsets
+        # phase_face, particles.coords, particles.xci, particles.di.velocity[idx_di], phases, offsets
     )
     return nothing
 end

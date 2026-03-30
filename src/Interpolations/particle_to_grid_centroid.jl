@@ -7,7 +7,7 @@ Interpolate particle-centered values `Fp` to cell centers `F`.
 `xci` contains the 1D coordinate arrays of the cell centers. This is the
 cell-centered counterpart to `particle2grid!` and mutates `F` in place.
 """
-particle2centroid!(F, Fp, xci::NTuple, particles::Particles) = particle2centroid!(F, Fp, xci, particles, grid_size(xci))
+particle2centroid!(F, Fp, particles::Particles) = particle2centroid!(F, Fp, particles.xci, particles, particles.di.vertex)
 
 function particle2centroid!(F, Fp, xci::NTuple, particles::Particles, di)
     (; coords) = particles

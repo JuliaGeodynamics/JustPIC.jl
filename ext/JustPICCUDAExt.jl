@@ -414,9 +414,9 @@ module _2D
     end
 
     function JustPIC._2D.particle2centroid!(
-            F::CuArray, Fp, xi::NTuple, particles::Particles{CUDABackend}
+            F::CuArray, Fp,  particles::Particles{CUDABackend}
         )
-        return particle2centroid!(F, Fp, xi, particles)
+        return particle2centroid!(F, Fp, particles)
     end
 
     function JustPIC._2D.particle2centroid!(
@@ -992,9 +992,9 @@ module _3D
     end
 
     function JustPIC._3D.particle2centroid!(
-            F::CuArray, Fp, xi::NTuple, particles::Particles{CUDABackend}
+            F::CuArray, Fp, particles::Particles{CUDABackend}
         )
-        return particle2centroid!(F, Fp, xi, particles)
+        return particle2centroid!(F, Fp, particles)
     end
 
     function JustPIC._3D.particle2centroid!(
