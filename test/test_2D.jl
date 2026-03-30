@@ -26,7 +26,7 @@ else
     JustPIC.CPUBackend
 end
 
-function expand_range(x::AbstractRange)
+function expand_range(x::LinRange)
     dx = x[2] - x[1]
     n = length(x)
     x1, x2 = extrema(x)
@@ -35,7 +35,7 @@ function expand_range(x::AbstractRange)
     return LinRange(xI, xF, n + 2)
 end
 
-function expand_range(x::Vector)
+function expand_range(x::AbstractVector)
     dx_left = x[2] - x[1]
     dx_right = x[end] - x[end - 1]
     x1, x2 = extrema(x)
@@ -151,8 +151,8 @@ end
     p = (0.22, 0.48)
     idx = (3, 3)
     corrected_idx = (
-        JustPIC._2D.find_parent_cell_bisection(p[1], xv; seed = idx[1]),
-        JustPIC._2D.find_parent_cell_bisection(p[2], yv; seed = idx[2]),
+        JustPIC._2D.find_parent_cell_bisection(p[1], xv,  idx[1]),
+        JustPIC._2D.find_parent_cell_bisection(p[2], yv,  idx[2]),
     )
 
     Vx = TA(backend)([2.0 * x + y for x in Array(grid_vx[1]), y in Array(grid_vx[2])])
@@ -181,8 +181,8 @@ end
 
     p_backtrack = (xv[3] - 0.08, yv[3] - 0.02)
     I_backtrack = (
-        JustPIC._2D.find_parent_cell_bisection(p_backtrack[1], xv; seed = 3),
-        JustPIC._2D.find_parent_cell_bisection(p_backtrack[2], yv; seed = 3),
+        JustPIC._2D.find_parent_cell_bisection(p_backtrack[1], xv,  3),
+        JustPIC._2D.find_parent_cell_bisection(p_backtrack[2], yv,  3),
     )
     di_backtrack = (dxi_vertex[1][I_backtrack[1]], dxi_vertex[2][I_backtrack[2]])
     expected = JustPIC._2D._grid2particle(

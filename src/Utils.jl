@@ -92,26 +92,38 @@ Base.@propagate_inbounds @inline getindex_dxi(dxi::Number, ::Integer) = dxi
 #######################
 
 """
-    find_parent_cell_bisection(px::Number;, x::AbstractVector seed::Int=length(x) ÷ 2)
+    find_parent_cell_bisection(px::Number, x::AbstractVector, seed::Int)
 
-Performs a find_parent_cell_bisection search on the vector `x` to find an index of the cell containing the coordinate `px`.
+Performs an iterative bisection search on the cell-edge vector `x` to find the index of the cell containing `px`,
+starting from the initial guess `seed`.
 
 # Arguments
 - `px::Number`: Coordinate of the point we want to locate.
-- `x::AbstractVector`: The input vector to search.
-- `seed::Int`: An integer seed that determines the starting point of the search.
+- `x::AbstractVector`: Monotonic vector of cell-edge coordinates.
+- `seed::Int`: Initial cell index guess used to start the search.
 
 # Returns
-- An integer index indicating the position of the cell containing the coordinate `px`.
+- An integer index `i` such that `x[i] ≤ px ≤ x[i + 1]`.
 """
-find_parent_cell_bisection(px::Number, x::AbstractVector; seed::Int = length(x) ÷ 2) = find_parent_cell_bisection(px, x, 1, length(x), seed)
-find_parent_cell_bisection(px::NTuple{N, Number}, x::NTuple{N, AbstractVector}; seed::NTuple{N, Int} = length.(x) .÷ 2) where {N} = ntuple(i -> find_parent_cell_bisection(px[i], x[i]; seed = seed[i]), Val(N))
+@inline find_parent_cell_bisection(px::Number, x::AbstractVector, seed) = find_parent_cell_bisection(px, x, 1, length(x), seed)
+
+@generated function find_parent_cell_bisection(px::NTuple{N, Number}, x::NTuple{N, AbstractVector}, seed) where {N} 
+    quote
+        @inline 
+        Base.@ntuple $N i -> find_parent_cell_bisection(px[i], x[i], seed[i])
+    end
+end
 
 @inline function find_parent_cell_bisection(px, x, lo, hi, seed)
-    # check if particle is already in the seed cell
-    x[seed] ≤ px ≤ x[seed + 1] && return seed
-    # otherwise bisect
-    isinright = x[seed] < px
-    lo, hi, seed = isinright ? (seed, hi, div(hi + seed, 2)) : (lo, seed, div(lo + seed, 2))
-    return find_parent_cell_bisection(px, x, lo, hi, seed)
+    while true
+        x[seed] ≤ px ≤ x[seed + 1] && return seed
+
+        if x[seed] < px
+            lo = seed
+            seed = div(hi + seed, 2)
+        else
+            hi = seed
+            seed = div(lo + seed, 2)
+        end
+    end
 end

@@ -54,7 +54,7 @@ end
 
     pᵢ_backtrack = advect_particle_SML(method, pᵢ, V, grid_vi, dxi_velocity, dt, interp_velocity2particle_MQS, I; backtracking = true)
     I_backtrack = ntuple(Val(N)) do i
-        find_parent_cell_bisection(pᵢ_backtrack[i], grid[i]; seed = I[i])
+        find_parent_cell_bisection(pᵢ_backtrack[i], grid[i], I[i])
     end
     di_vertex = @dxi(dxi_vertex, I_backtrack...)
     F[I...] = _grid2particle(pᵢ_backtrack, grid, di_vertex, F0, I_backtrack)
@@ -83,7 +83,7 @@ end
     # backtrack particle position
     pᵢ_backtrack = advect_particle_SML(method, pᵢ, V, grid_vi, dxi_velocity, dt, interp_velocity2particle_MQS, I; backtracking = true)
     I_backtrack = ntuple(Val(N)) do i
-        find_parent_cell_bisection(pᵢ_backtrack[i], grid[i]; seed = I[i])
+        find_parent_cell_bisection(pᵢ_backtrack[i], grid[i], I[i])
     end
     di_vertex = @dxi(dxi_vertex, I_backtrack...)
     ntuple(Val(NF)) do i

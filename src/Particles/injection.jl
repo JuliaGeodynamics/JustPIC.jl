@@ -105,7 +105,7 @@ function _inject_particles!(
             p_new = new_particle(vertex, di_quadrant)
 
             # # uncomment below for debugging
-            # new_cell = find_parent_cell_bisection(p_new, grid; seed = idx_cell)
+            # new_cell = find_parent_cell_bisection(p_new, grid, idx_cell)
             # @assert idx_cell == new_cell "Particle in parent cell $idx_cell injected in cell $new_cell"
 
             # fill new particles information

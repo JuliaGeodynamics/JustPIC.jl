@@ -184,7 +184,7 @@ end
         Base.@_inline_meta
         begin
             Base.@nexprs $N i -> begin
-                corrected_idx_i = find_parent_cell_bisection(particle[i], xi_vx[i]; seed = idx[i])
+                corrected_idx_i = find_parent_cell_bisection(particle[i], xi_vx[i], idx[i])
                 cell_i = xi_vx[i][corrected_idx_i]
             end
 
