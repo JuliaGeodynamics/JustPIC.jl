@@ -125,13 +125,13 @@ function init_particles(
         )
         return xci
     end
- 
+
     xi_vel = ntuple(i -> xi_vel_cpu[i], Val(N))
     xci = center_coordinates(xi_vel)
     xvi = ntuple(i -> xi_vel[i][i], Val(N))
 
     di_vertex = getindex.(xvi, 2) .- first.(xvi)
-    di_center = getindex.(xci, 2) .- first.(xci)    
+    di_center = getindex.(xci, 2) .- first.(xci)
     di_vel = ntuple(i -> getindex.(xi_vel[i], 2) .- first.(xi_vel[i]), Val(N))
     di = (; center = di_center, vertex = di_vertex, velocity = di_vel)
 

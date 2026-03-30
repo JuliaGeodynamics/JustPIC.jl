@@ -151,8 +151,8 @@ end
     p = (0.22, 0.48)
     idx = (3, 3)
     corrected_idx = (
-        JustPIC._2D.find_parent_cell_bisection(p[1], xv,  idx[1]),
-        JustPIC._2D.find_parent_cell_bisection(p[2], yv,  idx[2]),
+        JustPIC._2D.find_parent_cell_bisection(p[1], xv, idx[1]),
+        JustPIC._2D.find_parent_cell_bisection(p[2], yv, idx[2]),
     )
 
     Vx = TA(backend)([2.0 * x + y for x in Array(grid_vx[1]), y in Array(grid_vx[2])])
@@ -181,8 +181,8 @@ end
 
     p_backtrack = (xv[3] - 0.08, yv[3] - 0.02)
     I_backtrack = (
-        JustPIC._2D.find_parent_cell_bisection(p_backtrack[1], xv,  3),
-        JustPIC._2D.find_parent_cell_bisection(p_backtrack[2], yv,  3),
+        JustPIC._2D.find_parent_cell_bisection(p_backtrack[1], xv, 3),
+        JustPIC._2D.find_parent_cell_bisection(p_backtrack[2], yv, 3),
     )
     di_backtrack = (dxi_vertex[1][I_backtrack[1]], dxi_vertex[2][I_backtrack[2]])
     expected = JustPIC._2D._grid2particle(
@@ -420,8 +420,8 @@ end
 
 function advection_test_2D_refined()
     nxcell, max_xcell, min_xcell = 25, 50, 10
-    xv = [0.0, 0.05, 0.12, 0.21, 0.32, 0.45, 0.60, 0.77, 0.91, 1.0]
-    yv = [0.0, 0.04, 0.10, 0.18, 0.29, 0.43, 0.58, 0.74, 0.89, 1.0]
+    xv = [0.0, 0.05, 0.12, 0.21, 0.32, 0.45, 0.6, 0.77, 0.91, 1.0]
+    yv = [0.0, 0.04, 0.1, 0.18, 0.29, 0.43, 0.58, 0.74, 0.89, 1.0]
     xvi = (xv, yv)
     xc = [(xv[i] + xv[i + 1]) / 2 for i in 1:(length(xv) - 1)]
     yc = [(yv[i] + yv[i + 1]) / 2 for i in 1:(length(yv) - 1)]

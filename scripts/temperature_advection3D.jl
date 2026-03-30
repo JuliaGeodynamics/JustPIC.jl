@@ -75,7 +75,7 @@ function main()
     end
     particle2grid!(T, pT, particles)
 
-    f, = heatmap(xvi[1], xvi[3], Array(T[:, Int(div(n, 2)), :]), colormap = :batlow)
+    return f, = heatmap(xvi[1], xvi[3], Array(T[:, Int(div(n, 2)), :]), colormap = :batlow)
 
 end
 

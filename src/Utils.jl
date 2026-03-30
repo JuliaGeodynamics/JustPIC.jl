@@ -107,9 +107,9 @@ starting from the initial guess `seed`.
 """
 @inline find_parent_cell_bisection(px::Number, x::AbstractVector, seed) = find_parent_cell_bisection(px, x, 1, length(x), seed)
 
-@generated function find_parent_cell_bisection(px::NTuple{N, Number}, x::NTuple{N, AbstractVector}, seed) where {N} 
-    quote
-        @inline 
+@generated function find_parent_cell_bisection(px::NTuple{N, Number}, x::NTuple{N, AbstractVector}, seed) where {N}
+    return quote
+        @inline
         Base.@ntuple $N i -> find_parent_cell_bisection(px[i], x[i], seed[i])
     end
 end
@@ -126,4 +126,5 @@ end
             seed = div(lo + seed, 2)
         end
     end
+    return
 end

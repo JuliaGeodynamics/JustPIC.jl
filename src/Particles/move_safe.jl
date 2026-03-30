@@ -81,7 +81,7 @@ end
 
 @parallel_indices (I...) function move_particles_ps!(
         coords, grid, dxi, index, domain_limits, args
-    ) 
+    )
 
     _move_particles!(coords, grid, dxi, index, domain_limits, I, args)
     return nothing
@@ -156,22 +156,22 @@ function move_kernel!(
     return nothing
 end
 
-@generated function look_around(px::NTuple{N, Number}, x::NTuple{N, AbstractVector}, I) where {N} 
-    quote
-        @inline 
+@generated function look_around(px::NTuple{N, Number}, x::NTuple{N, AbstractVector}, I) where {N}
+    return quote
+        @inline
         Base.@ntuple $N i -> look_around(px[i], x[i], I[i])
     end
 end
 
 function look_around(px, x, I)
     for i in -1:1
-        ii = I + i 
+        ii = I + i
         ii = clamp(ii, 1, length(x))
-        x[ii] ≤ px ≤ x[ii + 1] && return clamp(I + i, 1, length(x)) 
+        x[ii] ≤ px ≤ x[ii + 1] && return clamp(I + i, 1, length(x))
         # !(1 ≤ ii ≤ length(x)) && continue
         # x[ii] ≤ px ≤ x[ii + 1] && return I + i
     end
-    I
+    return I
 end
 
 ## Utility functions

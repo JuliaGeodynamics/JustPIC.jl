@@ -281,8 +281,8 @@ function test_advection_3D()
     T0 = deepcopy(T)
     V = Vx, Vy, Vz
     dt = min(
-        dx / maximum(abs.(Vx)), 
-        dy / maximum(abs.(Vy)), 
+        dx / maximum(abs.(Vx)),
+        dy / maximum(abs.(Vy)),
         dz / maximum(abs.(Vz))
     ) / 4
 
@@ -315,8 +315,8 @@ end
 
 function test_advection_3D_refined()
     xv = [0.0, 0.04, 0.09, 0.16, 0.25, 0.37, 0.52, 0.68, 0.84, 1.0]
-    yv = [0.0, 0.05, 0.11, 0.20, 0.31, 0.44, 0.58, 0.73, 0.87, 1.0]
-    zv = [0.0, 0.03, 0.08, 0.15, 0.26, 0.40, 0.56, 0.72, 0.88, 1.0]
+    yv = [0.0, 0.05, 0.11, 0.2, 0.31, 0.44, 0.58, 0.73, 0.87, 1.0]
+    zv = [0.0, 0.03, 0.08, 0.15, 0.26, 0.4, 0.56, 0.72, 0.88, 1.0]
     xvi = (xv, yv, zv)
     xc = [(xv[i] + xv[i + 1]) / 2 for i in 1:(length(xv) - 1)]
     yc = [(yv[i] + yv[i + 1]) / 2 for i in 1:(length(yv) - 1)]
@@ -344,7 +344,7 @@ function test_advection_3D_refined()
 
     nxcell, max_xcell, min_xcell = 125, 150, 100
     particles = _3D.init_particles(
-        backend, nxcell, max_xcell, min_xcell,  grid_vx, grid_vy, grid_vz,
+        backend, nxcell, max_xcell, min_xcell, grid_vx, grid_vy, grid_vz,
     )
 
     particle_args = pT, = _3D.init_cell_arrays(particles, Val(1))
