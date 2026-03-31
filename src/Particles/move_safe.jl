@@ -65,28 +65,6 @@ end
     return nothing
 end
 
-# function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args, dxi) where {N}
-
-#     (; coords, index, max_xcell) = particles
-#     nxi = size(index)
-#     domain_limits = extrema.(grid)
-#     n_color = ntuple(i -> ceil(Int, nxi[i] / 3), Val(N))
-
-#     # make some space for incoming particles
-#     @parallel (@idx nxi) move_particles_ps!(
-#         coords, grid, dxi, index, domain_limits, args
-#     )
-#     return nothing
-# end
-
-# @parallel_indices (I...) function move_particles_ps!(
-#         coords, grid, dxi, index, domain_limits, args
-#     )
-
-#     _move_particles!(coords, grid, dxi, index, domain_limits, I, args)
-#     return nothing
-# end
-
 function _move_particles!(coords, grid, dxi, index, domain_limits, idx, args)
     # coordinate of the lower-most-left coordinate of the parent cell
     corner_xi = corner_coordinate(grid, idx)
