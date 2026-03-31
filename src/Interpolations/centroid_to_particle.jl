@@ -10,7 +10,7 @@ Interpolate cell-centered field values `F` to particle values `Fp`.
 `Fp` is mutated in place and may be either a single particle field or a tuple of
 particle fields.
 """
-centroid2particle!(Fp, F, particles) = centroid2particle!(Fp,  particles.xci, F, particles, particles.di.center)
+centroid2particle!(Fp, F, particles) = centroid2particle!(Fp, particles.xci, F, particles, particles.di.center)
 
 function centroid2particle!(Fp, xci, F, particles, di)
     (; coords) = particles
