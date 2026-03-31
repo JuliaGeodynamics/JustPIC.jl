@@ -50,7 +50,7 @@ function init_particles(
         nxcell::Number,
         max_xcell,
         min_xcell,
-        xi_vel_cpu::NTuple{N, NTuple{N, Vector}},
+        xi_vel_cpu::NTuple{N, NTuple{N, AbstractVector}},
     ) where {N}
 
     function center_coordinates(xi_vel::NTuple{3})
@@ -69,14 +69,14 @@ function init_particles(
         return xci
     end
 
-    xi_vel = ntuple(i -> TA(backend).(xi_vel_cpu[i]), Val(N))
+    xi_vel = ntuple(i -> xi_vel_cpu[i], Val(N))
     xci = center_coordinates(xi_vel)
     xvi = ntuple(i -> xi_vel[i][i], Val(N))
 
     di_vertex = diff.(xvi)
     di_center = diff.(xci)
     di_vel = ntuple(i -> (diff.(xi_vel[i])), Val(N))
-    di = (; center = TA(backend).(di_center), vertex = TA(backend).(di_vertex), velocity = di_vel)
+    di = (; center = di_center, vertex = di_vertex, velocity = di_vel)
 
     _di = (;
         center = map(x -> inv.(x), di.center),
