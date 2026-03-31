@@ -106,12 +106,6 @@ function move_kernel!(
         domain_check && continue
 
         new_cell = find_parent_cell_bisection(pᵢ, grid, idx)
-        # @assert new_cell == cell_index(pᵢ, grid)
-
-        # if maximum(new_cell .- idx) > 1
-        #     @show (new_cell, idx, ip)
-        #     error()
-        # end
 
         # hold particle variables
         current_args = cache_args(args, ip, idx)
@@ -159,7 +153,6 @@ function cell_index_neighbour(
     ) where {N}
     return ntuple(Val(N)) do i
         cell_index_neighbour(xᵢ[i], xcᵢ[i], dxᵢ[i], I[i], I)
-        # cell_index_neighbour(xᵢ[i], xcᵢ[i], dxᵢ[i], I[i])
     end
 end
 

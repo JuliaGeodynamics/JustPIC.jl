@@ -201,7 +201,6 @@ function _init_particles(
     index = @fill(false, nᵢ..., celldims = (max_xcell,), eltype = Bool)
 
     di = compute_dx(coords)
-    # offsets = ntuple(i -> LinRange(0, dxi[i], nxdim[i] + 2)[2:(end - 1)], Val(N))
 
     @parallel_indices (I...) function fill_coords_index(
             pxᵢ::NTuple{N, T}, index, coords, nxdim, di

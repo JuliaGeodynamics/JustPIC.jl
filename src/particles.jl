@@ -1,7 +1,7 @@
 abstract type AbstractParticles end
 
 """
-    Particles{Backend,N,I,T1,T2} <: AbstractParticles
+    Particles{Backend, N, I, T1, T2, D, V} <: AbstractParticles
 
 Main particle container used by JustPIC for material points stored cell-by-cell
 in `CellArray`s.
@@ -15,14 +15,14 @@ Use `init_particles` to construct this type instead of calling the inner
 constructor directly.
 """
 struct Particles{Backend, N, I, T1, T2, D, V} <: AbstractParticles
-    coords::NTuple{N, T1}                 # particle coordinates
-    index::T2                             # BitArray (true if particle in that memory space)
-    nxcell::I                             # initial particles per cell
-    max_xcell::I                          # max particles per cell
-    min_xcell::I                          # min particles per cell
-    np::I                                 # total number of particles
-    di::D                                 # grid spacing
-    _di::D                                # inverse grid spacing
+    coords::NTuple{N, T1}              # particle coordinates
+    index::T2                          # BitArray (true if particle in that memory space)
+    nxcell::I                          # initial particles per cell
+    max_xcell::I                       # max particles per cell
+    min_xcell::I                       # min particles per cell
+    np::I                              # total number of particles
+    di::D                              # grid spacing
+    _di::D                             # inverse grid spacing
     xci::NTuple{N, V}                  # cell-centered grid
     xvi::NTuple{N, V}                  # vertex-centered grid
     xi_vel::NTuple{N, NTuple{N, V}} # velocity grid
