@@ -15,10 +15,26 @@ function CuCellArray(::Type{T}, ::UndefInitializer, dims::Int...) where {T <: Ce
 end
 
 function CUDA.CuArray(::Type{T}, particles::JustPIC.Particles) where {T <: Number}
-    (; coords, index, nxcell, max_xcell, min_xcell, np) = particles
+    (; coords, index, nxcell, max_xcell, min_xcell, np, di, _di, xci, xvi, xi_vel) = particles
     coords_gpu = ntuple(i -> CuArray(T, coords[i]), Val(length(coords)))
+    di_gpu = (; center = map(x -> CuArray(T, x), di.center), vertex = map(x -> CuArray(T, x), di.vertex), velocity = map(vg -> map(x -> CuArray(T, x), vg), di.velocity))
+    _di_gpu = (; center = map(x -> CuArray(T, x), _di.center), vertex = map(x -> CuArray(T, x), _di.vertex), velocity = map(vg -> map(x -> CuArray(T, x), vg), _di.velocity))
+    xci_gpu = map(x -> CuArray(T, x), xci)
+    xvi_gpu = map(x -> CuArray(T, x), xvi)
+    xi_vel_gpu = map(vg -> map(x -> CuArray(T, x), vg), xi_vel)
     return Particles(
-        CUDABackend, coords_gpu, CuArray(Bool, index), nxcell, max_xcell, min_xcell, np
+        CUDABackend,
+        coords_gpu,
+        CuArray(Bool, index),
+        nxcell,
+        max_xcell,
+        min_xcell,
+        np,
+        di_gpu,
+        _di_gpu,
+        xci_gpu,
+        xvi_gpu,
+        xi_vel_gpu,
     )
 end
 
@@ -72,10 +88,26 @@ function CUDA.CuArray(phase_ratios::JustPIC.PhaseRatios)
 end
 
 function CUDA.CuArray(particles::JustPIC.Particles)
-    (; coords, index, nxcell, max_xcell, min_xcell, np) = particles
+    (; coords, index, nxcell, max_xcell, min_xcell, np, di, _di, xci, xvi, xi_vel) = particles
     coords_gpu = ntuple(i -> CuArray(coords[i]), Val(length(coords)))
+    di_gpu = (; center = map(CuArray, di.center), vertex = map(CuArray, di.vertex), velocity = map(vg -> map(CuArray, vg), di.velocity))
+    _di_gpu = (; center = map(CuArray, _di.center), vertex = map(CuArray, _di.vertex), velocity = map(vg -> map(CuArray, vg), _di.velocity))
+    xci_gpu = map(CuArray, xci)
+    xvi_gpu = map(CuArray, xvi)
+    xi_vel_gpu = map(vg -> map(CuArray, vg), xi_vel)
     return Particles(
-        CUDABackend, coords_gpu, CuArray(index), nxcell, max_xcell, min_xcell, np
+        CUDABackend,
+        coords_gpu,
+        CuArray(index),
+        nxcell,
+        max_xcell,
+        min_xcell,
+        np,
+        di_gpu,
+        _di_gpu,
+        xci_gpu,
+        xvi_gpu,
+        xi_vel_gpu,
     )
 end
 
@@ -116,6 +148,9 @@ end
 CUDA.CuArray(particles::JustPIC.Particles{CUDABackend}) = particles
 CUDA.CuArray(phase_ratios::JustPIC.PhaseRatios{CUDABackend}) = phase_ratios
 CUDA.CuArray(CA::CellArray) = CUDA.CuArray(eltype(eltype(CA)), CA)
+CUDA.CuArray(::Type{T}, x::Number) where {T <: AbstractFloat} = x
+CUDA.CuArray(::Type{T}, x::LinRange) where {T <: AbstractFloat} = x
+CUDA.CuArray(x::T) where {T <: AbstractFloat} = x
 
 module _2D
     using CUDA
@@ -168,8 +203,13 @@ module _2D
             max_xcell,
             min_xcell,
             np,
+            di,
+            _di,
+            xci,
+            xvi,
+            xi_vel,
         ) where {N1, N2}
-        return Particles(CUDABackend, coords, index, nxcell, max_xcell, min_xcell, np)
+        return Particles(CUDABackend, coords, index, nxcell, max_xcell, min_xcell, np, di, _di, xci, xvi, xi_vel)
     end
 
     function JustPIC._2D.Particles(
@@ -179,8 +219,13 @@ module _2D
             max_xcell,
             min_xcell,
             np,
+            di,
+            _di,
+            xci,
+            xvi,
+            xi_vel,
         ) where {B, N1, N2}
-        return Particles(CUDABackend, coords, index, nxcell, max_xcell, min_xcell, np)
+        return Particles(CUDABackend, coords, index, nxcell, max_xcell, min_xcell, np, di, _di, xci, xvi, xi_vel)
     end
 
     function JustPIC._2D.SubgridDiffusionCellArrays(
@@ -190,41 +235,33 @@ module _2D
     end
 
     function JustPIC._2D.init_particles(
-            ::Type{CUDABackend}, nxcell, max_xcell, min_xcell, xvi::Vararg{N, T}
-        ) where {N, T}
-        di = compute_dx(xvi)
-        ni = @. length(xvi) - 1
-
-        return _init_particles(CUDABackend, nxcell, max_xcell, min_xcell, xvi, di, ni)
+            ::Type{CUDABackend},
+            nxcell,
+            max_xcell,
+            min_xcell,
+            xi_vel::Vararg{NTuple{N2, AbstractVector}, N1},
+        ) where {N1, N2}
+        return init_particles(CUDABackend, nxcell, max_xcell, min_xcell, xi_vel)
     end
 
-    # function JustPIC._2D.init_particles(
-    #         ::Type{CUDABackend},
-    #         nxcell,
-    #         max_xcell::Number,
-    #         min_xcell,
-    #         coords::NTuple{2, AbstractArray},
-    #         dxᵢ::NTuple{2, T},
-    #         nᵢ::NTuple{2, I}
-    #     ) where {T, I}
-    #     return init_particles(
-    #         CUDABackend, nxcell, max_xcell, min_xcell, coords, dxᵢ, nᵢ
-    #     )
-    # end
+    function JustPIC._2D.init_particles(
+            ::Type{CUDABackend},
+            nxcell,
+            max_xcell,
+            min_xcell,
+            xi_vel::NTuple{N, NTuple{N, T}},
+        ) where {N, T <: AbstractVector}
+        return init_particles(CUDABackend, nxcell, max_xcell, min_xcell, xi_vel)
+    end
 
-    # function JustPIC._2D.init_particles(
-    #         ::Type{CUDABackend},
-    #         nxdim::NTuple{N, Integer},
-    #         max_xcell,
-    #         min_xcell,
-    #         coords::NTuple{N, AbstractArray},
-    #         dxᵢ::NTuple{N, T},
-    #         nᵢ::NTuple{N, I}
-    #     ) where {N, T, I}
-    #     return init_particles(
-    #         CUDABackend, nxdim, max_xcell, min_xcell, coords, dxᵢ, nᵢ
-    #     )
-    # end
+    function JustPIC._2D.advection!(
+            particles::Particles{CUDABackend},
+            method::AbstractAdvectionIntegrator,
+            V,
+            dt,
+        )
+        return advection!(particles, method, V, dt)
+    end
 
     function JustPIC._2D.advection!(
             particles::Particles{CUDABackend},
@@ -233,7 +270,27 @@ module _2D
             grid_vxi::NTuple{N, NTuple{N, T}},
             dt,
         ) where {N, T}
-        return advection!(particles, method, V, grid_vxi, dt)
+        return advection!(particles, method, V, grid_vxi, dt, particles.di.velocity)
+    end
+
+    function JustPIC._2D.advection!(
+            particles::Particles{CUDABackend},
+            method::AbstractAdvectionIntegrator,
+            V,
+            grid_vxi::NTuple{N, NTuple{N, T}},
+            dt,
+            di,
+        ) where {N, T}
+        return advection!(particles, method, V, grid_vxi, dt, di)
+    end
+
+    function JustPIC._2D.advection_LinP!(
+            particles::Particles{CUDABackend},
+            method::AbstractAdvectionIntegrator,
+            V,
+            dt,
+        )
+        return advection_LinP!(particles, method, V, dt)
     end
 
     function JustPIC._2D.advection_LinP!(
@@ -243,7 +300,27 @@ module _2D
             grid_vxi::NTuple{N, NTuple{N, T}},
             dt,
         ) where {N, T}
-        return advection_LinP!(particles, method, V, grid_vxi, dt)
+        return advection_LinP!(particles, method, V, grid_vxi, dt, particles.di.velocity)
+    end
+
+    function JustPIC._2D.advection_LinP!(
+            particles::Particles{CUDABackend},
+            method::AbstractAdvectionIntegrator,
+            V,
+            grid_vxi::NTuple{N, NTuple{N, T}},
+            dt,
+            di,
+        ) where {N, T}
+        return advection_LinP!(particles, method, V, grid_vxi, dt, di)
+    end
+
+    function JustPIC._2D.advection_MQS!(
+            particles::Particles{CUDABackend},
+            method::AbstractAdvectionIntegrator,
+            V,
+            dt,
+        )
+        return advection_MQS!(particles, method, V, dt)
     end
 
     function JustPIC._2D.advection_MQS!(
@@ -253,7 +330,18 @@ module _2D
             grid_vxi::NTuple{N, NTuple{N, T}},
             dt,
         ) where {N, T}
-        return advection_MQS!(particles, method, V, grid_vxi, dt)
+        return advection_MQS!(particles, method, V, grid_vxi, dt, particles.di.velocity)
+    end
+
+    function JustPIC._2D.advection_MQS!(
+            particles::Particles{CUDABackend},
+            method::AbstractAdvectionIntegrator,
+            V,
+            grid_vxi::NTuple{N, NTuple{N, T}},
+            dt,
+            di,
+        ) where {N, T}
+        return advection_MQS!(particles, method, V, grid_vxi, dt, di)
     end
 
     function JustPIC._2D.semilagrangian_advection!(
@@ -296,25 +384,57 @@ module _2D
     end
 
     function JustPIC._2D.centroid2particle!(
-            Fp, xci, F::CuArray, particles::Particles{CUDABackend}
+            Fp, F::CuArray, particles::Particles{CUDABackend}
         )
-        return centroid2particle!(Fp, xci, F, particles)
+        return centroid2particle!(Fp, F, particles)
+    end
+
+    function JustPIC._2D.centroid2particle!(
+            Fp, xci, F::CuArray, particles::Particles{CUDABackend}, di
+        )
+        return centroid2particle!(Fp, xci, F, particles, di)
+    end
+
+    function JustPIC._2D.grid2particle!(
+            Fp, F::CuArray, particles::Particles{CUDABackend}
+        )
+        return grid2particle!(Fp, F, particles)
     end
 
     function JustPIC._2D.grid2particle!(
             Fp, xvi, F::CuArray, particles::Particles{CUDABackend}
         )
-        return grid2particle!(Fp, xvi, F, particles)
+        return grid2particle!(Fp, xvi, F, particles, particles.di.vertex)
+    end
+
+    function JustPIC._2D.grid2particle!(
+            Fp, xvi, F::CuArray, particles::Particles{CUDABackend}, di
+        )
+        return grid2particle!(Fp, xvi, F, particles, di)
     end
 
     function JustPIC._2D.particle2centroid!(
-            F::CuArray, Fp, xi::NTuple, particles::Particles{CUDABackend}
+            F::CuArray, Fp, particles::Particles{CUDABackend}
         )
-        return particle2centroid!(F, Fp, xi, particles)
+        return particle2centroid!(F, Fp, particles)
     end
 
-    function JustPIC._2D.particle2grid!(F::CuArray, Fp, xi, particles)
-        return particle2grid!(F, Fp, xi, particles)
+    function JustPIC._2D.particle2centroid!(
+            F, Fp, xci::NTuple, particles::Particles{CUDABackend}, di
+        )
+        (; coords) = particles
+        @parallel (@idx size(coords[1])) _particle2centroid!(F, Fp, xci, coords, di)
+        return nothing
+    end
+
+    function JustPIC._2D.particle2grid!(F::CuArray, Fp, particles::Particles{CUDABackend})
+        return particle2grid!(F, Fp, particles)
+    end
+
+    function JustPIC._2D.particle2grid!(
+            F::CuArray, Fp, xi, particles::Particles{CUDABackend}
+        )
+        return particle2grid!(F, Fp, xi, particles.coords, particles.index)
     end
 
     function JustPIC._2D.grid2particle_flip!(Fp, xvi, F::CuArray, F0, particles; α = 0.0)
@@ -322,9 +442,21 @@ module _2D
     end
 
     function JustPIC._2D.inject_particles!(
+            particles::Particles{CUDABackend}, args
+        )
+        return inject_particles!(particles, args)
+    end
+
+    function JustPIC._2D.inject_particles!(
             particles::Particles{CUDABackend}, args, grid::NTuple{N}
         ) where {N}
-        return inject_particles!(particles, args, grid)
+        return inject_particles!(particles, args, grid, particles.di.vertex)
+    end
+
+    function JustPIC._2D.inject_particles!(
+            particles::Particles{CUDABackend}, args, grid::NTuple{N}, di
+        ) where {N}
+        return inject_particles!(particles, args, grid, di)
     end
 
     function JustPIC._2D.force_injection!(particles::Particles{CUDABackend}, p_new, fields::NTuple{N, Any}, values::NTuple{N, Any}) where {N}
@@ -337,14 +469,33 @@ module _2D
     function JustPIC._2D.inject_particles_phase!(
             particles::Particles{CUDABackend}, particles_phases, args, fields, grid::NTuple{N}
         ) where {N}
-        inject_particles_phase!(particles::Particles, particles_phases, args, fields, grid)
+        inject_particles_phase!(particles, particles_phases, args, fields, grid)
         return nothing
+    end
+
+    function JustPIC._2D.inject_particles_phase!(
+            particles::Particles{CUDABackend}, particles_phases, args, fields, grid::NTuple{N}, di
+        ) where {N}
+        inject_particles_phase!(particles, particles_phases, args, fields, grid, di)
+        return nothing
+    end
+
+    function JustPIC._2D.move_particles!(
+            particles::Particles{CUDABackend}, args
+        )
+        return move_particles!(particles, args)
     end
 
     function JustPIC._2D.move_particles!(
             particles::Particles{CUDABackend}, grid::NTuple{N}, args
         ) where {N}
-        return move_particles!(particles, grid, args)
+        return move_particles!(particles, grid, args, particles.di.vertex)
+    end
+
+    function JustPIC._2D.move_particles!(
+            particles::Particles{CUDABackend}, grid::NTuple{N}, args, di
+        ) where {N}
+        return move_particles!(particles, grid, args, di)
     end
 
     function JustPIC._2D.init_cell_arrays(
@@ -359,12 +510,10 @@ module _2D
             ΔT_grid,
             subgrid_arrays,
             particles::Particles{CUDABackend},
-            xvi,
-            di,
             dt;
             d = 1.0,
         )
-        subgrid_diffusion!(pT, T_grid, ΔT_grid, subgrid_arrays, particles, xvi, di, dt; d = d)
+        subgrid_diffusion!(pT, T_grid, ΔT_grid, subgrid_arrays, particles, dt; d = d)
         return nothing
     end
 
@@ -374,13 +523,12 @@ module _2D
             ΔT_grid,
             subgrid_arrays,
             particles::Particles{CUDABackend},
-            xvi,
-            di,
+            xci,
             dt;
             d = 1.0,
         )
         subgrid_diffusion_centroid!(
-            pT, T_grid, ΔT_grid, subgrid_arrays, particles, xvi, di, dt; d = d
+            pT, T_grid, ΔT_grid, subgrid_arrays, particles, xci, dt; d = d
         )
         return nothing
     end
@@ -499,13 +647,13 @@ module _2D
     # Phase ratio kernels
 
     function JustPIC._2D.update_phase_ratios!(
-            phase_ratios::JustPIC.PhaseRatios{CUDABackend, T}, particles, xci, xvi, phases
+            phase_ratios::JustPIC.PhaseRatios{CUDABackend, T}, particles, phases
         ) where {T <: AbstractMatrix}
-        phase_ratios_center!(phase_ratios, particles, xci, phases)
-        phase_ratios_vertex!(phase_ratios, particles, xvi, phases)
+        phase_ratios_center!(phase_ratios, particles, phases)
+        phase_ratios_vertex!(phase_ratios, particles, phases)
         # velocity nodes
-        phase_ratios_face!(phase_ratios.Vx, particles, xci, phases, :x)
-        phase_ratios_face!(phase_ratios.Vy, particles, xci, phases, :y)
+        phase_ratios_face!(phase_ratios.Vx, particles, phases, :x)
+        phase_ratios_face!(phase_ratios.Vy, particles, phases, :y)
         return nothing
     end
 
@@ -611,8 +759,13 @@ module _3D
             max_xcell,
             min_xcell,
             np,
+            di,
+            _di,
+            xci,
+            xvi,
+            xi_vel,
         ) where {N1, N2}
-        return Particles(CUDABackend, coords, index, nxcell, max_xcell, min_xcell, np)
+        return Particles(CUDABackend, coords, index, nxcell, max_xcell, min_xcell, np, di, _di, xci, xvi, xi_vel)
     end
 
     function JustPIC._3D.Particles(
@@ -622,8 +775,13 @@ module _3D
             max_xcell,
             min_xcell,
             np,
+            di,
+            _di,
+            xci,
+            xvi,
+            xi_vel,
         ) where {B, N1, N2}
-        return Particles(CUDABackend, coords, index, nxcell, max_xcell, min_xcell, np)
+        return Particles(CUDABackend, coords, index, nxcell, max_xcell, min_xcell, np, di, _di, xci, xvi, xi_vel)
     end
 
     function JustPIC._3D.SubgridDiffusionCellArrays(
@@ -633,12 +791,23 @@ module _3D
     end
 
     function JustPIC._3D.init_particles(
-            ::Type{CUDABackend}, nxcell, max_xcell, min_xcell, xvi::Vararg{N, T}
-        ) where {N, T}
-        di = compute_dx(xvi)
-        ni = @. length(xvi) - 1
+            ::Type{CUDABackend},
+            nxcell,
+            max_xcell,
+            min_xcell,
+            xi_vel::Vararg{NTuple{N2, AbstractVector}, N1},
+        ) where {N1, N2}
+        return init_particles(CUDABackend, nxcell, max_xcell, min_xcell, xi_vel...)
+    end
 
-        return _init_particles(CUDABackend, nxcell, max_xcell, min_xcell, xvi, di, ni)
+    function JustPIC._3D.init_particles(
+            ::Type{CUDABackend},
+            nxcell,
+            max_xcell,
+            min_xcell,
+            xi_vel::NTuple{N, NTuple{N, T}},
+        ) where {N, T <: AbstractVector}
+        return init_particles(CUDABackend, nxcell, max_xcell, min_xcell, xi_vel)
     end
 
     # function JustPIC._3D.init_particles(
@@ -673,10 +842,39 @@ module _3D
             particles::Particles{CUDABackend},
             method::AbstractAdvectionIntegrator,
             V,
+            dt,
+        )
+        return advection!(particles, method, V, dt)
+    end
+
+    function JustPIC._3D.advection!(
+            particles::Particles{CUDABackend},
+            method::AbstractAdvectionIntegrator,
+            V,
             grid_vxi::NTuple{N, NTuple{N, T}},
             dt,
         ) where {N, T}
-        return advection!(particles, method, V, grid_vxi, dt)
+        return advection!(particles, method, V, grid_vxi, dt, particles.di.velocity)
+    end
+
+    function JustPIC._3D.advection!(
+            particles::Particles{CUDABackend},
+            method::AbstractAdvectionIntegrator,
+            V,
+            grid_vxi::NTuple{N, NTuple{N, T}},
+            dt,
+            di,
+        ) where {N, T}
+        return advection!(particles, method, V, grid_vxi, dt, di)
+    end
+
+    function JustPIC._3D.advection_LinP!(
+            particles::Particles{CUDABackend},
+            method::AbstractAdvectionIntegrator,
+            V,
+            dt,
+        )
+        return advection_LinP!(particles, method, V, dt)
     end
 
     function JustPIC._3D.advection_LinP!(
@@ -686,7 +884,27 @@ module _3D
             grid_vxi::NTuple{N, NTuple{N, T}},
             dt,
         ) where {N, T}
-        return advection_LinP!(particles, method, V, grid_vxi, dt)
+        return advection_LinP!(particles, method, V, grid_vxi, dt, particles.di.velocity)
+    end
+
+    function JustPIC._3D.advection_LinP!(
+            particles::Particles{CUDABackend},
+            method::AbstractAdvectionIntegrator,
+            V,
+            grid_vxi::NTuple{N, NTuple{N, T}},
+            dt,
+            di,
+        ) where {N, T}
+        return advection_LinP!(particles, method, V, grid_vxi, dt, di)
+    end
+
+    function JustPIC._3D.advection_MQS!(
+            particles::Particles{CUDABackend},
+            method::AbstractAdvectionIntegrator,
+            V,
+            dt,
+        )
+        return advection_MQS!(particles, method, V, dt)
     end
 
     function JustPIC._3D.advection_MQS!(
@@ -696,7 +914,18 @@ module _3D
             grid_vxi::NTuple{N, NTuple{N, T}},
             dt,
         ) where {N, T}
-        return advection_MQS!(particles, method, V, grid_vxi, dt)
+        return advection_MQS!(particles, method, V, grid_vxi, dt, particles.di.velocity)
+    end
+
+    function JustPIC._3D.advection_MQS!(
+            particles::Particles{CUDABackend},
+            method::AbstractAdvectionIntegrator,
+            V,
+            grid_vxi::NTuple{N, NTuple{N, T}},
+            dt,
+            di,
+        ) where {N, T}
+        return advection_MQS!(particles, method, V, grid_vxi, dt, di)
     end
 
     function JustPIC._3D.semilagrangian_advection!(
@@ -739,27 +968,51 @@ module _3D
     end
 
     function JustPIC._3D.centroid2particle!(
-            Fp, xci, F::CuArray, particles::Particles{CUDABackend}
+            Fp, F::CuArray, particles::Particles{CUDABackend}
         )
-        return centroid2particle!(Fp, xci, F, particles)
+        return centroid2particle!(Fp, F, particles)
+    end
+
+    function JustPIC._3D.centroid2particle!(
+            Fp, xci, F::CuArray, particles::Particles{CUDABackend}, di
+        )
+        return centroid2particle!(Fp, xci, F, particles, di)
+    end
+
+    function JustPIC._3D.grid2particle!(
+            Fp, F::CuArray, particles::Particles{CUDABackend}
+        )
+        return grid2particle!(Fp, F, particles)
     end
 
     function JustPIC._3D.grid2particle!(
             Fp, xvi, F::CuArray, particles::Particles{CUDABackend}
         )
-        return grid2particle!(Fp, xvi, F, particles)
+        return grid2particle!(Fp, xvi, F, particles, particles.di.vertex)
     end
 
     function JustPIC._3D.particle2centroid!(
-            F::CuArray, Fp, xi::NTuple, particles::Particles{CUDABackend}
+            F::CuArray, Fp, particles::Particles{CUDABackend}
         )
-        return particle2centroid!(F, Fp, xi, particles)
+        return particle2centroid!(F, Fp, particles)
+    end
+
+    function JustPIC._3D.particle2centroid!(
+            F, Fp, xci::NTuple, particles::Particles{CUDABackend}, di
+        )
+        return particle2centroid!(F, Fp, xci, particles, di)
+    end
+
+    function JustPIC._3D.particle2grid!(
+            F::CuArray, Fp, particles::Particles{CUDABackend}
+        )
+        return particle2grid!(F, Fp, particles)
     end
 
     function JustPIC._3D.particle2grid!(
             F::CuArray, Fp, xi, particles::Particles{CUDABackend}
         )
-        return particle2grid!(F, Fp, xi, particles)
+        return particle2grid!(F, Fp, xi, particles.coords, particles.index)
     end
 
     function JustPIC._3D.grid2particle_flip!(Fp, xvi, F::CuArray, F0, particles; α = 0.0)
@@ -767,15 +1020,27 @@ module _3D
     end
 
     function JustPIC._3D.inject_particles!(
+            particles::Particles{CUDABackend}, args
+        )
+        return inject_particles!(particles, args)
+    end
+
+    function JustPIC._3D.inject_particles!(
             particles::Particles{CUDABackend}, args, grid::NTuple{N}
         ) where {N}
-        return inject_particles!(particles, args, grid)
+        return inject_particles!(particles, args, grid, particles.di.vertex)
+    end
+
+    function JustPIC._3D.inject_particles!(
+            particles::Particles{CUDABackend}, args, grid::NTuple{N}, di
+        ) where {N}
+        return inject_particles!(particles, args, grid, di)
     end
 
     function JustPIC._3D.inject_particles_phase!(
             particles::Particles{CUDABackend}, particles_phases, args, fields, grid::NTuple{N}
         ) where {N}
-        inject_particles_phase!(particles::Particles, particles_phases, args, fields, grid)
+        inject_particles_phase!(particles, particles_phases, args, fields, grid)
         return nothing
     end
 
@@ -787,9 +1052,21 @@ module _3D
     JustPIC._3D.force_injection!(particles::Particles{CUDABackend}, p_new) = force_injection!(particles, p_new, (), ())
 
     function JustPIC._3D.move_particles!(
+            particles::Particles{CUDABackend}, args
+        )
+        return move_particles!(particles, args)
+    end
+
+    function JustPIC._3D.move_particles!(
             particles::Particles{CUDABackend}, grid::NTuple{N}, args
         ) where {N}
-        return move_particles!(particles, grid, args)
+        return move_particles!(particles, grid, args, particles.di.vertex)
+    end
+
+    function JustPIC._3D.move_particles!(
+            particles::Particles{CUDABackend}, grid::NTuple{N}, args, di
+        ) where {N}
+        return move_particles!(particles, grid, args, di)
     end
 
     function JustPIC._3D.init_cell_arrays(
@@ -804,12 +1081,10 @@ module _3D
             ΔT_grid,
             subgrid_arrays,
             particles::Particles{CUDABackend},
-            xvi,
-            di,
             dt;
             d = 1.0,
         )
-        subgrid_diffusion!(pT, T_grid, ΔT_grid, subgrid_arrays, particles, xvi, di, dt; d = d)
+        subgrid_diffusion!(pT, T_grid, ΔT_grid, subgrid_arrays, particles, dt; d = d)
         return nothing
     end
 
@@ -819,13 +1094,12 @@ module _3D
             ΔT_grid,
             subgrid_arrays,
             particles::Particles{CUDABackend},
-            xvi,
-            di,
+            xci,
             dt;
             d = 1.0,
         )
         subgrid_diffusion_centroid!(
-            pT, T_grid, ΔT_grid, subgrid_arrays, particles, xvi, di, dt; d = d
+            pT, T_grid, ΔT_grid, subgrid_arrays, particles, xci, dt; d = d
         )
         return nothing
     end
@@ -866,18 +1140,18 @@ module _3D
     # Phase ratio kernels
 
     function JustPIC._3D.update_phase_ratios!(
-            phase_ratios::JustPIC.PhaseRatios{CUDABackend, T}, particles, xci, xvi, phases
+            phase_ratios::JustPIC.PhaseRatios{CUDABackend, T}, particles, phases
         ) where {T <: AbstractArray}
-        phase_ratios_center!(phase_ratios, particles, xci, phases)
-        phase_ratios_vertex!(phase_ratios, particles, xvi, phases)
+        phase_ratios_center!(phase_ratios, particles, phases)
+        phase_ratios_vertex!(phase_ratios, particles, phases)
         # velocity nodes
-        phase_ratios_face!(phase_ratios.Vx, particles, xci, phases, :x)
-        phase_ratios_face!(phase_ratios.Vy, particles, xci, phases, :y)
-        phase_ratios_face!(phase_ratios.Vz, particles, xci, phases, :z)
+        phase_ratios_face!(phase_ratios.Vx, particles, phases, :x)
+        phase_ratios_face!(phase_ratios.Vy, particles, phases, :y)
+        phase_ratios_face!(phase_ratios.Vz, particles, phases, :z)
         # shear stress nodes
-        phase_ratios_midpoint!(phase_ratios.xy, particles, xci, phases, :xy)
-        phase_ratios_midpoint!(phase_ratios.yz, particles, xci, phases, :yz)
-        phase_ratios_midpoint!(phase_ratios.xz, particles, xci, phases, :xz)
+        phase_ratios_midpoint!(phase_ratios.xy, particles, phases, :xy)
+        phase_ratios_midpoint!(phase_ratios.yz, particles, phases, :yz)
+        phase_ratios_midpoint!(phase_ratios.xz, particles, phases, :xz)
         return nothing
     end
 

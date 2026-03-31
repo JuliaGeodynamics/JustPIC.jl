@@ -1,3 +1,14 @@
+"""
+    PhaseRatios{Backend,T}
+
+Storage for phase-fraction fields sampled at multiple grid locations.
+
+Depending on dimension, the container holds phase ratios at cell centers,
+vertices, staggered velocity nodes, and in 3D also at edge midpoints.
+
+The fields store, for each location, the fractional occupancy of each material
+phase inferred from particle labels.
+"""
 struct PhaseRatios{Backend, T} <: AbstractParticles
     center::T
     vertex::T
@@ -23,6 +34,9 @@ end
     nphases(x::PhaseRatios)
 
 Return the number of phases in `x::PhaseRatios`.
+
+This method returns a `Val` wrapper for the phase count; use `numphases` when
+you need the integer directly.
 """
 @inline nphases(x::PhaseRatios) = nphases(x.center)
 @inline numphases(x::PhaseRatios) = numphases(x.center)
