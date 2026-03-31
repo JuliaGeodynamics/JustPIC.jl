@@ -11,8 +11,29 @@
     phases        = Array(Float32, phases),
     phase_ratios  = Array(Float32, phase_ratios),
     particle_args = Array.(Float32, particle_args),
-)</code></pre><p>Additionally, there is a pre-defined functions to save the particle information in a checkpoint file:</p><pre><code class="language-julia hljs">checkpointing_particles(dst, particles, phases, phase_ratios; chain=nothing, t=nothing, dt=nothing, particle_args=nothing)</code></pre><p>or if you run it on multiple ranks:</p><pre><code class="language-julia hljs">checkpointing_particles(dst, particles, phases, phase_ratios, me; chain=nothing, t=nothing, dt=nothing, particle_args=nothing)</code></pre><h2 id="Loading-a-checkpoint-file"><a class="docs-heading-anchor" href="#Loading-a-checkpoint-file">Loading a checkpoint file</a><a id="Loading-a-checkpoint-file-1"></a><a class="docs-heading-anchor-permalink" href="#Loading-a-checkpoint-file" title="Permalink"></a></h2><p>In order to restart a simulation, one needs to load the checkpoint file of interest. This is how to read the particle information from the checkpoint file <code>my_file.jld2</code>:</p><pre><code class="language-julia hljs">data          = load(&quot;my_file.jld2&quot;)
+)</code></pre><p>Additionally, there is a pre-defined function to save particle information in a checkpoint file:</p><pre><code class="language-julia hljs">checkpointing_particles(
+    dst,
+    particles;
+    phases = nothing,
+    phase_ratios = nothing,
+    chain = nothing,
+    t = nothing,
+    dt = nothing,
+    particle_args = nothing,
+    kwargs...,
+)</code></pre><p>or if you run it on multiple ranks:</p><pre><code class="language-julia hljs">checkpointing_particles(
+    dst,
+    particles,
+    me;
+    phases = nothing,
+    phase_ratios = nothing,
+    chain = nothing,
+    t = nothing,
+    dt = nothing,
+    particle_args = nothing,
+    kwargs...,
+)</code></pre><p>Any additional keyword arguments are serialized into the checkpoint as extra fields.</p><h2 id="Loading-a-checkpoint-file"><a class="docs-heading-anchor" href="#Loading-a-checkpoint-file">Loading a checkpoint file</a><a id="Loading-a-checkpoint-file-1"></a><a class="docs-heading-anchor-permalink" href="#Loading-a-checkpoint-file" title="Permalink"></a></h2><p>In order to restart a simulation, one needs to load the checkpoint file of interest. This is how to read the particle information from the checkpoint file <code>my_file.jld2</code>:</p><pre><code class="language-julia hljs">data          = load(&quot;my_file.jld2&quot;)
 particles     = TA(backend)(Float64, data[&quot;particles&quot;])
 phases        = TA(backend)(Float64, data[&quot;phases&quot;])
 phase_ratios  = TA(backend)(Float64, data[&quot;phase_ratios&quot;])
-particle_args = TA(backend).(Float64, data[&quot;particle_args&quot;])</code></pre><p>The function <code>TA(backend)</code> will automatically cast the data to the appropriate type, depending on the requested backend.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../field_advection3D/">« Field advection in 3D</a><a class="docs-footer-nextpage" href="../mixed_CPU_GPU/">Mixed GPU/CPU »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Friday 6 March 2026 13:58">Friday 6 March 2026</span>. Using Julia version 1.10.10.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+particle_args = TA(backend).(Float64, data[&quot;particle_args&quot;])</code></pre><p>The function <code>TA(backend)</code> will automatically cast the data to the appropriate type, depending on the requested backend.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../field_advection3D/">« Field advection in 3D</a><a class="docs-footer-nextpage" href="../mixed_CPU_GPU/">Mixed GPU/CPU »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Tuesday 31 March 2026 14:04">Tuesday 31 March 2026</span>. Using Julia version 1.10.11.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
