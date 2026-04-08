@@ -471,9 +471,9 @@ module _2D
     JustPIC._2D.force_injection!(particles::Particles{AMDGPUBackend}, p_new) = force_injection!(particles, p_new, (), ())
 
     function JustPIC._2D.inject_particles_phase!(
-            particles::Particles{AMDGPUBackend}, particles_phases, args, fields, grid::NTuple{N}
+            particles::Particles{AMDGPUBackend}, particles_phases, args, fields
         ) where {N}
-        inject_particles_phase!(particles, particles_phases, args, fields, grid)
+        inject_particles_phase!(particles, particles_phases, args, fields)
         return nothing
     end
 
@@ -1021,9 +1021,9 @@ module _3D
     JustPIC._3D.force_injection!(particles::Particles{AMDGPUBackend}, p_new) = force_injection!(particles, p_new, (), ())
 
     function JustPIC._3D.inject_particles_phase!(
-            particles::Particles{AMDGPUBackend}, particles_phases, args, fields, grid::NTuple{N}
+            particles::Particles{AMDGPUBackend}, particles_phases, args, fields
         ) where {N}
-        inject_particles_phase!(particles, particles_phases, args, fields, grid)
+        inject_particles_phase!(particles, particles_phases, args, fields)
         return nothing
     end
 
