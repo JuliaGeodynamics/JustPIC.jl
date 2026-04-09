@@ -472,7 +472,7 @@ module _2D
 
     function JustPIC._2D.inject_particles_phase!(
             particles::Particles{AMDGPUBackend}, particles_phases, args, fields
-        ) where {N}
+        )
         inject_particles_phase!(particles, particles_phases, args, fields)
         return nothing
     end
@@ -1022,7 +1022,7 @@ module _3D
 
     function JustPIC._3D.inject_particles_phase!(
             particles::Particles{AMDGPUBackend}, particles_phases, args, fields
-        ) where {N}
+        )
         inject_particles_phase!(particles, particles_phases, args, fields)
         return nothing
     end
