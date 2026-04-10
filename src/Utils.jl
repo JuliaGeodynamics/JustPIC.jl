@@ -1,3 +1,14 @@
+"""
+    add_global_ghost_nodes(x, dx, origin; backend = CPUBackend)
+
+Add ghost coordinates only where the local coordinate vector touches the global
+domain bounds.
+
+`origin` is the global `(min, max)` extent in the same coordinate direction. If
+`x` starts at `origin[1]`, a left ghost node is prepended; if it ends at
+`origin[2]`, a right ghost node is appended. The result is converted with
+`TA(backend)`.
+"""
 function add_global_ghost_nodes(x::AbstractArray, dx, origin; backend = CPUBackend)
     x1, x2 = extrema(x)
     xI = x1 - dx
@@ -7,6 +18,15 @@ function add_global_ghost_nodes(x::AbstractArray, dx, origin; backend = CPUBacke
     return x = TA(backend)(x)
 end
 
+"""
+    add_ghost_nodes(x, dx, origin; backend = CPUBackend)
+
+Return `x` with one ghost coordinate appended on both sides.
+
+The `origin` argument is accepted for API symmetry with
+`add_global_ghost_nodes` but is not used by this method. The result is converted
+with `TA(backend)`.
+"""
 function add_ghost_nodes(x::AbstractArray, dx, origin; backend = CPUBackend)
     x1, x2 = extrema(x)
     xI = x1 - dx

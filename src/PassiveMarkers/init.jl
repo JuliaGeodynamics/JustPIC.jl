@@ -1,3 +1,19 @@
+"""
+    init_passive_markers(backend, coords)
+
+Create a `PassiveMarkers` container from user-supplied coordinates.
+
+Passive markers are lightweight tracers: they only store positions and are
+suited for pathline tracking or for sampling fields along trajectories without
+maintaining the per-cell particle bookkeeping used by `Particles`.
+
+# Arguments
+- `backend`: backend type such as `CPUBackend`.
+- `coords`: tuple of coordinate arrays, one array per spatial dimension.
+
+# Returns
+- A `PassiveMarkers` object ready to be advanced with `advection!`.
+"""
 function init_passive_markers(backend, coords::NTuple{N, AbstractArray}) where {N}
     return PassiveMarkers(backend, coords)
 end

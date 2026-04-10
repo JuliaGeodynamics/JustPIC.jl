@@ -287,6 +287,10 @@ Remove invalid or inactive particle slots and keep particle-associated fields in
 
 This is typically used after particle deletion or reinjection to compact each
 cell's active particle block.
+
+For the usual high-level workflow, prefer `move_particles!`, which combines cell
+reassignment with out-of-domain removal. `clean_particles!` is the lower-level
+cleanup helper when the coordinates have already been updated manually.
 """
 function clean_particles!(particles::Particles, grid, args)
     (; coords, index) = particles
