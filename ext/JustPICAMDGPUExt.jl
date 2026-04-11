@@ -10,7 +10,7 @@ JustPIC.TA(::Type{AMDGPUBackend}) = ROCArray
 function ROCCellArray(
         ::Type{T}, ::UndefInitializer, dims::NTuple{N, Int}
     ) where {T <: CellArrays.Cell, N}
-    return CellArrays.CellArray{T, N, 0, AMDGPU.ROCCellArray{eltype(T), 3}}(undef, dims)
+    return CellArrays.CellArray{T, N, 0, AMDGPU.ROCArray{eltype(T), 3}}(undef, dims)
 end
 function ROCCellArray(
         ::Type{T}, ::UndefInitializer, dims::Int...
@@ -134,10 +134,10 @@ function AMDGPU.ROCArray(chain::JustPIC.MarkerChain)
     )
 end
 
-function AMDGPU.ROCArray(phase_ratios::JustPIC.PhaseRatios)
-    (; vertex, center) = phase_ratios
-    return JustPIC.PhaseRatios(AMDGPUBackend, ROCArray(center), ROCArray(vertex))
-end
+# function AMDGPU.ROCArray(phase_ratios::JustPIC.PhaseRatios)
+#     (; vertex, center) = phase_ratios
+#     return JustPIC.PhaseRatios(AMDGPUBackend, ROCArray(center), ROCArray(vertex))
+# end
 
 function AMDGPU.ROCArray(::Type{T}, CA::CellArray) where {T <: Number}
     ni = size(CA)
@@ -154,8 +154,8 @@ function AMDGPU.ROCArray(::Type{T}, CA::CellArray) where {T <: Number}
     return CA_ROC
 end
 
-AMDGPU.ROCArray(particles::JustPIC.Particles{JustPIC.AMDGPUBackend}) = particles
-AMDGPU.ROCArray(phase_ratios::JustPIC.PhaseRatios{JustPIC.AMDGPUBackend}) = phase_ratios
+AMDGPU.ROCArray(particles::JustPIC.Particles{AMDGPUBackend}) = particles
+AMDGPU.ROCArray(phase_ratios::JustPIC.PhaseRatios{AMDGPUBackend}) = phase_ratios
 AMDGPU.ROCArray(CA::CellArray) = AMDGPU.ROCArray(eltype(eltype(CA)), CA)
 AMDGPU.ROCArray(::Type{Float64}, A::Vector{Float64}) = AMDGPU.ROCArray(A)
 AMDGPU.ROCArray(::Type{T}, x::Number) where {T <: AbstractFloat} = x

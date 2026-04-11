@@ -10,7 +10,6 @@ import JustPIC._3D as JP3
 
 const backend = JustPIC.CPUBackend
 
-
 function expand_range(x::AbstractRange)
     dx = x[2] - x[1]
     n = length(x)
@@ -130,7 +129,7 @@ end
 
     if isCUDA || isAMDGPU
         T = isCUDA ? CuArray : ROCArray
-        Backend = isCUDA ? CUDABackend : AMDGPUBackend
+        Backend = isCUDA ? CUDABackend : JustPIC.AMDGPUBackend
 
         particles2 = Array(particles)
         phases2 = Array(phases)
@@ -294,7 +293,7 @@ end
 
     if isCUDA || isAMDGPU
         T = isCUDA ? CuArray : ROCArray
-        Backend = isCUDA ? CUDABackend : AMDGPUBackend
+        Backend = isCUDA ? CUDABackend : JustPIC.AMDGPUBackend
 
         particles2 = Array(particles)
         phases2 = Array(phases)
