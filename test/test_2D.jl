@@ -285,10 +285,10 @@ end
 
     year = 365 * 3600 * 24
     L = (x = 1.0, y = 1.0)
-    Nc = (x = 32, y = 32)
+    Nc = (x = 128, y = 128)
     Nv = (x = Nc.x + 1, y = Nc.y + 1)
     Δ = (x = L.x / Nc.x, y = L.y / Nc.y)
-    Nt = 200
+    Nt = 20
     Nout = 1
     C = 0.25
 
@@ -348,6 +348,7 @@ end
     Vyc = 0.5 * (V.y[2:(end - 1), 1:(end - 1)] .+ V.y[2:(end - 1), 2:(end - 0)])
 
     for it in 1:Nt
+        @show it
         advection!(particles, RungeKutta2(), values(V), Δt)
         move_particles!(particles, particle_args)
         inject_particles_phase!(particles, phases, (), ())
