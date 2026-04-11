@@ -266,100 +266,100 @@ end
     @test x_marker ≈ P_marker
 end
 
-# @testset "Pure shear 2D" begin
+@testset "Pure shear 2D" begin
 
-#     @parallel_indices (I...) function InitialFieldsParticles!(phases, px, py, index)
-#         for ip in cellaxes(phases)
-#             # quick escape
-#             @index(index[ip, I...]) == 0 && continue
-#             x = @index px[ip, I...]
-#             y = @index py[ip, I...]
-#             if x < y
-#                 @index phases[ip, I...] = 1.0
-#             else
-#                 @index phases[ip, I...] = 2.0
-#             end
-#         end
-#         return nothing
-#     end
+    @parallel_indices (I...) function InitialFieldsParticles!(phases, px, py, index)
+        for ip in cellaxes(phases)
+            # quick escape
+            @index(index[ip, I...]) == 0 && continue
+            x = @index px[ip, I...]
+            y = @index py[ip, I...]
+            if x < y
+                @index phases[ip, I...] = 1.0
+            else
+                @index phases[ip, I...] = 2.0
+            end
+        end
+        return nothing
+    end
 
-#     year = 365 * 3600 * 24
-#     L = (x = 1.0, y = 1.0)
-#     Nc = (x = 128, y = 128)
-#     Nv = (x = Nc.x + 1, y = Nc.y + 1)
-#     Δ = (x = L.x / Nc.x, y = L.y / Nc.y)
-#     Nt = 20
-#     Nout = 1
-#     C = 0.25
+    year = 365 * 3600 * 24
+    L = (x = 1.0, y = 1.0)
+    Nc = (x = 128, y = 128)
+    Nv = (x = Nc.x + 1, y = Nc.y + 1)
+    Δ = (x = L.x / Nc.x, y = L.y / Nc.y)
+    Nt = 20
+    Nout = 1
+    C = 0.25
 
-#     verts = (x = LinRange(-L.x / 2, L.x / 2, Nv.x), y = LinRange(-L.y / 2, L.y / 2, Nv.y))
-#     cents = (x = LinRange(-L.x / 2 + Δ.x / 2, L.x / 2 - Δ.x / 2, Nc.x), y = LinRange(-L.y / 2 + Δ.y / 2, L.y / 2 - Δ.y / 2, Nc.y))
-#     cents_ext = (x = LinRange(-L.x / 2 - Δ.x / 2, L.x / 2 + Δ.x / 2, Nc.x + 2), y = LinRange(-L.y / 2 - Δ.y / 2, L.y / 2 + Δ.y / 2, Nc.y + 2))
-#     size_x = (Nc.x + 1, Nc.y + 2)
-#     size_y = (Nc.x + 2, Nc.y + 1)
-#     V = (
-#         x = @zeros(size_x),
-#         y = @zeros(size_y),
-#     )
+    verts = (x = LinRange(-L.x / 2, L.x / 2, Nv.x), y = LinRange(-L.y / 2, L.y / 2, Nv.y))
+    cents = (x = LinRange(-L.x / 2 + Δ.x / 2, L.x / 2 - Δ.x / 2, Nc.x), y = LinRange(-L.y / 2 + Δ.y / 2, L.y / 2 - Δ.y / 2, Nc.y))
+    cents_ext = (x = LinRange(-L.x / 2 - Δ.x / 2, L.x / 2 + Δ.x / 2, Nc.x + 2), y = LinRange(-L.y / 2 - Δ.y / 2, L.y / 2 + Δ.y / 2, Nc.y + 2))
+    size_x = (Nc.x + 1, Nc.y + 2)
+    size_y = (Nc.x + 2, Nc.y + 1)
+    V = (
+        x = @zeros(size_x),
+        y = @zeros(size_y),
+    )
 
-#     # Set velocity field
-#     ε̇bg = -1.0
-#     for i in 1:size(V.x, 1),  j in 1:size(V.x, 2)
-#         V.x[i, j] = verts.x[i] * ε̇bg
-#     end
+    # Set velocity field
+    ε̇bg = -1.0
+    for i in 1:size(V.x, 1),  j in 1:size(V.x, 2)
+        V.x[i, j] = verts.x[i] * ε̇bg
+    end
 
-#     for i in 1:size(V.y, 1),  j in 1:size(V.y, 2)
-#         V.y[i, j] = -verts.y[j] * ε̇bg
-#     end
+    for i in 1:size(V.y, 1),  j in 1:size(V.y, 2)
+        V.y[i, j] = -verts.y[j] * ε̇bg
+    end
 
-#     grid_vx = (verts.x, cents_ext.y)
-#     grid_vy = (cents_ext.x, verts.y)
+    grid_vx = (verts.x, cents_ext.y)
+    grid_vy = (cents_ext.x, verts.y)
 
-#     # Initialize particles -------------------------------
-#     nxcell, max_xcell, min_xcell = 60, 80, 50
-#     particles = init_particles(
-#         backend,
-#         nxcell,
-#         max_xcell,
-#         min_xcell,
-#         (grid_vx, grid_vy)...,
-#     ) # random position by default
+    # Initialize particles -------------------------------
+    nxcell, max_xcell, min_xcell = 60, 80, 50
+    particles = init_particles(
+        backend,
+        nxcell,
+        max_xcell,
+        min_xcell,
+        (grid_vx, grid_vy)...,
+    ) # random position by default
 
-#     # Initialise phase field
-#     particle_args = phases, = init_cell_arrays(particles, Val(1))  # cool
+    # Initialise phase field
+    particle_args = phases, = init_cell_arrays(particles, Val(1))  # cool
 
-#     @parallel InitialFieldsParticles!(phases, particles.coords..., particles.index)
+    @parallel InitialFieldsParticles!(phases, particles.coords..., particles.index)
 
-#     phase_ratios = JustPIC._2D.PhaseRatios(backend, 2, values(Nc))
-#     update_phase_ratios!(phase_ratios, particles, phases)
+    phase_ratios = JustPIC._2D.PhaseRatios(backend, 2, values(Nc))
+    update_phase_ratios!(phase_ratios, particles, phases)
 
-#     @test all(extrema(sum(phase_ratios.vertex.data, dims = 2)) .≈ 1)
-#     @test all(extrema(sum(phase_ratios.center.data, dims = 2)) .≈ 1)
-#     @test all(extrema(sum(phase_ratios.Vx.data, dims = 2)) .≈ 1)
-#     @test all(extrema(sum(phase_ratios.Vy.data, dims = 2)) .≈ 1)
+    @test all(extrema(sum(phase_ratios.vertex.data, dims = 2)) .≈ 1)
+    @test all(extrema(sum(phase_ratios.center.data, dims = 2)) .≈ 1)
+    @test all(extrema(sum(phase_ratios.Vx.data, dims = 2)) .≈ 1)
+    @test all(extrema(sum(phase_ratios.Vy.data, dims = 2)) .≈ 1)
 
-#     # Time step
-#     t = 0.0e0
-#     Δt = C * min(Δ...) / max(maximum(abs.(V.x)), maximum(abs.(V.y)))
+    # Time step
+    t = 0.0e0
+    Δt = C * min(Δ...) / max(maximum(abs.(V.x)), maximum(abs.(V.y)))
 
-#     # Create necessary tuples
+    # Create necessary tuples
 
-#     Vxc = 0.5 * (V.x[1:(end - 1), 2:(end - 1)] .+ V.x[2:(end - 0), 2:(end - 1)])
-#     Vyc = 0.5 * (V.y[2:(end - 1), 1:(end - 1)] .+ V.y[2:(end - 1), 2:(end - 0)])
+    Vxc = 0.5 * (V.x[1:(end - 1), 2:(end - 1)] .+ V.x[2:(end - 0), 2:(end - 1)])
+    Vyc = 0.5 * (V.y[2:(end - 1), 1:(end - 1)] .+ V.y[2:(end - 1), 2:(end - 0)])
 
-#     for it in 1:Nt
-#         @show it
-#         advection!(particles, RungeKutta2(), values(V), Δt)
-#         move_particles!(particles, particle_args)
-#         inject_particles_phase!(particles, phases, (), ())
-#         update_phase_ratios!(phase_ratios, particles, phases)
-#     end
+    for it in 1:Nt
+        @show it
+        advection!(particles, RungeKutta2(), values(V), Δt)
+        move_particles!(particles, particle_args)
+        inject_particles_phase!(particles, phases, (), ())
+        update_phase_ratios!(phase_ratios, particles, phases)
+    end
 
-#     @test all(extrema(sum(phase_ratios.vertex.data, dims = 2)) .≈ 1)
-#     @test all(extrema(sum(phase_ratios.center.data, dims = 2)) .≈ 1)
-#     @test all(extrema(sum(phase_ratios.Vx.data, dims = 2)) .≈ 1)
-#     @test all(extrema(sum(phase_ratios.Vy.data, dims = 2)) .≈ 1)
-# end
+    @test all(extrema(sum(phase_ratios.vertex.data, dims = 2)) .≈ 1)
+    @test all(extrema(sum(phase_ratios.center.data, dims = 2)) .≈ 1)
+    @test all(extrema(sum(phase_ratios.Vx.data, dims = 2)) .≈ 1)
+    @test all(extrema(sum(phase_ratios.Vy.data, dims = 2)) .≈ 1)
+end
 
 function advection_test_2D()
     # Initialize particles -------------------------------
