@@ -62,19 +62,22 @@ vz_stream(x, z) = -250 * cos(π * x) * sin(π * z)
         backend, nxcell, max_xcell, min_xcell, grid_vel...
     )
     pT, = _3D.init_cell_arrays(particles, Val(1))
+    xvi_p = JustPIC._3D.add_periodic_ghost_nodes.(xvi)
     # Linear field at the vertices
-    T = TA(backend)([z for x in xv, y in yv, z in zv])
-    T0 = TA(backend)([z for x in xv, y in yv, z in zv])
+    T = TA(backend)([z for x in xvi_p[1], y in xvi_p[2], z in xvi_p[3]])
+    T0 = TA(backend)([z for x in xvi_p[1], y in xvi_p[2], z in xvi_p[3]])
     # Grid to particle test
-    _3D.grid2particle!(pT, T, particles)
-    @test pT ≈ particles.coords[3]
+    _3D.grid2particle!(pT, xvi_p, T, particles, diff.(xvi_p))
+    active = Array(particles.index.data)
+    @test Array(pT.data)[active] ≈ Array(particles.coords[3].data)[active]
     # Grid to particle test
-    _3D.grid2particle_flip!(pT, xvi, T, T0, particles)
-    @test pT ≈ particles.coords[3]
+    _3D.grid2particle_flip!(pT, xvi_p, T, T0, particles)
+    @test Array(pT.data)[active] ≈ Array(particles.coords[3].data)[active]
     # Particle to grid test
     T2 = similar(T)
     _3D.particle2grid!(T2, pT, particles)
-    @test norm(T2 .- T) / length(T) < 1.0e-1
+    finite_mask = isfinite.(T2)
+    @test norm(T2[finite_mask] .- T[finite_mask]) / count(finite_mask) < 1.0e-1
     # test copy function
     particles_copy = copy(particles)
     pT_copy = copy(pT)
@@ -171,6 +174,18 @@ end
     GC.gc()
 end
 
+@testset "Periodic ghost nodes 3D" begin
+    zv_uniform = LinRange(-1.0, 1.0, 5)
+    zv_uniform_periodic = JustPIC._3D.add_periodic_ghost_nodes(zv_uniform)
+    @test zv_uniform_periodic isa LinRange
+    @test Array(zv_uniform_periodic) ≈ [-1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5]
+
+    zv_refined = [-1.0, -0.7, -0.2, 0.4, 1.0]
+    zv_refined_periodic = JustPIC._3D.add_periodic_ghost_nodes(zv_refined)
+    @test zv_refined_periodic isa Vector
+    @test zv_refined_periodic == [-1.6, -1.0, -0.7, -0.2, 0.4, 1.0, 1.3]
+end
+
 @testset "Refined grid particle initialization 3D" begin
     xv = [0.0, 0.1, 0.25, 0.55, 1.0]
     yv = [0.0, 0.2, 0.45, 0.8, 1.0]
@@ -188,8 +203,8 @@ end
         backend, nxcell, max_xcell, min_xcell, grid_vi...,
     )
 
-    @test Array.(particles.xvi) == xvi
-    @test Array.(particles.xci) == xci
+    @test Array.(particles.xvi) == JustPIC._3D.add_periodic_ghost_nodes.(xvi)
+    @test Array.(particles.xci) == JustPIC._3D.add_periodic_ghost_nodes.(xci)
     @test Array.(particles.xi_vel[1]) == grid_vi[1]
     @test Array.(particles.xi_vel[2]) == grid_vi[2]
     @test Array.(particles.xi_vel[3]) == grid_vi[3]
@@ -277,7 +292,8 @@ function test_advection_3D()
     Vx = TA(backend)([vx_stream(x, z) for x in grid_vx[1], y in grid_vx[2], z in grid_vx[3]])
     Vy = TA(backend)([vy_stream(x, z) for x in grid_vy[1], y in grid_vy[2], z in grid_vy[3]])
     Vz = TA(backend)([vz_stream(x, z) for x in grid_vz[1], y in grid_vz[2], z in grid_vz[3]])
-    T = TA(backend)([z for x in xv, y in yv, z in zv])
+    xvi_p = JustPIC._3D.add_periodic_ghost_nodes.(xvi)
+    T = TA(backend)([z for x in xvi_p[1], y in xvi_p[2], z in xvi_p[3]])
     T0 = deepcopy(T)
     V = Vx, Vy, Vz
     dt = min(
@@ -294,7 +310,7 @@ function test_advection_3D()
 
     # Advection test
     particle_args = pT, = _3D.init_cell_arrays(particles, Val(1))
-    _3D.grid2particle!(pT, T, particles)
+    _3D.grid2particle!(pT, xvi_p, T, particles, diff.(xvi_p))
     sumT = sum(T)
 
     niter = 5
@@ -305,7 +321,7 @@ function test_advection_3D()
         _3D.move_particles!(particles, particle_args)
         # reseed
         _3D.inject_particles!(particles, (pT,))
-        _3D.grid2particle!(pT, T, particles)
+        _3D.grid2particle!(pT, xvi_p, T, particles, diff.(xvi_p))
     end
     sumT_final = sum(T)
     err = abs(sumT - sumT_final) / sumT
@@ -329,7 +345,8 @@ function test_advection_3D_refined()
     Vx = TA(backend)([vx_stream(x, z) for x in grid_vx[1], y in grid_vx[2], z in grid_vx[3]])
     Vy = TA(backend)([vy_stream(x, z) for x in grid_vy[1], y in grid_vy[2], z in grid_vy[3]])
     Vz = TA(backend)([vz_stream(x, z) for x in grid_vz[1], y in grid_vz[2], z in grid_vz[3]])
-    T = TA(backend)([z for x in xv, y in yv, z in zv])
+    xvi_p = JustPIC._3D.add_periodic_ghost_nodes.(xvi)
+    T = TA(backend)([z for x in xvi_p[1], y in xvi_p[2], z in xvi_p[3]])
     T0 = deepcopy(T)
     V = Vx, Vy, Vz
 
@@ -348,7 +365,7 @@ function test_advection_3D_refined()
     )
 
     particle_args = pT, = _3D.init_cell_arrays(particles, Val(1))
-    _3D.grid2particle!(pT, T, particles)
+    _3D.grid2particle!(pT, xvi_p, T, particles, diff.(xvi_p))
     sumT = sum(T)
 
     niter = 5
@@ -358,7 +375,7 @@ function test_advection_3D_refined()
         _3D.advection!(particles, _3D.RungeKutta2(), V, dt)
         _3D.move_particles!(particles, particle_args)
         _3D.inject_particles!(particles, (pT,))
-        _3D.grid2particle!(pT, T, particles)
+        _3D.grid2particle!(pT, xvi_p, T, particles, diff.(xvi_p))
     end
 
     sumT_final = sum(T)

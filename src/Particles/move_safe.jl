@@ -1,5 +1,6 @@
 """
-    move_particles!(particles::AbstractParticles, args)
+    move_particles!(particles::AbstractParticles, args; periodic_1=false, periodic_2=false, periodic_3=false)
+    move_particles!(particles::AbstractParticles, grid, args, dxi; periodic_1=false, periodic_2=false, periodic_3=false)
 
 Reassign particles to the correct parent cells after their coordinates have been
 updated.
@@ -12,9 +13,15 @@ layout.
 - `particles`: particle container whose coordinates have already been modified.
 - `args`: tuple of per-particle fields that must move together with the particle
   coordinates.
+- `grid`: optional vertex grid coordinates used by the lower-level method.
+- `dxi`: optional grid spacing used by the lower-level method.
+- `periodic_1`, `periodic_2`, `periodic_3`: enable periodic wrapping in the
+  corresponding coordinate direction.
 
 # Notes
-- Particles that leave the domain are discarded.
+- Particles that leave a non-periodic direction are discarded.
+- Periodic directions use the ghost cells created by `add_periodic_ghost_nodes`
+  to wrap coordinates and particle fields across opposite domain boundaries.
 - `args` must use the same cell layout as `particles.coords`.
 - The public entry point uses the vertex grid and spacing stored in `particles`.
 """

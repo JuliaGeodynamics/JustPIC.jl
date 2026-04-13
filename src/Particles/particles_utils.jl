@@ -9,6 +9,10 @@ If `nxcell` is a number, particles are distributed randomly within cell
 quadrants. If it is an `NTuple`, it is interpreted as the number of particles to
 place regularly along each coordinate direction within every cell.
 
+The particle vertex and center grids stored in the returned container are
+extended with periodic ghost nodes. The staggered velocity grids are stored as
+provided.
+
 # Arguments
 - `backend`: backend type such as `CPUBackend`.
 - `nxcell`: either the target number of particles per cell, or an `NTuple`
@@ -19,7 +23,8 @@ place regularly along each coordinate direction within every cell.
 
 # Returns
 - A `Particles` object whose coordinates and occupancy arrays are ready for
-  advection/interpolation routines.
+  advection/interpolation routines, with `particles.xvi` and `particles.xci`
+  including one periodic ghost node on each side.
 
 # Example
 ```julia

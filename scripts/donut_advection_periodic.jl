@@ -67,7 +67,7 @@ function main()
     frame_stride = 10
     t_end = 5.0
     framerate = 30
-    animation_file = "donut_advection_periodic_dt_$(dt).mp4"
+    animation_file = "donut_advection_periodic_dt_$(dt).gif"
 
     t = 0.0
     it = 0

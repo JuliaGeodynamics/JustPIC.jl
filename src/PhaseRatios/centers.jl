@@ -1,7 +1,7 @@
 ## Kernels to compute phase ratios at the centers
 
 function phase_ratios_center!(phase_ratios::JustPIC.PhaseRatios, particles, phases)
-    ni = size(phase_ratios.center)
+    ni = inner_size(phase_ratios.center)
 
     @parallel (@idx ni) phase_ratios_center_kernel!(
         phase_ratios.center, particles.coords, particles.xci, particles.di.vertex, phases
