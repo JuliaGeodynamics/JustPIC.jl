@@ -27,7 +27,7 @@ function particle2grid!(F, Fp, particles; ghost_1 = true, ghost_2 = true, ghost_
     # mask shift in case `F` has ghost nodes only in some dimensions, or non at all
     mask = inner_mask(particles, ghost_1, ghost_2, ghost_3)
 
-    @parallel (@idx inner_size(F)) particle2grid!(F, Fp, xvi, coords, index, mask)
+    @parallel (inner_ranges(Fp)) particle2grid!(F, Fp, xvi, coords, index, mask)
     return nothing
 end
 
@@ -62,8 +62,6 @@ function _particle2grid!(F, Fp, inode, jnode, xi::NTuple{2, T}, p, index, mask) 
 
                 p_i = @index(px[ip, ivertex, jvertex]), @index(py[ip, ivertex, jvertex])
                 ω_i = distance_weight(xvertex, p_i; order = 2)
-                # @show ω_i
-                # error()
 
                 # ω_i = bilinear_weight(xvertex, p_i, di)
                 ω += ω_i
@@ -71,7 +69,8 @@ function _particle2grid!(F, Fp, inode, jnode, xi::NTuple{2, T}, p, index, mask) 
             end
         end
     end
-     F[(inode, jnode).+mask...] = ωxF / ω
+
+    F[(inode, jnode) .+ mask...] = ωxF / ω
     return nothing
 end
 

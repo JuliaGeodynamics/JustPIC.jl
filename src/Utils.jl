@@ -97,9 +97,12 @@ function get_particle_coords(p::NTuple{N}, ip) where {N}
 end
 
 @inline inner_size(A::AbstractArray) = size(A) .- 2
+@inline function inner_ranges(A::AbstractArray{T, N}) where {T, N}
+    return ntuple(i -> 1:(size(A, i) - 1), Val(N))
+end
 
 function inner_mask(::Particles{B, N}, ghosts::Vararg{Bool, 3}) where {B, N}
-    return ntuple(i -> !(ghosts[i]) * -1, Val(N))
+    return ntuple(i -> !(ghosts[i]) * - 1, Val(N))
 end
 
 ###############################
