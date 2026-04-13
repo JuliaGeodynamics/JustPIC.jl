@@ -11,12 +11,13 @@ particle2centroid!(F, Fp, particles::Particles) = particle2centroid!(F, Fp, part
 
 function particle2centroid!(F, Fp, xci::NTuple, particles::Particles, di)
     (; coords) = particles
-    @parallel (@idx size(coords[1])) _particle2centroid!(F, Fp, xci, coords, di)
+    @parallel (@idx inner_size(coords[1])) _particle2centroid!(F, Fp, xci, coords, di)
     return nothing
 end
 
 @parallel_indices (I...) function _particle2centroid!(F, Fp, xci, coords, di)
-    _particle2centroid!(F, Fp, I..., xci, coords, @dxi(di, I...))
+    I_inner = I .+ 1
+    _particle2centroid!(F, Fp, I_inner..., xci, coords, @dxi(di, I_inner...))
     return nothing
 end
 

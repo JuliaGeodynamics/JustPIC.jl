@@ -6,7 +6,11 @@ makedocs(;
     sitename = "JustPIC.jl",
     authors = "Albert de Montserrat and contributors",
     modules = [JustPIC, JustPIC._2D, JustPIC._3D],
-    format = Documenter.HTML(; prettyurls = get(ENV, "CI", nothing) == "true"), # easier local build
+    format = Documenter.HTML(;
+        prettyurls = get(ENV, "CI", nothing) == "true",
+        edit_link = nothing,
+    ), # easier local build
+    checkdocs = :none,
     warnonly = Documenter.except(:footnote),
     pages = [
         "Home" => "index.md",
