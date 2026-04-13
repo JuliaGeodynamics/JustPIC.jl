@@ -22,7 +22,7 @@ function inject_particles!(particles::Particles, args, grid::NTuple{N}, di) wher
     # function implementation goes here
     # unpack
     (; coords, index, min_xcell) = particles
-    ni = size(index)
+    ni = inner_size(index)
     n_color = ntuple(i -> ceil(Int, ni[i] * 0.5), Val(N))
 
     # We need a color-coded parallel approach for shared memory devices because

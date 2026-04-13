@@ -1,14 +1,3 @@
-"""
-    add_global_ghost_nodes(x, dx, origin; backend = CPUBackend)
-
-Add ghost coordinates only where the local coordinate vector touches the global
-domain bounds.
-
-`origin` is the global `(min, max)` extent in the same coordinate direction. If
-`x` starts at `origin[1]`, a left ghost node is prepended; if it ends at
-`origin[2]`, a right ghost node is appended. The result is converted with
-`TA(backend)`.
-"""
 function add_global_ghost_nodes(x::AbstractArray, dx, origin; backend = CPUBackend)
     x1, x2 = extrema(x)
     xI = x1 - dx
@@ -18,21 +7,53 @@ function add_global_ghost_nodes(x::AbstractArray, dx, origin; backend = CPUBacke
     return x = TA(backend)(x)
 end
 
-"""
-    add_ghost_nodes(x, dx, origin; backend = CPUBackend)
-
-Return `x` with one ghost coordinate appended on both sides.
-
-The `origin` argument is accepted for API symmetry with
-`add_global_ghost_nodes` but is not used by this method. The result is converted
-with `TA(backend)`.
-"""
 function add_ghost_nodes(x::AbstractArray, dx, origin; backend = CPUBackend)
     x1, x2 = extrema(x)
     xI = x1 - dx
     xF = x2 + dx
     # LinRange(xI, xF, length(x)+2)
     return x = TA(backend)(vcat(xI, Array(x), xF))
+end
+
+"""
+    add_periodic_ghost_nodes(x::AbstractVector)
+
+Extend a 1D periodic grid with one ghost node on each side.
+
+The added coordinates preserve the spacing of the last and first physical cells,
+respectively, which makes this helper work for both uniform and refined grids.
+
+# Example
+```julia
+xv = [0.0, 0.25, 0.5, 0.75, 1.0]
+xv_periodic = add_periodic_ghost_nodes(xv)
+```
+"""
+function add_periodic_ghost_nodes(x::AbstractVector)
+    length(x) ≥ 2 || throw(ArgumentError("At least two grid nodes are required"))
+
+    x_array = Array(x)
+    dx_left = x_array[2] - x_array[1]
+    dx_right = x_array[end] - x_array[end - 1]
+    xI = x_array[1] - dx_right
+    xF = x_array[end] + dx_left
+
+    return vcat(xI, x_array, xF)
+end
+
+function add_periodic_ghost_nodes(x::AbstractRange)
+    length(x) ≥ 2 || throw(ArgumentError("At least two grid nodes are required"))
+
+    @inline f(x::LinRange, xI, xF) = LinRange(xI, xF, length(x) + 2)
+    @inline f(x::StepRangeLen, xI, xF) = range(xI, xF, length = length(x) + 2)
+    @inline f(x::StepRange, xI, xF) = xI:(x.step):xF
+
+    dx_left = x[2] - x[1]
+    dx_right = x[end] - x[end - 1]
+    xI = x[1] - dx_right
+    xF = x[end] + dx_left
+
+    return f(x, xI, xF)
 end
 
 """
@@ -73,6 +94,12 @@ function get_particle_coords(p::NTuple{N}, ip) where {N}
         Base.@_inline_meta
         @inbounds p[i][ip]
     end
+end
+
+@inline inner_size(A::AbstractArray) = size(A) .- 2
+
+function inner_mask(::Particles{B, N}, ghosts::Vararg{Bool, 3}) where {B, N}
+    return ntuple(i -> !(ghosts[i]) * -1, Val(N))
 end
 
 ###############################
