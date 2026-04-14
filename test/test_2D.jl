@@ -314,8 +314,8 @@ end
     n_circle = 16 # number of particles in the circular cluster
     θ = LinRange(0, 2π * (1 - 1 / n_circle), n_circle)
     x_circle = 0.25 .+ 0.12 .* cos.(θ)
-    y_circle = 0.50 .+ 0.12 .* sin.(θ)
-    x_shift = 0.30
+    y_circle = 0.5 .+ 0.12 .* sin.(θ)
+    x_shift = 0.3
 
 
     particles, pPhases = setup_circle_particles(particles, pPhases, n_circle, x_circle, y_circle, x_shift)
@@ -328,7 +328,7 @@ end
     for c in 1:nslots
         ix = (c - 1) % nx_plot + 1
         iy = (c - 1) ÷ nx_plot + 1
-        x = 0.05 + 0.40 * ix / (nx_plot + 1)
+        x = 0.05 + 0.4 * ix / (nx_plot + 1)
         y = iy / (ny_plot + 1)
         p_new[1, 1, c] = ForceInjectionPoint2D((x, y), true)
     end
