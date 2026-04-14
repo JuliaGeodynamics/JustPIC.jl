@@ -297,10 +297,10 @@ end
     n = 3 # number of vertices
     Lx = Ly = 1.0 # domain size
 
-    # nodel vertices
+    # nodal vertices
     xvi = xv, yv = LinRange(0, Lx, n), LinRange(0, Ly, n)
     dxi = dx, dy = xv[2] - xv[1], yv[2] - yv[1]
-    # nodel centers
+    # nodal centers
     xci = xc, yc = LinRange(0 + dx / 2, Lx - dx / 2, n - 1), LinRange(0 + dy / 2, Ly - dy / 2, n - 1)
     # staggered grid velocity nodal locations
     grid_vx = xv, expand_range(yc)
@@ -327,9 +327,9 @@ end
     ny_plot = ceil(Int, nslots / nx_plot)
     for c in 1:nslots
         ix = (c - 1) % nx_plot + 1
-        iy = (c - 1) ÷ nx_plot + 1
+        j = (c - 1) ÷ nx_plot + 1
         x = 0.05 + 0.4 * ix / (nx_plot + 1)
-        y = iy / (ny_plot + 1)
+        y = j / (ny_plot + 1)
         p_new[1, 1, c] = ForceInjectionPoint2D((x, y), true)
     end
 
