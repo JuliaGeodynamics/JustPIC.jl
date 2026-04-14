@@ -51,6 +51,30 @@ vy_stream(x, y) = -250 * cos(π * x) * sin(π * y)
 # Analytical flow solution
 vi_stream(x) = π * 1.0e-5 * (x - 0.5)
 
+function setup_circle_particles(particles, pPhases, n_circle, x_circle, y_circle, x_shift)
+    for ip in 1:n_circle
+        particles.coords[1].data[1, ip, 1] = x_circle[ip]
+        particles.coords[2].data[1, ip, 1] = y_circle[ip]
+        particles.index.data[1, ip, 1] = true
+        pPhases.data[1, ip, 1] = 1.0
+    end
+
+    # Move the circular cluster to the right before reinjection.
+    for ip in 1:n_circle
+        particles.coords[1].data[1, ip, 1] += x_shift
+    end
+
+    return particles, pPhases
+end
+struct ForceInjectionPoint2D{T}
+    coords::NTuple{2, T}
+    active::Bool
+end
+
+
+Base.isnan(p::ForceInjectionPoint2D) = !p.active
+Base.getindex(p::ForceInjectionPoint2D, i::Int) = p.coords[i]
+
 @testset "Subgrid diffusion 2D" begin
     nxcell, max_xcell, min_xcell = 12, 12, 1
     n = 5 # number of vertices
@@ -264,6 +288,85 @@ end
 
     @test y_marker ≈ T_marker
     @test x_marker ≈ P_marker
+end
+
+
+@testset "Forced injection 2D" begin
+    nxcell, max_xcell, min_xcell = 0, 40, 5
+
+    n = 3 # number of vertices
+    Lx = Ly = 1.0 # domain size
+
+    # nodel vertices
+    xvi = xv, yv = LinRange(0, Lx, n), LinRange(0, Ly, n)
+    dxi = dx, dy = xv[2] - xv[1], yv[2] - yv[1]
+    # nodel centers
+    xci = xc, yc = LinRange(0 + dx / 2, Lx - dx / 2, n - 1), LinRange(0 + dy / 2, Ly - dy / 2, n - 1)
+    # staggered grid velocity nodal locations
+    grid_vx = xv, expand_range(yc)
+    grid_vy = expand_range(xc), yv
+    grid_vel = grid_vx, grid_vy
+
+    # Initialize particles & particle fields
+    particles = _2D.init_particles(backend, nxcell, max_xcell, min_xcell, grid_vel...)
+    pPhases, = _2D.init_cell_arrays(particles, Val(1))
+
+    n_circle = 16 # number of particles in the circular cluster
+    θ = LinRange(0, 2π * (1 - 1 / n_circle), n_circle)
+    x_circle = 0.25 .+ 0.12 .* cos.(θ)
+    y_circle = 0.50 .+ 0.12 .* sin.(θ)
+    x_shift = 0.30
+
+
+    particles, pPhases = setup_circle_particles(particles, pPhases, n_circle, x_circle, y_circle, x_shift)
+    ni = size(particles.index)
+    nslots = cellnum(particles.index)
+    p_invalid = ForceInjectionPoint2D((0.0, 0.0), false)
+    p_new = TA(backend)(fill(p_invalid, ni..., nslots))
+    nx_plot = 8
+    ny_plot = ceil(Int, nslots / nx_plot)
+    for c in 1:nslots
+        ix = (c - 1) % nx_plot + 1
+        iy = (c - 1) ÷ nx_plot + 1
+        x = 0.05 + 0.40 * ix / (nx_plot + 1)
+        y = iy / (ny_plot + 1)
+        p_new[1, 1, c] = ForceInjectionPoint2D((x, y), true)
+    end
+
+    index_before = vec(Array(particles.index.data))
+    _2D.force_injection!(particles, p_new, (pPhases,), (3.0,))
+
+    index_after = vec(Array(particles.index.data))
+    x_data = vec(Array(particles.coords[1].data))
+    y_data = vec(Array(particles.coords[2].data))
+    phase_data = vec(Array(pPhases.data))
+
+    active_mask = index_after .== true
+    injected_mask = (.!index_before) .& active_mask
+    existing_mask = index_before .& active_mask
+
+    @test count(index_before) == n_circle
+    @test count(active_mask) == nslots
+    @test count(injected_mask) == nslots - n_circle
+    @test count(existing_mask) == n_circle
+
+    @test x_data[1:n_circle] ≈ x_circle .+ x_shift
+    @test y_data[1:n_circle] ≈ y_circle
+    @test all(phase_data[injected_mask] .== 3.0)
+    @test all(phase_data[existing_mask] .== 1.0)
+
+    particles_no_fields = _2D.init_particles(backend, nxcell, max_xcell, min_xcell, grid_vel...)
+    _2D.force_injection!(particles_no_fields, p_new)
+    @test count(vec(Array(particles_no_fields.index.data))) == nslots
+
+    particles_skip = _2D.init_particles(backend, nxcell, max_xcell, min_xcell, grid_vel...)
+    pPhases_skip, = _2D.init_cell_arrays(particles_skip, Val(1))
+    particles_skip, pPhases_skip = setup_circle_particles(
+        particles_skip, pPhases_skip, n_circle, x_circle, y_circle, x_shift,
+    )
+    p_empty = TA(backend)(fill(p_invalid, ni..., nslots))
+    _2D.force_injection!(particles_skip, p_empty)
+    @test count(vec(Array(particles_skip.index.data))) == n_circle
 end
 
 @testset "Pure shear 2D" begin
