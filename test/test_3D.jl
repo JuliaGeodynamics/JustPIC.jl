@@ -285,7 +285,7 @@ end
     pphase, = _3D.init_cell_arrays(particles, Val(1))
 
     ni = size(particles.index)
-    nslots = cellnum(particles.index)
+    nslots = _3D.cellnum(particles.index)
     p_invalid = ForceInjectionPoint3D((0.0, 0.0, 0.0), false)
     p_new = TA(backend)(fill(p_invalid, ni..., nslots))
     for i in 1:ni[1], j in 1:ni[2], k in 1:ni[3], c in 1:nslots
