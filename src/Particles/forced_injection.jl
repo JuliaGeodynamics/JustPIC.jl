@@ -53,3 +53,29 @@ force_injection!(particles::Particles{Backend}, p_new) where {Backend} = force_i
 
     return nothing
 end
+
+@parallel_indices (I...) function force_injection!(coords::NTuple{3}, index, p_new, fields::NTuple{N, Any}, values::NTuple{N, Any}) where {N}
+
+    # check whether there are new particles to inject in the ij-th cell
+    if !isnan(p_new[I..., begin])
+        c = 0 # helper counter
+        # iterate over particles in the cell
+        for ip in cellaxes(index)
+            c += 1
+            c > cellnum(index)  && continue
+            doskip(index, ip, I...) || continue
+            pᵢ = p_new[I..., c]
+            @index coords[1][ip, I...] = pᵢ[1]
+            @index coords[2][ip, I...] = pᵢ[2]
+            @index coords[3][ip, I...] = pᵢ[3]
+            @index index[ip, I...] = true
+
+            # force fields to have a given value
+            for (value, field) in zip(values, fields)
+                @index field[ip, I...] = value
+            end
+        end
+    end
+
+    return nothing
+end

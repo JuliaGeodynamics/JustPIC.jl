@@ -39,6 +39,13 @@ vx_stream(x, z) = 250 * sin(π * x) * cos(π * z)
 vy_stream(x, z) = 0.0
 vz_stream(x, z) = -250 * cos(π * x) * sin(π * z)
 
+struct ForceInjectionPoint3D{T}
+    coords::NTuple{3, T}
+    active::Bool
+end
+
+Base.isnan(p::ForceInjectionPoint3D) = !p.active
+Base.getindex(p::ForceInjectionPoint3D, i::Int) = p.coords[i]
 @testset "Interpolations 3D" begin
     nxcell, max_xcell, min_xcell = 16, 16, 1
     n = 5 # number of vertices
@@ -251,6 +258,63 @@ end
     @test x_marker ≈ P_marker
     @test z_marker ≈ T_marker
     GC.gc()
+end
+
+
+@testset "Forced injection 3D" begin
+    nxcell, max_xcell, min_xcell = 0, 4, 0
+
+    n = 3
+    nx = ny = nz = n - 1
+    ni = nx, ny, nz
+    Lx = Ly = Lz = 1.0
+    Li = Lx, Ly, Lz
+    # nodal vertices
+    xvi = xv, yv, zv = ntuple(i -> LinRange(0, Li[i], n), Val(3))
+    # grid spacing
+    dxi = dx, dy, dz = ntuple(i -> xvi[i][2] - xvi[i][1], Val(3))
+    # nodal centers
+    xci = xc, yc, zc = ntuple(i -> LinRange(0 + dxi[i] / 2, Li[i] - dxi[i] / 2, ni[i]), Val(3))
+    # staggered grid velocity nodal locations
+    grid_vx = xv, expand_range(yc), expand_range(zc)
+    grid_vy = expand_range(xc), yv, expand_range(zc)
+    grid_vz = expand_range(xc), expand_range(yc), zv
+    grid_vel = grid_vx, grid_vy, grid_vz
+
+    particles = _3D.init_particles(backend, nxcell, max_xcell, min_xcell, grid_vel...)
+    pphase, = _3D.init_cell_arrays(particles, Val(1))
+
+    ni = size(particles.index)
+    nslots = _3D.cellnum(particles.index)
+    p_invalid = ForceInjectionPoint3D((0.0, 0.0, 0.0), false)
+    p_new = TA(backend)(fill(p_invalid, ni..., nslots))
+    for i in 1:ni[1], j in 1:ni[2], k in 1:ni[3], c in 1:nslots
+        p_new[i, j, k, c] = ForceInjectionPoint3D((0.1 * c + 0.01 * i, 0.1 * c + 0.01 * j, 0.1 * c + 0.01 * k), true)
+    end
+
+    _3D.force_injection!(particles, p_new, (pphase,), (5.0,))
+
+    x_data = vec(Array(particles.coords[1].data))
+    y_data = vec(Array(particles.coords[2].data))
+    z_data = vec(Array(particles.coords[3].data))
+    x_expected = vec([p_new[i, j, k, c][1] for i in 1:ni[1], j in 1:ni[2], k in 1:ni[3], c in 1:nslots])
+    y_expected = vec([p_new[i, j, k, c][2] for i in 1:ni[1], j in 1:ni[2], k in 1:ni[3], c in 1:nslots])
+    z_expected = vec([p_new[i, j, k, c][3] for i in 1:ni[1], j in 1:ni[2], k in 1:ni[3], c in 1:nslots])
+
+    @test all(Array(particles.index.data))
+    @test all(Array(pphase.data) .== 5.0)
+    @test sort(x_data) ≈ sort(x_expected)
+    @test sort(y_data) ≈ sort(y_expected)
+    @test sort(z_data) ≈ sort(z_expected)
+
+    particles_no_fields = _3D.init_particles(backend, nxcell, max_xcell, min_xcell, grid_vel...)
+    _3D.force_injection!(particles_no_fields, p_new)
+    @test all(Array(particles_no_fields.index.data))
+
+    particles_skip = _3D.init_particles(backend, nxcell, max_xcell, min_xcell, grid_vel...)
+    p_empty = TA(backend)(fill(p_invalid, ni..., nslots))
+    _3D.force_injection!(particles_skip, p_empty)
+    @test !any(Array(particles_skip.index.data))
 end
 
 function test_advection_3D()
