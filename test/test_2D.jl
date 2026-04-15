@@ -350,8 +350,15 @@ end
     @test count(injected_mask) == nslots - n_circle
     @test count(existing_mask) == n_circle
 
-    @test x_data[1:n_circle] ≈ x_circle .+ x_shift
-    @test y_data[1:n_circle] ≈ y_circle
+    x_existing = x_data[existing_mask]
+    y_existing = y_data[existing_mask]
+    expected_x = x_circle .+ x_shift
+    expected_y = y_circle
+    p_existing = sortperm(eachindex(x_existing); by = i -> (x_existing[i], y_existing[i]))
+    p_expected = sortperm(eachindex(expected_x); by = i -> (expected_x[i], expected_y[i]))
+
+    @test x_existing[p_existing] ≈ expected_x[p_expected]
+    @test y_existing[p_existing] ≈ expected_y[p_expected]
     @test all(phase_data[injected_mask] .== 3.0)
     @test all(phase_data[existing_mask] .== 1.0)
 
