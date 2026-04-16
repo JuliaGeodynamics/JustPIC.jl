@@ -1,8 +1,12 @@
 # Working with CellArrays
 
-## Instantiating a `CellArray` 
+`CellArray`s are the storage primitive behind JustPIC particle containers. They represent a grid where every logical grid cell stores a small fixed-size payload, for example the particle slots belonging to that cell.
 
-With the help of `ParallelStencil.jl` we can easily create a `CellArray` object. The `CellArray` object is a container that holds the data of a grid. The data is stored in small nD-arrays, and the grid is divided into cells. Each cell contains a number of elements. The `CellArray` object is used to store the data of the particles in the simulation.
+## Instantiating a `CellArray`
+
+With `ParallelStencil.jl`, `CellArray`s can be created with the familiar
+allocation macros. The `celldims` keyword controls the payload size inside each
+grid cell.
 
 ```julia
 using JustPIC, JustPIC._2D
@@ -28,7 +32,8 @@ julia> CA = @fill(x, ni..., celldims = ncells, eltype = Float64)
 
 ## Indexing a `CellArray`
 
-We can access to the data of one `CellArray` by indexing a given grid cell. This will however instantiate a `StaticArray` object with the data of the cell. 
+Indexing by grid cell returns the whole payload stored in that cell. This is
+convenient for inspection, but it materializes a `StaticArray` value:
 
 ```julia-repl 
 julia> CA[1,1]
@@ -37,7 +42,8 @@ julia> CA[1,1]
  20.0
 ```
 
-It is however useful to read and mutate the data of the `CellArray` object directly, without instantiating a `StaticArray`. For this purpose, `JustPIC` exports the macro `@index` to directly read and mutate the individual elements of the cell. 
+Performance-sensitive kernels usually read or mutate individual payload entries
+directly. For this purpose, JustPIC exports `@index`.
 
 For example, to read a single element of `CA`:
 
@@ -46,7 +52,8 @@ julia> @index CA[2, 1, 1]
 20.0
 ```
 
-where, in this case, the first index corresponds to the 2nd element of the data within $cell_{11}$ cell. We can mutate the `CellArray` in a similar way:
+Here the first index selects the payload entry and the remaining indices select
+the grid cell. Mutation uses the same syntax:
 
 ```julia-repl
 julia> @index CA[2, 1, 1] = 0.0
@@ -58,7 +65,7 @@ julia> CA
  [20.0, 20.0]  [20.0, 20.0]
 ```
 
-`JustPIC` also provides the macro `@cell` operatig at the cell level:
+`@cell` is the companion macro for reading or writing an entire cell payload:
 
 ```julia-repl 
 julia> @cell CA[1,1]
@@ -79,3 +86,13 @@ julia> @cell CA[1,1] = @cell(CA[1,1]) .+ 1
  [20.0, 20.0]  [20.0, 20.0]
 ```
 
+## Helper Functions
+
+The most common low-level helpers are:
+
+- `cellnum(A)`: number of payload entries stored in each logical cell.
+- `cellaxes(A)`: one-based axes for iterating over payload entries.
+- `cell_array(x, ncells, ni)`: allocate a cell array filled with `x`.
+
+Most users interact with these indirectly through `init_particles`,
+`init_cell_arrays`, and the interpolation/advection kernels.

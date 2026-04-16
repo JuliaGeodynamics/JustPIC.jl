@@ -1,4 +1,13 @@
-# Two-step Runge-Kutta advection scheme for marker chains
+"""
+    advection!(markers::PassiveMarkers, method, V, grid_vxi, dt)
+
+Advect passive markers through the staggered velocity field `V` over one time
+step `dt`.
+
+Unlike `advection!(particles::Particles, ...)`, this method only updates marker
+coordinates and does not perform any cell-based particle resorting because
+`PassiveMarkers` are stored as flat coordinate arrays.
+"""
 function advection!(
         particles::PassiveMarkers, method::AbstractAdvectionIntegrator, V, grid_vxi, dt
     )

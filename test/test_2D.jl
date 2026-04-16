@@ -160,6 +160,23 @@ end
     @test y[j] ≤ py < y[j + 1]
 end
 
+@testset "Periodic ghost nodes 2D" begin
+    xv_uniform = LinRange(0.0, 1.0, 5)
+    xv_uniform_periodic = JustPIC._2D.add_periodic_ghost_nodes(xv_uniform)
+    @test xv_uniform_periodic isa LinRange
+    @test Array(xv_uniform_periodic) ≈ [-0.25, 0.0, 0.25, 0.5, 0.75, 1.0, 1.25]
+
+    xv_refined = [0.0, 0.1, 0.3, 0.6, 1.0]
+    xv_refined_periodic = JustPIC._2D.add_periodic_ghost_nodes(xv_refined)
+    @test xv_refined_periodic isa Vector
+    @test xv_refined_periodic == [-0.4, 0.0, 0.1, 0.3, 0.6, 1.0, 1.1]
+
+    @test JustPIC._2D.wrap_index((true, false), (6, 7), (1, 3)) == (5, 3)
+    @test JustPIC._2D.wrap_index((true, false), (6, 7), (6, 3)) == (1, 3)
+    @test JustPIC._2D.wrap_index((false, true), (6, 7), (2, 1)) == (2, 6)
+    @test JustPIC._2D.wrap_index((false, true), (6, 7), (2, 7)) == (2, 1)
+end
+
 @testset "Refined grid advection helpers 2D" begin
     xv = TA(backend)([0.0, 0.1, 0.3, 0.6, 1.0])
     yv = TA(backend)(collect(LinRange(0.0, 1.0, 5)))
@@ -236,8 +253,8 @@ end
         backend, nxcell, max_xcell, min_xcell, grid_vi...,
     )
 
-    @test Array.(particles.xvi) == xvi
-    @test Array.(particles.xci) == xci
+    @test Array.(particles.xvi) == JustPIC._2D.add_periodic_ghost_nodes.(xvi)
+    @test Array.(particles.xci) == JustPIC._2D.add_periodic_ghost_nodes.(xci)
     @test Array.(particles.xi_vel[1]) == grid_vi[1]
     @test Array.(particles.xi_vel[2]) == grid_vi[2]
 end
@@ -440,13 +457,13 @@ end
 
     @parallel InitialFieldsParticles!(phases, particles.coords..., particles.index)
 
-    phase_ratios = JustPIC._2D.PhaseRatios(backend, 2, values(Nc))
+    phase_ratios = JustPIC._2D.PhaseRatios(backend, 2, size(particles.index))
     update_phase_ratios!(phase_ratios, particles, phases)
 
-    @test all(extrema(sum(phase_ratios.vertex.data, dims = 2)) .≈ 1)
-    @test all(extrema(sum(phase_ratios.center.data, dims = 2)) .≈ 1)
-    @test all(extrema(sum(phase_ratios.Vx.data, dims = 2)) .≈ 1)
-    @test all(extrema(sum(phase_ratios.Vy.data, dims = 2)) .≈ 1)
+    @test all(extrema(sum.(phase_ratios.vertex[2:(end - 1), 2:(end - 1)])) .≈ 1)
+    @test all(extrema(sum.(phase_ratios.center[2:(end - 1), 2:(end - 1)])) .≈ 1)
+    @test all(extrema(sum.(phase_ratios.Vx[3:(end - 1), 2:(end - 1)])) .≈ 1)
+    @test all(extrema(sum.(phase_ratios.Vy[2:(end - 1), 3:(end - 1)])) .≈ 1)
 
     # Time step
     t = 0.0e0
@@ -465,10 +482,10 @@ end
         update_phase_ratios!(phase_ratios, particles, phases)
     end
 
-    @test all(extrema(sum(phase_ratios.vertex.data, dims = 2)) .≈ 1)
-    @test all(extrema(sum(phase_ratios.center.data, dims = 2)) .≈ 1)
-    @test all(extrema(sum(phase_ratios.Vx.data, dims = 2)) .≈ 1)
-    @test all(extrema(sum(phase_ratios.Vy.data, dims = 2)) .≈ 1)
+    @test all(extrema(sum.(phase_ratios.vertex[2:(end - 1), 2:(end - 1)])) .≈ 1)
+    @test all(extrema(sum.(phase_ratios.center[2:(end - 1), 2:(end - 1)])) .≈ 1)
+    @test all(extrema(sum.(phase_ratios.Vx[3:(end - 1), 2:(end - 1)])) .≈ 1)
+    @test all(extrema(sum.(phase_ratios.Vy[2:(end - 1), 3:(end - 1)])) .≈ 1)
 end
 
 function advection_test_2D()
@@ -493,7 +510,8 @@ function advection_test_2D()
     # Cell fields -------------------------------
     Vx = TA(backend)([vx_stream(x, y) for x in grid_vx[1], y in grid_vx[2]])
     Vy = TA(backend)([vy_stream(x, y) for x in grid_vy[1], y in grid_vy[2]])
-    T = TA(backend)([y for x in xv, y in yv])
+    xvi_p = JustPIC._2D.add_periodic_ghost_nodes.(xvi)
+    T = TA(backend)([y for x in xvi_p[1], y in xvi_p[2]])
     T0 = deepcopy(T)
     V = Vx, Vy
 
@@ -501,7 +519,7 @@ function advection_test_2D()
 
     # Advection test
     particle_args = pT, = init_cell_arrays(particles, Val(1))
-    _2D.grid2particle!(pT, T, particles)
+    _2D.grid2particle!(pT, xvi_p, T, particles, diff.(xvi_p))
 
     sumT = sum(T)
 
@@ -512,7 +530,7 @@ function advection_test_2D()
         _2D.advection!(particles, RungeKutta2(2 / 3), V, dt)
         _2D.move_particles!(particles, particle_args)
         _2D.inject_particles!(particles, (pT,))
-        _2D.grid2particle!(pT, T, particles)
+        _2D.grid2particle!(pT, xvi_p, T, particles, diff.(xvi_p))
     end
 
     sumT_final = sum(T)
@@ -545,7 +563,8 @@ function advection_test_2D_refined()
 
     Vx = TA(backend)([vx_stream(x, y) for x in grid_vx[1], y in grid_vx[2]])
     Vy = TA(backend)([vy_stream(x, y) for x in grid_vy[1], y in grid_vy[2]])
-    T = TA(backend)([y for x in xv, y in yv])
+    xvi_p = JustPIC._2D.add_periodic_ghost_nodes.(xvi)
+    T = TA(backend)([y for x in xvi_p[1], y in xvi_p[2]])
     T0 = deepcopy(T)
     V = Vx, Vy
 
@@ -554,7 +573,7 @@ function advection_test_2D_refined()
     dt = min(dx_min / maximum(abs.(Array(Vx))), dy_min / maximum(abs.(Array(Vy)))) / 2
 
     particle_args = pT, = init_cell_arrays(particles, Val(1))
-    _2D.grid2particle!(pT, T, particles)
+    _2D.grid2particle!(pT, xvi_p, T, particles, diff.(xvi_p))
 
     sumT = sum(T)
 
@@ -565,7 +584,7 @@ function advection_test_2D_refined()
         _2D.advection!(particles, RungeKutta2(2 / 3), V, dt)
         _2D.move_particles!(particles, particle_args)
         _2D.inject_particles!(particles, (pT,))
-        _2D.grid2particle!(pT, T, particles)
+        _2D.grid2particle!(pT, xvi_p, T, particles, diff.(xvi_p))
     end
 
     sumT_final = sum(T)
@@ -605,7 +624,8 @@ function test_rotating_circle()
     Vy = TA(backend)([ vi_stream(x) for x in grid_vy[1], y in grid_vy[2]])
     xc0 = yc0 = 0.25
     R = 6 * dx
-    T = TA(backend)([((x - xc0)^2 + (y - yc0)^2 ≤ R^2) * 1.0 for x in xv, y in yv])
+    xvi_p = JustPIC._2D.add_periodic_ghost_nodes.(xvi)
+    T = TA(backend)([((x - xc0)^2 + (y - yc0)^2 ≤ R^2) * 1.0 for x in xvi_p[1], y in xvi_p[2]])
     T0 = deepcopy(T)
     V = Vx, Vy
 
@@ -615,7 +635,7 @@ function test_rotating_circle()
     dt = 200.0
 
     particle_args = pT, = init_cell_arrays(particles, Val(1))
-    _2D.grid2particle!(pT, T, particles)
+    _2D.grid2particle!(pT, xvi_p, T, particles, diff.(xvi_p))
 
     t = 0
     it = 0
@@ -626,7 +646,7 @@ function test_rotating_circle()
         _2D.advection!(particles, _2D.RungeKutta2(), V, dt)
         _2D.move_particles!(particles, particle_args)
         _2D.inject_particles!(particles, (pT,))
-        _2D.grid2particle!(pT, T, particles)
+        _2D.grid2particle!(pT, xvi_p, T, particles, diff.(xvi_p))
         t += dt
         it += 1
     end
