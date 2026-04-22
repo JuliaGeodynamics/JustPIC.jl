@@ -1,0 +1,54 @@
+{
+  "title": "JustPIC.jl: Particle-in-Cell advection ready to rock the GPU",
+  "description": "JustPIC.jl is a Julia package providing efficient Particle-in-Cell (PIC) advection algorithms for geodynamic simulations in 2D and 3D. It supports multi-backend computing on CPUs and GPUs (Nvidia CUDA and AMD) with optimized implementations for large-scale particle tracking, field interpolation on staggered grids, and matrix-free solvers.",
+  "notes": "Additional funding: (1) PASC GPU4GEO - Frontier GPU multi-physics solvers (c23), funded by ETH Zurich. Project page: https://www.pasc-ch.org/projects/2021-2024/gpu4geo/ and (2) PASC ∂GPU4GEO: Differentiable multi-physics solvers for extreme-scale geophysics simulations on GPUs (c44), Project page: https://gpu4geo.org",
+  "creators": [
+    {
+      "name": "de Montserrat, Albert",
+      "affiliation": "ETH Zürich, Switzerland",
+      "orcid": "https://orcid.org/0000-0003-1694-3735"
+    },
+    {
+      "name": "Aellig, Pascal S.",
+      "affiliation": "Johannes Gutenberg University Mainz, Germany",
+      "orcid": "https://orcid.org/0009-0008-9039-5646"
+    },
+    {
+      "name": "Räss, Ludovic",
+      "affiliation": "University of Lausanne, Switzerland",
+      "orcid": "https://orcid.org/0000-0002-1136-899X"
+    },
+    {
+      "name": "Duretz, Thibault",
+      "affiliation": "Goethe University Frankfurt, Germany",
+      "orcid": "https://orcid.org/0000-0001-8472-7490"
+    }
+  ],
+  "keywords": [
+    "Julia",
+    "Particle-in-Cell",
+    "PIC Advection",
+    "Geodynamics",
+    "Numerical Modeling",
+    "Field Interpolation",
+    "Staggered Grids",
+    "GPU Computing",
+    "CUDA",
+    "AMD GPU",
+    "High Performance Computing",
+    "2D/3D Modeling"
+  ],
+  "grants": [
+    {"id": "10.13039/501100000780::771143"}
+  ],
+  "license": {
+    "id": "MIT"
+  },
+  "upload_type": "software",
+  "access_right": "open",
+  "communities": [
+    {
+      "identifier": "juliapackage"
+    }
+  ]
+}

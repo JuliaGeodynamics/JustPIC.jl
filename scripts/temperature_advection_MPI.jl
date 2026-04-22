@@ -31,7 +31,7 @@ function main()
     nxcell, max_xcell, min_xcell = 24, 40, 1
     n = 64 # number of vertices
     nx = ny = n - 1
-    me, dims, = init_global_grid((nx, ny).+1..., 1; init_MPI = MPI.Initialized() ? false : true)
+    me, dims, = init_global_grid((nx, ny) .+ 1..., 1; init_MPI = MPI.Initialized() ? false : true)
     Lx = Ly = 1.0
     dxi = dx, dy = Lx / (nx_g() - 1), Ly / (ny_g() - 1)
     # nodal vertices
@@ -69,6 +69,7 @@ function main()
     ny_v = (size(T, 2) - 2) * dims[2]
     T_v = zeros(nx_v, ny_v)
     T_nohalo = TA(backend)(zeros(size(T) .- 2))
+    timer = 0.0
 
     dt = mapreduce(x -> x[1] / MPI.Allreduce(maximum(abs.(x[2])), MPI.MAX, MPI.COMM_WORLD), min, zip(dxi, V)) / 2
 
