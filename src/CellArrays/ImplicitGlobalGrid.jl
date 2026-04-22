@@ -10,7 +10,6 @@ function update_cell_halo!(
             update_halo!(tmp)
             @parallel (@idx ni) move_Array_to_CellArray!(xᵢ, tmp, ip)
         end
-        return nothing
     end
     return
 end
