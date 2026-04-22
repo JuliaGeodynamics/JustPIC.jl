@@ -32,7 +32,7 @@ function main()
     nxcell, max_xcell, min_xcell = 24, 40, 1
     n = 64
     nx = ny = n - 1
-    me, dims, = init_global_grid((nx, ny).+1..., 1; init_MPI = MPI.Initialized() ? false : true)
+    me, dims, = init_global_grid((nx, ny) .+ 1..., 1; init_MPI = MPI.Initialized() ? false : true)
     Lx = Ly = 1.0
     dxi = dx, dy = Lx / (nx_g() - 1), Ly / (ny_g() - 1)
     # nodal vertices
