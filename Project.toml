@@ -1,7 +1,7 @@
 name = "JustPIC"
 uuid = "10dc771f-8528-4cd9-9d3b-b21b2e693339"
-authors = ["Albert De Montserrat <albertdemontserratnavarro@erdw.ethz.ch>, Ivan Utkin <iutkin@ethz.ch>"]
-version = "0.5.11"
+authors = ["Albert De Montserrat <albertdemontserratnavarro@erdw.ethz.ch>"]
+version = "0.6.3"
 
 [deps]
 Atomix = "a9b6321e-bd34-4604-b9c9-b65b8de01458"
@@ -35,7 +35,7 @@ ImplicitGlobalGrid = "0.16"
 JLD2 = "0.5, 0.6"
 MPI = "0.20"
 MuladdMacro = "0.2.4"
-ParallelStencil = "0.14"
+ParallelStencil = "0.14, 0.15, 0.16"
 StaticArrays = "1"
 Statistics = "1.10, 1.11"
 julia = "1.10, 1.11"

@@ -1,3 +1,19 @@
+"""
+    PhaseRatios(T, backend, nphases, ni)
+    PhaseRatios(backend, nphases, ni)
+    PhaseRatios(nphases, ni)
+
+Allocate a `PhaseRatios` container for `nphases` material phases on a grid of
+size `ni`.
+
+The default element type is `Float64` and the default backend is `CPUBackend`.
+
+# Arguments
+- `T`: scalar storage type for the phase fractions.
+- `backend`: backend type used to allocate the arrays.
+- `nphases`: number of material phases.
+- `ni`: number of cells in each spatial direction.
+"""
 function PhaseRatios(
         ::Type{T}, ::Type{B}, nphases::Integer, ni::NTuple{2, Integer}
     ) where {T, B}

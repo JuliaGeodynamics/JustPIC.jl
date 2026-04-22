@@ -1,3 +1,11 @@
+"""
+    compute_topography_vertex!(chain::MarkerChain)
+
+Interpolate the marker-chain geometry back to the vertex-based topography array
+`chain.h_vertices`.
+
+This is typically called after marker advection or resampling.
+"""
 function compute_topography_vertex!(chain::MarkerChain)
     (; coords, index, cell_vertices, h_vertices) = chain
     chain_x, chain_y = coords
