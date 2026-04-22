@@ -25,6 +25,7 @@ makedocs(;
             "field_advection2D.md",
             "field_advection2D_MPI.md",
             "field_advection3D.md",
+            "donut_advection_periodic.md",
         ],
         "I/O" => "IO.md",
         "Mixed GPU/CPU" => "mixed_CPU_GPU.md",
