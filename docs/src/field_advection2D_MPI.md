@@ -1,5 +1,10 @@
 # Field advection in 2D using MPI
 
+This example uses periodic boundaries in both coordinate directions. The local
+particle grids therefore include periodic ghost nodes, and MPI halo exchanges
+must happen at the right points of the advection loop so that particles and
+their fields remain consistent across rank boundaries.
+
 As usual, we start loading JustPIC.jl modules and specifying the backend
 
 ```julia
@@ -101,14 +106,61 @@ niter = 250
 for it in 1:niter
     # advect particles
     advection!(particles, RungeKutta2(), V, dt)
-    # move particles in the memory
-    move_particles!(particles, particle_args) 
+    # exchange MPI halos before shuffling particles between parent cells
+    update_cell_halo!(particles.coords...)
+    update_cell_halo!(particle_args...)
+    update_cell_halo!(particles.index)
+    # move particles in memory
+    move_particles!(particles, particle_args)
     # inject particles if needed
-    inject_particles!(particles, (pT, ))      
+    inject_particles!(particles, (pT, ))
+    # refresh halos again so reinjected particles are visible across ranks
+    update_cell_halo!(particles.coords...)
+    update_cell_halo!(particle_args...)
+    update_cell_halo!(particles.index)
     # interpolate particles to the grid
-    particle2grid!(T, pT, particles)           
+    particle2grid!(T, pT, particles)
 end
 ```
+
+## Periodic Boundary Conditions
+
+For periodic MPI runs, there are two separate mechanisms working together:
+
+- `init_particles` extends the particle vertex and center grids with periodic
+  ghost nodes.
+- `update_cell_halo!` exchanges the overlapping `CellArray` halos between MPI
+  ranks, including across periodic rank boundaries configured by
+  `init_global_grid`.
+
+The usual pattern is:
+
+1. advect particles locally
+2. exchange halos with `update_cell_halo!`
+3. call `move_particles!` so particles that crossed a rank boundary are
+   reassigned on the neighboring rank
+4. reinject particles if needed
+5. exchange halos again before `particle2grid!`
+
+In code:
+
+```julia
+advection!(particles, RungeKutta2(), V, dt)
+update_cell_halo!(particles.coords...)
+update_cell_halo!(particle_args...)
+update_cell_halo!(particles.index)
+move_particles!(particles, particle_args)
+inject_particles!(particles, (pT,))
+update_cell_halo!(particles.coords...)
+update_cell_halo!(particle_args...)
+update_cell_halo!(particles.index)
+particle2grid!(T, pT, particles)
+```
+
+If the second halo refresh is skipped after reinjection, `particle2grid!` can
+reconstruct grid nodes from incomplete cross-rank neighborhoods. If the first
+halo refresh is skipped before `move_particles!`, particles that leave a rank
+can fail to appear on the neighboring rank.
 
 ## Visualization
 To visualize the results, we need to allocate a global array `T_v` and buffer arrays `T_nohalo` without the overlapping halo (here with `width = 1`)

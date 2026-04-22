@@ -74,10 +74,11 @@ function main()
 
     title = Observable("Donut Advection - Δt = $dt, t = $(round(t; digits = 3))")
     T_frame = Observable(Array(T))
+    T_physical = @lift($T_frame[2:(end - 1), 2:(end - 1)])
 
     f = Figure(size = (800, 400) .* 2)
     ax = Axis(f[1, 1], aspect = 5, title = title, xlabel = "x", ylabel = "y")
-    heatmap!(ax, xvi..., T_frame, colormap = :batlow)
+    heatmap!(ax, xvi..., T_physical, colormap = :batlow)
     # streamplot!(ax, g, xvi...)
 
     nsteps = ceil(Int, t_end / dt)

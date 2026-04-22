@@ -53,7 +53,8 @@ function main()
     Vx = TA(backend)([vx_stream(x, y) for x in grid_vx[1], y in grid_vx[2]])
     Vy = TA(backend)([vy_stream(x, y) for x in grid_vy[1], y in grid_vy[2]])
     xc, yc, r1, r2 = 1.0, 0.5, 0.1, 0.3
-    T = TA(backend)([incircles(x, y, xc, yc, r1, r2) * 1.0e0 for x in xv, y in yv])
+    xvi_p = Array.(particles.xvi)
+    T = TA(backend)([incircles(x, y, xc, yc, r1, r2) * 1.0e0 for x in xvi_p[1], y in xvi_p[2]])
     V = Vx, Vy
 
     dt = 0.018 / 1
@@ -79,7 +80,7 @@ function main()
         if rem(it, 10) == 0
             f = Figure(size = (800, 160))
             ax = Axis(f[1, 1], aspect = 5, title = "Donut Advection - Δt = $dt", xlabel = "x", ylabel = "y")
-            heatmap!(ax, xvi..., Array(T), colormap = :batlow)
+            heatmap!(ax, xvi..., Array(T)[2:(end - 1), 2:(end - 1)], colormap = :batlow)
             # streamplot!(ax, g, xvi...)
             save(joinpath(fname, "test_$(it).png"), f)
             f

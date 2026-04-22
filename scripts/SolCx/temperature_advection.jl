@@ -36,14 +36,15 @@ function main()
     grid_vy = expand_range(xc), yv
 
     particles = init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi...,
+        backend, nxcell, max_xcell, min_xcell, grid_vx, grid_vy,
     )
 
     Vx = [_solCx_solution(x, y, 1, 1.0e4)[1] for x in grid_vx[1], y in grid_vx[2]]
     Vy = [_solCx_solution(x, y, 1, 1.0e4)[2] for x in grid_vy[1], y in grid_vy[2]]
 
     # Cell fields -------------------------------
-    T = TA(backend)([y for x in xv, y in yv])
+    xvi_p = Array.(particles.xvi)
+    T = TA(backend)([y for x in xvi_p[1], y in xvi_p[2]])
     V = Vx, Vy
 
     dt = min(dx / maximum(abs.(Array(Vx))), dy / maximum(abs.(Array(Vy))))
@@ -62,7 +63,7 @@ function main()
         particle2grid!(T, pT, particles)
 
         if rem(it, 10) == 0
-            f, ax, = heatmap(xvi..., Array(T), colormap = :batlow)
+            f, ax, = heatmap(xvi..., Array(T)[2:(end - 1), 2:(end - 1)], colormap = :batlow)
             streamplot!(ax, g, xvi...)
             save("figs/test_$(it).png", f)
             f

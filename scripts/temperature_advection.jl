@@ -47,7 +47,8 @@ function main()
     # Cell fields -------------------------------
     Vx = TA(backend)([vx_stream(x, y) for x in grid_vx[1], y in grid_vx[2]])
     Vy = TA(backend)([vy_stream(x, y) for x in grid_vy[1], y in grid_vy[2]])
-    T = TA(backend)([y for x in xv, y in yv])
+    xvi_p = Array.(particles.xvi)
+    T = TA(backend)([y for x in xvi_p[1], y in xvi_p[2]])
     V = Vx, Vy
 
     dt = min(dx / maximum(abs.(Array(Vx))), dy / maximum(abs.(Array(Vy))))
@@ -68,7 +69,7 @@ function main()
         particle2grid!(T, pT, particles)
 
         if rem(it, 10) == 0
-            f, ax, = heatmap(xvi..., Array(T), colormap = :batlow)
+            f, ax, = heatmap(xvi..., Array(T)[2:(end - 1), 2:(end - 1)], colormap = :batlow)
             streamplot!(ax, g, xvi...)
             save("figs/test_$(it).png", f)
             f
