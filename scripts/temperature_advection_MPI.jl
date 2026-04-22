@@ -69,6 +69,7 @@ function main()
     ny_v = (size(T, 2) - 2) * dims[2]
     T_v = zeros(nx_v, ny_v)
     T_nohalo = TA(backend)(zeros(size(T) .- 2))
+    timer = 0.0
 
     dt = mapreduce(x -> x[1] / MPI.Allreduce(maximum(abs.(x[2])), MPI.MAX, MPI.COMM_WORLD), min, zip(dxi, V)) / 2
 
