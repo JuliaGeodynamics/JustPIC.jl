@@ -1,13 +1,9 @@
-using CUDA
-# import Pkg
-# Pkg.resolve(); Pkg.update()
 using JustPIC, JustPIC._2D
 
 # Threads is the default backend,
 # to run on a CUDA GPU load CUDA.jl (i.e. "using CUDA"),
 # and to run on an AMD GPU load AMDGPU.jl (i.e. "using AMDGPU")
-# const backend = JustPIC.CPUBackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
-const backend = CUDABackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
+const backend = JustPIC.CPUBackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
 
 using GLMakie
 using ImplicitGlobalGrid
@@ -33,9 +29,9 @@ end
 function main()
     # Initialize particles -------------------------------
     nxcell, max_xcell, min_xcell = 24, 40, 1
-    n = 64
+    n = 64 # number of vertices
     nx = ny = n - 1
-    me, dims, = init_global_grid(n - 1, n - 1, 1; init_MPI = MPI.Initialized() ? false : true)
+    me, dims, = init_global_grid((nx, ny).+1..., 1; init_MPI = MPI.Initialized() ? false : true)
     Lx = Ly = 1.0
     dxi = dx, dy = Lx / (nx_g() - 1), Ly / (ny_g() - 1)
     # nodal vertices
@@ -50,7 +46,7 @@ function main()
         dummy = zeros(nx, ny)
         xc = [x_g(i, dx, dummy) for i in axes(dummy, 1)]
         yc = [y_g(i, dy, dummy) for i in axes(dummy, 2)]
-        LinRange(first(xc), last(xc), n), LinRange(first(yc), last(yc), n)
+        LinRange(first(xc), last(xc), nx), LinRange(first(yc), last(yc), ny)
     end
 
     # staggered grid for the velocity components
@@ -64,7 +60,8 @@ function main()
     # Cell fields -------------------------------
     Vx = TA(backend)([vx_stream(x, y) for x in grid_vx[1], y in grid_vx[2]])
     Vy = TA(backend)([vy_stream(x, y) for x in grid_vy[1], y in grid_vy[2]])
-    T = TA(backend)([y for x in xv, y in yv])
+    xvi_p = Array.(particles.xvi)
+    T = TA(backend)([y for x in xvi_p[1], y in xvi_p[2]])
     T0 = deepcopy(T)
     V = Vx, Vy
 
@@ -79,19 +76,23 @@ function main()
     particle_args = pT, = init_cell_arrays(particles, Val(1))
     grid2particle!(pT, T, particles)
 
+    !isdir("figs") && mkdir("figs")
+
     niter = 250
     for iter in 1:niter
         me == 0 && @show iter
 
         # advect particles
         advection!(particles, RungeKutta2(), V, dt)
-
+        
         # update halos
-        update_cell_halo!(particles.coords...)
-        update_cell_halo!(particle_args...)
-        update_cell_halo!(particles.index)
+        timer += @elapsed begin
+            update_cell_halo!(particles.coords..., particle_args..., particles.index)
+        end
         # shuffle particles
         move_particles!(particles, particle_args)
+        # refill under-populated cells before reconstructing the grid field
+        # inject_particles!(particles, particle_args)
         # interpolate T from particle to grid
         particle2grid!(T, pT, particles)
 
@@ -138,6 +139,8 @@ function main()
         # f = scatter(px[idx], py[idx], color=:black)
         # save("figs/particles_$(iter)_$(me).png", f)
     end
+
+    iszero(me) && @show timer
 
     # f, ax, = heatmap(xvi..., T, colormap=:batlow)
     # streamplot!(ax, g, xvi...)
