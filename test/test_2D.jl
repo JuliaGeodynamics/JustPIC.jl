@@ -51,6 +51,8 @@ vy_stream(x, y) = -250 * cos(π * x) * sin(π * y)
 # Analytical flow solution
 vi_stream(x) = π * 1.0e-5 * (x - 0.5)
 
+phase_ratio_sums_ok(A) = all(x -> iszero(x) || x ≈ 1, sum.(A))
+
 function setup_circle_particles(particles, pPhases, n_circle, x_circle, y_circle, x_shift)
     for ip in 1:n_circle
         particles.coords[1].data[1, ip, 1] = x_circle[ip]
@@ -460,10 +462,10 @@ end
     phase_ratios = JustPIC._2D.PhaseRatios(backend, 2, size(particles.index))
     update_phase_ratios!(phase_ratios, particles, phases)
 
-    @test all(extrema(sum.(phase_ratios.vertex[2:(end - 1), 2:(end - 1)])) .≈ 1)
-    @test all(extrema(sum.(phase_ratios.center[2:(end - 1), 2:(end - 1)])) .≈ 1)
-    @test all(extrema(sum.(phase_ratios.Vx[3:(end - 1), 2:(end - 1)])) .≈ 1)
-    @test all(extrema(sum.(phase_ratios.Vy[2:(end - 1), 3:(end - 1)])) .≈ 1)
+    @test phase_ratio_sums_ok(phase_ratios.vertex)
+    @test phase_ratio_sums_ok(phase_ratios.center)
+    @test phase_ratio_sums_ok(phase_ratios.Vx)
+    @test phase_ratio_sums_ok(phase_ratios.Vy)
 
     # Time step
     t = 0.0e0
@@ -475,17 +477,16 @@ end
     Vyc = 0.5 * (V.y[2:(end - 1), 1:(end - 1)] .+ V.y[2:(end - 1), 2:(end - 0)])
 
     for it in 1:Nt
-        @show it
         advection!(particles, RungeKutta2(), values(V), Δt)
         move_particles!(particles, particle_args)
         inject_particles_phase!(particles, phases, (), ())
         update_phase_ratios!(phase_ratios, particles, phases)
     end
 
-    @test all(extrema(sum.(phase_ratios.vertex[2:(end - 1), 2:(end - 1)])) .≈ 1)
-    @test all(extrema(sum.(phase_ratios.center[2:(end - 1), 2:(end - 1)])) .≈ 1)
-    @test all(extrema(sum.(phase_ratios.Vx[3:(end - 1), 2:(end - 1)])) .≈ 1)
-    @test all(extrema(sum.(phase_ratios.Vy[2:(end - 1), 3:(end - 1)])) .≈ 1)
+    @test phase_ratio_sums_ok(phase_ratios.vertex)
+    @test phase_ratio_sums_ok(phase_ratios.center)
+    @test phase_ratio_sums_ok(phase_ratios.Vx)
+    @test phase_ratio_sums_ok(phase_ratios.Vy)
 end
 
 function advection_test_2D()

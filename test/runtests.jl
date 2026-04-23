@@ -2,8 +2,6 @@ using JustPIC
 
 using Pkg
 
-push!(LOAD_PATH, "..")
-
 istest(f) = endswith(f, ".jl") && startswith(basename(f), "test_")
 
 function parse_flags!(args, flag; default = nothing, type = typeeof(default))

@@ -31,6 +31,7 @@ end
     cell_center = getindex.(xci, I_inner)
     cell_face = @. cell_center + di * offsets / 2
     ni = size(phases)
+    nf = size(ratio_faces)
     NC = nphases(ratio_faces)
     w = ntuple(_ -> 0.0e0, NC)
 
@@ -54,30 +55,29 @@ end
     end
 
     w = w .* inv(sum(w))
+    face_index = min.(I_inner .+ offsets .- 1, nf)
     for ip in cellaxes(ratio_faces)
-        @index ratio_faces[ip, (I_inner .+ offsets)...] = w[ip] * !isnan(w[ip]) # make it zero if there are NaNs (means no particles within velocity half cell)
+        @index ratio_faces[ip, face_index...] = w[ip] * !isnan(w[ip]) # make it zero if there are NaNs (means no particles within velocity half cell)
     end
 
-    # if isboundary(offsets, I_inner)
-    #     # index corresponding to the cell center
-    #     cell_face = @. cell_center - di * offsets / 2
-    #     w = ntuple(_ -> 0.0e0, NC)
+    if isboundary(offsets, I_inner)
+        # Fill the first boundary face, which is not covered by the forward offset write above.
+        cell_face = @. cell_center - di * offsets / 2
+        w = ntuple(_ -> 0.0e0, NC)
 
-    #     for ip in cellaxes(phases)
-    #         p = get_particle_coords(pxi, ip, I...)
-    #         any(isnan, p) && continue
-    #         # check if it's within half cell
-    #         isinhalfcell(p, cell_face, di) || continue
-    #         x = @inline bilinear_weight(cell_face, p, di)
-    #         ph_local = @index phases[ip, I...]
-    #         # this is doing sum(w * δij(i, phase)), where δij is the Kronecker delta
-    #         w = accumulate_weight(w, x, ph_local, NC)
-    #     end
-    #     w = w .* inv(sum(w))
-    #     for ip in cellaxes(ratio_faces)
-    #         @index ratio_faces[ip, I...] = w[ip] * !isnan(w[ip]) # make it zero if there are NaNs (means no particles within velocity half cell)
-    #     end
-    # end
+        for ip in cellaxes(phases)
+            p = get_particle_coords(pxi, ip, I...)
+            any(isnan, p) && continue
+            isinhalfcell(p, cell_face, di) || continue
+            x = @inline bilinear_weight(cell_face, p, di)
+            ph_local = @index phases[ip, I...]
+            w = accumulate_weight(w, x, ph_local, NC)
+        end
+        w = w .* inv(sum(w))
+        for ip in cellaxes(ratio_faces)
+            @index ratio_faces[ip, I...] = w[ip] * !isnan(w[ip]) # make it zero if there are NaNs (means no particles within velocity half cell)
+        end
+    end
 
     return nothing
 end
@@ -167,8 +167,9 @@ function _phase_ratios_midpoint_kernel!(
     end
 
     w = w .* inv(sum(w))
+    midpoint_index = min.(I .+ offsets .- 1, nm)
     for ip in cellaxes(ratio_midpoints)
-        @index ratio_midpoints[ip, (I .+ offsets)...] = w[ip] * !isnan(w[ip]) # make it zero if there are NaNs (means no particles within half cells)
+        @index ratio_midpoints[ip, midpoint_index...] = w[ip] * !isnan(w[ip]) # make it zero if there are NaNs (means no particles within half cells)
     end
 
     # if isboundary(offsets, I)
