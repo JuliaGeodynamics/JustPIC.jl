@@ -1,6 +1,7 @@
 # Public API
 
-The public API is organized by workflow rather than as a single flat reference page.
+The public API is organized by workflow rather than as one long flat symbol
+list. Use this page as a map and the linked sections for method-level details.
 
 ## Main Entry Points
 

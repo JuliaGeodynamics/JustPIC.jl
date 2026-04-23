@@ -153,7 +153,8 @@ function main()
     # Cell fields -------------------------------
     Vx = TA(backend)([-vi_stream(y) for x in grid_vx[1], y in grid_vx[2]])
     Vy = TA(backend)([ vi_stream(x) for x in grid_vy[1], y in grid_vy[2]])
-    T = TA(backend)([ in_zalesak_disk(x, y; R = 0.1, slot_width = 0.05 / 2, slot_depth = 0.15) * 1.0 for x in xv, y in yv])
+    xvi_p = Array.(particles.xvi)
+    T = TA(backend)([ in_zalesak_disk(x, y; R = 0.1, slot_width = 0.05 / 2, slot_depth = 0.15) * 1.0 for x in xvi_p[1], y in xvi_p[2]])
 
     V = Vx, Vy
 
@@ -168,7 +169,7 @@ function main()
     t = 0
     it = 0
     t_pic = 0.0
-    f, ax, h = heatmap(xvi..., Array(T), colormap = :batlow, colorrange = (0, 1))
+    f, ax, h = heatmap(xvi..., Array(T)[2:(end - 1), 2:(end - 1)], colormap = :batlow, colorrange = (0, 1))
     streamplot!(ax, g, xvi...)
     Colorbar(f[1, 2], h)
     save("figs_refined/test_$(it).png", f)
@@ -185,7 +186,7 @@ function main()
         t += dt
         it += 1
         if isone(it) || rem(it, 50) == 0
-            f, ax, h = heatmap(xvi..., Array(T), colormap = :batlow, colorrange = (0, 1))
+            f, ax, h = heatmap(xvi..., Array(T)[2:(end - 1), 2:(end - 1)], colormap = :batlow, colorrange = (0, 1))
             streamplot!(ax, g, xvi...)
             Colorbar(f[1, 2], h)
             save("figs_refined/test_$(it).png", f)

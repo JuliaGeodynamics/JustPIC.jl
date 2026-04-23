@@ -16,6 +16,47 @@ function add_ghost_nodes(x::AbstractArray, dx, origin; backend = CPUBackend)
 end
 
 """
+    add_periodic_ghost_nodes(x::AbstractVector)
+
+Extend a 1D periodic grid with one ghost node on each side.
+
+The added coordinates preserve the spacing of the last and first physical cells,
+respectively, which makes this helper work for both uniform and refined grids.
+
+# Example
+```julia
+xv = [0.0, 0.25, 0.5, 0.75, 1.0]
+xv_periodic = add_periodic_ghost_nodes(xv)
+```
+"""
+function add_periodic_ghost_nodes(x::AbstractVector)
+    length(x) ≥ 2 || throw(ArgumentError("At least two grid nodes are required"))
+
+    x_array = Array(x)
+    dx_left = x_array[2] - x_array[1]
+    dx_right = x_array[end] - x_array[end - 1]
+    xI = x_array[1] - dx_right
+    xF = x_array[end] + dx_left
+
+    return vcat(xI, x_array, xF)
+end
+
+function add_periodic_ghost_nodes(x::AbstractRange)
+    length(x) ≥ 2 || throw(ArgumentError("At least two grid nodes are required"))
+
+    @inline f(x::LinRange, xI, xF) = LinRange(xI, xF, length(x) + 2)
+    @inline f(x::StepRangeLen, xI, xF) = range(xI, xF, length = length(x) + 2)
+    @inline f(x::StepRange, xI, xF) = xI:(x.step):xF
+
+    dx_left = x[2] - x[1]
+    dx_right = x[end] - x[end - 1]
+    xI = x[1] - dx_right
+    xF = x[end] + dx_left
+
+    return f(x, xI, xF)
+end
+
+"""
     @idx(args...)
 
 Make a linear range from `1` to `args[i]`, with `i ∈ [1, ..., n]`
@@ -53,6 +94,15 @@ function get_particle_coords(p::NTuple{N}, ip) where {N}
         Base.@_inline_meta
         @inbounds p[i][ip]
     end
+end
+
+@inline inner_size(A::AbstractArray) = size(A) .- 2
+@inline function inner_ranges(A::AbstractArray{T, N}) where {T, N}
+    return ntuple(i -> 1:(size(A, i) - 1), Val(N))
+end
+
+function inner_mask(::Particles{B, N}, ghosts::Vararg{Bool, 3}) where {B, N}
+    return ntuple(i -> !(ghosts[i]) * - 1, Val(N))
 end
 
 ###############################
