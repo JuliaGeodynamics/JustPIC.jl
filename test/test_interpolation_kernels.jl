@@ -45,7 +45,7 @@ end
     Tc = TA(backend)([y for x in xc, y in yc])
 
     # Grid to particle test
-    _2D.grid2particle!(pT, xvi, T, particles)
+    _2D.grid2particle!(pT, T, particles)
 
     @test pT == particles.coords[2]
 
@@ -56,7 +56,7 @@ end
 
     # Particle to grid test
     T2 = similar(T)
-    _2D.particle2grid!(T2, pT, xvi, particles)
+    _2D.particle2grid!(T2, pT, particles)
     # norm(T2 .- T) / length(T)
     @test norm(T2 .- T) / length(T) < 1.0e-1
 
@@ -108,7 +108,7 @@ end
     Tc = TA(backend)([z for x in xc, y in yc, z in zc])
 
     # Grid to particle test
-    JP3.grid2particle!(pT, xvi, T, particles)
+    JP3.grid2particle!(pT, T, particles)
 
     @test pT ≈ particles.coords[3]
 
@@ -119,7 +119,7 @@ end
 
     # Particle to grid test
     T2 = similar(T)
-    JP3.particle2grid!(T2, pT, xvi, particles)
+    JP3.particle2grid!(T2, pT, particles)
     @test norm(T2 .- T) / length(T) < 1.0e-1
 
     # Grid to centroid test

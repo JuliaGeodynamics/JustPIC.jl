@@ -36,7 +36,7 @@ F  = [y for x in xv, y in yv]
 # instantiate empty `CellArray`
 Fp, = init_cell_arrays(particles, Val(1));
 # interpolate F onto Fp
-grid2particle!(Fp, xvi, F, particles);
+grid2particle!(Fp, F, particles);
 ```
 
 ## Particle to grid
@@ -51,5 +51,5 @@ In shared memory environments (e.g. OpenMP parallelism or GPU programming), this
 
 This interpolation is done with the `particle2grid!` function:
 ```julia-repl
-julia> particle2grid!(F, Fp, xvi, particles)
+julia> particle2grid!(F, Fp, particles)
 ```

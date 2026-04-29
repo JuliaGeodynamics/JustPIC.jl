@@ -45,7 +45,7 @@ nxcell = 24 # initial number of particles per cell
 max_xcell = 48 # maximum number of particles per cell
 min_xcell = 14 # minimum number of particles per cell
 particles = init_particles(
-    backend, nxcell, max_xcell, min_xcell, xvi...
+    backend, nxcell, max_xcell, min_xcell, grid_vx, grid_vy, grid_vz
 )
 
 # and the velocity and field we want to advect (on the staggered grid)
@@ -59,15 +59,15 @@ V = Vx, Vy, Vz
 # We also need to initialize the field `T` on the particles
 particle_args = pT, = init_cell_arrays(particles, Val(1));
 # and we can use the function `grid2particle!` to interpolate the field `T` to the particles
-grid2particle!(pT, xvi, T, particles)
+grid2particle!(pT, T, particles)
 
 # we can now start the simulation
 dt = min(dx / maximum(abs.(Vx)), dy / maximum(abs.(Vy)), dz / maximum(abs.(Vz))) / 2
 
 niter = 250
 for it in 1:niter
-    advection!(particles, RungeKutta2(), V, (grid_vx, grid_vy, grid_vz), dt) # advect particles
-    move_particles!(particles, xvi, particle_args)                           # move particles in the memory
-    inject_particles!(particles, (pT,), xvi)                                # inject particles if needed
-    particle2grid!(T, pT, xvi, particles)                                    # interpolate particles to the grid
+    advection!(particles, RungeKutta2(), V, dt)                               # advect particles
+    move_particles!(particles, particle_args)                                # move particles in the memory
+    inject_particles!(particles, (pT,))                                      # inject particles if needed
+    particle2grid!(T, pT, particles)                                         # interpolate particles to the grid
 end

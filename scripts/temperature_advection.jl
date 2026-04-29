@@ -41,7 +41,7 @@ function main()
     grid_vy = expand_range(xc), yv
 
     particles = init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi...,
+        backend, nxcell, max_xcell, min_xcell, grid_vx, grid_vy
     )
 
     # Cell fields -------------------------------
@@ -55,17 +55,17 @@ function main()
 
     # Advection test
     particle_args = pT, = init_cell_arrays(particles, Val(1))
-    grid2particle!(pT, xvi, T, particles)
+    grid2particle!(pT, T, particles)
 
     !isdir("figs") && mkdir("figs")
 
     niter = 250
     for it in 1:niter
-        advection!(particles, RungeKutta4(), V, (grid_vx, grid_vy), dt)
-        move_particles!(particles, xvi, particle_args)
-        inject_particles!(particles, (pT,), xvi)
+        advection!(particles, RungeKutta4(), V, dt)
+        move_particles!(particles, particle_args)
+        inject_particles!(particles, (pT,))
 
-        particle2grid!(T, pT, xvi, particles)
+        particle2grid!(T, pT, particles)
 
         if rem(it, 10) == 0
             f, ax, = heatmap(xvi..., Array(T), colormap = :batlow)
