@@ -111,6 +111,61 @@ function MarkerChain(coords, index::CPUCellArray, cell_vertices, min_xcell, max_
 end
 
 """
+    MarkerSurface{Backend, I, T2, TV, TW} <: AbstractParticles
+
+A 3D free surface tracker using a structured marker grid.
+The surface is represented as a 2D grid of topography values (z-heights) at corner nodes.
+
+# Fields
+- `topo::T2`       — topography (z-elevation) at grid vertices, size `(nx+1, ny+1)`
+- `topo0::T2`      — topography from the previous time step
+- `vx::T2`         — x-velocity interpolated to surface nodes
+- `vy::T2`         — y-velocity interpolated to surface nodes
+- `vz::T2`         — z-velocity interpolated to surface nodes
+- `xv::TV`         — x-coordinates of surface grid vertices
+- `yv::TV`         — y-coordinates of surface grid vertices
+- `air_phase::I`   — phase ID of the air/sticky-air layer
+- `workspace::TW`  — pre-allocated workspace buffers for allocation-free timesteps
+"""
+struct MarkerSurface{Backend, I, T2, TV, TW} <: AbstractParticles
+    topo::T2             # topography at grid vertices (nx+1) x (ny+1)
+    topo0::T2            # previous-timestep topography
+    vx::T2               # surface velocity x-component at vertices
+    vy::T2               # surface velocity y-component at vertices
+    vz::T2               # surface velocity z-component at vertices
+    xv::TV               # x vertex coordinates
+    yv::TV               # y vertex coordinates
+    air_phase::I         # sticky-air phase ID
+    workspace::TW        # pre-allocated workspace buffers
+
+    function MarkerSurface(
+            ::Type{B},
+            topo::T2, topo0::T2,
+            vx::T2, vy::T2, vz::T2,
+            xv::TV, yv::TV,
+            air_phase::I,
+            workspace::TW,
+        ) where {B, I, T2, TV, TW}
+        return new{B, I, T2, TV, TW}(
+            topo, topo0, vx, vy, vz, xv, yv,
+            air_phase, workspace,
+        )
+    end
+end
+
+function MarkerSurface(
+        topo, topo0, vx, vy, vz, xv, yv, air_phase, workspace
+    )
+    return MarkerSurface(
+        CPUBackend,
+        topo, topo0, vx, vy, vz,
+        xv, yv,
+        air_phase,
+        workspace,
+    )
+end
+
+"""
     PassiveMarkers{Backend,T} <: AbstractParticles
 
 Lightweight particle container for passive tracers that only store coordinates.

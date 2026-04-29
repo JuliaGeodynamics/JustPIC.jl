@@ -39,7 +39,7 @@ TA() = Array
 TA(::Type{CPUBackend}) = Array
 
 include("particles.jl")
-export AbstractParticles, Particles, MarkerChain, PassiveMarkers, cell_index, cell_length
+export AbstractParticles, Particles, MarkerChain, MarkerSurface, PassiveMarkers, cell_index, cell_length
 
 include("PhaseRatios/PhaseRatios.jl")
 export nphases, numphases

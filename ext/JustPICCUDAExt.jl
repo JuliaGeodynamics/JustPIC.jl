@@ -152,6 +152,17 @@ CUDA.CuArray(::Type{T}, x::Number) where {T <: AbstractFloat} = x
 CUDA.CuArray(::Type{T}, x::LinRange) where {T <: AbstractFloat} = x
 CUDA.CuArray(x::T) where {T <: AbstractFloat} = x
 
+function CUDA.CuArray(surf::JustPIC.MarkerSurface)
+    return JustPIC.MarkerSurface(
+        CUDABackend,
+        CuArray(surf.topo), CuArray(surf.topo0),
+        CuArray(surf.vx), CuArray(surf.vy), CuArray(surf.vz),
+        CuArray(surf.xv), CuArray(surf.yv),
+        surf.air_phase,
+    )
+end
+CUDA.CuArray(surf::JustPIC.MarkerSurface{CUDABackend}) = surf
+
 module _2D
     using CUDA
     using ImplicitGlobalGrid
@@ -1094,6 +1105,74 @@ module _3D
         subgrid_diffusion_centroid!(
             pT, T_grid, ΔT_grid, subgrid_arrays, particles, xci, dt; d = d
         )
+        return nothing
+    end
+
+    ## MarkerSurface (3D free surface tracking)
+
+    function JustPIC._3D.init_marker_surface(
+            ::Type{CUDABackend}, xv, yv, initial_elevation; kwargs...
+        )
+        return init_marker_surface(CUDABackend, xv, yv, initial_elevation; kwargs...)
+    end
+
+    function JustPIC._3D.compute_avg_topo(surf::JustPIC.MarkerSurface{CUDABackend})
+        return compute_avg_topo(surf)
+    end
+
+    function JustPIC._3D.set_topo_from_array!(surf::JustPIC.MarkerSurface{CUDABackend}, z::AbstractMatrix)
+        set_topo_from_array!(surf, z)
+        return nothing
+    end
+
+    function JustPIC._3D.interpolate_velocity_to_surface_vertices!(
+            surf::JustPIC.MarkerSurface{CUDABackend},
+            V::NTuple{3,AbstractArray{T,3}},
+            xvi::NTuple{3,Any},
+        ) where {T}
+        interpolate_velocity_to_surface_vertices!(surf, V, xvi)
+        return nothing
+    end
+
+    function JustPIC._3D.smooth_surface_max_angle!(
+            surf::JustPIC.MarkerSurface{CUDABackend}, max_slope_angle::Real
+        )
+        smooth_surface_max_angle!(surf, max_slope_angle)
+        return nothing
+    end
+
+    function JustPIC._3D.smooth_surface_diffusive!(
+            surf::JustPIC.MarkerSurface{CUDABackend}, niter::Int=1; kwargs...
+        )
+        smooth_surface_diffusive!(surf, niter; kwargs...)
+        return nothing
+    end
+
+    function JustPIC._3D.advect_surface_topo!(
+            surf::JustPIC.MarkerSurface{CUDABackend}, dt; kwargs...
+        )
+        advect_surface_topo!(surf, dt; kwargs...)
+        return nothing
+    end
+
+    function JustPIC._3D.advect_marker_surface!(
+            surf::JustPIC.MarkerSurface{CUDABackend}, V::NTuple{3,Any}, xvi::NTuple{3,Any}, dt; kwargs...
+        )
+            advect_marker_surface!(surf, V, xvi, dt; kwargs...)
+        return nothing
+    end
+
+    function JustPIC._3D.semilagrangian_advect_surface!(
+            surf::JustPIC.MarkerSurface{CUDABackend}, V::NTuple{3,Any}, xvi::NTuple{3,Any}, dt; kwargs...
+        )
+        semilagrangian_advect_surface!(surf, V, xvi, dt; kwargs...)
+        return nothing
+    end
+
+    function JustPIC._3D.compute_rock_fraction!(
+            ratios, surf::JustPIC.MarkerSurface{CUDABackend}, xvi, dxi
+        )
+        compute_rock_fraction!(ratios, surf, xvi, dxi)
         return nothing
     end
 
