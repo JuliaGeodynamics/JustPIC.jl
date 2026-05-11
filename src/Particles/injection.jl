@@ -237,10 +237,12 @@ function _inject_particles_phase!(
     )
     # coordinates of the lower-left corner of the cell
     xvi = corner_coordinate(grid, idx_cell)
+    ni_cells = size(index)
 
     # coordinates of the lower-left corner of the cell quadrants
     xvi_quadrants = quadrant_corners(xvi, di_quadrant)
     min_xQuadrant = ceil(Int, min_xcell / length(xvi_quadrants))
+    xci = xvi_quadrants[1] .+ di_quadrant # center of the cell
 
     for (ic, vertex) in enumerate(xvi_quadrants)
 
@@ -281,10 +283,18 @@ function _inject_particles_phase!(
 
             # interpolate fields into newly injected particle
             for j in eachindex(args)
-                tmp = _grid2particle(p_new, grid, di, fields[j], idx_cell)
-                local_field = cell_field(fields[j], idx_cell...)
-                lower, upper = extrema(local_field)
-                @index args[j][i, idx_cell...] = clamp(tmp, lower, upper)
+                if size(fields[j]) == ni_cells
+                    # if field is defined at cell centers, interpolate from cell center to particle
+                    idx_center = shifted_index(pxi, xci, idx_cell)
+                    local_field = cell_field(fields[j], idx_center...)
+                    lower, upper = extrema(local_field)
+                    @index args[j][i, idx_cell...] = clamp(tmp, lower, upper)
+
+                else
+                    local_field = cell_field(fields[j], idx_cell...)
+                    lower, upper = extrema(local_field)
+                    @index args[j][i, idx_cell...] = clamp(tmp, lower, upper)
+                end
             end
 
             # we are done with injection if

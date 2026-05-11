@@ -520,12 +520,11 @@ module _2D
             ΔT_grid,
             subgrid_arrays,
             particles::Particles{AMDGPUBackend},
-            xci,
             dt;
             d = 1.0,
         )
         subgrid_diffusion_centroid!(
-            pT, T_grid, ΔT_grid, subgrid_arrays, particles, xci, dt; d = d
+            pT, T_grid, ΔT_grid, subgrid_arrays, particles, dt; d = d
         )
         return nothing
     end
@@ -1070,12 +1069,11 @@ module _3D
             ΔT_grid,
             subgrid_arrays,
             particles::Particles{AMDGPUBackend},
-            xci,
             dt;
             d = 1.0,
         )
         subgrid_diffusion_centroid!(
-            pT, T_grid, ΔT_grid, subgrid_arrays, particles, xci, dt; d = d
+            pT, T_grid, ΔT_grid, subgrid_arrays, particles, dt; d = d
         )
         return nothing
     end
