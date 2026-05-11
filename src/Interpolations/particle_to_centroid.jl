@@ -15,6 +15,8 @@ function particle2centroid!(F, Fp, xci::NTuple, particles::Particles, di)
     return nothing
 end
 
+inner_range(A::AbstractArray{T, N}) where {T, N} = ntuple(i -> 2:(size(A, i) - 1), Val(N))
+
 @parallel_indices (I...) function _particle2centroid!(F, Fp, xci, coords, di)
     I_inner = I .+ 1
     _particle2centroid!(F, Fp, I_inner..., xci, coords, @dxi(di, I_inner...))
