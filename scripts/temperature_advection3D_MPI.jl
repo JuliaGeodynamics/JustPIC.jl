@@ -69,13 +69,14 @@ function main()
     ny_v = (size(T, 2) - 2) * dims[2]
     nz_v = (size(T, 3) - 2) * dims[3]
     T_v = zeros(nx_v, ny_v, nz_v)
-    T_nohalo = @zeros(size(T) .- 2)
+    T_nohalo = TA(backend)(zeros(size(T) .- 2))
 
-    dt = mapreduce(x -> x[1] / MPI.Allreduce(maximum(abs.(x[2])), MPI.MAX, MPI.COMM_WORLD), min, zip(dxi, V))
+    dt = mapreduce(x -> x[1] / MPI.Allreduce(maximum(abs.(x[2])), MPI.MAX, MPI.COMM_WORLD), min, zip(dxi, V)) / 2
 
     # Advection test
     particle_args = pT, = init_cell_arrays(particles, Val(1))
     grid2particle!(pT, T, particles)
+    !isdir("figs") && mkdir("figs")
 
     niter = 125 #250
     for iter in 1:niter
@@ -85,9 +86,7 @@ function main()
         advection!(particles, RungeKutta2(), V, dt)
 
         # update halos
-        update_cell_halo!(particles.coords...)
-        update_cell_halo!(particle_args...)
-        update_cell_halo!(particles.index)
+        update_cell_halo!(particles.coords..., particle_args..., particles.index)
 
         # shuffle particles
         move_particles!(particles, particle_args)
