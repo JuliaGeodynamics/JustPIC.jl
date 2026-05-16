@@ -253,7 +253,7 @@ function _inject_particles_phase!(
     xvi_quadrants = quadrant_corners(xvi, di_quadrant)
     min_xQuadrant = ceil(Int, min_xcell / length(xvi_quadrants))
     xci = xvi_quadrants[1] .+ di_quadrant # center of the cell
-    
+
     for (ic, vertex) in enumerate(xvi_quadrants)
 
         # cache coordinates of all particles inside parent cell
@@ -293,11 +293,11 @@ function _inject_particles_phase!(
 
             # interpolate fields into newly injected particle
             for j in eachindex(args)
-                sz = size(fields[j]) 
+                sz = size(fields[j])
                 if sz == ni_cells
                     # if field is defined at cell centers, interpolate from cell center to particle
                     idx_center = shifted_index(p_new, xci, idx_cell)
-                    idx_center = clamp.(idx_center, 1, sz.-1)
+                    idx_center = clamp.(idx_center, 1, sz .- 1)
                     di_center = @dxi(dxi_center, idx_center...)
                     tmp = _grid2particle(p_new, grid_center, di_center, fields[j], idx_center)
                     local_field = cell_field(fields[j], idx_center...)
