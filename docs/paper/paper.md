@@ -27,38 +27,48 @@ affiliations:
     index: 3
   - name: University of Frankfurt, Frankfurt, Germany
     index: 4
-date: 14 March 2024
+date: 14 May 2026
 bibliography: paper.bib
 ---
 
 # Summary
 
-Particles-in-cell (PIC) and marker-in-cell methods are central to many geodynamics workflows. They are used to advect material properties on top of Eulerian grids, track phase interfaces, reconstruct compositional fields, and maintain sharp information during strongly deforming flows. `JustPIC.jl` is a Julia package that provides these particle operations in a form that is both high level for users and portable across hardware backends.
+Particle-in-cell (PIC) and marker-in-cell methods combine particles that carry material information with an Eulerian grid on which equations are solved. In geodynamics, this makes it possible to follow temperature, composition, phase identity, and interfaces through strongly deforming flows without excessive numerical diffusion [@GeryaYuen2003; @Moresi2003]. `JustPIC.jl` provides these particle operations as a reusable Julia package for two- and three-dimensional structured Cartesian grids with staggered velocities.
 
-`JustPIC.jl` targets two- and three-dimensional structured Cartesian grids with staggered velocities, a layout common in finite-difference Stokes solvers. The package supports execution on CPUs and on NVIDIA and AMD GPUs through a single API, and it also supports distributed-memory runs with MPI. Rather than focusing only on point-particle advection, `JustPIC.jl` includes the surrounding operations required in production geodynamics models: interpolation between particles and grids, particle injection and deletion, passive markers, marker chains for material interfaces, phase-ratio reconstruction, and semi-Lagrangian field advection. The implementation builds on Julia’s performance-oriented scientific computing ecosystem and interoperates naturally with the multi-xPU stencil programming approach enabled by `ParallelStencil.jl` and `ImplicitGlobalGrid.jl` [@Omlin2024].
+The package exposes one high-level workflow across CPUs, NVIDIA GPUs, and AMD GPUs. It includes particle and passive-marker containers, Euler and Runge-Kutta advection, semi-Lagrangian field advection, grid-to-particle and particle-to-grid interpolation, particle injection and cleaning, marker chains for interfaces, phase-ratio reconstruction at cell centers, vertices, and staggered locations, checkpointing, and MPI halo exchange for domain-decomposed simulations.
 
 ## Statement of need
 
-Many research codes contain custom PIC implementations that are deeply tied to a specific solver, memory layout, or accelerator backend. This coupling makes particle methods difficult to reuse and expensive to maintain. Moving from CPU prototypes to GPU production runs often requires reimplementing core kernels, while distributed-memory execution introduces additional complexity around halo exchange and particle ownership. These issues are especially acute in geodynamics, where particle methods are commonly combined with staggered-grid Stokes solvers, phase tracking, and multiphase rheologies.
+Many geodynamics codes contain PIC implementations that are tightly coupled to a solver, memory layout, or accelerator backend. This makes particle methods difficult to reuse, test, and maintain. Moving a CPU prototype to GPU production runs often requires rewriting kernels, while MPI execution adds bookkeeping for particle ownership and halo exchange. These costs are substantial in research workflows where users frequently change rheologies, phase definitions, or interpolation strategies.
 
-`JustPIC.jl` addresses this gap by offering a reusable PIC toolkit designed around three goals: portability, composability, and domain relevance. Portability is provided by a backend-agnostic API that runs on CPUs, CUDA GPUs, and AMD GPUs. Composability comes from its modular design: particle containers, interpolation operators, advection schemes, interface tracking, and auxiliary physics can be used independently or combined inside larger simulation codes. Domain relevance is reflected in support for staggered-grid velocities, phase-ratio reconstruction on multiple grid locations, passive tracers, and marker chains for interfaces such as free surfaces or lithological boundaries.
+`JustPIC.jl` addresses this gap by separating particle mechanics from the governing-equation solver. Its target users are developers of geodynamics and fluid-dynamics models who need tested particle infrastructure but still want direct control over the surrounding numerical model. The package can be used for stand-alone advection experiments or embedded in larger Julia simulation codes.
 
-The package is intended both for stand-alone advection studies and as infrastructure for larger Julia geodynamics codes. It reduces the amount of application-specific particle code that users need to write, while preserving the control needed in research settings.
+This scope is intentionally practical. A typical model defines a staggered velocity grid, initializes particles or passive markers, advects them with a chosen time integrator, updates particle ownership and density, and then reconstructs fields or phase fractions on the grid. `JustPIC.jl` packages those repeated operations so that new models can focus on physics choices rather than rebuilding particle infrastructure.
 
-## Functionality and usage
+## State of the field
 
-`JustPIC.jl` provides several advection schemes, including Euler, second-order Runge-Kutta, fourth-order Runge-Kutta, and semi-Lagrangian variants. Grid-to-particle and particle-to-grid interpolation routines are implemented for structured staggered grids in two and three dimensions. To preserve particle density and avoid loss of information over time, the package includes particle shuffling, injection, and cleaning routines. Beyond classical PIC, `JustPIC.jl` supports passive markers and marker chains, enabling users to represent both bulk material transport and explicitly connected interfaces in the same framework.
+Established geodynamics frameworks such as Underworld2 [@Mansour2020], ASPECT [@Bangerth2017], LaMEM [@Kaus2016], and application-specific marker-in-cell codes provide full modeling environments that include solvers, material models, and particle or compositional advection. These systems are powerful, but their particle machinery is usually part of the host code. `JustPIC.jl` instead focuses on the particle layer itself. The design choice is to complement, rather than replace, complete modeling frameworks: users can pair `JustPIC.jl` with their own finite-difference or stencil solvers, including multi-xPU Julia codes built with `ParallelStencil.jl` and `ImplicitGlobalGrid.jl` [@Omlin2024].
 
-For multiphase applications, phase ratios can be reconstructed at cell centers, vertices, and staggered locations, which is useful when coupling particle-carried material information back to Eulerian solvers. `JustPIC.jl` also includes I/O helpers for checkpointing particle states and supports MPI-based halo exchange for distributed runs on regular decomposed grids.
+## Software design
 
-A typical workflow consists of defining a staggered velocity grid, initializing particles or passive markers, advecting them with one of the provided time integrators, updating particle ownership, and reconstructing fields or phase information on the mesh. The package documentation includes examples for 2D and 3D field advection, GPU execution, mixed CPU/GPU workflows, marker-chain tracking, and MPI-based periodic advection.
+`JustPIC.jl` is organized around backend-parametric particle containers and small composable kernels. Particle coordinates and particle-carried fields are stored in `CellArray` objects, with particles grouped by parent cell to preserve spatial locality during repeated advection. The container also stores derived center, vertex, and staggered velocity grids, allowing common operations such as `advection!`, `move_particles!`, `grid2particle!`, `particle2grid!`, `inject_particles!`, and `update_phase_ratios!` to use concise call forms.
 
-## Impact
+The main trade-off is specialization to structured Cartesian grids. This keeps the API close to staggered-grid geodynamics solvers and enables CPU/GPU portability without maintaining separate user-facing implementations. Interpolation kernels are written generically for two and three dimensions, while package extensions provide CUDA and AMDGPU array support. Distributed runs use `ImplicitGlobalGrid.jl` for regular domain decompositions and explicit halo updates of particle coordinates, indices, and particle fields.
 
-`JustPIC.jl` helps bridge the gap between compact research prototypes and hardware-portable production workflows. By separating particle mechanics from application-specific governing equations, it allows developers of geodynamics and fluid-dynamics codes to reuse tested particle infrastructure instead of maintaining custom implementations for each project. The result is a more maintainable and reproducible foundation for simulations that require particle advection on modern heterogeneous hardware.
+The package also distinguishes three particle use cases. `Particles` represent material points coupled back to the Eulerian mesh; `PassiveMarkers` track user-defined trajectories and field histories without feedback; and `MarkerChain` represents connected interfaces such as topography or material boundaries. This separation keeps common operations lightweight while supporting the interface-tracking and phase-reconstruction tasks needed in multiphase geodynamic models.
+
+## Research impact statement
+
+`JustPIC.jl` is released under the MIT license, archived on Zenodo, documented with worked examples, and tested through CPU, GPU, quality-assurance, formatting, documentation, and downstream continuous-integration workflows. The repository includes reproducible examples for two- and three-dimensional field advection, MPI advection, marker-chain tracking, mixed CPU/GPU usage, and checkpoint/restart. These materials make the package reviewable as a stand-alone research-software contribution and usable as a building block for ongoing JuliaGeodynamics and GPU4GEO modeling workflows.
+
+Its near-term significance is strongest for researchers developing high-performance geodynamic solvers in Julia. By providing a shared particle layer, `JustPIC.jl` reduces duplicated implementations across projects and makes comparisons between advection, interpolation, and hardware backends easier to reproduce. The public tests exercise core 2D and 3D operations, interpolation kernels, integrators, checkpointing, and array-container behavior, providing a foundation for extension by other groups.
+
+## AI usage disclosure
+
+The present paper text was revised with assistance from OpenAI Codex for structure, copy-editing, and alignment with JOSS paper requirements. The authors reviewed and edited the resulting text, remain responsible for all claims, and made the software design and scientific decisions.
 
 ## Acknowledgements
 
-The development of `JustPIC.jl` has been supported by the GPU4GEO project of the Platform for Advanced Scientific Computing (PASC).
+The development of `JustPIC.jl` has been supported by the GPU4GEO and ∂GPU4GEO projects of the Platform for Advanced Scientific Computing (PASC).
 
 ## References
