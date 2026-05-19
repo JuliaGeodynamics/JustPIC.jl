@@ -143,11 +143,11 @@ new particles.
 inject_particles_phase!(
     particles::Particles, particles_phases, args, fields
 ) = inject_particles_phase!(
-    particles, particles_phases, args, fields, particles.xvi, particles.di.vertex
+    particles, particles_phases, args, fields, particles.xvi, particles.xci, particles.di.vertex, particles.di.center
 )
 
 function inject_particles_phase!(
-        particles::Particles, particles_phases, args, fields, grid::NTuple{N}, di
+        particles::Particles, particles_phases, args, fields, grid::NTuple{N}, grid_center, di, di_center
     ) where {N}
     # unpack
     (; coords, index, min_xcell) = particles
@@ -163,7 +163,9 @@ function inject_particles_phase!(
                 coords,
                 index,
                 grid,
+                grid_center,
                 di,
+                di_center,
                 min_xcell,
                 (offsetᵢ, offsetⱼ),
             )
@@ -177,7 +179,9 @@ function inject_particles_phase!(
                 coords,
                 index,
                 grid,
+                grid_center,
                 di,
+                di_center,
                 min_xcell,
                 (offsetᵢ, offsetⱼ, offsetₖ),
             )
@@ -194,7 +198,9 @@ end
         coords,
         index,
         grid,
+        grid_center,
         dxi,
+        dxi_center,
         min_xcell,
         offsets::NTuple{N},
     ) where {N}
@@ -213,8 +219,10 @@ end
             coords,
             index,
             grid,
+            grid_center,
             di,
             di_quadrant,
+            dxi_center,
             min_xcell,
             indices,
         )
@@ -230,17 +238,21 @@ function _inject_particles_phase!(
         coords,
         index,
         grid,
+        grid_center,
         di,
         di_quadrant,
+        dxi_center,
         min_xcell,
         idx_cell,
     )
     # coordinates of the lower-left corner of the cell
     xvi = corner_coordinate(grid, idx_cell)
+    ni_cells = size(index)
 
     # coordinates of the lower-left corner of the cell quadrants
     xvi_quadrants = quadrant_corners(xvi, di_quadrant)
     min_xQuadrant = ceil(Int, min_xcell / length(xvi_quadrants))
+    xci = xvi_quadrants[1] .+ di_quadrant # center of the cell
 
     for (ic, vertex) in enumerate(xvi_quadrants)
 
@@ -281,10 +293,23 @@ function _inject_particles_phase!(
 
             # interpolate fields into newly injected particle
             for j in eachindex(args)
-                tmp = _grid2particle(p_new, grid, di, fields[j], idx_cell)
-                local_field = cell_field(fields[j], idx_cell...)
-                lower, upper = extrema(local_field)
-                @index args[j][i, idx_cell...] = clamp(tmp, lower, upper)
+                sz = size(fields[j])
+                if sz == ni_cells
+                    # if field is defined at cell centers, interpolate from cell center to particle
+                    idx_center = shifted_index(p_new, xci, idx_cell)
+                    idx_center = clamp.(idx_center, 1, sz .- 1)
+                    di_center = @dxi(dxi_center, idx_center...)
+                    tmp = _grid2particle(p_new, grid_center, di_center, fields[j], idx_center)
+                    local_field = cell_field(fields[j], idx_center...)
+                    lower, upper = extrema(local_field)
+                    @index args[j][i, idx_cell...] = clamp(tmp, lower, upper)
+
+                else
+                    tmp = _grid2particle(p_new, grid, di, fields[j], idx_cell)
+                    local_field = cell_field(fields[j], idx_cell...)
+                    lower, upper = extrema(local_field)
+                    @index args[j][i, idx_cell...] = clamp(tmp, lower, upper)
+                end
             end
 
             # we are done with injection if
