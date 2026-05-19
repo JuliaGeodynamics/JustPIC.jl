@@ -136,6 +136,31 @@ end
     @test particles1.np == particles2.np
 end
 
+@testset "Particle injection skips ghost cells 2D" begin
+    nxcell, max_xcell, min_xcell = 8, 12, 8
+    n = 5
+    Lx = Ly = 1.0
+    xvi = xv, yv = LinRange(0, Lx, n), LinRange(0, Ly, n)
+    dx, dy = xv[2] - xv[1], yv[2] - yv[1]
+    xc, yc = LinRange(dx / 2, Lx - dx / 2, n - 1), LinRange(dy / 2, Ly - dy / 2, n - 1)
+    grid_vx = xv, expand_range(yc)
+    grid_vy = expand_range(xc), yv
+
+    particles = _2D.init_particles(
+        backend, nxcell, max_xcell, min_xcell, grid_vx, grid_vy,
+    )
+    pT, = _2D.init_cell_arrays(particles, Val(1))
+    _2D.inject_particles!(particles, (pT,))
+
+    index_cpu = Array(particles.index)
+    ghost_empty = all(
+        count(index_cpu[i, j]) == 0 for i in axes(index_cpu, 1), j in axes(index_cpu, 2)
+            if i in (1, size(index_cpu, 1)) || j in (1, size(index_cpu, 2))
+    )
+    @test ghost_empty
+    @test count(index_cpu[2, 2]) ≥ min_xcell
+end
+
 @testset "Cell index 2D" begin
     n = 11
     x = range(0, stop = 1, length = n)

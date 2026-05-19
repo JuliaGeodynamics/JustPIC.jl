@@ -124,6 +124,34 @@ end
     GC.gc()
 end
 
+@testset "Particle injection skips ghost cells 3D" begin
+    nxcell, max_xcell, min_xcell = 8, 12, 8
+    n = 5
+    nx = ny = nz = n - 1
+    Lx = Ly = Lz = 1.0
+    Li = Lx, Ly, Lz
+    xvi = xv, yv, zv = ntuple(i -> LinRange(0, Li[i], n), Val(3))
+    dxi = dx, dy, dz = ntuple(i -> xvi[i][2] - xvi[i][1], Val(3))
+    xci = xc, yc, zc = ntuple(i -> LinRange(dxi[i] / 2, Li[i] - dxi[i] / 2, (nx, ny, nz)[i]), Val(3))
+    grid_vx = xv, expand_range(yc), expand_range(zc)
+    grid_vy = expand_range(xc), yv, expand_range(zc)
+    grid_vz = expand_range(xc), expand_range(yc), zv
+
+    particles = _3D.init_particles(
+        backend, nxcell, max_xcell, min_xcell, grid_vx, grid_vy, grid_vz,
+    )
+    pT, = _3D.init_cell_arrays(particles, Val(1))
+    _3D.inject_particles!(particles, (pT,))
+
+    index_cpu = Array(particles.index)
+    ghost_empty = all(
+        count(index_cpu[i, j, k]) == 0 for i in axes(index_cpu, 1), j in axes(index_cpu, 2), k in axes(index_cpu, 3)
+            if i in (1, size(index_cpu, 1)) || j in (1, size(index_cpu, 2)) || k in (1, size(index_cpu, 3))
+    )
+    @test ghost_empty
+    @test count(index_cpu[2, 2, 2]) ≥ min_xcell
+end
+
 @testset "Subgrid diffusion 3D" begin
     nxcell, max_xcell, min_xcell = 24, 24, 1
     n = 5 # number of vertices
