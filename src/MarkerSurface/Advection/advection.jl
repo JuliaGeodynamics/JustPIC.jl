@@ -82,5 +82,8 @@ function semilagrangian_advect_surface!(
     avg_new = compute_avg_topo(surf)
     surf.topo .+= (avg_old - avg_new)
 
+    # Keep redundant boundary nodes in sync
+    _enforce_periodic_seam!(surf.topo, surf.periodic_1, surf.periodic_2)
+
     return nothing
 end

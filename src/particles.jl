@@ -136,6 +136,8 @@ struct MarkerSurface{Backend, I, T2, TV, TW} <: AbstractParticles
     xv::TV               # x vertex coordinates
     yv::TV               # y vertex coordinates
     air_phase::I         # sticky-air phase ID
+    periodic_1::Bool     # periodic BC in x direction
+    periodic_2::Bool     # periodic BC in y direction
     workspace::TW        # pre-allocated workspace buffers
 
     function MarkerSurface(
@@ -144,23 +146,25 @@ struct MarkerSurface{Backend, I, T2, TV, TW} <: AbstractParticles
             vx::T2, vy::T2, vz::T2,
             xv::TV, yv::TV,
             air_phase::I,
+            periodic_1::Bool,
+            periodic_2::Bool,
             workspace::TW,
         ) where {B, I, T2, TV, TW}
         return new{B, I, T2, TV, TW}(
             topo, topo0, vx, vy, vz, xv, yv,
-            air_phase, workspace,
+            air_phase, periodic_1, periodic_2, workspace,
         )
     end
 end
 
 function MarkerSurface(
-        topo, topo0, vx, vy, vz, xv, yv, air_phase, workspace
+        topo, topo0, vx, vy, vz, xv, yv, air_phase, periodic_1, periodic_2, workspace
     )
     return MarkerSurface(
         CPUBackend,
         topo, topo0, vx, vy, vz,
         xv, yv,
-        air_phase,
+        air_phase, periodic_1, periodic_2,
         workspace,
     )
 end

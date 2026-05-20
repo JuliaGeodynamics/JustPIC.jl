@@ -158,7 +158,8 @@ function CUDA.CuArray(surf::JustPIC.MarkerSurface)
         CuArray(surf.topo), CuArray(surf.topo0),
         CuArray(surf.vx), CuArray(surf.vy), CuArray(surf.vz),
         CuArray(surf.xv), CuArray(surf.yv),
-        surf.air_phase,
+        surf.air_phase, surf.periodic_1, surf.periodic_2,
+        surf.workspace,
     )
 end
 CUDA.CuArray(surf::JustPIC.MarkerSurface{CUDABackend}) = surf

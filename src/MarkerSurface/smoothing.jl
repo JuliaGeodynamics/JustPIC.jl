@@ -27,30 +27,24 @@ function smooth_surface_max_angle!(surf::MarkerSurface, max_slope_angle::Real)
 
     tan_max = tan(deg2rad(max_slope_angle))
 
-    # Step 1: compute cell-center topography and mark cells exceeding max slope
-    # Use pre-allocated workspace buffers
+    # Step 1: mark cells exceeding max slope; affected cells stored with negative sign in cell_topo
     cell_topo = surf.workspace.cell_topo
-    affected = surf.workspace.affected
     fill!(cell_topo, 0.0)
-    fill!(affected, Int32(0))
 
     @parallel (1:nx, 1:ny) _smooth_step1_kernel!(
-        cell_topo, affected, topo, xv, yv, tan_max
+        cell_topo, topo, xv, yv, tan_max
     )
 
-    # If no cells are affected, return
-    any(!iszero, affected) || return nothing
-
-    # Step 2: smooth nodal topography
+    # Step 2: smooth nodal topography (no-op per node when no neighbours are marked)
     @parallel (1:nx1, 1:ny1) _smooth_step2_kernel!(
-        topo, cell_topo, affected, nx, ny
+        topo, cell_topo, nx, ny, surf.periodic_1, surf.periodic_2
     )
 
     return nothing
 end
 
 @parallel_indices (ic, jc) function _smooth_step1_kernel!(
-        cell_topo, affected, topo, xv, yv, tan_max
+        cell_topo, topo, xv, yv, tan_max
     )
     # Cell sizes
     dx = xv[ic + 1] - xv[ic]
@@ -68,28 +62,22 @@ end
     t = abs(z01 - z00) / dy; tmax = max(tmax, t)
     t = abs(z11 - z10) / dy; tmax = max(tmax, t)
 
-    # Average cell height
+    # Average cell height; negative sign encodes "affected" for step 2
     h = (z00 + z10 + z01 + z11) / 4
-
-    if tmax > tan_max
-        cell_topo[ic, jc] = -h   # mark with negative sign
-        affected[ic, jc] = Int32(1)
-    else
-        cell_topo[ic, jc] = h
-        affected[ic, jc] = Int32(0)
-    end
+    @inbounds cell_topo[ic, jc] = tmax > tan_max ? -h : h
 
     return nothing
 end
 
 @parallel_indices (iv, jv) function _smooth_step2_kernel!(
-        topo, cell_topo, affected, nx, ny
+        topo, cell_topo, nx, ny, periodic_1, periodic_2
     )
     # Get the up-to-4 neighboring cell indices
-    i1 = min(iv, nx)  # right cell
-    i2 = max(iv - 1, 1)   # left cell
-    j1 = min(jv, ny)  # top cell
-    j2 = max(jv - 1, 1)   # bottom cell
+    # When periodic: wrap with mod1 (LaMEM style: only clamp when NOT periodic)
+    i1 = periodic_1 ? mod1(iv, nx)     : min(iv, nx)
+    i2 = periodic_1 ? mod1(iv - 1, nx) : max(iv - 1, 1)
+    j1 = periodic_2 ? mod1(jv, ny)     : min(jv, ny)
+    j2 = periodic_2 ? mod1(jv - 1, ny) : max(jv - 1, 1)
 
     cz1 = cell_topo[i1, j1]
     cz2 = cell_topo[i1, j2]

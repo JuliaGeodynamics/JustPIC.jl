@@ -15,24 +15,22 @@ end
     _pad_extrap_1d!(p, arr)
 
 In-place version: fill pre-allocated `p` (length `n+2`) from `arr` (length `n`).
+Single kernel handles interior copy and boundary extrapolation in one launch.
 """
 function _pad_extrap_1d!(p::AbstractVector, arr::AbstractVector)
     n = length(arr)
-    # Interior copy
-    @parallel (1:n) _pad_copy_1d_kernel!(p, arr)
-    # Boundary extrapolation (single thread, no branching)
-    @parallel (1:1) _pad_boundary_1d_kernel!(p, arr, n)
+    @parallel (1:n + 2) _pad_full_1d_kernel!(p, arr, n)
     return nothing
 end
 
-@parallel_indices (i) function _pad_copy_1d_kernel!(p, arr)
-    @inbounds p[i + 1] = arr[i]
-    return nothing
-end
-
-@parallel_indices (i) function _pad_boundary_1d_kernel!(p, arr, n)
-    @inbounds p[1]     = 2 * arr[1] - arr[2]
-    @inbounds p[n + 2] = 2 * arr[n] - arr[n - 1]
+@parallel_indices (i) function _pad_full_1d_kernel!(p, arr, n)
+    if i == 1
+        @inbounds p[1]     = 2 * arr[1] - arr[2]
+    elseif i == n + 2
+        @inbounds p[n + 2] = 2 * arr[n] - arr[n - 1]
+    else
+        @inbounds p[i] = arr[i - 1]
+    end
     return nothing
 end
 
@@ -50,58 +48,81 @@ function _pad_extrap_2d(arr::AbstractMatrix)
 end
 
 """
-    _pad_extrap_2d!(p, arr)
+    _pad_extrap_2d!(p, arr, periodic_1, periodic_2)
 
 In-place version: fill pre-allocated `p` (size `(nx+2, ny+2)`) from `arr` (size `(nx, ny)`).
+When `periodic_1`/`periodic_2` are true, ghost cells wrap to the opposite boundary
+(LaMEM style: only clamp when NOT periodic). Otherwise extrapolates linearly.
 """
-function _pad_extrap_2d!(p::AbstractMatrix, arr::AbstractMatrix)
+function _pad_extrap_2d!(
+        p::AbstractMatrix, arr::AbstractMatrix,
+        periodic_1::Bool = false, periodic_2::Bool = false,
+    )
     nx, ny = size(arr)
-    # Interior copy
-    @parallel (1:nx, 1:ny) _pad_copy_2d_kernel!(p, arr)
-    # Edge extrapolation
-    @parallel (1:ny) _pad_left_edge_kernel!(p, arr)
-    @parallel (1:ny) _pad_right_edge_kernel!(p, arr, nx)
-    @parallel (1:nx) _pad_bottom_edge_kernel!(p, arr)
-    @parallel (1:nx) _pad_top_edge_kernel!(p, arr, ny)
-    # Corner extrapolation (single thread, no branching)
-    @parallel (1:1) _pad_corners_2d_kernel!(p, arr, nx, ny)
+    @parallel (1:nx + 2, 1:ny + 2) _pad_full_2d_kernel!(p, arr, nx, ny, periodic_1, periodic_2)
     return nothing
 end
 
-@parallel_indices (i, j) function _pad_copy_2d_kernel!(p, arr)
-    @inbounds p[i + 1, j + 1] = arr[i, j]
-    return nothing
-end
-
-@parallel_indices (j) function _pad_left_edge_kernel!(p, arr)
-    @inbounds p[1, j + 1] = 2 * arr[1, j] - arr[2, j]
-    return nothing
-end
-
-@parallel_indices (j) function _pad_right_edge_kernel!(p, arr, nx)
-    @inbounds p[nx + 2, j + 1] = 2 * arr[nx, j] - arr[nx - 1, j]
-    return nothing
-end
-
-@parallel_indices (i) function _pad_bottom_edge_kernel!(p, arr)
-    @inbounds p[i + 1, 1] = 2 * arr[i, 1] - arr[i, 2]
-    return nothing
-end
-
-@parallel_indices (i) function _pad_top_edge_kernel!(p, arr, ny)
-    @inbounds p[i + 1, ny + 2] = 2 * arr[i, ny] - arr[i, ny - 1]
-    return nothing
-end
-
-@parallel_indices (i) function _pad_corners_2d_kernel!(p, arr, nx, ny)
-    # Bottom-left
-    @inbounds p[1, 1] = 4 * arr[1, 1] - 2 * arr[1, 2] - 2 * arr[2, 1] + arr[2, 2]
-    # Top-left
-    @inbounds p[1, ny + 2] = 4 * arr[1, ny] - 2 * arr[1, ny - 1] - 2 * arr[2, ny] + arr[2, ny - 1]
-    # Bottom-right
-    @inbounds p[nx + 2, 1] = 4 * arr[nx, 1] - 2 * arr[nx, 2] - 2 * arr[nx - 1, 1] + arr[nx - 1, 2]
-    # Top-right
-    @inbounds p[nx + 2, ny + 2] = 4 * arr[nx, ny] - 2 * arr[nx, ny - 1] - 2 * arr[nx - 1, ny] + arr[nx - 1, ny - 1]
+@parallel_indices (i, j) function _pad_full_2d_kernel!(p, arr, nx, ny, periodic_1, periodic_2)
+    @inbounds if i == 1 && j == 1
+        # bottom-left corner
+        if periodic_1 && periodic_2
+            p[1, 1] = arr[nx - 1, ny - 1]
+        elseif periodic_1
+            p[1, 1] = 2 * arr[nx - 1, 1] - arr[nx - 1, 2]
+        elseif periodic_2
+            p[1, 1] = 2 * arr[1, ny - 1] - arr[2, ny - 1]
+        else
+            p[1, 1] = 4 * arr[1, 1] - 2 * arr[1, 2] - 2 * arr[2, 1] + arr[2, 2]
+        end
+    elseif i == 1 && j == ny + 2
+        # top-left corner
+        if periodic_1 && periodic_2
+            p[1, ny + 2] = arr[nx - 1, 2]
+        elseif periodic_1
+            p[1, ny + 2] = 2 * arr[nx - 1, ny] - arr[nx - 1, ny - 1]
+        elseif periodic_2
+            p[1, ny + 2] = 2 * arr[1, 2] - arr[2, 2]
+        else
+            p[1, ny + 2] = 4 * arr[1, ny] - 2 * arr[1, ny - 1] - 2 * arr[2, ny] + arr[2, ny - 1]
+        end
+    elseif i == nx + 2 && j == 1
+        # bottom-right corner
+        if periodic_1 && periodic_2
+            p[nx + 2, 1] = arr[2, ny - 1]
+        elseif periodic_1
+            p[nx + 2, 1] = 2 * arr[2, 1] - arr[2, 2]
+        elseif periodic_2
+            p[nx + 2, 1] = 2 * arr[nx, ny - 1] - arr[nx - 1, ny - 1]
+        else
+            p[nx + 2, 1] = 4 * arr[nx, 1] - 2 * arr[nx, 2] - 2 * arr[nx - 1, 1] + arr[nx - 1, 2]
+        end
+    elseif i == nx + 2 && j == ny + 2
+        # top-right corner
+        if periodic_1 && periodic_2
+            p[nx + 2, ny + 2] = arr[2, 2]
+        elseif periodic_1
+            p[nx + 2, ny + 2] = 2 * arr[2, ny] - arr[2, ny - 1]
+        elseif periodic_2
+            p[nx + 2, ny + 2] = 2 * arr[nx, 2] - arr[nx - 1, 2]
+        else
+            p[nx + 2, ny + 2] = 4 * arr[nx, ny] - 2 * arr[nx, ny - 1] - 2 * arr[nx - 1, ny] + arr[nx - 1, ny - 1]
+        end
+    elseif i == 1
+        # left ghost: wrap to arr[nx-1, :] when periodic_1, else extrapolate
+        p[1, j] = periodic_1 ? arr[nx - 1, j - 1] : 2 * arr[1, j - 1] - arr[2, j - 1]
+    elseif i == nx + 2
+        # right ghost: wrap to arr[2, :] when periodic_1, else extrapolate
+        p[nx + 2, j] = periodic_1 ? arr[2, j - 1] : 2 * arr[nx, j - 1] - arr[nx - 1, j - 1]
+    elseif j == 1
+        # bottom ghost: wrap to arr[:, ny-1] when periodic_2, else extrapolate
+        p[i, 1] = periodic_2 ? arr[i - 1, ny - 1] : 2 * arr[i - 1, 1] - arr[i - 1, 2]
+    elseif j == ny + 2
+        # top ghost: wrap to arr[:, 2] when periodic_2, else extrapolate
+        p[i, ny + 2] = periodic_2 ? arr[i - 1, 2] : 2 * arr[i - 1, ny] - arr[i - 1, ny - 1]
+    else
+        p[i, j] = arr[i - 1, j - 1]
+    end
     return nothing
 end
 
@@ -147,13 +168,17 @@ function advect_surface_topo!(
     vyp = ws.vyp
     vzp = ws.vzp
 
-    # Fill padded arrays in-place
+    periodic_1 = surf.periodic_1
+    periodic_2 = surf.periodic_2
+
+    # Fill padded arrays in-place (coords: extrapolation is correct for both periodic and
+    # non-periodic uniform grids; fields: wrap-copy when periodic, following LaMEM)
     _pad_extrap_1d!(xvp, xv)
     _pad_extrap_1d!(yvp, yv)
-    _pad_extrap_2d!(topop, topo)
-    _pad_extrap_2d!(vxp, vx)
-    _pad_extrap_2d!(vyp, vy)
-    _pad_extrap_2d!(vzp, vz)
+    _pad_extrap_2d!(topop, topo, periodic_1, periodic_2)
+    _pad_extrap_2d!(vxp, vx, periodic_1, periodic_2)
+    _pad_extrap_2d!(vyp, vy, periodic_1, periodic_2)
+    _pad_extrap_2d!(vzp, vz, periodic_1, periodic_2)
 
     @parallel (1:nx1, 1:ny1) _advect_surface_topo_kernel!(
         advected, xvp, yvp, topop, vxp, vyp, vzp, dt, Exx, Eyy
@@ -162,6 +187,19 @@ function advect_surface_topo!(
     # Copy advected topography back
     copyto!(topo, advected)
 
+    # Keep the two redundant boundary nodes in sync (periodic seam)
+    _enforce_periodic_seam!(topo, periodic_1, periodic_2)
+
+    return nothing
+end
+
+function _enforce_periodic_seam!(topo::AbstractMatrix, periodic_1::Bool, periodic_2::Bool)
+    if periodic_1
+        @views topo[end, :] .= topo[1, :]
+    end
+    if periodic_2
+        @views topo[:, end] .= topo[:, 1]
+    end
     return nothing
 end
 

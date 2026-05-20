@@ -168,7 +168,8 @@ function AMDGPU.ROCArray(surf::JustPIC.MarkerSurface)
         ROCArray(surf.topo), ROCArray(surf.topo0),
         ROCArray(surf.vx), ROCArray(surf.vy), ROCArray(surf.vz),
         ROCArray(surf.xv), ROCArray(surf.yv),
-        surf.air_phase,
+        surf.air_phase, surf.periodic_1, surf.periodic_2,
+        surf.workspace,
     )
 end
 AMDGPU.ROCArray(surf::JustPIC.MarkerSurface{JustPIC.AMDGPUBackend}) = surf

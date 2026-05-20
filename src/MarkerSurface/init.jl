@@ -22,6 +22,8 @@ A `MarkerSurface` instance with topography initialised to `initial_elevation`.
 function init_marker_surface(
         ::Type{backend}, xv, yv, initial_elevation;
         air_phase::Int = 0,
+        periodic_1::Bool = false,
+        periodic_2::Bool = false,
     ) where {backend}
 
     nx1 = length(xv)
@@ -56,9 +58,8 @@ function init_marker_surface(
         vxp = TA(backend)(zeros(Float64, nx1 + 2, ny1 + 2)),
         vyp = TA(backend)(zeros(Float64, nx1 + 2, ny1 + 2)),
         vzp = TA(backend)(zeros(Float64, nx1 + 2, ny1 + 2)),
-        # smooth_surface_max_angle! buffers
+        # smooth_surface_max_angle! buffer (negative sign encodes affected cells)
         cell_topo = TA(backend)(zeros(Float64, nx1 - 1, ny1 - 1)),
-        affected = TA(backend)(zeros(Int32, nx1 - 1, ny1 - 1)),
         # smooth_surface_diffusive! buffer (same size as topo)
         buf = TA(backend)(zeros(Float64, nx1, ny1)),
     )
@@ -68,7 +69,7 @@ function init_marker_surface(
         topo, topo0,
         vx, vy, vz,
         xv_arr, yv_arr,
-        air_phase,
+        air_phase, periodic_1, periodic_2,
         workspace,
     )
 end
@@ -77,6 +78,7 @@ end
     compute_avg_topo(surf::MarkerSurface)
 
 Compute and return the average topography over all surface vertices.
+Note: forces a device→host scalar transfer on GPU; call only outside hot loops.
 """
 function compute_avg_topo(surf::MarkerSurface)
     return sum(surf.topo) / length(surf.topo)
