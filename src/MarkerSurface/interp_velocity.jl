@@ -57,24 +57,24 @@ using trilinear interpolation.
         Vcomp::AbstractArray{T, 3}, xg, yg, zg,
         x, y, z,
     ) where {T}
-    ix = _find_cell_1d(xg, x)
-    iy = _find_cell_1d(yg, y)
-    iz = _find_cell_1d(zg, z)
+    i = _find_cell_1d(xg, x)
+    j = _find_cell_1d(yg, y)
+    k = _find_cell_1d(zg, z)
 
     # Clamp to valid range
-    ix = clamp(ix, 1, length(xg) - 1)
-    iy = clamp(iy, 1, length(yg) - 1)
-    iz = clamp(iz, 1, length(zg) - 1)
+    i = clamp(i, 1, length(xg) - 1)
+    j = clamp(j, 1, length(yg) - 1)
+    k = clamp(k, 1, length(zg) - 1)
 
-    wx = (x - xg[ix]) / (xg[ix + 1] - xg[ix])
-    wy = (y - yg[iy]) / (yg[iy + 1] - yg[iy])
-    wz = (z - zg[iz]) / (zg[iz + 1] - zg[iz])
+    wx = (x - xg[i]) / (xg[i + 1] - xg[i])
+    wy = (y - yg[j]) / (yg[j + 1] - yg[j])
+    wz = (z - zg[k]) / (zg[k + 1] - zg[k])
 
     wx = clamp(wx, zero(T), one(T))
     wy = clamp(wy, zero(T), one(T))
     wz = clamp(wz, zero(T), one(T))
 
-    return _trilinear(Vcomp, ix, iy, iz, wx, wy, wz)
+    return _trilinear(Vcomp, i, j, k, wx, wy, wz)
 end
 
 """
@@ -97,24 +97,24 @@ Returns 0 if `val < coords[1]`, or `length(coords)` if `val >= coords[end]`.
 end
 
 """
-    _trilinear(F, ix, iy, iz, wx, wy, wz)
+    _trilinear(F, i, j, k, wx, wy, wz)
 
-Trilinear interpolation of 3D field `F` at cell `(ix,iy,iz)` with weights `(wx,wy,wz)`.
+Trilinear interpolation of 3D field `F` at cell `(i,j,k)` with weights `(wx,wy,wz)`.
 """
-@inline function _trilinear(F::AbstractArray{T, 3}, ix, iy, iz, wx, wy, wz) where {T}
+@inline function _trilinear(F::AbstractArray{T, 3}, i, j, k, wx, wy, wz) where {T}
     nx, ny, nz = size(F)
-    ix2 = min(ix + 1, nx)
-    iy2 = min(iy + 1, ny)
-    iz2 = min(iz + 1, nz)
+    i2 = min(i + 1, nx)
+    j2 = min(j + 1, ny)
+    k2 = min(k + 1, nz)
 
-    c000 = F[ix, iy, iz]
-    c100 = F[ix2, iy, iz]
-    c010 = F[ix, iy2, iz]
-    c110 = F[ix2, iy2, iz]
-    c001 = F[ix, iy, iz2]
-    c101 = F[ix2, iy, iz2]
-    c011 = F[ix, iy2, iz2]
-    c111 = F[ix2, iy2, iz2]
+    c000 = F[i, j, k]
+    c100 = F[i2, j, k]
+    c010 = F[i, j2, k]
+    c110 = F[i2, j2, k]
+    c001 = F[i, j, k2]
+    c101 = F[i2, j, k2]
+    c011 = F[i, j2, k2]
+    c111 = F[i2, j2, k2]
 
     c00 = c000 * (1 - wx) + c100 * wx
     c01 = c001 * (1 - wx) + c101 * wx
