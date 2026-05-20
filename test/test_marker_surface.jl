@@ -14,8 +14,10 @@ else
     JustPIC.CPUBackend
 end
 
-function make_grid(; nx=8, ny=8, nz=8,
-                     Lx=1.0, Ly=1.0, Lz=1.0)
+function make_grid(;
+        nx = 8, ny = 8, nz = 8,
+        Lx = 1.0, Ly = 1.0, Lz = 1.0
+    )
     xv = LinRange(0.0, Lx, nx + 1)
     yv = LinRange(0.0, Ly, ny + 1)
     zv = LinRange(0.0, Lz, nz + 1)
@@ -38,15 +40,17 @@ using Statistics
         end
 
         @testset "Flat surface with options" begin
-            surf = init_marker_surface(backend, xv, yv, 0.7; air_phase=2)
+            surf = init_marker_surface(backend, xv, yv, 0.7; air_phase = 2)
             @test surf.air_phase == 2
             @test compute_avg_topo(surf) ≈ 0.7
         end
 
         @testset "Variable initial topography" begin
             nx1, ny1 = length(xv), length(yv)
-            z_init = [0.4 + 0.1 * sin(2π * xv[i]) * cos(2π * yv[j])
-                    for i in 1:nx1, j in 1:ny1]
+            z_init = [
+                0.4 + 0.1 * sin(2π * xv[i]) * cos(2π * yv[j])
+                    for i in 1:nx1, j in 1:ny1
+            ]
             surf = init_marker_surface(backend, xv, yv, z_init)
             @test Array(surf.topo) ≈ z_init
             @test Array(surf.topo0) ≈ z_init
@@ -80,7 +84,7 @@ using Statistics
             ok, zp = _3D._interpolate_triangle(cx, cy, cz, tri, xp, yp)
             @test ok == true
             # At centroid, barycentric coords are (1/3, 1/3, 1/3)
-            @test zp ≈ (1.0 + 2.0 + 3.0) / 3 atol = 1e-10
+            @test zp ≈ (1.0 + 2.0 + 3.0) / 3 atol = 1.0e-10
         end
 
         @testset "Point outside triangle" begin
@@ -108,7 +112,7 @@ using Statistics
             fill!(surf.vz, 0.0)
 
             advect_surface_topo!(surf, dt)
-            @test all(abs.(surf.topo .- z0) .< 1e-12)
+            @test all(abs.(surf.topo .- z0) .< 1.0e-12)
         end
 
         @testset "MarkerSurface — Advection (uniform vertical velocity)" begin
@@ -128,11 +132,11 @@ using Statistics
 
             # Expected: z0 + vz*dt = 0.5 + 0.01 = 0.51
             expected = z0 + vz_val * dt
-            @test all(abs.(surf.topo .- expected) .< 1e-10)
+            @test all(abs.(surf.topo .- expected) .< 1.0e-10)
         end
 
         @testset "MarkerSurface — Velocity interpolation" begin
-            xv, yv, zv = make_grid(; nx=4, ny=4, nz=4)
+            xv, yv, zv = make_grid(; nx = 4, ny = 4, nz = 4)
             nx1, ny1 = length(xv), length(yv)
 
             surf = init_marker_surface(backend, xv, yv, 0.5)
@@ -150,13 +154,13 @@ using Statistics
             interpolate_velocity_to_surface_vertices!(surf, V, xvi)
 
             # With constant Vz=1, all surface vz should be 1
-            @test all(abs.(Array(surf.vz) .- 1.0) .< 1e-10)
-            @test all(abs.(Array(surf.vx)) .< 1e-10)
-            @test all(abs.(Array(surf.vy)) .< 1e-10)
+            @test all(abs.(Array(surf.vz) .- 1.0) .< 1.0e-10)
+            @test all(abs.(Array(surf.vx)) .< 1.0e-10)
+            @test all(abs.(Array(surf.vy)) .< 1.0e-10)
         end
 
         @testset "MarkerSurface — Full advection pipeline" begin
-            xv, yv, zv = make_grid(; nx=8, ny=8, nz=8)
+            xv, yv, zv = make_grid(; nx = 8, ny = 8, nz = 8)
             z0 = 0.5
 
             surf = init_marker_surface(backend, xv, yv, z0)
@@ -175,14 +179,14 @@ using Statistics
             advect_marker_surface!(surf, V, xvi, dt)
 
             # Expected: z0 + 0.1 * 0.1 = 0.51
-            @test all(abs.(Array(surf.topo) .- 0.51) .< 1e-8)
-            @test abs(compute_avg_topo(surf) - 0.51) < 1e-8
+            @test all(abs.(Array(surf.topo) .- 0.51) .< 1.0e-8)
+            @test abs(compute_avg_topo(surf) - 0.51) < 1.0e-8
         end
 
         @testset "MarkerSurface Extended — Advection convergence" begin
             # Test that uniform vertical uplift is exact regardless of resolution
             for nx in [4, 8, 16, 32]
-                xv, yv, zv = make_grid(; nx=nx, ny=nx, nz=nx)
+                xv, yv, zv = make_grid(; nx = nx, ny = nx, nz = nx)
                 z0 = 0.5
                 vz_val = 0.2
                 dt = 0.05
@@ -193,14 +197,14 @@ using Statistics
                 advect_surface_topo!(surf, dt)
                 expected = z0 + vz_val * dt
                 err = maximum(abs.(surf.topo .- expected))
-                @test err < 1e-12
+                @test err < 1.0e-12
             end
         end
 
         @testset "MarkerSurface Extended — Horizontal advection" begin
             # When there's only horizontal velocity (vx), the topography shape
             # should translate horizontally. Test with a sinusoidal surface.
-            xv, yv, zv = make_grid(; nx=32, ny=4, nz=4)
+            xv, yv, zv = make_grid(; nx = 32, ny = 4, nz = 4)
             nx1, ny1 = length(xv), length(yv)
 
             z_init = [0.5 + 0.1 * sin(2π * xv[i]) for i in 1:nx1, j in 1:ny1]
@@ -221,7 +225,7 @@ using Statistics
         end
 
         @testset "MarkerSurface Extended — Background strain rate" begin
-            xv, yv, zv = make_grid(; nx=8, ny=8, nz=8)
+            xv, yv, zv = make_grid(; nx = 8, ny = 8, nz = 8)
             z0 = 0.5
 
             surf = init_marker_surface(backend, xv, yv, z0)
@@ -233,16 +237,16 @@ using Statistics
             # should still produce a valid (flat) result since the target point
             # is found in the deformed grid
             dt = 0.1
-            advect_surface_topo!(surf, dt; Exx=0.01, Eyy=0.01)
-            advect_surface_topo!(surf, dt; Exx=0.01, Eyy=0.01)
-            advect_surface_topo!(surf, dt; Exx=0.01, Eyy=0.01)
+            advect_surface_topo!(surf, dt; Exx = 0.01, Eyy = 0.01)
+            advect_surface_topo!(surf, dt; Exx = 0.01, Eyy = 0.01)
+            advect_surface_topo!(surf, dt; Exx = 0.01, Eyy = 0.01)
             # Flat topography with zero velocity → should remain flat
-            @test all(abs.(Array(surf.topo) .- z0) .< 1e-10)
+            @test all(abs.(Array(surf.topo) .- z0) .< 1.0e-10)
         end
 
 
         @testset "MarkerSurface Extended — Multiple timestep advection" begin
-            xv, yv, zv = make_grid(; nx=8, ny=8, nz=16)
+            xv, yv, zv = make_grid(; nx = 8, ny = 8, nz = 16)
             z0 = 0.3
             vz_val = 0.1
             dt = 0.01
@@ -263,12 +267,12 @@ using Statistics
             end
 
             expected = z0 + vz_val * dt * nsteps
-            @test all(abs.(Array(surf.topo) .- expected) .< 1e-6)
+            @test all(abs.(Array(surf.topo) .- expected) .< 1.0e-6)
         end
 
         @testset "MarkerSurface Extended — Tilted surface" begin
             # Test that a linearly tilted surface is preserved under zero velocity
-            xv, yv, zv = make_grid(; nx=8, ny=8, nz=8)
+            xv, yv, zv = make_grid(; nx = 8, ny = 8, nz = 8)
             nx1, ny1 = length(xv), length(yv)
 
             # Tilted surface: z = 0.3 + 0.2*x + 0.1*y
@@ -283,8 +287,8 @@ using Statistics
 
             # Interior nodes should be exact (zero velocity → no change)
             topo_cpu = Array(surf.topo)
-            interior_err = maximum(abs.(topo_cpu[2:end-1, 2:end-1] .- z_init[2:end-1, 2:end-1]))
-            @test interior_err < 1e-12
+            interior_err = maximum(abs.(topo_cpu[2:(end - 1), 2:(end - 1)] .- z_init[2:(end - 1), 2:(end - 1)]))
+            @test interior_err < 1.0e-12
 
             # Boundary nodes may have small errors due to neighbor clamping
             # (same limitation as LaMEM's FreeSurfAdvectTopo)
@@ -296,7 +300,7 @@ using Statistics
     end
 
     @testset "MarkerSurface — Smoothing" begin
-        xv, yv, _ = make_grid(; nx=4, ny=4)
+        xv, yv, _ = make_grid(; nx = 4, ny = 4)
 
         @testset "No smoothing when max_angle=0" begin
             surf = init_marker_surface(backend, xv, yv, 0.5)
@@ -333,7 +337,7 @@ using Statistics
             @test topo_result[3, 2] > 0.5
         end
         @testset "MarkerSurface Extended — Smoothing preserves flat surfaces" begin
-            xv, yv, _ = make_grid(; nx=16, ny=16)
+            xv, yv, _ = make_grid(; nx = 16, ny = 16)
 
             # Flat surface should not be modified by smoothing
             surf = init_marker_surface(backend, xv, yv, 0.5)
@@ -346,7 +350,7 @@ using Statistics
         end
 
         @testset "MarkerSurface Extended — Smoothing convergence" begin
-            xv, yv, _ = make_grid(; nx=16, ny=16)
+            xv, yv, _ = make_grid(; nx = 16, ny = 16)
             nx1, ny1 = length(xv), length(yv)
 
             # Surface with a sharp spike
@@ -362,7 +366,7 @@ using Statistics
 
             # After many iterations, the spike should be mostly diffused
             # All values should be close to each other (within the boundary constraints)
-            interior = Array(surf.topo)[2:end-1, 2:end-1]
+            interior = Array(surf.topo)[2:(end - 1), 2:(end - 1)]
             @test std(interior) < 0.1  # Much less than the original spike
         end
 
@@ -370,7 +374,7 @@ using Statistics
 
     # ═════════════════════════════════════════════════════════
     # Lightweight mock for RockRatio (avoids JustRelax dependency)
-    struct MockRockRatio3D{T<:AbstractArray{Float64,3}}
+    struct MockRockRatio3D{T <: AbstractArray{Float64, 3}}
         center::T
         vertex::T
         Vx::T
@@ -385,20 +389,20 @@ using Statistics
         AT = TA(backend)
         return MockRockRatio3D(
             AT(zeros(nx, ny, nz)),
-            AT(zeros(nx+1, ny+1, nz+1)),
-            AT(zeros(nx+1, ny, nz)),
-            AT(zeros(nx, ny+1, nz)),
-            AT(zeros(nx, ny, nz+1)),
-            AT(zeros(nx+1, ny+1, nz)),
-            AT(zeros(nx, ny+1, nz+1)),
-            AT(zeros(nx+1, ny, nz+1)),
+            AT(zeros(nx + 1, ny + 1, nz + 1)),
+            AT(zeros(nx + 1, ny, nz)),
+            AT(zeros(nx, ny + 1, nz)),
+            AT(zeros(nx, ny, nz + 1)),
+            AT(zeros(nx + 1, ny + 1, nz)),
+            AT(zeros(nx, ny + 1, nz + 1)),
+            AT(zeros(nx + 1, ny, nz + 1)),
         )
     end
 
     @testset "MarkerSurface — Rock fraction (compute_rock_fraction!)" begin
-        xv, yv, zv = make_grid(; nz=4)
-        nx, ny, nz_g = length(xv)-1, length(yv)-1, length(zv)-1
-        di = (xv[2]-xv[1], yv[2]-yv[1], zv[2]-zv[1])
+        xv, yv, zv = make_grid(; nz = 4)
+        nx, ny, nz_g = length(xv) - 1, length(yv) - 1, length(zv) - 1
+        di = (xv[2] - xv[1], yv[2] - yv[1], zv[2] - zv[1])
 
         @testset "Surface above domain → all rock" begin
             surf = init_marker_surface(backend, xv, yv, 1.5)  # above ztop=1.0
@@ -420,7 +424,7 @@ using Statistics
             compute_rock_fraction!(ϕ, surf, (xv, yv, zv), di)
             center_cpu = Array(ϕ.center)
             for k in 1:nz_g
-                if zv[k+1] ≤ 0.5
+                if zv[k + 1] ≤ 0.5
                     # Cells entirely below surface → fully rock
                     @test all(center_cpu[:, :, k] .≈ 1.0)
                 elseif zv[k] ≥ 0.5
@@ -445,9 +449,9 @@ using Statistics
         end
 
         @testset "MarkerSurface Extended — Rock fraction consistency" begin
-            xv, yv, zv = make_grid(; nx=4, ny=4, nz=8)
+            xv, yv, zv = make_grid(; nx = 4, ny = 4, nz = 8)
             nx_g, ny_g, nz_g = 4, 4, length(zv) - 1
-            di = (xv[2]-xv[1], yv[2]-yv[1], zv[2]-zv[1])
+            di = (xv[2] - xv[1], yv[2] - yv[1], zv[2] - zv[1])
 
             # Flat surface at z=0.5 → cells below should be rock, above should be air
             surf = init_marker_surface(backend, xv, yv, 0.5)
@@ -461,8 +465,8 @@ using Statistics
             # Monotonicity: lower cells should have higher rock fraction
             center_cpu = Array(ϕ.center)
             for i in 1:nx_g, j in 1:ny_g
-                for k in 1:(nz_g-1)
-                    @test center_cpu[i, j, k] ≥ center_cpu[i, j, k+1] - 1e-10
+                for k in 1:(nz_g - 1)
+                    @test center_cpu[i, j, k] ≥ center_cpu[i, j, k + 1] - 1.0e-10
                 end
             end
         end
@@ -480,7 +484,7 @@ using Statistics
             cz = (2.0, 2.0, 2.0, 2.0, 2.0)  # surface at z=2, cell is [0,1]
             tri = (1, 2, 5)
             val = _3D._intersect_triangular_prism(cx, cy, cz, tri, 1.0, 0.0, 1.0)
-            @test val ≈ 0.25 atol = 1e-10
+            @test val ≈ 0.25 atol = 1.0e-10
         end
 
         @testset "Full prism above surface" begin
@@ -489,7 +493,7 @@ using Statistics
             cz = (-1.0, -1.0, -1.0, -1.0, -1.0)  # surface at z=-1, cell is [0,1]
             tri = (1, 2, 5)
             val = _3D._intersect_triangular_prism(cx, cy, cz, tri, 1.0, 0.0, 1.0)
-            @test val ≈ 0.0 atol = 1e-10
+            @test val ≈ 0.0 atol = 1.0e-10
         end
     end
 end

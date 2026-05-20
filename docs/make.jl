@@ -17,6 +17,7 @@ makedocs(;
             "velocity_interpolation.md",
         ],
         "Marker chain" => "marker_chain.md",
+        "Marker surface" => "marker_surface.md",
         "Examples" => [
             "field_advection2D.md",
             "field_advection2D_MPI.md",

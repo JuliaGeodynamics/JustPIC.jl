@@ -19,13 +19,13 @@ Single kernel handles interior copy and boundary extrapolation in one launch.
 """
 function _pad_extrap_1d!(p::AbstractVector, arr::AbstractVector)
     n = length(arr)
-    @parallel (1:n + 2) _pad_full_1d_kernel!(p, arr, n)
+    @parallel (1:(n + 2)) _pad_full_1d_kernel!(p, arr, n)
     return nothing
 end
 
 @parallel_indices (i) function _pad_full_1d_kernel!(p, arr, n)
     if i == 1
-        @inbounds p[1]     = 2 * arr[1] - arr[2]
+        @inbounds p[1] = 2 * arr[1] - arr[2]
     elseif i == n + 2
         @inbounds p[n + 2] = 2 * arr[n] - arr[n - 1]
     else
@@ -59,7 +59,7 @@ function _pad_extrap_2d!(
         periodic_1::Bool = false, periodic_2::Bool = false,
     )
     nx, ny = size(arr)
-    @parallel (1:nx + 2, 1:ny + 2) _pad_full_2d_kernel!(p, arr, nx, ny, periodic_1, periodic_2)
+    @parallel (1:(nx + 2), 1:(ny + 2)) _pad_full_2d_kernel!(p, arr, nx, ny, periodic_1, periodic_2)
     return nothing
 end
 
@@ -145,8 +145,9 @@ already interpolated onto the surface nodes (`surf.vx`, `surf.vy`, `surf.vz`).
 - `Exx, Eyy` : background strain rates in x,y directions (default `0.0`)
 """
 function advect_surface_topo!(
-     surf::MarkerSurface, dt;
-     Exx = 0.0, Eyy = 0.0)
+        surf::MarkerSurface, dt;
+        Exx = 0.0, Eyy = 0.0
+    )
     xv = surf.xv
     yv = surf.yv
     topo = surf.topo
@@ -206,8 +207,8 @@ end
 @parallel_indices (i, j) function _advect_surface_topo_kernel!(
         advected, xvp, yvp, topop, vxp, vyp, vzp, dt, Exx, Eyy
     )
-    # The 16-triangle subdivision topology (0-indexed vertex IDs → 1-indexed)
-    # Vertices 0-8 are the 3x3 grid nodes, 9-12 are cell-center midpoints
+    # The 16-triangle subdivision topology
+    # Vertices 1-9 are the 3x3 grid nodes, 10-13 are cell-center midpoints
     tria = (
         # Inner layer (center-connected triangles)
         (5, 6, 13), (5, 13, 8), (5, 8, 12), (5, 12, 4),
@@ -272,21 +273,21 @@ end
     )
 
     # 4 midpoints (averages of cell-center quartets)
-    cx10 = (cx[1] + cx[2] + cx[4] + cx[5]) / 4
-    cy10 = (cy[1] + cy[2] + cy[4] + cy[5]) / 4
-    cz10 = (cz[1] + cz[2] + cz[4] + cz[5]) / 4
+    cx10 = (cx[1] + cx[2] + cx[4] + cx[5]) * 0.25
+    cy10 = (cy[1] + cy[2] + cy[4] + cy[5]) * 0.25
+    cz10 = (cz[1] + cz[2] + cz[4] + cz[5]) * 0.25
 
-    cx11 = (cx[2] + cx[3] + cx[5] + cx[6]) / 4
-    cy11 = (cy[2] + cy[3] + cy[5] + cy[6]) / 4
-    cz11 = (cz[2] + cz[3] + cz[5] + cz[6]) / 4
+    cx11 = (cx[2] + cx[3] + cx[5] + cx[6]) * 0.25
+    cy11 = (cy[2] + cy[3] + cy[5] + cy[6]) * 0.25
+    cz11 = (cz[2] + cz[3] + cz[5] + cz[6]) * 0.25
 
-    cx12 = (cx[4] + cx[5] + cx[7] + cx[8]) / 4
-    cy12 = (cy[4] + cy[5] + cy[7] + cy[8]) / 4
-    cz12 = (cz[4] + cz[5] + cz[7] + cz[8]) / 4
+    cx12 = (cx[4] + cx[5] + cx[7] + cx[8]) * 0.25
+    cy12 = (cy[4] + cy[5] + cy[7] + cy[8]) * 0.25
+    cz12 = (cz[4] + cz[5] + cz[7] + cz[8]) * 0.25
 
-    cx13 = (cx[5] + cx[6] + cx[8] + cx[9]) / 4
-    cy13 = (cy[5] + cy[6] + cy[8] + cy[9]) / 4
-    cz13 = (cz[5] + cz[6] + cz[8] + cz[9]) / 4
+    cx13 = (cx[5] + cx[6] + cx[8] + cx[9]) * 0.25
+    cy13 = (cy[5] + cy[6] + cy[8] + cy[9]) * 0.25
+    cz13 = (cz[5] + cz[6] + cz[8] + cz[9]) * 0.25
 
     # Extended coordinate arrays (13 points)
     all_cx = (cx..., cx10, cx11, cx12, cx13)
@@ -365,7 +366,7 @@ interpolation of the z-coordinate.
         lb /= S
         lc /= S
     else
-        la = lb = lc = 1.0 / 3.0
+        la = lb = lc = inv(3.0)
     end
 
     # Interpolate z

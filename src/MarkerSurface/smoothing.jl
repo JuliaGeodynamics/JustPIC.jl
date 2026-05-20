@@ -74,9 +74,9 @@ end
     )
     # Get the up-to-4 neighboring cell indices
     # When periodic: wrap with mod1 (LaMEM style: only clamp when NOT periodic)
-    i1 = periodic_1 ? mod1(iv, nx)     : min(iv, nx)
+    i1 = periodic_1 ? mod1(iv, nx) : min(iv, nx)
     i2 = periodic_1 ? mod1(iv - 1, nx) : max(iv - 1, 1)
-    j1 = periodic_2 ? mod1(jv, ny)     : min(jv, ny)
+    j1 = periodic_2 ? mod1(jv, ny) : min(jv, ny)
     j2 = periodic_2 ? mod1(jv - 1, ny) : max(jv - 1, 1)
 
     cz1 = cell_topo[i1, j1]

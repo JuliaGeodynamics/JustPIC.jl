@@ -1126,8 +1126,8 @@ module _3D
 
     function JustPIC._3D.interpolate_velocity_to_surface_vertices!(
             surf::JustPIC.MarkerSurface{CUDABackend},
-            V::NTuple{3,AbstractArray{T,3}},
-            xvi::NTuple{3,Any},
+            V::NTuple{3, AbstractArray{T, 3}},
+            xvi::NTuple{3, Any},
         ) where {T}
         interpolate_velocity_to_surface_vertices!(surf, V, xvi)
         return nothing
@@ -1141,7 +1141,7 @@ module _3D
     end
 
     function JustPIC._3D.smooth_surface_diffusive!(
-            surf::JustPIC.MarkerSurface{CUDABackend}, niter::Int=1; kwargs...
+            surf::JustPIC.MarkerSurface{CUDABackend}, niter::Int = 1; kwargs...
         )
         smooth_surface_diffusive!(surf, niter; kwargs...)
         return nothing
@@ -1155,14 +1155,14 @@ module _3D
     end
 
     function JustPIC._3D.advect_marker_surface!(
-            surf::JustPIC.MarkerSurface{CUDABackend}, V::NTuple{3,Any}, xvi::NTuple{3,Any}, dt; kwargs...
+            surf::JustPIC.MarkerSurface{CUDABackend}, V::NTuple{3, Any}, xvi::NTuple{3, Any}, dt; kwargs...
         )
-            advect_marker_surface!(surf, V, xvi, dt; kwargs...)
+        advect_marker_surface!(surf, V, xvi, dt; kwargs...)
         return nothing
     end
 
     function JustPIC._3D.semilagrangian_advect_surface!(
-            surf::JustPIC.MarkerSurface{CUDABackend}, V::NTuple{3,Any}, xvi::NTuple{3,Any}, dt; kwargs...
+            surf::JustPIC.MarkerSurface{CUDABackend}, V::NTuple{3, Any}, xvi::NTuple{3, Any}, dt; kwargs...
         )
         semilagrangian_advect_surface!(surf, V, xvi, dt; kwargs...)
         return nothing
