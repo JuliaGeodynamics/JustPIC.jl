@@ -589,7 +589,7 @@ function advection_test_2D_refined()
 
     Vx = TA(backend)([vx_stream(x, y) for x in grid_vx[1], y in grid_vx[2]])
     Vy = TA(backend)([vy_stream(x, y) for x in grid_vy[1], y in grid_vy[2]])
-    xvi_p = JustPIC._2D.add_periodic_ghost_nodes.(xvi)
+    xvi_p = Array.(particles.xvi)
     T = TA(backend)([y for x in xvi_p[1], y in xvi_p[2]])
     T0 = deepcopy(T)
     V = Vx, Vy
@@ -599,7 +599,7 @@ function advection_test_2D_refined()
     dt = min(dx_min / maximum(abs.(Array(Vx))), dy_min / maximum(abs.(Array(Vy)))) / 2
 
     particle_args = pT, = init_cell_arrays(particles, Val(1))
-    _2D.grid2particle!(pT, xvi_p, T, particles, diff.(xvi_p))
+    _2D.grid2particle!(pT, T, particles)
 
     sumT = sum(T)
 
@@ -610,7 +610,7 @@ function advection_test_2D_refined()
         _2D.advection!(particles, RungeKutta2(2 / 3), V, dt)
         _2D.move_particles!(particles, particle_args)
         _2D.inject_particles!(particles, (pT,))
-        _2D.grid2particle!(pT, xvi_p, T, particles, diff.(xvi_p))
+        _2D.grid2particle!(pT, T, particles)
     end
 
     sumT_final = sum(T)

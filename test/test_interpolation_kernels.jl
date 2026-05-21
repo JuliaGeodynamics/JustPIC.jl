@@ -63,6 +63,7 @@ end
 
     # Particle to grid test
     T2 = similar(T)
+    fill!(T2, NaN)
     _2D.particle2grid!(T2, pT, particles)
     # norm(T2 .- T) / length(T)
     finite_mask = isfinite.(T2)
@@ -75,6 +76,7 @@ end
 
     # Particle to centroid test
     Tc2 = similar(Tc)
+    fill!(Tc2, NaN)
     _2D.particle2centroid!(Tc2, pT, xci_p, particles, diff.(xci_p))
     # norm(T2 .- T) / length(T)
     finite_mask_c = isfinite.(Tc2)
@@ -136,6 +138,7 @@ end
 
     # Particle to grid test
     T2 = similar(T)
+    fill!(T2, NaN)
     JP3.particle2grid!(T2, pT, particles)
     finite_mask = isfinite.(T2)
     @test norm(T2[finite_mask] .- T[finite_mask]) / count(finite_mask) < 1.0e-1
@@ -146,6 +149,7 @@ end
 
     # Particle to centroid test
     Tc2 = similar(Tc)
+    fill!(Tc2, NaN)
     JP3.particle2centroid!(Tc2, pT, xci_p, particles, diff.(xci_p))
     # norm(T2 .- T) / length(T)
     finite_mask_c = isfinite.(Tc2)

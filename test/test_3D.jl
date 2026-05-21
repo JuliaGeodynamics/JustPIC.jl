@@ -82,6 +82,7 @@ Base.getindex(p::ForceInjectionPoint3D, i::Int) = p.coords[i]
     @test Array(pT.data)[active] ≈ Array(particles.coords[3].data)[active]
     # Particle to grid test
     T2 = similar(T)
+    fill!(T2, NaN)
     _3D.particle2grid!(T2, pT, particles)
     finite_mask = isfinite.(T2)
     @test norm(T2[finite_mask] .- T[finite_mask]) / count(finite_mask) < 1.0e-1
