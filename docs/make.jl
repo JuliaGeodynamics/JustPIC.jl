@@ -1,5 +1,6 @@
-using Documenter, JustPIC
-push!(LOAD_PATH, "../src/")
+using Documenter
+pushfirst!(LOAD_PATH, joinpath(@__DIR__, ".."))
+using JustPIC
 
 @info "Making documentation..."
 makedocs(;

@@ -18,14 +18,14 @@ and we define the usual analytical flow solution
 vx_stream(x, y) =  250 * sin(π*x) * cos(π*y)
 vy_stream(x, y) = -250 * cos(π*x) * sin(π*y)
 ```
-This time, we also need to load MPI.jl and ImplicitGlobalGrid.jl to handle the MPI communication between the different CPU's
+This time, we also need to load MPI.jl and ImplicitGlobalGrid.jl to handle MPI communication between CPU ranks.
 
 ```julia
 using ImplicitGlobalGrid
 using MPI: MPI
 ```
 
-Then we define the model domain
+Then we define the model domain:
 
 ```julia
 n  = 256        # number of nodes
@@ -33,7 +33,7 @@ nx = ny = n-1   # number of cells in x and y
 Lx = Ly = 1.0   # domain size
 ```
 
-, initialize the global grid
+Initialize the global grid:
 ```julia
 me, dims, = init_global_grid(n-1, n-1, 1; init_MPI=MPI.Initialized() ? false : true)
 dxi = dx, dy = Lx /(nx_g()-1), Ly / (ny_g()-1)
@@ -107,17 +107,13 @@ for it in 1:niter
     # advect particles
     advection!(particles, RungeKutta2(), V, dt)
     # exchange MPI halos before shuffling particles between parent cells
-    update_cell_halo!(particles.coords...)
-    update_cell_halo!(particle_args...)
-    update_cell_halo!(particles.index)
+    update_cell_halo!(particles.coords..., particle_args..., particles.index)
     # move particles in memory
     move_particles!(particles, particle_args)
     # inject particles if needed
     inject_particles!(particles, (pT, ))
     # refresh halos again so reinjected particles are visible across ranks
-    update_cell_halo!(particles.coords...)
-    update_cell_halo!(particle_args...)
-    update_cell_halo!(particles.index)
+    update_cell_halo!(particles.coords..., particle_args..., particles.index)
     # interpolate particles to the grid
     particle2grid!(T, pT, particles)
 end
@@ -131,7 +127,8 @@ For periodic MPI runs, there are two separate mechanisms working together:
   ghost nodes.
 - `update_cell_halo!` exchanges the overlapping `CellArray` halos between MPI
   ranks, including across periodic rank boundaries configured by
-  `init_global_grid`.
+  `init_global_grid`. You can pass all coordinate, index, and per-particle
+  field `CellArray`s in one call.
 
 The usual pattern is:
 
@@ -146,14 +143,10 @@ In code:
 
 ```julia
 advection!(particles, RungeKutta2(), V, dt)
-update_cell_halo!(particles.coords...)
-update_cell_halo!(particle_args...)
-update_cell_halo!(particles.index)
+update_cell_halo!(particles.coords..., particle_args..., particles.index)
 move_particles!(particles, particle_args)
 inject_particles!(particles, (pT,))
-update_cell_halo!(particles.coords...)
-update_cell_halo!(particle_args...)
-update_cell_halo!(particles.index)
+update_cell_halo!(particles.coords..., particle_args..., particles.index)
 particle2grid!(T, pT, particles)
 ```
 

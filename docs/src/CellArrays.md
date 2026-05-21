@@ -93,6 +93,13 @@ The most common low-level helpers are:
 - `cellnum(A)`: number of payload entries stored in each logical cell.
 - `cellaxes(A)`: one-based axes for iterating over payload entries.
 - `cell_array(x, ncells, ni)`: allocate a cell array filled with `x`.
+- `update_cell_halo!(arrays...)`: exchange overlapping MPI halos for one or
+  more `CellArray`s after particle coordinates or per-particle fields change on
+  each rank.
 
 Most users interact with these indirectly through `init_particles`,
 `init_cell_arrays`, and the interpolation/advection kernels.
+
+```@docs
+JustPIC._2D.update_cell_halo!
+```
