@@ -19,13 +19,13 @@ end
 end
 
 # check whether particle is inside the grid (includes boundary)
-@inline function isinside(px::Real, py::Real, x, y)
+@inline function isinside(px, py, x, y)
     xmin, xmax = extrema(x)
     ymin, ymax = extrema(y)
     return @assert (px === NaN) || (py === NaN) (xmin ≤ px ≤ xmax) && (ymin ≤ py ≤ ymax)
 end
 
-@inline function isinside(px::Real, py::Real, pz::Real, x, y, z)
+@inline function isinside(px, py, pz, x, y, z)
     xmin, xmax = extrema(x)
     ymin, ymax = extrema(y)
     zmin, zmax = extrema(z)
