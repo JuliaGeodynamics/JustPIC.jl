@@ -74,7 +74,8 @@ function main()
 
     xc0 = yc0 = 0.25
     R = 20 * dx
-    T = TA(backend)([ in_zalesak_disk(x, y; R = 0.1, slot_width = 0.05 / 2, slot_depth = 0.15) * 1.0 for x in xv, y in yv])
+    xvi_p = Array.(particles.xvi)
+    T = TA(backend)([ in_zalesak_disk(x, y; R = 0.1, slot_width = 0.05 / 2, slot_depth = 0.15) * 1.0 for x in xvi_p[1], y in xvi_p[2]])
     T0 = deepcopy(T)
 
     V = Vx, Vy
@@ -110,7 +111,7 @@ function main()
         t += dt
         it += 1
         if rem(it, 100) == 0
-            f, ax, = heatmap(xvi..., Array(T), colormap = :batlow)
+            f, ax, = heatmap(xvi..., Array(T)[2:(end - 1), 2:(end - 1)], colormap = :batlow)
             streamplot!(ax, g, xvi...)
             save("figs/test_$(it).png", f)
             println("Saved figure at t = $t s")

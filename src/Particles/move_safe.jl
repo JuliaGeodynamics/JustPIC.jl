@@ -1,5 +1,6 @@
 """
-    move_particles!(particles::AbstractParticles, args)
+    move_particles!(particles::AbstractParticles, args; periodic_1=false, periodic_2=false, periodic_3=false)
+    move_particles!(particles::AbstractParticles, grid, args, dxi; periodic_1=false, periodic_2=false, periodic_3=false)
 
 Reassign particles to the correct parent cells after their coordinates have been
 updated.
@@ -12,20 +13,37 @@ layout.
 - `particles`: particle container whose coordinates have already been modified.
 - `args`: tuple of per-particle fields that must move together with the particle
   coordinates.
+- `grid`: optional vertex grid coordinates used by the lower-level method.
+- `dxi`: optional grid spacing used by the lower-level method.
+- `periodic_1`, `periodic_2`, `periodic_3`: enable periodic wrapping in the
+  corresponding coordinate direction.
 
 # Notes
-- Particles that leave the domain are discarded.
+- Particles that leave a non-periodic direction are discarded.
+- Periodic directions use the ghost cells created by `add_periodic_ghost_nodes`
+  to wrap coordinates and particle fields across opposite domain boundaries.
 - `args` must use the same cell layout as `particles.coords`.
 - The public entry point uses the vertex grid and spacing stored in `particles`.
 """
-move_particles!(particles::AbstractParticles, args) = move_particles!(particles, particles.xvi, args, particles.di.vertex)
+move_particles!(particles::AbstractParticles, args; periodic_1 = false, periodic_2 = false, periodic_3 = false) = move_particles!(particles, particles.xvi, args, particles.di.vertex; periodic_1 = periodic_1, periodic_2 = periodic_2, periodic_3 = periodic_3)
 
-function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args, dxi) where {N}
+function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args, dxi; periodic_1 = false, periodic_2 = false, periodic_3 = false) where {N}
 
     (; coords, index, max_xcell) = particles
     nxi = size(index)
     domain_limits = extrema.(grid)
     n_color = ntuple(i -> ceil(Int, nxi[i] / 3), Val(N))
+    periodicity = periodic_1, periodic_2, periodic_3 
+    isperiodic = any(periodicity)
+    
+    # first of all, we need to empty ghost nodes to make sure that no particles are moved into them
+    # if !isperiodic    
+    #     empty_ghost_nodes!(particles, args)
+    # end
+
+    if any(periodicity)
+        wrap_fields!(particles, periodicity, args)
+    end
 
     # make some space for incoming particles
     # @parallel (@idx nxi) empty_particles!(coords, index, max_xcell, args)
@@ -49,6 +67,7 @@ function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args, dx
     else
         error(ThrowArgument("The dimension of the problem must be either 2 or 3"))
     end
+
     return nothing
 end
 
@@ -384,4 +403,118 @@ function count_particles(index, I::Vararg{Int, N}) where {N}
         count += @index index[i, I...]
     end
     return count
+end
+
+
+###### 
+
+empty_ghost_nodes!(particles, others::NTuple{N, Any}) where N = empty_ghost_nodes!(particles, others...)
+
+function empty_ghost_nodes!(particles, others...)
+
+    (; index, coords) = particles
+    ni = size(index)
+    @parallel (@idx ni) empty_ghost_nodes!(index, (coords..., others...))
+    
+    return nothing
+end
+
+@parallel_indices (I...) function empty_ghost_nodes!(index, others)
+
+    if isghost(size(index), I)
+        @inbounds for ip in cellaxes(index)
+            @inbounds @index index[ip, I...] = false
+            for other in others
+                @index other[ip, I...] = NaN
+            end
+        end
+    end
+
+    return nothing
+end
+
+@generated function isghost(sz::NTuple{N, Int}, I::NTuple{N}) where {N}
+    return quote
+        @inline
+        Base.@nany $N i -> @inbounds isequal(sz[i], I[i]) || @inbounds isequal(1, I[i])
+    end
+end
+
+
+###### 
+
+wrap_fields!(particles, periodicity, others::NTuple{N, Any}) where N = wrap_fields!(particles, periodicity, others...)
+
+function wrap_fields!(particles, periodicity, others...)
+
+    (; index, coords, xvi) = particles
+    ni = size(index)
+
+    @parallel (@idx ni) wrap_fields!(index, coords, (others...,), xvi, periodicity)
+
+    return nothing
+end
+
+@parallel_indices (I...) function wrap_fields!(index, coords, others, xvi, periodicity)
+
+    if isghost(size(index), I)
+     
+        I_wrapped = wrap_index(periodicity, size(index), I)
+
+        @inbounds for ip in cellaxes(index)
+            # @index index[ip, I_wrapped...] = @index(index[ip, I...])
+            @index index[ip, I...] = @index(index[ip, I_wrapped...])
+            wrap_coordinates!(periodicity, coords, xvi, ip, I_wrapped, I) 
+            for other in others
+                # @index other[ip, I_wrapped...] = @index(other[ip, I...])
+                @index other[ip, I...] = @index(other[ip, I_wrapped...])
+            end
+        end
+    end
+
+    return nothing
+end
+
+@generated function wrap_coordinates!(periodicity, coords::NTuple{N}, xvi, ip, I_wrapped, I::NTuple{N}) where {N}
+    return quote
+        @inline
+        Base.@nexprs $N i -> begin
+            coordsᵢ = coords[i]
+            px      = @index coordsᵢ[ip, I_wrapped...]
+            xmax    = xvi[i][end-1]
+            xmin    = xvi[i][2]
+            if periodicity[i]
+                if px > (xmax + xmin) / 2
+                    Δx = xmax - px
+                    px_new = xmin - Δx
+                    @index coordsᵢ[ip, I...] = px_new
+                else
+                    Δx = px - xmin
+                    px_new = xmax + Δx
+                    @index coordsᵢ[ip, I...] = px_new
+                end
+            else
+                @index coordsᵢ[ip, I...] = px
+            end
+        end
+    end
+end
+
+@generated function wrap_index(periodicity, sz::NTuple{N, Int}, I::NTuple{N}) where {N}
+    return quote
+        @inline
+        Base.@ntuple $N i -> begin
+            if periodicity[i]
+                Iᵢ = wrap_index(I[i], sz[i])
+            else
+                I[i]
+            end
+        end
+    end
+end
+
+@inline function wrap_index(i::Integer, idx_max::Integer)
+    i == 1 && return idx_max-1
+    i == idx_max && return 1
+    return i
 end

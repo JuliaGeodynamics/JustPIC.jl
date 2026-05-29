@@ -1,6 +1,7 @@
 # Public API
 
-The public API is organized by workflow rather than as a single flat reference page.
+The public API is organized by workflow rather than as one long flat symbol
+list. Use this page as a map and the linked sections for method-level details.
 
 ## Main Entry Points
 
@@ -20,6 +21,7 @@ The most commonly used exported names are:
 - Advection: `advection!`, `advection_LinP!`, `advection_MQS!`, `semilagrangian_advection!`, `semilagrangian_advection_LinP!`, `semilagrangian_advection_MQS!`
 - Marker-chain utilities: `init_markerchain`, `fill_chain_from_chain!`, `fill_chain_from_vertices!`, `advect_markerchain!`, `semilagrangian_advection_markerchain!`, `interpolate_velocity_to_markerchain!`, `compute_topography_vertex!`, `resample!`
 - Phase ratios and diffusion: `PhaseRatios`, `update_phase_ratios!`, `SubgridDiffusionCellArrays`, `subgrid_diffusion!`, `subgrid_diffusion_centroid!`
+- MPI `CellArray` halo exchange: `update_cell_halo!`
 - Integrators: `Euler`, `RungeKutta2`, `RungeKutta4`
 - Checkpointing: `checkpointing_particles`
 
@@ -30,5 +32,6 @@ For exact signatures and the most up-to-date method documentation, use Julia hel
 ```julia
 ?init_particles
 ?advection!
+?update_cell_halo!
 ?checkpointing_particles
 ```

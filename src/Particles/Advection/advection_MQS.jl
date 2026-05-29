@@ -40,7 +40,7 @@ function advection_MQS!(
     # dxi = compute_dx(first(grid_vi))
     (; coords, index) = particles
     # compute some basic stuff
-    ni = size(index)
+    ni = inner_size(index)
     # compute local limits (i.e. domain or MPI rank limits)
     local_limits = inner_limits(grid_vi)
 
@@ -65,20 +65,21 @@ end
         dt,
         interpolation_fn::F,
     ) where {N, F}
+    I_inner = I .+ 1
 
     # iterate over particles in the I-th cell
     for ipart in cellaxes(index)
         # skip if particle does not exist in this memory location
-        doskip(index, ipart, I...) && continue
+        doskip(index, ipart, I_inner...) && continue
         # extract particle coordinates
-        pᵢ = get_particle_coords(p, ipart, I...)
+        pᵢ = get_particle_coords(p, ipart, I_inner...)
         # # advect particle
         pᵢ_new = advect_particle(
-            method, pᵢ, V, grid, local_limits, dxi, dt, interpolation_fn, I
+            method, pᵢ, V, grid, local_limits, dxi, dt, interpolation_fn, I_inner
         )
         # update particle coordinates
         for k in 1:N
-            @inbounds @index p[k][ipart, I...] = pᵢ_new[k]
+            @inbounds @index p[k][ipart, I_inner...] = pᵢ_new[k]
         end
     end
 

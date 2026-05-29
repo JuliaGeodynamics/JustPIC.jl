@@ -40,7 +40,7 @@ function main()
     grid_vxi = grid_vx, grid_vy
 
     particles = init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi...
+        backend, nxcell, max_xcell, min_xcell, grid_vxi...
     )
 
     # Cell fields -------------------------------
@@ -49,7 +49,8 @@ function main()
 
     xc0 = yc0 = 0.25
     R = 20 * dx
-    T = TA(backend)([ ((x - xc0)^2 + (y - yc0)^2 ≤ R^2) * 1.0 for x in xv, y in yv])
+    xvi_p = Array.(particles.xvi)
+    T = TA(backend)([ ((x - xc0)^2 + (y - yc0)^2 ≤ R^2) * 1.0 for x in xvi_p[1], y in xvi_p[2]])
     V = Vx, Vy
 
     w = π * 1.0e-5  # angular velocity
@@ -73,7 +74,7 @@ function main()
         t += dt
         it += 1
         if rem(it, 10) == 0
-            f, ax, = heatmap(xvi..., Array(T), colormap = :batlow)
+            f, ax, = heatmap(xvi..., Array(T)[2:(end - 1), 2:(end - 1)], colormap = :batlow)
             streamplot!(ax, g, xvi...)
             display(f)
             # save("figs/test_$(it).png", f)

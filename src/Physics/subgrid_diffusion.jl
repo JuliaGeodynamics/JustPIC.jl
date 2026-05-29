@@ -82,7 +82,7 @@ Use this when the resolved temperature field lives at cell centers instead of
 vertices.
 """
 function subgrid_diffusion_centroid!(
-        pT, T_grid, ΔT_grid, subgrid_arrays, particles, dt; d = 1.0
+        pT, T_grid, ΔT_grid, subgrid_arrays, particles::Particles, dt; d = 1.0
     )
     # d = dimensionless numerical diffusion coefficient (0 ≤ d ≤ 1)
     (; pT0, pΔT, dt₀) = subgrid_arrays
@@ -90,11 +90,14 @@ function subgrid_diffusion_centroid!(
 
     @parallel memcopy_cellarray!(pT0, pT)
     centroid2particle!(pT, T_grid, particles)
+    centroid2particle!(pT, T_grid, particles)
 
     @parallel (@idx ni) subgrid_diffusion!(pT, pT0, pΔT, dt₀, particles.index, d, dt)
     particle2centroid!(subgrid_arrays.ΔT_subgrid, pΔT, particles)
+    particle2centroid!(subgrid_arrays.ΔT_subgrid, pΔT, particles)
 
     @parallel (@idx ni) update_ΔT_subgrid!(subgrid_arrays.ΔT_subgrid, ΔT_grid)
+    centroid2particle!(pΔT, subgrid_arrays.ΔT_subgrid, particles)
     centroid2particle!(pΔT, subgrid_arrays.ΔT_subgrid, particles)
 
     @parallel (@idx ni) update_particle_temperature!(pT, pT0, pΔT)

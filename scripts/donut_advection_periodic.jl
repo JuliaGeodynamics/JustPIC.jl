@@ -53,41 +53,55 @@ function main()
     Vx = TA(backend)([vx_stream(x, y) for x in grid_vx[1], y in grid_vx[2]])
     Vy = TA(backend)([vy_stream(x, y) for x in grid_vy[1], y in grid_vy[2]])
     xc, yc, r1, r2 = 1.0, 0.5, 0.1, 0.3
-    xvi_p = Array.(particles.xvi)
-    T = TA(backend)([incircles(x, y, xc, yc, r1, r2) * 1.0e0 for x in xvi_p[1], y in xvi_p[2]])
+    T = TA(backend)([incircles(x, y, xc, yc, r1, r2) * 1.0e0 for x in particles.xvi[1], y in particles.xvi[2]])
+    # T = TA(backend)([incircles(x, y, xc, yc, r1, r2) * 1.0e0 for x in xv, y in yv])
     V = Vx, Vy
 
-    dt = 0.018 / 1
+    dt = 0.018
 
     # Advection test
     particle_args = pT, = init_cell_arrays(particles, Val(1))
     grid2particle!(pT, T, particles)
+    # grid2particle!(pT, T, particles; ghost_1 = false, ghost_2 = false)
 
-    fname = "donut_figs_$dt"
-    !isdir(fname) && mkdir(fname)
+    frame_stride = 10
+    t_end = 5.0
+    framerate = 30
+    animation_file = "donut_advection_periodic_dt_$(dt).gif"
 
-    # niter = 120
-    t = 0
+    t = 0.0
     it = 0
-    # for it in 1:niter
-    while t < 3
-        @show it += 1
-        advection!(particles, RungeKutta2(), V, dt)
-        move_particles!(particles, particle_args)
-        inject_particles!(particles, (pT,))
-        particle2grid!(T, pT, particles)
-        t += dt
-        if rem(it, 10) == 0
-            f = Figure(size = (800, 160))
-            ax = Axis(f[1, 1], aspect = 5, title = "Donut Advection - Δt = $dt", xlabel = "x", ylabel = "y")
-            heatmap!(ax, xvi..., Array(T)[2:(end - 1), 2:(end - 1)], colormap = :batlow)
-            # streamplot!(ax, g, xvi...)
-            save(joinpath(fname, "test_$(it).png"), f)
-            f
+
+    title = Observable("Donut Advection - Δt = $dt, t = $(round(t; digits = 3))")
+    T_frame = Observable(Array(T))
+    T_physical = @lift($T_frame[2:(end - 1), 2:(end - 1)])
+
+    f = Figure(size = (800, 400) .* 2)
+    ax = Axis(f[1, 1], aspect = 5, title = title, xlabel = "x", ylabel = "y")
+    heatmap!(ax, xvi..., T_physical, colormap = :batlow)
+    # streamplot!(ax, g, xvi...)
+
+    nsteps = ceil(Int, t_end / dt)
+    nframes = cld(nsteps, frame_stride)
+    record(f, animation_file, 0:nframes; framerate = framerate) do frame
+        if frame > 0
+            for _ in 1:frame_stride
+                t ≥ t_end && break
+                @show it += 1
+                advection!(particles, RungeKutta2(), V, dt)
+                move_particles!(particles, particle_args; periodic_1 = true, periodic_2 = false)
+                inject_particles!(particles, (pT,))
+                particle2grid!(T, pT, particles)
+                # particle2grid!(T, pT, particles; ghost_1 = false, ghost_2 = false)
+                any(isnan, T)
+                t += dt
+            end
         end
+        T_frame[] = Array(T)
+        title[] = "Donut Advection - Δt = $dt, t = $(round(t; digits = 3))"
     end
 
-    return println("Finished")
+    return println("Finished writing $(animation_file)")
 end
 
 main()

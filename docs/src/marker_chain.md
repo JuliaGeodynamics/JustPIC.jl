@@ -1,14 +1,19 @@
 # Marker chain
 
-In, e.g., geodynamic modeling is often useful to track interfaces between different materials, such as the topographic profile. We can use the `MarkerChain` object in JustPIC.jl to define and advect surfaces (not closed-polygons) in two-dimensional models. 
+`MarkerChain` is the 2D interface-tracking container in JustPIC. It is intended
+for open surfaces such as topography or material boundaries, not for closed
+polygons.
 
-We can instantiate a chain object with a given constant elevation `h` as:
+You can instantiate a chain object with a constant elevation `h` as:
 
 `chain = init_markerchain(backend, nxcell, min_xcell, max_xcell, xv, h)`
 
-where `backend` is the device backend, `nxcell` is the initial number of makers per cell, `min_xcell` and `max_xcell` are the minimum and maximum number of particles allowed per cell, respectively, and `xv` is the grid corresponding to the vertices of the the grid.
+Here `backend` is the device backend, `nxcell` is the initial number of markers
+per cell, `min_xcell` and `max_xcell` are the occupancy bounds used by
+resampling, and `xv` is the horizontal vertex grid.
 
-We can also fill an existing `MarkerChain` with a given topographic profile:
+You can also overwrite an existing `MarkerChain` with a sampled topographic
+profile:
 ```julia
 # create topographic profile
 x      = LinRange(0, 1, 200)
@@ -19,13 +24,14 @@ topo_y = @. sin(2π*topo_x) * 0.1
 fill_chain_from_chain!(chain, topo_x, topo_y)
 ```
 
-Finally, the marker chain can be advected as follows:
+Once initialized, the high-level advection helper is:
 
 ```julia
 advect_markerchain!(chain, method, velocity, grid_vxi, dt)
 ```
 
-where `method` is the time integration method of the advection equation, `velocity` is a tuple containing the arrays of the velocity field, `grid_vxi` is a tuple containing the grids of the velocity components on the staggered grid, and `t` is the time step.
+It advances markers, moves them back into the correct cells, resamples the
+chain, rebuilds vertex topography, and reconstructs the marker representation.
 
 ## Example
 

@@ -1,20 +1,36 @@
 # Mixed CPU and GPU computations
 
-If GPU memory is a limiting factor for your computation, it may be preferable to carry out particle operations on the CPU rather than on the GPU.
-This involves basically 4 steps:
+If GPU memory is a limiting factor, it can be useful to keep particle storage and
+particle operations on the CPU while solving mesh-based equations on the GPU.
+This workflow has two important consequences:
 
-1) *At the top of the script*. The JustPIC backend must be set to CPU, in contrast with other employed packages (e.g. ParallelStencil):
+- JustPIC particle containers should be allocated with `CPUBackend`.
+- Mesh fields that are consumed by the GPU solver must be copied explicitly
+  between CPU and GPU memory.
+
+## 1. Choose the particle backend
+
+At the top of the script, keep JustPIC particles on the CPU even if other
+packages use a GPU backend:
+
 ```julia
 const backend = JustPIC.CPUBackend 
 ```
 
-2) *At memory allocation stage*. A copy of relevant CPU arrays must be allocated on the GPU memory. For example, phase ratios on mesh vertices:
+## 2. Allocate matching CPU and GPU buffers
+
+At allocation time, create GPU buffers for the mesh quantities needed by the
+solver. For example, phase ratios on mesh vertices can be mirrored on the GPU:
+
 ```julia
 phv_GPU = @zeros(nx+1, ny+1, nz+1, celldims=(N_phases))
 ```
-where `N_phases` is the number of different material phases and `@zeros()` allocates on the GPU.
 
-Similarly, GPU arrays must be copied to CPU memory:
+Here `N_phases` is the number of material phases and `@zeros` allocates on the
+active `ParallelStencil` backend.
+
+You also need CPU-side velocity buffers for particle advection:
+
 ```julia
 V_CPU = (
     x = zeros(nx+1, ny+2, nz+2),
@@ -22,24 +38,35 @@ V_CPU = (
     z = zeros(nx+2, ny+2, nz+1),
 )
 ```
-where `zeros()` allocates on the CPU memory.
 
-4) *At each time step*. The particle will be stored on the CPU memory. It is hence necessary to transfer some information from the CPU to the GPU memory. For example, here's a transfer of phase proportions:
+## 3. Copy particle-derived fields to the GPU
+
+At each time step, particle-derived fields that feed the GPU solver must be
+copied from CPU storage to GPU storage. For example:
 
 ```julia
 phv_GPU.data .= CuArray(phase_ratios.vertex).data
 ```
-!!! we explicitly write `CuArray` - would be better to have something more explicit like `GPUArray` - is there such a thing?
 
-5) *At each time step*. Once velocity computation are finalised on the GPU, they need to be transferred to the CPU:
+Use the array constructor that matches your active accelerator backend, such as
+`CuArray` for CUDA or `ROCArray` for AMDGPU.
+
+## 4. Copy solver velocities back to the CPU
+
+After the GPU velocity solve, transfer the staggered velocity components back to
+CPU arrays:
 
 ```julia
 V_CPU.x .= TA(backend)(V.x)
 V_CPU.y .= TA(backend)(V.y)
 V_CPU.z .= TA(backend)(V.z)
 ```
-Advection can then be applied by calling the `advection()` function:
+
+Advection can then be applied with the usual JustPIC API:
 
 ```julia
 advection!(particles, RungeKutta2(), values(V), Δt)
 ```
+
+Because `backend == CPUBackend`, `TA(backend)` converts the velocity fields to
+plain CPU arrays before particle advection.

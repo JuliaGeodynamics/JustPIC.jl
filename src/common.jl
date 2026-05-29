@@ -2,7 +2,16 @@ include("CellArrays/CellArrays.jl")
 export @cell, cellnum, cellaxes
 
 include("Utils.jl")
-export cell_array, add_ghost_nodes, add_global_ghost_nodes, doskip, @dxi, @dx, @dy, @dz
+export cell_array,
+    add_ghost_nodes,
+    add_global_ghost_nodes,
+    add_periodic_ghost_nodes,
+    inner_size,
+    doskip,
+    @dxi,
+    @dx,
+    @dy,
+    @dz
 
 include("CellArrays/ImplicitGlobalGrid.jl")
 export update_cell_halo!
@@ -16,7 +25,7 @@ include("Interpolations/utils.jl")
 include("Interpolations/particle_to_grid.jl")
 export particle2grid!
 
-include("Interpolations/particle_to_grid_centroid.jl")
+include("Interpolations/particle_to_centroid.jl")
 export particle2centroid!
 
 include("Interpolations/grid_to_particle.jl")

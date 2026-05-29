@@ -1,24 +1,26 @@
 # Field advection in 3D
 
-First we load JustPIC
+First, load JustPIC:
 
 ```julia
 using JustPIC
 ```
 
-and the corresponding 3D module
+Then load the 3D module:
 
 ```julia
 using JustPIC._3D
 ```
 
-We need to specify what backend are we running our simulation on. For convenience we define the backend as a constant. In this case we use the CPU backend, but we could also use the CUDA (CUDABackend) or AMDGPU (AMDGPUBackend) backends.
+Choose the backend used for particle storage and kernels. This example uses the
+CPU backend, but CUDA and AMDGPU backends can be used when the corresponding
+extension packages are loaded.
 
 ```julia
 const backend = JustPIC.CPUBackend
 ```
 
-we define an analytical flow solution to advected our particles
+Define an analytical flow used to advect the particles:
 
 ```julia
 vx_stream(x, z) =  250 * sin(π*x) * cos(π*z)
@@ -26,7 +28,7 @@ vy_stream(x, z) =  0.0
 vz_stream(x, z) = -250 * cos(π*x) * sin(π*z)
 ```
 
-define the model domain
+Define the model domain:
 
 ```julia
 n  = 64             # number of nodes
@@ -40,15 +42,16 @@ dxi = dx, dy, dz = ntuple(i -> xvi[i][2] - xvi[i][1], Val(3)) # cell size
 xci = xc, yc, zc = ntuple(i -> LinRange(0+dxi[i]/2, Li[i]-dxi[i]/2, ni[i]), Val(3)) # cell centers
 ```
 
-JustPIC uses staggered grids for the velocity field, so we need to define the staggered grid for Vx and Vy. We
+JustPIC uses staggered velocity grids, so we define one coordinate tuple for
+each velocity component:
 
 ```julia
 grid_vx = xv              , expand_range(yc), expand_range(zc) # staggered grid for Vx
 grid_vy = expand_range(xc), yv              , expand_range(zc) # staggered grid for Vy
-grid_vz = expand_range(xc), expand_range(yc), zv               # staggered grid for Vy
+grid_vz = expand_range(xc), expand_range(yc), zv               # staggered grid for Vz
 ```
 
-where `expand_range` is a helper function that extends the range of a 1D array by one cell size in each direction
+Here `expand_range` extends a 1D coordinate range by one cell size on both sides:
 
 ```julia
 function expand_range(x::AbstractRange)
@@ -61,7 +64,7 @@ function expand_range(x::AbstractRange)
 end
 ```
 
-Next we initialize the particles
+Next, initialize the particles:
 
 ```julia
 nxcell    = 24 # initial number of particles per cell
@@ -72,7 +75,8 @@ particles = init_particles(
 )
 ```
 
-and the velocity and field we want to advect (on the staggered grid)
+Define the velocity field on the staggered grids and the scalar field on
+vertices:
 
 ```julia
 Vx = TA(backend)([vx_stream(x, z) for x in grid_vx[1], y in grid_vx[2], z in grid_vx[3]])
@@ -82,7 +86,8 @@ T  = TA(backend)([z for x in xv, y in yv, z in zv]) # defined at the cell vertic
 V  = Vx, Vy, Vz
 ```
 
-where `TA(backend)` will move the data to the specified backend (CPU, CUDA, or AMDGPU)
+`TA(backend)` converts the data to the array type associated with the selected
+backend.
 
 We also need to initialize the field `T` on the particles
 
@@ -90,13 +95,13 @@ We also need to initialize the field `T` on the particles
 particle_args = pT, = init_cell_arrays(particles, Val(1));
 ```
 
-and we can use the function `grid2particle!` to interpolate the field `T` to the particles
+Use `grid2particle!` to interpolate `T` to the particles:
 
 ```julia
 grid2particle!(pT, T, particles)
 ```
 
-we can now start the simulation
+We can now start the time loop:
 
 ```julia
 dt = min(dx / maximum(abs.(Vx)), dy / maximum(abs.(Vy)), dz / maximum(abs.(Vz))) / 2
