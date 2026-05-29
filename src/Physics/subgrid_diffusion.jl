@@ -130,7 +130,7 @@ end
 end
 
 @parallel_indices (I...) function update_ΔT_subgrid!(ΔTsubgrid, ΔT)
-    ΔTsubgrid[I...] = ΔT[I...] - ΔTsubgrid[I...]
+    ΔTsubgrid[I...] = ΔT[I .+ 1...] - ΔTsubgrid[I...]
     return nothing
 end
 
