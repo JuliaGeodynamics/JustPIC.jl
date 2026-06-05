@@ -1,7 +1,7 @@
 name = "JustPIC"
 uuid = "10dc771f-8528-4cd9-9d3b-b21b2e693339"
 authors = ["Albert De Montserrat <albertdemontserratnavarro@erdw.ethz.ch>"]
-version = "0.6.4"
+version = "0.6.6"
 
 [deps]
 Atomix = "a9b6321e-bd34-4604-b9c9-b65b8de01458"
@@ -25,7 +25,7 @@ JustPICAMDGPUExt = "AMDGPU"
 JustPICCUDAExt = "CUDA"
 
 [compat]
-AMDGPU = "0.8, 0.9, 1"
+AMDGPU = "1, 2"
 Atomix = "1"
 CUDA = "5"
 CellArrays = "0.3"
