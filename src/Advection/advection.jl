@@ -41,7 +41,7 @@ end
     ) where {N, T1, T2}
     return quote
         Base.@_inline_meta
-        Base.@nexprs $N i -> !(local_lims[i][1] < p[i] < local_lims[i][2]) && return false
+        Base.@nexprs $N i -> !(local_lims[i][1] ≤ p[i] ≤ local_lims[i][2]) && return false
         return true
     end
 end

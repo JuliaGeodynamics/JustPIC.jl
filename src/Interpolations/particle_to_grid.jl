@@ -1,20 +1,40 @@
 ## LAUNCHERS
 
-function particle2grid!(F, Fp, xi, particles)
-    (; coords, index) = particles
-    dxi = grid_size(xi)
-    @parallel (@idx size(F)) particle2grid!(F, Fp, xi, coords, index, dxi)
+"""
+    particle2grid!(F, Fp, particles)
+
+Interpolate particle-centered values `Fp` onto the grid nodes `F`.
+
+The operation is performed in place and supports both scalar fields and tuples
+of component arrays.
+
+# Arguments
+- `F`: destination nodal array, or tuple of nodal arrays.
+- `Fp`: particle field stored with the same cell layout as `particles`.
+- `particles`: the `Particles` container supplying particle coordinates and
+  active-slot information. Its stored `xvi` coordinates define the target
+  vertex grid.
+
+# Notes
+- This routine mutates `F` in place.
+- The interpolation loops over nodes and nearby cells, which avoids atomics on
+  the particles themselves.
+"""
+function particle2grid!(F, Fp, particles)
+    (; coords, index, xvi) = particles
+
+    @parallel (@idx size(F)) particle2grid!(F, Fp, xvi, coords, index)
     return nothing
 end
 
-@parallel_indices (I...) function particle2grid!(F, Fp, xi, particle_coords, index, di)
-    _particle2grid!(F, Fp, I..., xi, particle_coords, index, di)
+@parallel_indices (I...) function particle2grid!(F, Fp, xi, particle_coords, index)
+    _particle2grid!(F, Fp, I..., xi, particle_coords, index)
     return nothing
 end
 
 ## INTERPOLATION KERNEL 2D
 
-function _particle2grid!(F, Fp, inode, jnode, xi::NTuple{2, T}, p, index, di) where {T}
+function _particle2grid!(F, Fp, inode, jnode, xi::NTuple{2, T}, p, index) where {T}
     px, py = p # particle coordinates
     xvertex = xi[1][inode], xi[2][jnode] # cell lower-left coordinates
     ω, ωxF = 0.0, 0.0 # init weights
@@ -36,7 +56,7 @@ function _particle2grid!(F, Fp, inode, jnode, xi::NTuple{2, T}, p, index, di) wh
                 doskip(index, ip, ivertex, jvertex) && continue
 
                 p_i = @index(px[ip, ivertex, jvertex]), @index(py[ip, ivertex, jvertex])
-                ω_i = distance_weight(xvertex, p_i; order = 1)
+                ω_i = distance_weight(xvertex, p_i; order = 2)
                 # ω_i = bilinear_weight(xvertex, p_i, di)
                 ω += ω_i
                 ωxF = fma(ω_i, @index(Fp[ip, ivertex, jvertex]), ωxF)
@@ -48,7 +68,7 @@ function _particle2grid!(F, Fp, inode, jnode, xi::NTuple{2, T}, p, index, di) wh
 end
 
 @inbounds function _particle2grid!(
-        F::NTuple{N, T1}, Fp::NTuple{N, T2}, inode, jnode, xi::NTuple{2, T3}, p, index, di
+        F::NTuple{N, T1}, Fp::NTuple{N, T2}, inode, jnode, xi::NTuple{2, T3}, p, index
     ) where {N, T1, T2, T3}
     px, py = p # particle coordinates
     nx, ny = size(F[1])
@@ -69,7 +89,7 @@ end
                     doskip(index, i, ivertex, jvertex) && continue
 
                     p_i = @index(px[i, ivertex, jvertex]), @index(py[i, ivertex, jvertex])
-                    ω_i = distance_weight(xvertex, p_i; order = 1)
+                    ω_i = distance_weight(xvertex, p_i; order = 2)
                     # ω_i = bilinear_weight(xvertex, p_i, di)
                     ω += ω_i
                     ωxF = ntuple(Val(N)) do j
@@ -91,7 +111,7 @@ end
 ## INTERPOLATION KERNEL 3D
 
 @inbounds function _particle2grid!(
-        F, Fp, inode, jnode, knode, xi::NTuple{3, T}, p, index, di
+        F, Fp, inode, jnode, knode, xi::NTuple{3, T}, p, index
     ) where {T}
     px, py, pz = p # particle coordinates
     nx, ny, nz = size(F)
@@ -117,7 +137,7 @@ end
                             @index(py[ip, ivertex, jvertex, kvertex]),
                             @index(pz[ip, ivertex, jvertex, kvertex]),
                         )
-                        ω_i = distance_weight(xvertex, p_i; order = 1)
+                        ω_i = distance_weight(xvertex, p_i; order = 2)
                         # ω_i = bilinear_weight(xvertex, p_i, di)
                         ω += ω_i
                         ωF = muladd(ω_i, @index(Fp[ip, ivertex, jvertex, kvertex]), ωF)
@@ -131,7 +151,7 @@ end
 end
 
 @inbounds function _particle2grid!(
-        F::NTuple{N, T1}, Fp::NTuple{N, T2}, inode, jnode, knode, xi::NTuple{3, T3}, p, index, di
+        F::NTuple{N, T1}, Fp::NTuple{N, T2}, inode, jnode, knode, xi::NTuple{3, T3}, p, index
     ) where {N, T1, T2, T3}
     px, py, pz = p # particle coordinates
     nx, ny, nz = size(F[1])
@@ -158,7 +178,7 @@ end
                             @index(py[ip, ivertex, jvertex, kvertex]),
                             @index(pz[ip, ivertex, jvertex, kvertex]),
                         )
-                        ω_i = distance_weight(xvertex, p_i; order = 1)
+                        ω_i = distance_weight(xvertex, p_i; order = 2)
                         # ω_i = bilinear_weight(xvertex, p_i, di)
                         ω += ω_i
                         ωxF = ntuple(Val(N)) do j

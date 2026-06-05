@@ -28,15 +28,37 @@ jldsave(
 )
 ```
 
-Additionally, there is a pre-defined functions to save the particle information in a checkpoint file:
+Additionally, there is a pre-defined function to save particle information in a checkpoint file:
 
 ```julia
-checkpointing_particles(dst, particles, phases, phase_ratios; chain=nothing, t=nothing, dt=nothing, particle_args=nothing)
+checkpointing_particles(
+    dst,
+    particles;
+    phases = nothing,
+    phase_ratios = nothing,
+    chain = nothing,
+    t = nothing,
+    dt = nothing,
+    particle_args = nothing,
+    kwargs...,
+)
 ```
 or if you run it on multiple ranks:
 ```julia
-checkpointing_particles(dst, particles, phases, phase_ratios, me; chain=nothing, t=nothing, dt=nothing, particle_args=nothing)
+checkpointing_particles(
+    dst,
+    particles,
+    me;
+    phases = nothing,
+    phase_ratios = nothing,
+    chain = nothing,
+    t = nothing,
+    dt = nothing,
+    particle_args = nothing,
+    kwargs...,
+)
 ```
+Any additional keyword arguments are serialized into the checkpoint as extra fields.
 ## Loading a checkpoint file
 
 In order to restart a simulation, one needs to load the checkpoint file of interest. This is how to read the particle information from the checkpoint file `my_file.jld2`:

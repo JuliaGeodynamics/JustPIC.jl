@@ -36,21 +36,21 @@ function main()
     ni = nx, ny, nz
     Li = Lx, Ly, Lz
     # nodal vertices
-    xvi = xv, yv, zv = ntuple(i -> range(0, Li[i], length = n), Val(3))
+    xvi = xv, yv, zv = ntuple(i -> LinRange(0, Li[i], n), Val(3))
     # grid spacing
     dxi = dx, dy, dz = ntuple(i -> xvi[i][2] - xvi[i][1], Val(3))
     # nodal centers
-    xci = xc, yc, zc = ntuple(i -> range(0 + dxi[i] / 2, Li[i] - dxi[i] / 2, length = ni[i]), Val(3))
+    xci = xc, yc, zc = ntuple(i -> LinRange(0 + dxi[i] / 2, Li[i] - dxi[i] / 2, ni[i]), Val(3))
 
     # staggered grid velocity nodal locations
     grid_vx = xv, expand_range(yc), expand_range(zc)
     grid_vy = expand_range(xc), yv, expand_range(zc)
     grid_vz = expand_range(xc), expand_range(yc), zv
-
+    grid_vel = grid_vx, grid_vy, grid_vz
     # Initialize particles -------------------------------
-    nxcell, max_xcell, min_xcell = 125, 150, 100
+    nxcell, max_xcell, min_xcell = 25, 50, 10
     particles = init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi...
+        backend, nxcell, max_xcell, min_xcell, grid_vel...
     )
 
     # Cell fields -------------------------------
@@ -64,16 +64,16 @@ function main()
 
     # Advection test
     particle_args = pT, = init_cell_arrays(particles, Val(1))
-    grid2particle!(pT, xvi, T, particles)
+    grid2particle!(pT, T, particles)
 
-    niter = 10
-    for _ in 1:niter
-        advection!(particles, RungeKutta2(), V, (grid_vx, grid_vy, grid_vz), dt)
-        move_particles!(particles, xvi, particle_args)
+    niter = 100
+    for it in 1:niter
+        advection!(particles, RungeKutta2(), V, dt)
+        move_particles!(particles, particle_args)
         # reseed
-        inject_particles!(particles, (pT,), xvi)
+        inject_particles!(particles, (pT,))
     end
-    particle2grid!(T, pT, xvi, particles)
+    particle2grid!(T, pT, particles)
 
     return f, = heatmap(xvi[1], xvi[3], Array(T[:, Int(div(n, 2)), :]), colormap = :batlow)
 

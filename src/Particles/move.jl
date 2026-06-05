@@ -1,13 +1,16 @@
 """
+    move_particles!(particles::AbstractParticles, args)
     move_particles!(particles::AbstractParticles, grid, args)
 
-Move particles in the given `particles` container according to the provided `grid` and particles fields in `args`.
+Move particles to their new parent cells after their coordinates have changed.
 
 # Arguments
 - `particles`: The container of particles to be moved.
-- `grid`: The grid used for particle movement.
-- `args`: `CellArrays`s containing particle fields.
+- `args`: `CellArray`s containing particle fields that travel with the particle coordinates.
+- `grid`: optional explicit grid coordinates for lower-level or legacy use.
 """
+move_particles!(particles::AbstractParticles, args) = move_particles!(particles, particles.xvi, args)
+
 function move_particles!(particles::AbstractParticles, grid, args)
     # implementation goes here
     dxi = compute_dx(grid)

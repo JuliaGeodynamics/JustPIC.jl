@@ -1,24 +1,24 @@
 ## Kernels to compute phase ratios at the vertices
 
-function phase_ratios_vertex!(phase_ratios::JustPIC.PhaseRatios, particles, xvi, phases)
+
+function phase_ratios_vertex!(phase_ratios::JustPIC.PhaseRatios, particles, phases)
     ni = size(phases) .+ 1
-    di = compute_dx(xvi)
 
     @parallel (@idx ni) phase_ratios_vertex_kernel!(
-        phase_ratios.vertex, particles.coords, xvi, di, phases
+        phase_ratios.vertex, particles.coords, particles.xvi, particles.di.vertex, phases
     )
     return nothing
 end
 
 @parallel_indices (I...) function phase_ratios_vertex_kernel!(
-        ratio_vertices, pxi::NTuple{3}, xvi::NTuple{3}, di::NTuple{3, T}, phases
+        ratio_vertices, pxi::NTuple{3}, xvi::NTuple{3, T}, dᵢ, phases
     ) where {T}
 
     # index corresponding to the cell center
     cell_vertex = xvi[1][I[1]], xvi[2][I[2]], xvi[3][I[3]]
     ni = size(phases)
     NC = nphases(ratio_vertices)
-    w = ntuple(_ -> zero(T), NC)
+    w = ntuple(_ -> 0.0e0, NC)
 
     for offsetᵢ in -1:0, offsetⱼ in -1:0, offsetₖ in -1:0
         i_cell = I[1] + offsetᵢ
@@ -29,6 +29,7 @@ end
         0 < k_cell < ni[3] + 1 || continue
 
         cell_index = i_cell, j_cell, k_cell
+        di = @dxi dᵢ cell_index...
 
         for ip in cellaxes(phases)
             p = @index(pxi[1][ip, cell_index...]),
@@ -60,14 +61,14 @@ end
 end
 
 @parallel_indices (I...) function phase_ratios_vertex_kernel!(
-        ratio_vertices, pxi::NTuple{2}, xvi::NTuple{2}, di::NTuple{2, T}, phases
-    ) where {T}
+        ratio_vertices, pxi::NTuple{2}, xvi::NTuple{2}, dᵢ, phases
+    )
 
     # index corresponding to the cell center
     cell_vertex = xvi[1][I[1]], xvi[2][I[2]]
     ni = size(phases)
     NC = nphases(ratio_vertices)
-    w = ntuple(_ -> zero(T), NC)
+    w = ntuple(_ -> 0.0e0, NC)
 
     for offsetᵢ in -1:0, offsetⱼ in -1:0
         i_cell = I[1] + offsetᵢ
@@ -76,6 +77,7 @@ end
         !(0 < j_cell < ni[2] + 1) && continue
 
         cell_index = i_cell, j_cell
+        di = @dxi dᵢ cell_index...
 
         for ip in cellaxes(phases)
             p = @index(pxi[1][ip, cell_index...]), @index(pxi[2][ip, cell_index...])

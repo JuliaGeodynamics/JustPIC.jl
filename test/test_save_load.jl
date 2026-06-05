@@ -10,6 +10,24 @@ import JustPIC._3D as JP3
 
 const backend = JustPIC.CPUBackend
 
+function expand_range(x::AbstractRange)
+    dx = x[2] - x[1]
+    n = length(x)
+    x1, x2 = extrema(x)
+    xI = x1 - dx
+    xF = x2 + dx
+    return LinRange(xI, xF, n + 2)
+end
+
+function expand_range(x::AbstractVector)
+    dx_left = x[2] - x[1]
+    dx_right = x[end] - x[end - 1]
+    x1, x2 = extrema(x)
+    xI = x1 - dx_left
+    xF = x2 + dx_right
+    return vcat(xI, x, xF)
+end
+
 @testset "Save and load 2D" begin
     # Initialize particles -------------------------------
     nxcell, max_xcell, min_xcell = 6, 6, 6
@@ -18,18 +36,27 @@ const backend = JustPIC.CPUBackend
     ni = nx, ny
     Lx = Ly = 1.0
     # nodal vertices
-    xvi = xv, yv = range(0, Lx, length = n), range(0, Ly, length = n)
+    xvi = xv, yv = LinRange(0, Lx, n), LinRange(0, Ly, n)
+    dxi = dx, dy = xv[2] - xv[1], yv[2] - yv[1]
+    # nodal centers
+    xc, yc = LinRange(0 + dx / 2, Lx - dx / 2, n - 1), LinRange(0 + dy / 2, Ly - dy / 2, n - 1)
+    # staggered grid velocity nodal locations
+    grid_vx = xv, expand_range(yc)
+    grid_vy = expand_range(xc), yv
+    grid_vel = grid_vx, grid_vx
 
-    particles = JP2.init_particles(backend, nxcell, max_xcell, min_xcell, xvi...)
-    phases, = JP2.init_cell_arrays(particles, Val(1))
-    particle_args = (phases,)
+    particles = JP2.init_particles(backend, nxcell, max_xcell, min_xcell, grid_vel...)
+    phases, pT = JP2.init_cell_arrays(particles, Val(2))
+    particle_args = (phases, pT)
+    particle_args_reduced = (phases,)
+    particle_args_kwarg = (phases,)
     phase_ratios = JP2.PhaseRatios(backend, 2, ni)
     initial_elevation = Ly / 2
     chain = JP2.init_markerchain(backend, nxcell, min_xcell, max_xcell, xv, initial_elevation)
     @views particles.index.data[:, 1:3, 1] .= 1.0
     @views particles.index.data[:, 4:6, 1] .= 0.0
 
-    JP2.checkpointing_particles(pwd(), particles; phases = phases, phase_ratios = phase_ratios, chain = chain, particle_args = particle_args)
+    JP2.checkpointing_particles(pwd(), particles; phases = phases, phase_ratios = phase_ratios, chain = chain, particle_args = particle_args, particle_args_reduced = particle_args_reduced, particle_args_kwarg = particle_args_kwarg)
 
     # test type conversion
     @test eltype(eltype(Array(phases))) === Float64
@@ -76,9 +103,13 @@ const backend = JustPIC.CPUBackend
     phase_ratios3 = data1["phase_ratios"]
     chain3 = data1["chain"]
     particle_args3 = data1["particle_args"]
+    particle_args_reduced3 = data1["particle_args_reduced"]
+    particle_args_kwarg3 = data1["particle_args_kwarg"]
 
     @test chain3 isa JustPIC.MarkerChain{JustPIC.CPUBackend}
     @test particle_args3 isa Tuple
+    @test particle_args_reduced3 isa Tuple
+    @test particle_args_kwarg3 isa Tuple
     @test Array(particles).coords[1].data == particles3.coords[1].data
     @test Array(particles).coords[2].data == particles3.coords[2].data
     @test Array(particles).index.data == particles3.index.data
@@ -111,6 +142,8 @@ const backend = JustPIC.CPUBackend
         phases_gpu2 = T(phases3)
         chain_gpu = T(chain)
         particle_args_gpu2 = T.(particle_args)
+        particle_args_reduced_gpu2 = T.(particle_args_reduced)
+        particle_args_kwarg_gpu2 = T.(particle_args_kwarg)
 
         @test particles_gpu isa JustPIC.Particles{Backend}
         @test phase_ratios_gpu isa JustPIC.PhaseRatios{Backend}
@@ -126,6 +159,8 @@ const backend = JustPIC.CPUBackend
         @test phase_ratios_gpu2 isa JustPIC.PhaseRatios{Backend}
         @test chain_gpu isa JustPIC.MarkerChain{Backend}
         @test particle_args_gpu2 isa Tuple
+        @test particle_args_reduced_gpu2 isa Tuple
+        @test particle_args_kwarg_gpu2 isa Tuple
         @test last(typeof(phases_gpu2).parameters) <: T{Float64, 3}
         @test size(particles_gpu2.coords[1].data) == size(permutedims(particles.coords[1].data, (3, 2, 1)))
         @test size(particles_gpu2.coords[2].data) == size(permutedims(particles.coords[2].data, (3, 2, 1)))
@@ -159,20 +194,32 @@ end
     nx = ny = nz = n - 1
     ni = nx, ny, nz
     Lx = Ly = Lz = 1.0
+    Li = Lx, Ly, Lz
     # nodal vertices
-    xvi = xv, yv, zv = range(0, Lx, length = n), range(0, Ly, length = n), range(0, Lz, length = n)
+    xvi = xv, yv, zv = ntuple(i -> LinRange(0, Li[i], n), Val(3))
+    # grid spacing
+    dxi = dx, dy, dz = ntuple(i -> xvi[i][2] - xvi[i][1], Val(3))
+    # nodal centers
+    xci = xc, yc, zc = ntuple(i -> LinRange(0 + dxi[i] / 2, Li[i] - dxi[i] / 2, ni[i]), Val(3))
+    # staggered grid velocity nodal locations
+    grid_vx = xv, expand_range(yc), expand_range(zc)
+    grid_vy = expand_range(xc), yv, expand_range(zc)
+    grid_vz = expand_range(xc), expand_range(yc), zv
+    grid_vel = grid_vx, grid_vy, grid_vz
 
-    particles = JP3.init_particles(backend, nxcell, max_xcell, min_xcell, xvi...)
-    phases, = JP3.init_cell_arrays(particles, Val(1))
+    particles = JP3.init_particles(backend, nxcell, max_xcell, min_xcell, grid_vel...)
+    phases, pT = JP3.init_cell_arrays(particles, Val(2))
     phase_ratios = JP3.PhaseRatios(backend, 2, ni)
-    particle_args = (phases,)
+    particle_args = (phases, pT)
+    particle_args_reduced = (phases,)
+    particle_args_kwarg = (phases,)
     initial_elevation = Ly / 2
     chain = JP2.init_markerchain(backend, nxcell, min_xcell, max_xcell, xv, initial_elevation)
-
+    it = 500
     @views particles.index.data[:, 1:3, 1] .= 1.0
     @views particles.index.data[:, 4:6, 1] .= 0.0
 
-    JP3.checkpointing_particles(pwd(), particles; phases = phases, phase_ratios = phase_ratios)
+    JP3.checkpointing_particles(pwd(), particles; phases = phases, phase_ratios = phase_ratios, particle_args = particle_args, particle_args_reduced = particle_args_reduced, particle_args_kwarg = particle_args_kwarg, it = it)
 
     # test type conversion
     @test eltype(eltype(Array(phases))) === Float64
@@ -206,7 +253,14 @@ end
     phase_ratios3 = data1["phase_ratios"]
     chain3 = data1["chain"]
     particle_args3 = data1["particle_args"]
+    particle_args_reduced3 = data1["particle_args_reduced"]
+    particle_args_kwarg3 = data1["particle_args_kwarg"]
+    it1 = data1["it"]
 
+    @test chain3 isa Nothing
+    @test particle_args3 isa Tuple
+    @test particle_args_reduced3 isa Tuple
+    @test particle_args_kwarg3 isa Tuple
     @test Array(particles).coords[1].data == particles2.coords[1].data
     @test Array(particles).coords[2].data == particles2.coords[2].data
     @test Array(particles).index.data == particles2.index.data
@@ -251,6 +305,7 @@ end
         phase_ratios_gpu2 = T(phase_ratios3)
         phases_gpu2 = T(phases3)
         particle_args_gpu2 = T.(particle_args)
+        particle_args_reduced_gpu2 = T.(particle_args_reduced)
 
         @test particles_gpu isa JustPIC.Particles{Backend}
         @test phase_ratios_gpu isa JustPIC.PhaseRatios{Backend}
@@ -265,6 +320,7 @@ end
         @test particles_gpu2 isa JustPIC.Particles{Backend}
         @test phase_ratios_gpu2 isa JustPIC.PhaseRatios{Backend}
         @test particle_args_gpu2 isa Tuple
+        @test particle_args_reduced_gpu2 isa Tuple
         @test last(typeof(phases_gpu2).parameters) <: T{Float64, 3}
         @test size(particles_gpu2.coords[1].data) == size(permutedims(particles.coords[1].data, (3, 2, 1)))
         @test size(particles_gpu2.coords[2].data) == size(permutedims(particles.coords[2].data, (3, 2, 1)))

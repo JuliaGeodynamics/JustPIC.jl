@@ -1,3 +1,12 @@
+"""
+    compute_rock_fraction!(ratios, chain::MarkerChain, xvi, dxi)
+
+Fill `ratios` with the fraction of each control volume that lies below the marker
+chain.
+
+The result is written at cell centers, vertices, and staggered velocity nodes
+using the topography currently stored in `chain`.
+"""
 function compute_rock_fraction!(ratios, chain::MarkerChain, xvi, dxi)
     compute_area_below_chain_centers!(ratios.center, chain, xvi, dxi)
     compute_area_below_chain_vertex!(ratios.vertex, chain, xvi, dxi)
