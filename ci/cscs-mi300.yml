@@ -43,4 +43,5 @@ ref_test:
         Pkg.instantiate();
         Pkg.add("AMDGPU");'
     - echo "Running the reference test (multiple ranks)"
-    - srun --uenv $UENV --view=default $JULIA --project=. scripts/temperature_advection_MPI_ci.jl
+    # - srun --uenv $UENV --view=default $JULIA --project=. scripts/temperature_advection_MPI_ci.jl
+    - srun --uenv $UENV --view=default $JULIA --project=. scripts/alltoall_test_rocm_multigpu.jl
