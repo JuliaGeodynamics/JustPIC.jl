@@ -32,6 +32,7 @@ steps:
       setup:
         version:
           - "1.11"
+          - "1.12"
     plugins:
       - JuliaCI/julia#v1:
           version: "{{matrix.version}}"

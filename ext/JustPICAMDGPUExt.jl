@@ -257,14 +257,18 @@ module _2D
             nxcell,
             max_xcell,
             min_xcell,
-            coords::NTuple{3, AbstractArray},
-            dxᵢ::NTuple{3, T},
-            nᵢ::NTuple{3, I};
-            buffer = 1 - 1.0e-5,
-        ) where {T, I}
-        return init_particles(
-            AMDGPUBackend, nxcell, max_xcell, min_xcell, coords, dxᵢ, nᵢ; buffer = buffer
+            xi_vel::NTuple{N, NTuple{N, T}},
+        ) where {N, T <: AbstractVector}
+        return init_particles(AMDGPUBackend, nxcell, max_xcell, min_xcell, xi_vel)
+    end
+
+    function JustPIC._2D.advection!(
+            particles::Particles{AMDGPUBackend},
+            method::AbstractAdvectionIntegrator,
+            V,
+            dt,
         )
+        return advection!(particles, method, V, dt)
     end
 
     function JustPIC._2D.advection!(

@@ -87,9 +87,9 @@ function main()
         advection!(particles, RungeKutta2(), V, dt)
 
         # update halos
-        update_cell_halo!(particles.coords...)
-        update_cell_halo!(particle_args...)
-        update_cell_halo!(particles.index)
+        timer += @elapsed begin
+            update_cell_halo!(particles.coords..., particle_args..., particles.index)
+        end
         # shuffle particles
         move_particles!(particles, particle_args)
         # refill under-populated cells before reconstructing the grid field
