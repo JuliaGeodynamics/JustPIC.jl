@@ -14,6 +14,7 @@ function checkpointing_particles(
         t = nothing,
         dt = nothing,
         particle_args = nothing,
+        kwargs...,
     )
     fname = checkpoint_name(dst)
     return checkpointing_particles(
@@ -26,7 +27,9 @@ function checkpointing_particles(
         t = t,
         dt = dt,
         particle_args = particle_args,
+        kwargs...,
     )
+
 end
 
 function checkpointing_particles(
@@ -39,6 +42,7 @@ function checkpointing_particles(
         t = nothing,
         dt = nothing,
         particle_args = nothing,
+        kwargs...,
     )
     fname = checkpoint_name(dst, me)
     checkpointing_particles(
@@ -51,27 +55,31 @@ function checkpointing_particles(
         t = t,
         dt = dt,
         particle_args = particle_args,
+        kwargs...,
     )
     return nothing
 end
 
 """
-    checkpointing_particles(dst, particles;phases=nothing, phase_ratios=nothing, chain=nothing, t=nothing, dt=nothing, particle_args=nothing)
+    checkpointing_particles(dst, particles; phases=nothing, phase_ratios=nothing, chain=nothing, t=nothing, dt=nothing, particle_args=nothing)
 
-Save the state of particles and related data to a checkpoint file in a jld2 format. The name of the checkpoint file is `particles_checkpoint.jld2`.
+Write particle state and optional companion data to a JLD2 checkpoint.
 
+By default the file is saved as `particles_checkpoint.jld2` in `dst`. Additional
+keyword arguments are serialized into the checkpoint after being converted to
+plain Julia arrays where needed.
 
-# Arguments
-- `dst`: The destination directory where the checkpoint file will be saved.
-- `particles`: The array of particles to be saved.
+# Common keywords
+- `phases`: per-particle phase labels.
+- `phase_ratios`: `PhaseRatios` container to checkpoint.
+- `chain`: marker-chain state.
+- `t`: simulation time.
+- `dt`: timestep size.
+- `particle_args`: tuple of extra particle-carried fields.
 
-## Keyword Arguments
-- `phases`: The array of phases associated with the particles. If nothing is stated, the default is `nothing`.
-- `phase_ratios`: The array of phase ratios. If nothing is stated, the default is `nothing`.
-- `chain`: The chain data to be saved. If nothing is stated, the default is `nothing`.
-- `t`: The current time to be saved. If nothing is stated, the default is `nothing`.
-- `dt`: The timestep to be saved. If nothing is stated, the default is `nothing`.
-- `particle_args`: Additional particle arguments to be saved. If nothing is stated, the default is `nothing`.
+# Notes
+- Arrays are converted to plain Julia arrays before serialization so the
+  checkpoint can be reloaded independently of the active backend.
 """
 function checkpointing_particles(
         dst,
@@ -83,6 +91,7 @@ function checkpointing_particles(
         t = t,
         dt = dt,
         particle_args = particle_args,
+        kwargs...,
     )
     !isdir(dst) && mkpath(dst) # create folder in case it does not exist
 
@@ -90,7 +99,7 @@ function checkpointing_particles(
         # Save the checkpoint file in the temporary directory
         tmpfname = joinpath(tmpdir, basename(fname))
 
-        # Prepare the arguments for jldsave
+        # Build args dict dynamically
         args = Dict(
             :particles => Array(particles),
             :phases => isnothing(phases) ? nothing : Array(phases),
@@ -100,7 +109,19 @@ function checkpointing_particles(
             :timestep => dt,
             :particle_args => isnothing(particle_args) ? nothing : Array.(particle_args),
         )
-        jldsave(tmpfname; args...)
+
+        # Add any additional kwargs dynamically using their names as keys
+        for (key, value) in pairs(kwargs)
+            args[key] = isnothing(value) ? nothing :
+                isa(value, AbstractArray) ? Array(value) :
+                isa(value, Tuple) ? Array.(value) : value
+        end
+
+        try
+            jldsave(tmpfname; args...)
+        catch
+            jldsave(tmpfname, IOStream; args...)
+        end
 
         # Move the checkpoint file from the temporary directory to the destination directory
         return mv(tmpfname, fname; force = true)

@@ -1,24 +1,40 @@
-# Main Runge-Kutta advection function for 2D staggered grids
 """
     advection!(particles::Particles, method::AbstractAdvectionIntegrator, V, grid_vi::NTuple{N,NTuple{N,T}}, dt)
 
-Advects the particles using the advection scheme defined by `method`.
+Advect `particles` through the staggered velocity field `V` over a time step `dt`.
+
+`grid_vi` contains the coordinate tuples associated with each staggered velocity
+component. The particle coordinates are updated in place.
 
 # Arguments
-- `particles`: Particles object to be advected.
-- `method`: Time integration method (`Euler` or `RungeKutta2`).
-- `V`: Tuple containing `Vx`, `Vy`; and `Vz` in 3D.
-- `grid_vi`: Tuple containing the grids corresponding to `Vx`, `Vy`; and `Vz` in 3D.
-- `dt`: Time step.
+- `particles`: `Particles` container to advect.
+- `method`: time integrator such as `Euler()`, `RungeKutta2()`, or `RungeKutta4()`.
+- `V`: tuple of staggered velocity component arrays.
+- `grid_vi`: tuple of coordinate tuples matching the staggering of `V`.
+- `dt`: timestep.
 """
+advection!(
+    particles::Particles,
+    method::AbstractAdvectionIntegrator,
+    V,
+    dt,
+) = advection!(
+    particles,
+    method,
+    V,
+    particles.xi_vel,
+    dt,
+    particles.di.velocity
+)
+
 function advection!(
         particles::Particles,
         method::AbstractAdvectionIntegrator,
         V,
         grid_vi::NTuple{N, NTuple{N, T}},
         dt,
+        dxi
     ) where {N, T}
-    dxi = compute_dx(first(grid_vi))
     (; coords, index) = particles
     # compute some basic stuff
     ni = size(index)
@@ -56,7 +72,7 @@ end
         pᵢ_new = advect_particle(method, pᵢ, V, grid_vi, local_limits, dxi, dt, I)
         # update particle coordinates
         for k in 1:N
-            @inbounds @index p[k][ipart, I...] = pᵢ_new[k]
+            @index p[k][ipart, I...] = pᵢ_new[k]
         end
     end
 
@@ -75,7 +91,7 @@ end
         Base.@_inline_meta
         local_lims = local_limits[i]
         v = if check_local_limits(local_lims, particle_coords)
-            interp_velocity2particle(particle_coords, grid_vi[i], dxi, V[i], idx)
+            interp_velocity2particle(particle_coords, grid_vi[i], dxi[i], V[i], idx)
         else
             Inf
         end
@@ -84,11 +100,12 @@ end
 
 # Interpolate velocity from staggered grid to particle. Innermost kernel
 @inline function interp_velocity2particle(
-        p_i::Union{SVector, NTuple}, xi_vx::NTuple, dxi::NTuple, F::AbstractArray, idx
+        p_i::Union{SVector, NTuple}, xi_vx::NTuple, di::NTuple, F::AbstractArray, idx
     )
     # F and coordinates at/of the cell corners
-    Fi, xci = corner_field_nodes(F, p_i, xi_vx, dxi, idx)
+    Fi, xci, indices = corner_field_nodes(F, p_i, xi_vx, idx)
     # normalize particle coordinates
+    dxi = @dxi di indices...
     ti = normalize_coordinates(p_i, xci, dxi)
     # Interpolate field F onto particle
     Fp = lerp(Fi, ti)
@@ -100,25 +117,22 @@ end
         F::AbstractArray{T, N},
         particle,
         xi_vx,
-        dxi,
-        idx::Union{SVector{N, Integer}, NTuple{N, Integer}},
-    ) where {N, T}
+        idx
+    ) where {T, N}
     return quote
-        Base.@_inline_meta
-        begin
-            Base.@nexprs $N i -> begin
-                corrected_idx_i = cell_index(particle[i], xi_vx[i])
-                cell_i = @inbounds xi_vx[i][corrected_idx_i]
-            end
-
-            indices = Base.@ncall $N tuple corrected_idx
-            cells = Base.@ncall $N tuple cell
-
-            # F at the four centers
-            Fi = extract_field_corners(F, indices...)
+        @inline
+        Base.@nexprs $N i -> begin
+            corrected_idx_i = find_parent_cell_bisection(particle[i], xi_vx[i], idx[i])
+            cell_i = xi_vx[i][corrected_idx_i]
         end
 
-        return Fi, cells
+        indices = Base.@ncall $N tuple corrected_idx
+        xci = Base.@ncall $N tuple cell
+
+        # F at the four centers
+        Fi = extract_field_corners(F, indices...)
+
+        return Fi, xci, indices
     end
 end
 

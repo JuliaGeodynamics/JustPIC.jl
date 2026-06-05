@@ -16,7 +16,7 @@ topo_x = LinRange(0, 1, 200)
 topo_y = @. sin(2π*topo_x) * 0.1
 
 # fill the chain with the topographic profile` 
-fill_chain!(chain, topo_x, topo_y)
+fill_chain_from_chain!(chain, topo_x, topo_y)
 ```
 
 Finally, the marker chain can be advected as follows:

@@ -1,13 +1,11 @@
 """
     interpolate_velocity_to_markerchain!(chain::MarkerChain, chain_V::NTuple{N, CellArray}, V, grid_vi::NTuple{N, NTuple{N, T}}) where {N, T}
 
-Interpolates the velocity field to the positions of the marker chain.
+Interpolate the staggered velocity field `V` to the current marker positions in
+`chain` and store the result in `chain_V`.
 
-# Arguments
-- `chain::MarkerChain`: The marker chain object containing the particle coordinates and indices.
-- `chain_V::NTuple{N, CellArray}`: The output velocity field at the marker chain positions.
-- `V`: The velocity field to be interpolated.
-- `grid_vi::NTuple{N, NTuple{N, T}}`: The grid information for each dimension.
+`chain_V` must be preallocated with the same cell layout as the marker-chain
+coordinates.
 """
 function interpolate_velocity_to_markerchain!(
         chain::MarkerChain,

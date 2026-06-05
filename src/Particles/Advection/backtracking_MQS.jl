@@ -1,18 +1,11 @@
 """
-    semilagrangian_advection_MQS!, F0, integrator, V, grid_vi, grid, dt)
+    semilagrangian_advection_MQS!(F, F0, method, V, grid_vi, grid, dt)
 
-Performs semi-Lagrangian advection by backtracking particle positions in a velocity field.
-This function updates the positions and/or properties of particles according to the semi-Lagrangian scheme.
+Semi-Lagrangian advection variant that evaluates backtracked velocities with the
+`MQS` interpolation scheme.
 
-# Arguments
-
-- `F`: The new state of the grid field (e.g., density, temperature).
-- `F0`: The current state of the grid field (used for interpolation).
-- `integrator`: The numerical integrator to use for advection (e.g., Euler, Rk2, RK4).
-- `V`: The velocity field at the particle positions.
-- `grid_vi`: The grid cell indices for the velocity field.
-- `grid`: The spatial grid information.
-- `dt`: The time step for the advection.
+Use this when the advecting velocity should be reconstructed with the `MQS`
+scheme instead of plain linear interpolation.
 """
 function semilagrangian_advection_MQS!(
         F,
@@ -24,15 +17,16 @@ function semilagrangian_advection_MQS!(
         dt,
     ) where {N, T}
 
-    dxi = compute_dx(first(grid_vi))
+    dxi_velocity = compute_dx.(grid_vi)
+    dxi_vertex = compute_dx(grid)
     # compute some basic stuff
-    ni = size(F)
+    ni = size(F isa Tuple ? first(F) : F)
     ranges = ntuple(Val(N)) do i
         2:(ni[i] - 1)
     end
     # launch parallel backtrack kernel
     @parallel (ranges) backtrack_kernel_MQS!(
-        F, F0, method, V, grid_vi, grid, dxi, dt
+        F, F0, method, V, grid_vi, grid, dxi_velocity, dxi_vertex, dt
     )
 
     return nothing
@@ -47,7 +41,8 @@ end
         V::NTuple{N, T},
         grid_vi,
         grid,
-        dxi,
+        dxi_velocity,
+        dxi_vertex,
         dt,
     ) where {N, T}
 
@@ -57,9 +52,12 @@ end
         @inbounds grid[i][I[i]]
     end
 
-    pᵢ_backtrack = advect_particle_SML(method, pᵢ, V, grid_vi, dxi, dt, interp_velocity2particle_MQS, I; backtracking = true)
-    I_backtrack = cell_index(pᵢ_backtrack, grid)
-    F[I...] = _grid2particle(pᵢ_backtrack, grid, dxi, F0, I_backtrack)
+    pᵢ_backtrack = advect_particle_SML(method, pᵢ, V, grid_vi, dxi_velocity, dt, interp_velocity2particle_MQS, I; backtracking = true)
+    I_backtrack = ntuple(Val(N)) do i
+        find_parent_cell_bisection(pᵢ_backtrack[i], grid[i], I[i])
+    end
+    di_vertex = @dxi(dxi_vertex, I_backtrack...)
+    F[I...] = _grid2particle(pᵢ_backtrack, grid, di_vertex, F0, I_backtrack)
 
     return nothing
 end
@@ -71,7 +69,8 @@ end
         V::NTuple{N, T},
         grid_vi,
         grid,
-        dxi,
+        dxi_velocity,
+        dxi_vertex,
         dt,
     ) where {NF, N, T}
 
@@ -82,12 +81,15 @@ end
         @inbounds grid[i][I[i]]
     end
     # backtrack particle position
-    pᵢ_backtrack = advect_particle_SML(method, pᵢ, V, grid_vi, dxi, dt, interp_velocity2particle_MQS, I; backtracking = true)
-    I_backtrack = cell_index(pᵢ_backtrack, grid)
+    pᵢ_backtrack = advect_particle_SML(method, pᵢ, V, grid_vi, dxi_velocity, dt, interp_velocity2particle_MQS, I; backtracking = true)
+    I_backtrack = ntuple(Val(N)) do i
+        find_parent_cell_bisection(pᵢ_backtrack[i], grid[i], I[i])
+    end
+    di_vertex = @dxi(dxi_vertex, I_backtrack...)
     ntuple(Val(NF)) do i
         @inline
         # interpolate field F onto particle
-        F[i][I...] = _grid2particle(pᵢ_backtrack, grid, dxi, F0[i], I_backtrack)
+        F[i][I...] = _grid2particle(pᵢ_backtrack, grid, di_vertex, F0[i], I_backtrack)
     end
 
     return nothing
@@ -98,6 +100,6 @@ end
     ) where {N}
     return ntuple(Val(N)) do i
         Base.@_inline_meta
-        interp_velocity2particle_MQS(particle_coords, grid_vi[i], dxi, V[i], Val(i), idx)
+        interp_velocity2particle_MQS(particle_coords, grid_vi[i], dxi[i], V[i], Val(i), idx)
     end
 end

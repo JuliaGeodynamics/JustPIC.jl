@@ -1,3 +1,16 @@
+"""
+    init_markerchain(backend, nxcell, min_xcell, max_xcell, xv, initial_elevation)
+
+Create a 2D `MarkerChain` sampled along the horizontal grid `xv`.
+
+`nxcell` controls the initial number of markers per cell, while
+`initial_elevation` can be either a scalar or a vector specifying the initial
+surface height.
+
+# Returns
+- A `MarkerChain` whose marker positions, vertex topography, and occupancy masks
+  are initialized consistently.
+"""
 function init_markerchain(
         ::Type{backend}, nxcell, min_xcell, max_xcell, xv, initial_elevation
     ) where {backend}
@@ -52,17 +65,16 @@ end
 ## fill chain with given topo
 
 """
-    fill_chain!(chain::MarkerChain, topo_x, topo_y)
+    fill_chain_from_chain!(chain::MarkerChain, topo_x, topo_y)
 
-Fill the given `chain` of markers with topographical data.
+Replace the marker positions in `chain` with coordinates sampled from an existing
+topographic polyline.
 
-# Arguments
-- `chain::MarkerChain`: The chain of markers to be filled.
-- `topo_x`: The x-coordinates of the topography.
-- `topo_y`: The y-coordinates of the topography.
+After the markers are reassigned, the vertex-based topography stored on the chain
+is recomputed and synchronized with `h_vertices0`.
 
-# Description
-This function populates the `chain` with markers based on the provided topographical data (`topo_x` and `topo_y`). The function modifies the `chain` in place.
+`topo_x` and `topo_y` should describe an open polyline that spans the chain's
+horizontal extent.
 """
 function fill_chain_from_chain!(chain::MarkerChain, topo_x, topo_y)
     (; coords, index, cell_vertices) = chain
@@ -136,6 +148,17 @@ function first_last_particle_incell(topo_x, cell_vertices, icell)
     return ifirst, ilast
 end
 
+"""
+    fill_chain_from_vertices!(chain::MarkerChain, topo_y)
+
+Reconstruct a marker chain from topography values given at grid vertices.
+
+`topo_y` is copied into both the current and previous vertex topography fields
+before the marker coordinates are rebuilt.
+
+This is useful when the interface is naturally represented on the vertex grid and
+you want to refresh the marker representation from that discretization.
+"""
 function fill_chain_from_vertices!(chain::MarkerChain, topo_y)
     copyto!(chain.h_vertices, topo_y)
     copyto!(chain.h_vertices0, topo_y)

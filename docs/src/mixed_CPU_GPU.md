@@ -41,5 +41,5 @@ V_CPU.z .= TA(backend)(V.z)
 Advection can then be applied by calling the `advection()` function:
 
 ```julia
-advection!(particles, RungeKutta2(), values(V), (grid_vx, grid_vy, grid_vz), Δt)
+advection!(particles, RungeKutta2(), values(V), Δt)
 ```

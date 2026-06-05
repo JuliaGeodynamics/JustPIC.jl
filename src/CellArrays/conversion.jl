@@ -20,6 +20,7 @@ Array(CA::CellArray) = Array(eltype(eltype(CA)), CA)
 function Array(::Type{T}, CA::CellArray) where {T <: Number}
     return Array(isdevice(typeof(CA).parameters[end]), T, CA)
 end
+Array(::Type{T}, A::AbstractArray) where {T <: Number} = Array(A)
 Array(::Val{false}, ::Type{T}, CA::CellArray) where {T <: Number} = Array(Val(true), T, CA)
 function Array(
         ::Val{false}, ::Type{T}, CA::CellArray{CPUCellArray{SVector{N, T}}}

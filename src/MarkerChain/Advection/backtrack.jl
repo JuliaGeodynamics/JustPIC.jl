@@ -1,13 +1,28 @@
 using Statistics
 
+"""
+    semilagrangian_advection_markerchain!(chain, method, V, grid_vxi, grid, dt; max_slope_angle = 45.0)
+
+Backtrack a marker chain through `V` and update the chain geometry with a
+semi-Lagrangian step.
+
+The optional `max_slope_angle` limiter is used while reconstructing the interface
+to avoid excessively steep local segments.
+"""
 function semilagrangian_advection_markerchain!(
-        chain::MarkerChain, method::AbstractAdvectionIntegrator, V, grid_vxi, grid, dt
+        chain::MarkerChain, method::AbstractAdvectionIntegrator, V, grid_vxi, grid, dt;
+        max_slope_angle = 45.0
     )
 
     semilagrangian_advection!(chain, method, V, grid_vxi, grid, dt)
-    # correct topo to conserve mass
+
+    # Apply LaMEM-style slope limiting
+    smooth_slopes!(chain, deg2rad(max_slope_angle))
+
+    # Mass conservation
     chain.h_vertices .+= mean(chain.h_vertices) - mean(chain.h_vertices0)
-    # reconstruct chain from vertices
+
+    # Reconstruct particles from the updated vertices
     reconstruct_chain_from_vertices!(chain)
     # update old nodal topography
     copyto!(chain.h_vertices0, chain.h_vertices)
