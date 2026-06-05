@@ -434,7 +434,7 @@ end
         min_xcell,
         (grid_vx, grid_vy)...,
     ) # random position by default
-    
+
     # Initialise phase field
     particle_args = phases, = init_cell_arrays(particles, Val(1))  # cool
 
