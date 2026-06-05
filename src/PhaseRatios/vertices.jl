@@ -38,8 +38,8 @@ end
             any(isnan, p) && continue
             # check if it's within half cell
             tmp = false
-            for x in zip(p, cell_vertex, di)
-                if abs(x[1] - x[2]) ≥ x[3] / 2
+            for i in eachindex(p)
+                if abs(p[i] - cell_vertex[i]) ≥ di[i] / 2
                     tmp = true
                     break
                 end
@@ -84,8 +84,8 @@ end
             any(isnan, p) && continue
             # check if it's within half cell
             tmp = false
-            for x in zip(p, cell_vertex, di)
-                if abs(x[1] - x[2]) ≥ x[3] / 2
+            for i in eachindex(p)
+                if abs(p[i] - cell_vertex[i]) ≥ di[i] / 2
                     tmp = true
                     break
                 end
