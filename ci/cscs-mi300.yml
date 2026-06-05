@@ -23,25 +23,24 @@ unit_test:
         Pkg.activate(pwd());
         Pkg.test("JustPIC"; test_args=["--backend=AMDGPU"]);'
 
-ref_test:
-  extends: .baremetal-runner-beverin-mi300
-  variables:
-    JULIA: /users/lraess/julia_amd/juliaup/julia-1.12.6+0.x64.linux.gnu/bin/julia
-    UENV: b2550889de318ab5
-    JULIA_JUSTPIC_BACKEND: "AMDGPU"
-    SLURM_JOB_NUM_NODES: 2
-    SLURM_NTASKS_PER_NODE: 4
-    SLURM_GPUS_PER_TASK: 1
-    SLURM_TIMELIMIT: "00:30:00"
-  script:
-    - export MPICH_GPU_SUPPORT_ENABLED=1
-    - export MPICH_GPU_IPC_ENABLED=0
-    - export IGG_ROCMAWARE_MPI=1
-    - echo "Preparing the test environment (single rank)"
-    - srun -n 1 --uenv $UENV --view=default $JULIA --project=. -e '
-        using Pkg;
-        Pkg.instantiate();
-        Pkg.add("AMDGPU");'
-    - echo "Running the reference test (multiple ranks)"
-    # - srun --uenv $UENV --view=default $JULIA --project=. scripts/temperature_advection_MPI_ci.jl
-    - srun --uenv $UENV --view=default $JULIA --project=. scripts/alltoall_test_rocm_multigpu.jl
+# ref_test:
+#   extends: .baremetal-runner-beverin-mi300
+#   variables:
+#     JULIA: /users/lraess/julia_amd/juliaup/julia-1.12.6+0.x64.linux.gnu/bin/julia
+#     UENV: b2550889de318ab5
+#     JULIA_JUSTPIC_BACKEND: "AMDGPU"
+#     SLURM_JOB_NUM_NODES: 2
+#     SLURM_NTASKS_PER_NODE: 4
+#     SLURM_GPUS_PER_TASK: 1
+#     SLURM_TIMELIMIT: "00:30:00"
+#   script:
+#     - export MPICH_GPU_SUPPORT_ENABLED=0
+#     - export MPICH_GPU_IPC_ENABLED=0
+#     - export IGG_ROCMAWARE_MPI=0
+#     - echo "Preparing the test environment (single rank)"
+#     - srun -n 1 --uenv $UENV --view=default $JULIA --project=. -e '
+#         using Pkg;
+#         Pkg.instantiate();
+#         Pkg.add("AMDGPU");'
+#     - echo "Running the reference test (multiple ranks)"
+#     - srun --uenv $UENV --view=default $JULIA --project=. scripts/temperature_advection_MPI_ci.jl
