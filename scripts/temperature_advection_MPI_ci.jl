@@ -1,11 +1,19 @@
-using CUDA
 using JustPIC, JustPIC._2D
 
-# Threads is the default backend,
-# to run on a CUDA GPU load CUDA.jl (i.e. "using CUDA"),
-# and to run on an AMD GPU load AMDGPU.jl (i.e. "using AMDGPU")
-# const backend = JustPIC.CPUBackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
-const backend = CUDABackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
+# Backend is selected via the JULIA_JUSTPIC_BACKEND environment variable.
+# Options: "CPU" (default), "CUDA", "AMDGPU"
+const backend_name = get(ENV, "JULIA_JUSTPIC_BACKEND", "CPU")
+const backend = if backend_name == "CUDA"
+    using CUDA
+    CUDABackend
+elseif backend_name == "AMDGPU"
+    using AMDGPU
+    AMDGPUBackend
+elseif backend_name == "CPU"
+    JustPIC.CPUBackend
+else
+    error("Unknown backend: $backend_name. Options: \"CPU\", \"CUDA\", \"AMDGPU\"")
+end
 
 # using GLMakie
 using ImplicitGlobalGrid
@@ -52,7 +60,7 @@ function main()
         dummy = zeros(nx, ny)
         xc = [x_g(i, dx, dummy) for i in axes(dummy, 1)]
         yc = [y_g(i, dy, dummy) for i in axes(dummy, 2)]
-        LinRange(first(xc), last(xc), n), LinRange(first(yc), last(yc), n)
+        LinRange(first(xc), last(xc), nx), LinRange(first(yc), last(yc), ny)
     end
 
     # staggered grid for the velocity components
@@ -60,7 +68,7 @@ function main()
     grid_vy = expand_range(xc), yv
 
     particles = init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi...
+        backend, nxcell, max_xcell, min_xcell, grid_vx, grid_vy
     )
 
     # Cell fields -------------------------------
@@ -79,23 +87,21 @@ function main()
 
     # Advection test
     particle_args = pT, = init_cell_arrays(particles, Val(1))
-    grid2particle!(pT, xvi, T, particles)
+    grid2particle!(pT, T, particles)
 
     niter = 250
     for iter in 1:niter
         me == 0 && @show iter
 
         # advect particles
-        advection!(particles, RungeKutta2(), V, (grid_vx, grid_vy), dt)
+        advection!(particles, RungeKutta2(), V, dt)
 
         # update halos
-        update_cell_halo!(particles.coords...)
-        update_cell_halo!(particle_args...)
-        update_cell_halo!(particles.index)
+        update_cell_halo!(particles.coords..., particle_args..., particles.index)
         # shuffle particles
-        move_particles!(particles, xvi, particle_args)
+        move_particles!(particles, particle_args)
         # interpolate T from particle to grid
-        particle2grid!(T, pT, xvi, particles)
+        particle2grid!(T, pT, particles)
 
         @views T_nohalo .= T[2:(end - 1), 2:(end - 1)]
         gather!(Array(T_nohalo), T_v)
