@@ -1,6 +1,4 @@
 using CUDA
-# import Pkg
-# Pkg.resolve(); Pkg.update()
 using JustPIC, JustPIC._2D
 
 # Threads is the default backend,
