@@ -1,129 +1,72 @@
 """
-    _pad_extrap_1d(arr::AbstractVector)
+    _ghost_coord(v, i, n)
 
-Pad a 1D array with one ghost element on each side using linear extrapolation.
-Returns a new array of length `length(arr) + 2`.
+Return the `i`-th coordinate of vector `v` (length `n`) allowing one ghost index
+on each side (`i == 0` and `i == n+1`) via linear extrapolation. Used to build
+the deformed-grid stencil at domain boundaries without materialising a padded
+array.
 """
-function _pad_extrap_1d(arr::AbstractVector)
-    n = length(arr)
-    p = similar(arr, n + 2)
-    _pad_extrap_1d!(p, arr)
-    return p
-end
-
-"""
-    _pad_extrap_1d!(p, arr)
-
-In-place version: fill pre-allocated `p` (length `n+2`) from `arr` (length `n`).
-Single kernel handles interior copy and boundary extrapolation in one launch.
-"""
-function _pad_extrap_1d!(p::AbstractVector, arr::AbstractVector)
-    n = length(arr)
-    @parallel (1:(n + 2)) _pad_full_1d_kernel!(p, arr, n)
-    return nothing
-end
-
-@parallel_indices (i) function _pad_full_1d_kernel!(p, arr, n)
-    if i == 1
-        @inbounds p[1] = 2 * arr[1] - arr[2]
-    elseif i == n + 2
-        @inbounds p[n + 2] = 2 * arr[n] - arr[n - 1]
+@inline function _ghost_coord(v, i, n)
+    return if i == 0
+        2 * v[1] - v[2]
+    elseif i == n + 1
+        2 * v[n] - v[n - 1]
     else
-        @inbounds p[i] = arr[i - 1]
+        v[i]
     end
-    return nothing
 end
 
 """
-    _pad_extrap_2d(arr::AbstractMatrix)
+    _ghost_field(arr, i, j, nx, ny, periodic_1, periodic_2)
 
-Pad a 2D array with one ghost layer on each side using linear extrapolation.
-Returns a new array of size `(size(arr,1)+2, size(arr,2)+2)`.
+Return the value of 2D field `arr` (size `(nx, ny)`) at index `(i, j)`, allowing
+one ghost layer on each side (`i ∈ 0:nx+1`, `j ∈ 0:ny+1`). Ghost values wrap to
+the opposite boundary when periodic (LaMEM style: only clamp when NOT periodic),
+otherwise they are linearly extrapolated. This is the allocation-free, scalar
+counterpart of the former padded-array construction.
 """
-function _pad_extrap_2d(arr::AbstractMatrix)
-    nx, ny = size(arr)
-    p = similar(arr, nx + 2, ny + 2)
-    _pad_extrap_2d!(p, arr)
-    return p
-end
-
-"""
-    _pad_extrap_2d!(p, arr, periodic_1, periodic_2)
-
-In-place version: fill pre-allocated `p` (size `(nx+2, ny+2)`) from `arr` (size `(nx, ny)`).
-When `periodic_1`/`periodic_2` are true, ghost cells wrap to the opposite boundary
-(LaMEM style: only clamp when NOT periodic). Otherwise extrapolates linearly.
-"""
-function _pad_extrap_2d!(
-        p::AbstractMatrix, arr::AbstractMatrix,
-        periodic_1::Bool = false, periodic_2::Bool = false,
-    )
-    nx, ny = size(arr)
-    @parallel (1:(nx + 2), 1:(ny + 2)) _pad_full_2d_kernel!(p, arr, nx, ny, periodic_1, periodic_2)
-    return nothing
-end
-
-@parallel_indices (i, j) function _pad_full_2d_kernel!(p, arr, nx, ny, periodic_1, periodic_2)
-    @inbounds if i == 1 && j == 1
-        # bottom-left corner
-        if periodic_1 && periodic_2
-            p[1, 1] = arr[nx - 1, ny - 1]
-        elseif periodic_1
-            p[1, 1] = 2 * arr[nx - 1, 1] - arr[nx - 1, 2]
-        elseif periodic_2
-            p[1, 1] = 2 * arr[1, ny - 1] - arr[2, ny - 1]
+@inline function _ghost_field(arr, i, j, nx, ny, periodic_1::Bool, periodic_2::Bool)
+    @inbounds begin
+        if 1 ≤ i ≤ nx && 1 ≤ j ≤ ny
+            return arr[i, j]
+        elseif i == 0 && j == 0
+            # bottom-left corner
+            return periodic_1 && periodic_2 ? arr[nx - 1, ny - 1] :
+                periodic_1 ? 2 * arr[nx - 1, 1] - arr[nx - 1, 2] :
+                periodic_2 ? 2 * arr[1, ny - 1] - arr[2, ny - 1] :
+                4 * arr[1, 1] - 2 * arr[1, 2] - 2 * arr[2, 1] + arr[2, 2]
+        elseif i == 0 && j == ny + 1
+            # top-left corner
+            return periodic_1 && periodic_2 ? arr[nx - 1, 2] :
+                periodic_1 ? 2 * arr[nx - 1, ny] - arr[nx - 1, ny - 1] :
+                periodic_2 ? 2 * arr[1, 2] - arr[2, 2] :
+                4 * arr[1, ny] - 2 * arr[1, ny - 1] - 2 * arr[2, ny] + arr[2, ny - 1]
+        elseif i == nx + 1 && j == 0
+            # bottom-right corner
+            return periodic_1 && periodic_2 ? arr[2, ny - 1] :
+                periodic_1 ? 2 * arr[2, 1] - arr[2, 2] :
+                periodic_2 ? 2 * arr[nx, ny - 1] - arr[nx - 1, ny - 1] :
+                4 * arr[nx, 1] - 2 * arr[nx, 2] - 2 * arr[nx - 1, 1] + arr[nx - 1, 2]
+        elseif i == nx + 1 && j == ny + 1
+            # top-right corner
+            return periodic_1 && periodic_2 ? arr[2, 2] :
+                periodic_1 ? 2 * arr[2, ny] - arr[2, ny - 1] :
+                periodic_2 ? 2 * arr[nx, 2] - arr[nx - 1, 2] :
+                4 * arr[nx, ny] - 2 * arr[nx, ny - 1] - 2 * arr[nx - 1, ny] + arr[nx - 1, ny - 1]
+        elseif i == 0
+            # left ghost
+            return periodic_1 ? arr[nx - 1, j] : 2 * arr[1, j] - arr[2, j]
+        elseif i == nx + 1
+            # right ghost
+            return periodic_1 ? arr[2, j] : 2 * arr[nx, j] - arr[nx - 1, j]
+        elseif j == 0
+            # bottom ghost
+            return periodic_2 ? arr[i, ny - 1] : 2 * arr[i, 1] - arr[i, 2]
         else
-            p[1, 1] = 4 * arr[1, 1] - 2 * arr[1, 2] - 2 * arr[2, 1] + arr[2, 2]
+            # top ghost (j == ny + 1)
+            return periodic_2 ? arr[i, 2] : 2 * arr[i, ny] - arr[i, ny - 1]
         end
-    elseif i == 1 && j == ny + 2
-        # top-left corner
-        if periodic_1 && periodic_2
-            p[1, ny + 2] = arr[nx - 1, 2]
-        elseif periodic_1
-            p[1, ny + 2] = 2 * arr[nx - 1, ny] - arr[nx - 1, ny - 1]
-        elseif periodic_2
-            p[1, ny + 2] = 2 * arr[1, 2] - arr[2, 2]
-        else
-            p[1, ny + 2] = 4 * arr[1, ny] - 2 * arr[1, ny - 1] - 2 * arr[2, ny] + arr[2, ny - 1]
-        end
-    elseif i == nx + 2 && j == 1
-        # bottom-right corner
-        if periodic_1 && periodic_2
-            p[nx + 2, 1] = arr[2, ny - 1]
-        elseif periodic_1
-            p[nx + 2, 1] = 2 * arr[2, 1] - arr[2, 2]
-        elseif periodic_2
-            p[nx + 2, 1] = 2 * arr[nx, ny - 1] - arr[nx - 1, ny - 1]
-        else
-            p[nx + 2, 1] = 4 * arr[nx, 1] - 2 * arr[nx, 2] - 2 * arr[nx - 1, 1] + arr[nx - 1, 2]
-        end
-    elseif i == nx + 2 && j == ny + 2
-        # top-right corner
-        if periodic_1 && periodic_2
-            p[nx + 2, ny + 2] = arr[2, 2]
-        elseif periodic_1
-            p[nx + 2, ny + 2] = 2 * arr[2, ny] - arr[2, ny - 1]
-        elseif periodic_2
-            p[nx + 2, ny + 2] = 2 * arr[nx, 2] - arr[nx - 1, 2]
-        else
-            p[nx + 2, ny + 2] = 4 * arr[nx, ny] - 2 * arr[nx, ny - 1] - 2 * arr[nx - 1, ny] + arr[nx - 1, ny - 1]
-        end
-    elseif i == 1
-        # left ghost: wrap to arr[nx-1, :] when periodic_1, else extrapolate
-        p[1, j] = periodic_1 ? arr[nx - 1, j - 1] : 2 * arr[1, j - 1] - arr[2, j - 1]
-    elseif i == nx + 2
-        # right ghost: wrap to arr[2, :] when periodic_1, else extrapolate
-        p[nx + 2, j] = periodic_1 ? arr[2, j - 1] : 2 * arr[nx, j - 1] - arr[nx - 1, j - 1]
-    elseif j == 1
-        # bottom ghost: wrap to arr[:, ny-1] when periodic_2, else extrapolate
-        p[i, 1] = periodic_2 ? arr[i - 1, ny - 1] : 2 * arr[i - 1, 1] - arr[i - 1, 2]
-    elseif j == ny + 2
-        # top ghost: wrap to arr[:, 2] when periodic_2, else extrapolate
-        p[i, ny + 2] = periodic_2 ? arr[i - 1, 2] : 2 * arr[i - 1, ny] - arr[i - 1, ny - 1]
-    else
-        p[i, j] = arr[i - 1, j - 1]
     end
-    return nothing
 end
 
 """
@@ -151,42 +94,23 @@ function advect_surface_topo!(
     xv = surf.xv
     yv = surf.yv
     topo = surf.topo
+    topo0 = surf.topo0
     vx = surf.vx
     vy = surf.vy
     vz = surf.vz
     nx1, ny1 = size(topo)
 
-    # Save old topography
-    copyto!(surf.topo0, topo)
-
-    # Use pre-allocated workspace buffers
-    ws = surf.workspace
-    advected = ws.advected
-    xvp = ws.xvp
-    yvp = ws.yvp
-    topop = ws.topop
-    vxp = ws.vxp
-    vyp = ws.vyp
-    vzp = ws.vzp
-
     periodic_1 = surf.periodic_1
     periodic_2 = surf.periodic_2
 
-    # Fill padded arrays in-place (coords: extrapolation is correct for both periodic and
-    # non-periodic uniform grids; fields: wrap-copy when periodic, following LaMEM)
-    _pad_extrap_1d!(xvp, xv)
-    _pad_extrap_1d!(yvp, yv)
-    _pad_extrap_2d!(topop, topo, periodic_1, periodic_2)
-    _pad_extrap_2d!(vxp, vx, periodic_1, periodic_2)
-    _pad_extrap_2d!(vyp, vy, periodic_1, periodic_2)
-    _pad_extrap_2d!(vzp, vz, periodic_1, periodic_2)
+    # Save old topography; the advection stencil reads from `topo0` and writes into
+    # `topo`, so no separate scratch buffer is needed. Ghost nodes are handled
+    # in-kernel by `_ghost_coord`/`_ghost_field`, avoiding any padded-array allocation.
+    copyto!(topo0, topo)
 
     @parallel (1:nx1, 1:ny1) _advect_surface_topo_kernel!(
-        advected, xvp, yvp, topop, vxp, vyp, vzp, dt, Exx, Eyy
+        topo, topo0, xv, yv, vx, vy, vz, dt, Exx, Eyy, nx1, ny1, periodic_1, periodic_2
     )
-
-    # Copy advected topography back
-    copyto!(topo, advected)
 
     # Keep the two redundant boundary nodes in sync (periodic seam)
     _enforce_periodic_seam!(topo, periodic_1, periodic_2)
@@ -205,7 +129,7 @@ function _enforce_periodic_seam!(topo::AbstractMatrix, periodic_1::Bool, periodi
 end
 
 @parallel_indices (i, j) function _advect_surface_topo_kernel!(
-        advected, xvp, yvp, topop, vxp, vyp, vzp, dt, Exx, Eyy
+        topo, topo0, xv, yv, vx, vy, vz, dt, Exx, Eyy, nx1, ny1, periodic_1, periodic_2
     )
     # The 16-triangle subdivision topology
     # Vertices 1-9 are the 3x3 grid nodes, 10-13 are cell-center midpoints
@@ -217,59 +141,57 @@ end
         (6, 9, 13), (9, 8, 13), (8, 7, 12), (7, 4, 12),
         (4, 1, 10), (1, 2, 10), (2, 3, 11), (3, 6, 11),
     )
-    # Padded indices (offset by 1 for the ghost layer)
-    ip = i + 1
-    jp = j + 1
 
-    # Node coordinates (identical to xv[i], yv[j])
-    X = xvp[ip]
-    Y = yvp[jp]
+    # Node coordinates
+    X = xv[i]
+    Y = yv[j]
 
-    # Neighbor coordinates from padded arrays (always non-degenerate)
-    X1 = xvp[ip - 1]
-    X2 = xvp[ip + 1]
-    Y1 = yvp[jp - 1]
-    Y2 = yvp[jp + 1]
+    # Neighbor coordinates (ghost-aware, always non-degenerate)
+    X1 = _ghost_coord(xv, i - 1, nx1)
+    X2 = _ghost_coord(xv, i + 1, nx1)
+    Y1 = _ghost_coord(yv, j - 1, ny1)
+    Y2 = _ghost_coord(yv, j + 1, ny1)
 
-    # Build 9 deformed grid positions (node + dt*velocity)
+    # Build 9 deformed grid positions (node + dt*velocity), reading the old
+    # topography/velocity through ghost-aware accessors instead of padded arrays.
     # Ordering: (j-row, i-col) → linear index
     #  1=(j-1,i-1) 2=(j-1,i) 3=(j-1,i+1)
     #  4=(j  ,i-1) 5=(j  ,i) 6=(j  ,i+1)
     #  7=(j+1,i-1) 8=(j+1,i) 9=(j+1,i+1)
     cx = (
-        dt * vxp[ip - 1, jp - 1] + X1,  # 1
-        dt * vxp[ip, jp - 1] + X,   # 2
-        dt * vxp[ip + 1, jp - 1] + X2,  # 3
-        dt * vxp[ip - 1, jp] + X1,  # 4
-        dt * vxp[ip, jp] + X,   # 5
-        dt * vxp[ip + 1, jp] + X2,  # 6
-        dt * vxp[ip - 1, jp + 1] + X1,  # 7
-        dt * vxp[ip, jp + 1] + X,   # 8
-        dt * vxp[ip + 1, jp + 1] + X2,  # 9
+        dt * _ghost_field(vx, i - 1, j - 1, nx1, ny1, periodic_1, periodic_2) + X1,  # 1
+        dt * _ghost_field(vx, i, j - 1, nx1, ny1, periodic_1, periodic_2) + X,   # 2
+        dt * _ghost_field(vx, i + 1, j - 1, nx1, ny1, periodic_1, periodic_2) + X2,  # 3
+        dt * _ghost_field(vx, i - 1, j, nx1, ny1, periodic_1, periodic_2) + X1,  # 4
+        dt * _ghost_field(vx, i, j, nx1, ny1, periodic_1, periodic_2) + X,   # 5
+        dt * _ghost_field(vx, i + 1, j, nx1, ny1, periodic_1, periodic_2) + X2,  # 6
+        dt * _ghost_field(vx, i - 1, j + 1, nx1, ny1, periodic_1, periodic_2) + X1,  # 7
+        dt * _ghost_field(vx, i, j + 1, nx1, ny1, periodic_1, periodic_2) + X,   # 8
+        dt * _ghost_field(vx, i + 1, j + 1, nx1, ny1, periodic_1, periodic_2) + X2,  # 9
     )
 
     cy = (
-        dt * vyp[ip - 1, jp - 1] + Y1,  # 1
-        dt * vyp[ip, jp - 1] + Y1,  # 2
-        dt * vyp[ip + 1, jp - 1] + Y1,  # 3
-        dt * vyp[ip - 1, jp] + Y,   # 4
-        dt * vyp[ip, jp] + Y,   # 5
-        dt * vyp[ip + 1, jp] + Y,   # 6
-        dt * vyp[ip - 1, jp + 1] + Y2,  # 7
-        dt * vyp[ip, jp + 1] + Y2,  # 8
-        dt * vyp[ip + 1, jp + 1] + Y2,  # 9
+        dt * _ghost_field(vy, i - 1, j - 1, nx1, ny1, periodic_1, periodic_2) + Y1,  # 1
+        dt * _ghost_field(vy, i, j - 1, nx1, ny1, periodic_1, periodic_2) + Y1,  # 2
+        dt * _ghost_field(vy, i + 1, j - 1, nx1, ny1, periodic_1, periodic_2) + Y1,  # 3
+        dt * _ghost_field(vy, i - 1, j, nx1, ny1, periodic_1, periodic_2) + Y,   # 4
+        dt * _ghost_field(vy, i, j, nx1, ny1, periodic_1, periodic_2) + Y,   # 5
+        dt * _ghost_field(vy, i + 1, j, nx1, ny1, periodic_1, periodic_2) + Y,   # 6
+        dt * _ghost_field(vy, i - 1, j + 1, nx1, ny1, periodic_1, periodic_2) + Y2,  # 7
+        dt * _ghost_field(vy, i, j + 1, nx1, ny1, periodic_1, periodic_2) + Y2,  # 8
+        dt * _ghost_field(vy, i + 1, j + 1, nx1, ny1, periodic_1, periodic_2) + Y2,  # 9
     )
 
     cz = (
-        dt * vzp[ip - 1, jp - 1] + topop[ip - 1, jp - 1],  # 1
-        dt * vzp[ip, jp - 1] + topop[ip, jp - 1],  # 2
-        dt * vzp[ip + 1, jp - 1] + topop[ip + 1, jp - 1],  # 3
-        dt * vzp[ip - 1, jp] + topop[ip - 1, jp],  # 4
-        dt * vzp[ip, jp] + topop[ip, jp],  # 5
-        dt * vzp[ip + 1, jp] + topop[ip + 1, jp],  # 6
-        dt * vzp[ip - 1, jp + 1] + topop[ip - 1, jp + 1],  # 7
-        dt * vzp[ip, jp + 1] + topop[ip, jp + 1],  # 8
-        dt * vzp[ip + 1, jp + 1] + topop[ip + 1, jp + 1],  # 9
+        dt * _ghost_field(vz, i - 1, j - 1, nx1, ny1, periodic_1, periodic_2) + _ghost_field(topo0, i - 1, j - 1, nx1, ny1, periodic_1, periodic_2),  # 1
+        dt * _ghost_field(vz, i, j - 1, nx1, ny1, periodic_1, periodic_2) + _ghost_field(topo0, i, j - 1, nx1, ny1, periodic_1, periodic_2),  # 2
+        dt * _ghost_field(vz, i + 1, j - 1, nx1, ny1, periodic_1, periodic_2) + _ghost_field(topo0, i + 1, j - 1, nx1, ny1, periodic_1, periodic_2),  # 3
+        dt * _ghost_field(vz, i - 1, j, nx1, ny1, periodic_1, periodic_2) + _ghost_field(topo0, i - 1, j, nx1, ny1, periodic_1, periodic_2),  # 4
+        dt * _ghost_field(vz, i, j, nx1, ny1, periodic_1, periodic_2) + _ghost_field(topo0, i, j, nx1, ny1, periodic_1, periodic_2),  # 5
+        dt * _ghost_field(vz, i + 1, j, nx1, ny1, periodic_1, periodic_2) + _ghost_field(topo0, i + 1, j, nx1, ny1, periodic_1, periodic_2),  # 6
+        dt * _ghost_field(vz, i - 1, j + 1, nx1, ny1, periodic_1, periodic_2) + _ghost_field(topo0, i - 1, j + 1, nx1, ny1, periodic_1, periodic_2),  # 7
+        dt * _ghost_field(vz, i, j + 1, nx1, ny1, periodic_1, periodic_2) + _ghost_field(topo0, i, j + 1, nx1, ny1, periodic_1, periodic_2),  # 8
+        dt * _ghost_field(vz, i + 1, j + 1, nx1, ny1, periodic_1, periodic_2) + _ghost_field(topo0, i + 1, j + 1, nx1, ny1, periodic_1, periodic_2),  # 9
     )
 
     # 4 midpoints (averages of cell-center quartets)
@@ -318,7 +240,7 @@ end
         Z = cz[5]
     end
 
-    advected[i, j] = Z
+    topo[i, j] = Z
 
     return nothing
 end

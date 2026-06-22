@@ -48,29 +48,12 @@ function init_marker_surface(
     xv_arr = TA(backend)(collect(Float64, xv))
     yv_arr = TA(backend)(collect(Float64, yv))
 
-    # Pre-allocate workspace buffers for allocation-free timestep functions
-    workspace = (
-        # advect_surface_topo! buffers
-        advected = TA(backend)(zeros(Float64, nx1, ny1)),  # same size as topo
-        xvp = TA(backend)(zeros(Float64, nx1 + 2)),
-        yvp = TA(backend)(zeros(Float64, ny1 + 2)),
-        topop = TA(backend)(zeros(Float64, nx1 + 2, ny1 + 2)),
-        vxp = TA(backend)(zeros(Float64, nx1 + 2, ny1 + 2)),
-        vyp = TA(backend)(zeros(Float64, nx1 + 2, ny1 + 2)),
-        vzp = TA(backend)(zeros(Float64, nx1 + 2, ny1 + 2)),
-        # smooth_surface_max_angle! buffer (negative sign encodes affected cells)
-        cell_topo = TA(backend)(zeros(Float64, nx1 - 1, ny1 - 1)),
-        # smooth_surface_diffusive! buffer (same size as topo)
-        buf = TA(backend)(zeros(Float64, nx1, ny1)),
-    )
-
     return MarkerSurface(
         backend,
         topo, topo0,
         vx, vy, vz,
         xv_arr, yv_arr,
         air_phase, periodic_1, periodic_2,
-        workspace,
     )
 end
 

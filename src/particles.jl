@@ -80,8 +80,8 @@ struct MarkerChain{Backend, N, I, T1, T2, T3, TV} <: AbstractParticles
             h_vertices0::T2,
             cell_vertices::TV,
             index::T3,
-            min_xcell::I,
             max_xcell::I,
+            min_xcell::I,
         ) where {B, N, I, T1, T2, T3, TV}
         return new{B, N, I, T1, T2, T3, TV}(
             coords,
@@ -111,7 +111,7 @@ function MarkerChain(coords, index::CPUCellArray, cell_vertices, min_xcell, max_
 end
 
 """
-    MarkerSurface{Backend, I, T2, TV, TW} <: AbstractParticles
+    MarkerSurface{Backend, I, T2, TV} <: AbstractParticles
 
 A 3D free surface tracker using a structured marker grid.
 The surface is represented as a 2D grid of topography values (z-heights) at corner nodes.
@@ -125,9 +125,8 @@ The surface is represented as a 2D grid of topography values (z-heights) at corn
 - `xv::TV`         — x-coordinates of surface grid vertices
 - `yv::TV`         — y-coordinates of surface grid vertices
 - `air_phase::I`   — phase ID of the air/sticky-air layer
-- `workspace::TW`  — pre-allocated workspace buffers for allocation-free timesteps
 """
-struct MarkerSurface{Backend, I, T2, TV, TW} <: AbstractParticles
+struct MarkerSurface{Backend, I, T2, TV} <: AbstractParticles
     topo::T2             # topography at grid vertices (nx+1) x (ny+1)
     topo0::T2            # previous-timestep topography
     vx::T2               # surface velocity x-component at vertices
@@ -138,7 +137,6 @@ struct MarkerSurface{Backend, I, T2, TV, TW} <: AbstractParticles
     air_phase::I         # sticky-air phase ID
     periodic_1::Bool     # periodic BC in x direction
     periodic_2::Bool     # periodic BC in y direction
-    workspace::TW        # pre-allocated workspace buffers
 
     function MarkerSurface(
             ::Type{B},
@@ -148,24 +146,22 @@ struct MarkerSurface{Backend, I, T2, TV, TW} <: AbstractParticles
             air_phase::I,
             periodic_1::Bool,
             periodic_2::Bool,
-            workspace::TW,
-        ) where {B, I, T2, TV, TW}
-        return new{B, I, T2, TV, TW}(
+        ) where {B, I, T2, TV}
+        return new{B, I, T2, TV}(
             topo, topo0, vx, vy, vz, xv, yv,
-            air_phase, periodic_1, periodic_2, workspace,
+            air_phase, periodic_1, periodic_2,
         )
     end
 end
 
 function MarkerSurface(
-        topo, topo0, vx, vy, vz, xv, yv, air_phase, periodic_1, periodic_2, workspace
+        topo, topo0, vx, vy, vz, xv, yv, air_phase, periodic_1, periodic_2
     )
     return MarkerSurface(
         CPUBackend,
         topo, topo0, vx, vy, vz,
         xv, yv,
         air_phase, periodic_1, periodic_2,
-        workspace,
     )
 end
 

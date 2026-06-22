@@ -28,7 +28,7 @@ function smooth_surface_max_angle!(surf::MarkerSurface, max_slope_angle::Real)
     tan_max = tan(deg2rad(max_slope_angle))
 
     # Step 1: mark cells exceeding max slope; affected cells stored with negative sign in cell_topo
-    cell_topo = surf.workspace.cell_topo
+    cell_topo = similar(topo, nx, ny)
     fill!(cell_topo, 0.0)
 
     @parallel (1:nx, 1:ny) _smooth_step1_kernel!(
@@ -129,7 +129,7 @@ node with a weighted average of its neighbors.
 function smooth_surface_diffusive!(surf::MarkerSurface, niter::Int = 1; weight::Float64 = 0.25)
     topo = surf.topo
     nx1, ny1 = size(topo)
-    buf = surf.workspace.buf
+    buf = similar(topo)
 
     for _ in 1:niter
         copyto!(buf, topo)
