@@ -27,6 +27,27 @@ import KernelAbstractions
 @inline ka_backend(p::JustPIC.PhaseRatios) = KernelAbstractions.get_backend(p.center.data)
 
 # ---------------------------------------------------------------------------
+# GPU-safe coordinate ranges
+# ---------------------------------------------------------------------------
+
+# Base's `LinRange` and `TwicePrecision`-backed ranges (`range(a, b, len)`,
+# `a:s:b`) index through `Float64` internally (`Base.lerpi`, `TwicePrecision`
+# arithmetic). GPUs without `Float64` support (Metal) cannot compile that, even
+# for an otherwise-`Float32` range. `recast_grid` rebuilds a uniform coordinate
+# range as a plain `StepRangeLen{T,T,T}`, which indexes purely in `T`.
+#
+# This is applied where a grid range is passed *directly* into a kernel (marker
+# chains, passive markers). It is a no-op on the `Float64` CPU/CUDA/AMDGPU path
+# (`T === Float64`) so those backends keep their exact grid values, and it leaves
+# non-range grids (device arrays, plain vectors) untouched.
+@inline recast_grid(x, ::Type{T}) where {T} = x
+@inline recast_grid(x::Tuple, ::Type{T}) where {T} = map(g -> recast_grid(g, T), x)
+@inline function recast_grid(x::AbstractRange, ::Type{T}) where {T}
+    T === Float64 && return x
+    return StepRangeLen(convert(T, first(x)), convert(T, step(x)), length(x))
+end
+
+# ---------------------------------------------------------------------------
 # Kernel launch
 # ---------------------------------------------------------------------------
 

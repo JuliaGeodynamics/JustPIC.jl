@@ -4,14 +4,17 @@ function advection!(
     )
     (; coords, np) = particles
 
-    # compute some basic stuff
-    dxi = compute_dx(first(grid_vxi))
-    local_limits = inner_limits(grid_vxi)
-
-    # recast integrator/timestep to the marker precision (see advection!)
+    # recast integrator/timestep/grid to the marker precision (see particle
+    # advection!); `recast_grid` also makes the grid ranges GPU-safe on Float32
+    # backends (they are indexed directly inside the kernel)
     Tc = eltype(coords[1])
     method = set_precision(method, Tc)
     dt = convert(Tc, dt)
+    grid_vxi = recast_grid(grid_vxi, Tc)
+
+    # compute some basic stuff
+    dxi = compute_dx(first(grid_vxi))
+    local_limits = inner_limits(grid_vxi)
 
     # launch parallel advection kernel
     launch!(ka_backend(particles), _advection!, np, method, coords, V, grid_vxi, local_limits, dxi, dt)

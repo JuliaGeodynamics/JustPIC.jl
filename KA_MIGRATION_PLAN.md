@@ -26,6 +26,15 @@ Progress snapshot (2026-07-02, from the current worktree):
 - [x] Public docs/docstrings now describe backend-qualified tags and `cell_array` allocation
       instead of legacy ParallelStencil allocation macros.
 - [ ] GPU runtime validation, GPU benchmarks, and release/optional cleanup are not yet migrated.
+- [~] A **collapsed** GPU extension (`ext/JustPICMetalExt.jl`, Metal/Apple GPU) has been added
+      as the reference implementation of the Phase 3/4 target architecture: no `_2D`/`_3D`
+      re-include of `common.jl`, no forwarding layer — just `TA`/`CA`/`undef_cell_array` +
+      host↔device conversions (~180 lines vs ~1180 for CUDA/AMDGPU). The full volumetric
+      particle pipeline runs on the Apple M5 GPU (all 3 advection variants + Euler/RK2, move,
+      both interpolation directions, phase ratios center/vertex/face — see 23:40 log), plus
+      marker-chain `advection!` and passive-marker `advection!` (see 00:40 log). Remaining Metal
+      gaps: the full `advect_markerchain!` resample (`sort_chain!` device-sort, an algorithm
+      problem not a `Float64` one) and subgrid diffusion — the tracked follow-up.
 
 ## Checkpoint log
 
@@ -96,6 +105,86 @@ Progress snapshot (2026-07-02, from the current worktree):
   0 `@parallel`, 0 `@fill`; notes: `docs/make.jl` now loads this checkout before the docs
   environment registry dependency, so API doc bindings validate against the working tree.
   Documenter still reports the existing non-fatal backlog of uncatalogued docstrings.
+- 2026-07-02 22:05 CEST — area: Metal extension added as the *collapsed* reference
+  extension (validates the Phase 3/4 target architecture on hardware we can actually run —
+  Apple M5); validation: extension precompiles (`JustPIC → JustPICMetalExt ✓`), a
+  Float32 particle set converted from a CPU build runs real KA kernels on the Metal GPU.
+  What works on Metal today: `MtlArray(Float32, particles/chain/phase_ratios/CellArray)`
+  host→device conversions, `grid2particle!`, and `particle2grid!`. What is blocked:
+  `advection!`, `move_particles!`, and most other kernels fail Metal codegen with
+  `unsupported use of double value` — the compute kernels initialise accumulators/constants
+  with `Float64` literals (`0.0`, `NaN`, `0.5`, …; ~121 sites across 33 files), which forces
+  `Float64` arithmetic that Metal cannot compile. Fixed one representative site
+  (`src/Interpolations/particle_to_grid.jl` accumulators → `zero(eltype(F))`), which is
+  behaviour-identical on CPU/CUDA (Float64) and unblocked `particle2grid!` on Metal.
+  Key structural finding: the extension needs **none** of the `_2D`/`_3D` submodule
+  re-include of `common.jl` nor the ~1000-line forwarding layer — only `TA`, per-dim `CA` /
+  `undef_cell_array`, and host↔device conversions (~180 lines total). See
+  `ext/JustPICMetalExt.jl`.
+- 2026-07-02 22:50 CEST — area: Metal precision pass (core particle-advection pipeline);
+  validation: full CPU suite `Pkg.test(--backend=CPU)` => pass (no regression), and on the
+  Apple M5 GPU a 25-step `particle2grid! → advection!(RungeKutta2) → move_particles! →
+  grid2particle!` loop runs with `sum(T)` relative drift `7.5e-6` (CPU tolerance is `1e-2`).
+  Root causes fixed (all identity on the Float64 CPU/CUDA/AMDGPU path):
+  (1) `interp_velocity2particle` returned `Inf::Float64` in one branch → the velocity tuple
+  became a `Union`/`Float64`; now `convert(eltype(V[i]), Inf)`.
+  (2) `RungeKutta2` carried a `Float64` `α` into the kernel (even the default `α = 0.5` is
+  `Float64`); added `set_precision(integrator, T)` (`src/Advection/types.jl`, exported) and
+  applied it plus `dt = convert(Tc, dt)` at the `advection!` / `advection_LinP!` /
+  `advection_MQS!` launch sites, with `Tc` the particle-coordinate eltype.
+  (3) `first_stage`/`second_stage` (`src/Advection/RK2.jl`) now compute in `T` (`0.5`/`1.0`
+  literals → `half`/`one(T)`).
+  Also fixed two pre-existing port bugs in `advection_LinP.jl` unrelated to precision
+  (the 4-arg form used `particles.xi_velocity` → `xi_vel`; the launch used an undefined
+  `dxi` → its `di` argument).
+  Still blocked on Metal (own Float64 literals in their specialised kernels — the documented
+  follow-up tail): `advection_LinP!`/`advection_MQS!` interpolation kernels, phase ratios,
+  subgrid diffusion, marker chains, passive markers. `advection!` (plain RK2) + move + both
+  interpolation directions are the verified working core.
+- 2026-07-02 23:40 CEST — area: Metal precision pass extended across the volumetric pipeline;
+  validation: full CPU suite `Pkg.test(--backend=CPU)` => pass (no regression), and **9/9**
+  core kernels compile+run on the Apple M5 GPU:
+  `advection!` (RK2 **and** Euler), `advection_LinP!`, `advection_MQS!`, `move_particles!`
+  (with field args), `grid2particle!`, `particle2grid!`, `phase_ratios_center!`,
+  `update_phase_ratios!` (center+vertex+face). Fixes, all identity on the Float64 path:
+  * `advection_LinP.jl`: `* 0.5` → `/ 2` (type-preserving halving), `Inf` → typed, `A = 2/3`
+    → `convert(eltype(F), 2/3)`.
+  * `Interpolations/MQS.jl`: per-leaf `half = oftype(t1, 0.5)`, all `0.5` → `half`;
+    `advection_MQS.jl` `Inf` → typed.
+  * `PhaseRatios/vertices.jl` + `midpoints.jl`: weight accumulators
+    `ntuple(_ -> 0.0e0, NC)` → `ntuple(_ -> zero(eltype(eltype(ratio_*))), NC)`.
+  * `PassiveMarkers/advection.jl`: `set_precision` + `dt` recast at the launch site.
+  Remaining Metal gaps (deeper than literals, tracked separately): passive-marker /
+  marker-chain velocity interpolation (a vector-valued `dxi` from `compute_dx` flows into
+  `normalize_coordinates`/`lerp` and hits a type-mismatch dynamic dispatch), and the
+  `move_particles!` **empty-args** edge case (`args::NTuple{0}` → dynamic dispatch; the
+  realistic with-fields path works). Also fixed two unrelated pre-existing `advection_LinP.jl`
+  port bugs (`xi_velocity` → `xi_vel`; undefined `dxi` → `di`).
+- 2026-07-03 00:40 CEST — area: marker-chain / passive-marker velocity interpolation on Metal;
+  validation: full CPU suite `Pkg.test(--backend=CPU)` => pass (no regression); on the Apple M5
+  GPU `advection!(::MarkerChain, …)` and `advection!(::PassiveMarkers, …)` now compile+run.
+  The earlier "vector-valued `dxi`" diagnosis was an artifact of passing device-**array** grids;
+  the real blockers were three, all fixed generically (identity on the Float64 path):
+  * **`LinRange` indexing uses `Float64` internally** (`Base.lerpi`; likewise `range(a,b,len)`
+    and `a:s:b`, which are `TwicePrecision`-backed) — Metal cannot compile the `Float64`
+    intermediate even for an otherwise-`Float32` range. Added `recast_grid(grid, T)` in
+    `launch.jl`: rebuilds a uniform range as a plain `StepRangeLen{T,T,T}` (indexes purely in
+    `T`), a **no-op when `T === Float64`**. Applied at the marker-chain and passive-marker
+    launch sites; the Metal `MarkerChain` conversion likewise recasts the stored
+    `cell_vertices` range. (Verified: only `StepRangeLen{Float32,Float32,Float32}` indexes
+    cleanly on Metal; `LinRange{Float32}` and `range(…)` do not.)
+  * **`set_precision` + `dt` recast** were missing at the marker-chain `advection!` launch
+    (`RungeKutta2{Float64}` α reaching the kernel).
+  * **`cell_index`** used `Int(trunc(x/dx))`; the throwing `Int(::AbstractFloat)` conversion
+    boxes its float argument into an `InexactError`, which Metal (no exceptions/`Float64`)
+    cannot compile → `box_float32`. Switched to `unsafe_trunc(Int, trunc(x/dx))` (identical for
+    in-grid finite quotients). The volumetric particle path was unaffected because it indexes
+    via bisection, not `cell_index`.
+  Still blocked on Metal, and genuinely beyond the precision pass: the **full**
+  `advect_markerchain!` (advect → move → **resample**), because `sort_chain!` does a
+  device-side `sortperm(…; dims=2)` + permutation gather that triggers "scalar indexing is
+  disallowed" — a GPU sort/gather algorithm problem, not a `Float64` one. The lower-level
+  `advection!(::MarkerChain, …)` (no resample) works.
 
 ---
 
@@ -432,8 +521,17 @@ Convert per feature area, in dependency order; each bullet = one commit:
 - [x] Update `scripts/*.jl` and `docs/` examples (they call `@init_parallel_stencil` and
       `using ParallelStencil`); update `docs/src/mixed_CPU_GPU.md` and README if they mention PS.
 - [ ] Optional: collapse `common.jl` to a single include with `_2D`/`_3D` re-export shims.
-- [ ] Optional follow-ups (separate PRs): per-launch sync elimination (§3.2), Metal backend,
-      `@Const` audit.
+- [~] Metal backend: `ext/JustPICMetalExt.jl` added as the collapsed reference extension
+      (no forwarding layer). The core particle-advection pipeline runs and conserves on Apple
+      GPUs (plain RK2 `advection!` + `move_particles!` + both interpolation directions). The
+      remaining precision-genericization (replace `Float64` literals with
+      `zero(eltype(...))`/precision-derived constants) is still needed for the LinP/MQS interp,
+      phase-ratio, subgrid-diffusion, marker-chain and passive-marker kernels, since Metal has
+      no `Float64`. That pass also benefits CUDA/AMDGPU (avoids stray `Float64` math on
+      `Float32` data). `set_precision(integrator, T)` is the reusable helper for this. Track
+      separately.
+- [ ] Optional follow-ups (separate PRs): per-launch sync elimination (§3.2),
+      `Float64`-literal precision pass (unblocks Metal), `@Const` audit.
 - [x] Add the "no bare `@index` inside `@kernel`" lint check to CI.
       Done as the `Migration lint` test in `test/test_Aqua.jl`; it scans `src/`, `ext/`,
       `scripts/`, and `test/`, and also rejects stale active ParallelStencil/Atomix

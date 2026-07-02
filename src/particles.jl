@@ -178,7 +178,11 @@ For tuple-valued coordinates, the tuple overload returns one cell index per
 dimension.
 """
 # @inline cell_index(xᵢ::T, dxᵢ::T) where {T} = abs(Int(xᵢ ÷ dxᵢ)) + 1
-@inline cell_index(xᵢ::T, dxᵢ::T) where {T} = abs(Int(trunc(xᵢ / dxᵢ))) + 1
+# `unsafe_trunc` avoids the throwing `Int(::AbstractFloat)` conversion: the throw
+# path boxes the float argument into an `InexactError`, which GPUs without
+# `Float64`/exception support (Metal) cannot compile. For in-grid particles the
+# quotient is a small finite value, so the result is identical to `Int(trunc(·))`.
+@inline cell_index(xᵢ::T, dxᵢ::T) where {T} = abs(unsafe_trunc(Int, trunc(xᵢ / dxᵢ))) + 1
 @inline cell_index(xᵢ::T, xvᵢ::AbstractVector{T}) where {T} =
     cell_index(xᵢ, xvᵢ, abs(xvᵢ[2] - xvᵢ[1]))
 

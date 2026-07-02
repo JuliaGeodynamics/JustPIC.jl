@@ -98,12 +98,21 @@ function Metal.MtlArray(::Type{T}, chain::JustPIC.MarkerChain) where {T <: Numbe
         coords0_gpu,
         MtlArray(T, h_vertices),
         MtlArray(T, h_vertices0),
-        cell_vertices,
+        metal_safe_range(cell_vertices, T),
         MtlArray(Bool, index),
         max_xcell,
         min_xcell,
     )
 end
+
+# `cell_vertices` is a uniform coordinate range consumed directly inside the
+# marker-chain move/resample kernels. Base's `LinRange`/`TwicePrecision` ranges
+# index through `Float64`, which Metal cannot compile; recast to a plain
+# `StepRangeLen{T,T,T}` (mirrors JustPIC's internal `recast_grid`).
+metal_safe_range(x::AbstractRange, ::Type{T}) where {T <: Number} =
+    StepRangeLen(convert(T, first(x)), convert(T, step(x)), length(x))
+metal_safe_range(x::Tuple, ::Type{T}) where {T <: Number} = map(g -> metal_safe_range(g, T), x)
+metal_safe_range(x, ::Type{T}) where {T <: Number} = x
 
 function Metal.MtlArray(::Type{T}, phase_ratios::JustPIC.PhaseRatios) where {T <: Number}
     (; center, vertex, Vx, Vy, Vz, yz, xz, xy) = phase_ratios

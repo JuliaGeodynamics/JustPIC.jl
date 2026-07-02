@@ -52,6 +52,14 @@ function advection!(
     ) where {N, T}
     (; coords, index) = chain
 
+    # recast integrator/timestep/grid to the marker precision (see particle
+    # advection!); `recast_grid` also makes the grid ranges GPU-safe on Float32
+    # backends (they are indexed directly inside the kernel)
+    Tc = eltype(eltype(coords[1]))
+    method = set_precision(method, Tc)
+    dt = convert(Tc, dt)
+    grid_vi = recast_grid(grid_vi, Tc)
+
     # compute some basic stuff
     ni = size(index, 1)
     dxi = compute_dx(first(grid_vi))
