@@ -9,16 +9,18 @@ function advection!(
     local_limits = inner_limits(grid_vxi)
 
     # launch parallel advection kernel
-    @parallel (1:np) _advection!(method, coords, V, grid_vxi, local_limits, dxi, dt)
+    launch!(ka_backend(particles), _advection!, np, method, coords, V, grid_vxi, local_limits, dxi, dt)
     return nothing
 end
 
 # DIMENSION AGNOSTIC KERNELS
 
-# ParallelStencil function Runge-Kutta advection function for 3D staggered grids
-@parallel_indices (ipart) function _advection!(
+# Runge-Kutta advection kernel for staggered grids.
+@kernel function _advection!(
         method::AbstractAdvectionIntegrator, p, V::NTuple{N}, grid, local_limits, dxi, dt
     ) where {N}
+    ipart = @index(Global)
+
     # cache particle coordinates
     pᵢ = get_particle_coords(p, ipart)
     # reuses marker chain methods
@@ -28,5 +30,4 @@ end
     ntuple(Val(N)) do i
         @inbounds p[i][ipart] = pᵢ_new[i]
     end
-    return nothing
 end

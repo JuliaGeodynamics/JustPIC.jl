@@ -19,18 +19,18 @@ function move_particles!(particles::AbstractParticles, grid, args)
     domain_limits = extrema.(grid)
 
     # make some space for incoming particles
-    @parallel (@idx nxi) empty_particles!(coords, index, max_xcell, args)
+    launch!(ka_backend(index), empty_particles!, nxi, coords, index, max_xcell, args)
     # move particles
-    @parallel (@idx nxi) move_particles_ps!(coords, grid, dxi, index, domain_limits, args)
+    launch!(ka_backend(index), move_particles_ps!, nxi, coords, grid, dxi, index, domain_limits, args)
 
     return nothing
 end
 
-@parallel_indices (I...) function move_particles_ps!(
+@kernel function move_particles_ps!(
         coords, grid, dxi, index, domain_limits, args
     )
+    I = @index(Global, NTuple)
     _move_particles!(coords, grid, dxi, index, domain_limits, I, args)
-    return nothing
 end
 
 function _move_particles!(coords, grid, dxi, index, domain_limits, idx, args)
@@ -65,7 +65,7 @@ function move_kernel!(
         # particle went of of the domain, get rid of it
         domain_check = !(indomain(pᵢ, domain_limits))
         if domain_check
-            @index index[ip, idx...] = false
+            CAI.@index index[ip, idx...] = false
             empty_particle!(coords, ip, idx)
             empty_particle!(args, ip, idx)
         end
@@ -77,14 +77,14 @@ function move_kernel!(
         # hold particle variables
         current_args = @inbounds cache_args(args, ip, idx)
         # remove particle from child cell
-        @inbounds @index index[ip, idx...] = false
+        @inbounds CAI.@index index[ip, idx...] = false
         empty_particle!(coords, ip, idx)
         empty_particle!(args, ip, idx)
         # check whether there's empty space in parent cell
         free_idx = find_free_memory(index, new_cell...)
         free_idx == 0 && continue
         # move particle and its fields to the first free memory location
-        @inbounds @index index[free_idx, new_cell...] = true
+        @inbounds CAI.@index index[free_idx, new_cell...] = true
         fill_particle!(coords, pᵢ, free_idx, new_cell)
         fill_particle!(args, current_args, free_idx, new_cell)
     end
@@ -111,7 +111,7 @@ end
 
 function find_free_memory(index, I::Vararg{Int, N}) where {N}
     for i in cellaxes(index)
-        !(@index(index[i, I...])) && return i
+        !(CAI.@index(index[i, I...])) && return i
     end
     return 0
 end
@@ -143,7 +143,7 @@ end
 end
 
 @inline function cache_args(args::NTuple{N1, T}, ip, I::NTuple{N2, Int64}) where {T, N1, N2}
-    return ntuple(i -> @index(args[i][ip, I...]), Val(N1))
+    return ntuple(i -> CAI.@index(args[i][ip, I...]), Val(N1))
 end
 
 @inline function cache_particle(p::NTuple{N1, T}, ip, I::NTuple{N2, Int64}) where {T, N1, N2}
@@ -159,7 +159,7 @@ end
     ) where {N1, N2, T}
     return quote
         Base.@_inline_meta
-        Base.Cartesian.@nexprs $N1 i -> @index p[i][ip, I...] = NaN
+        Base.Cartesian.@nexprs $N1 i -> CAI.@index p[i][ip, I...] = NaN
     end
 end
 
@@ -176,7 +176,7 @@ end
         Base.Cartesian.@nexprs $N1 i -> begin
             Base.@_inline_meta
             tmp = p[i]
-            @index tmp[ip, I...] = field[i]
+            CAI.@index tmp[ip, I...] = field[i]
         end
         return nothing
     end
@@ -186,15 +186,15 @@ function clean_particles!(particles::Particles, grid, args)
     (; coords, index) = particles
     dxi = compute_dx(grid)
     ni = size(index)
-    @parallel (@idx ni) _clean!(coords, grid, dxi, index, args)
+    launch!(ka_backend(index), _clean!, ni, coords, grid, dxi, index, args)
     return nothing
 end
 
-@parallel_indices (I...) function _clean!(
+@kernel function _clean!(
         particle_coords::NTuple, grid::NTuple, dxi::NTuple, index, args
     )
+    I = @index(Global, NTuple)
     clean_kernel!(particle_coords, grid, dxi, index, args, I...)
-    return nothing
 end
 
 function clean_kernel!(
@@ -205,10 +205,10 @@ function clean_kernel!(
     for ip in cellaxes(index)
         pᵢ = cache_particle(particle_coords, ip, cell_indices)
 
-        if @index index[ip, cell_indices...] # true if memory allocation is filled with a particle
+        if CAI.@index index[ip, cell_indices...] # true if memory allocation is filled with a particle
             if !(isincell(pᵢ, corner_xi, dxi))
                 # remove particle from child cell
-                @index index[ip, cell_indices...] = false
+                CAI.@index index[ip, cell_indices...] = false
                 empty_particle!(particle_coords, ip, cell_indices)
                 empty_particle!(args, ip, cell_indices)
             end
@@ -231,9 +231,9 @@ end
 # The following kernels are used in the `move_particles!` function
 # to remove a random particle from the memory location so that the
 # cell capacity is always below 80% of its maximum.
-@parallel_indices (I...) function empty_particles!(coords, index, cell_length, args)
+@kernel function empty_particles!(coords, index, cell_length, args)
+    I = @index(Global, NTuple)
     empty_kernel!(coords, index, cell_length, args, I)
-    return nothing
 end
 
 function empty_kernel!(
@@ -257,7 +257,7 @@ function empty_kernel!(
         # check if a particle is actually in that memory location
         doskip(index, index_to_remove, I...) && continue
         # great, lets get rid of it
-        @index index[index_to_remove, I...] = false
+        CAI.@index index[index_to_remove, I...] = false
         empty_particle!(coords, index_to_remove, I)
         empty_particle!(args, index_to_remove, I)
         counter += 1
@@ -268,7 +268,7 @@ end
 function count_particles(index, I::Vararg{Int, N}) where {N}
     count = 0
     for i in cellaxes(index)
-        @inbounds count += @index index[i, I...]
+        @inbounds count += CAI.@index index[i, I...]
     end
     return count
 end

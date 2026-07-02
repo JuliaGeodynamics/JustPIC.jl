@@ -6,22 +6,13 @@ elseif ENV["JULIA_JUSTPIC_BACKEND"] === "CUDA"
     CUDA.allowscalar(true)
 end
 
-using ParallelStencil
-
-@static if ENV["JULIA_JUSTPIC_BACKEND"] === "AMDGPU"
-    @init_parallel_stencil(AMDGPU, Float64, 2)
-elseif ENV["JULIA_JUSTPIC_BACKEND"] === "CUDA"
-    @init_parallel_stencil(CUDA, Float64, 2)
-else
-    @init_parallel_stencil(Threads, Float64, 2)
-end
-
 using JustPIC, JustPIC._2D, CellArrays, Test, LinearAlgebra
+import KernelAbstractions: @kernel, @index
 
 const backend = @static if ENV["JULIA_JUSTPIC_BACKEND"] === "AMDGPU"
     JustPIC.AMDGPUBackend
 elseif ENV["JULIA_JUSTPIC_BACKEND"] === "CUDA"
-    CUDABackend
+    JustPIC.CUDABackend
 else
     JustPIC.CPUBackend
 end
@@ -378,19 +369,19 @@ end
 
 @testset "Pure shear 2D" begin
 
-    @parallel_indices (I...) function InitialFieldsParticles!(phases, px, py, index)
+    @kernel function InitialFieldsParticles!(phases, px, py, index)
+        I = @index(Global, NTuple)
         for ip in cellaxes(phases)
             # quick escape
-            @index(index[ip, I...]) == 0 && continue
-            x = @index px[ip, I...]
-            y = @index py[ip, I...]
+            JustPIC.@index(index[ip, I...]) == 0 && continue
+            x = JustPIC.@index px[ip, I...]
+            y = JustPIC.@index py[ip, I...]
             if x < y
-                @index phases[ip, I...] = 1.0
+                JustPIC.@index phases[ip, I...] = 1.0
             else
-                @index phases[ip, I...] = 2.0
+                JustPIC.@index phases[ip, I...] = 2.0
             end
         end
-        return nothing
     end
 
     year = 365 * 3600 * 24
@@ -408,8 +399,8 @@ end
     size_x = (Nc.x + 1, Nc.y + 2)
     size_y = (Nc.x + 2, Nc.y + 1)
     V = (
-        x = @zeros(size_x),
-        y = @zeros(size_y),
+        x = TA(backend)(zeros(size_x)),
+        y = TA(backend)(zeros(size_y)),
     )
 
     # Set velocity field
@@ -438,7 +429,7 @@ end
     # Initialise phase field
     particle_args = phases, = init_cell_arrays(particles, Val(1))  # cool
 
-    @parallel InitialFieldsParticles!(phases, particles.coords..., particles.index)
+    launch!(ka_backend(particles), InitialFieldsParticles!, size(phases), phases, particles.coords..., particles.index)
 
     phase_ratios = JustPIC._2D.PhaseRatios(backend, 2, values(Nc))
     update_phase_ratios!(phase_ratios, particles, phases)

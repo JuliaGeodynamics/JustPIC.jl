@@ -12,20 +12,21 @@ function compute_topography_vertex!(chain::MarkerChain)
 
     _dx = inv(cell_vertices[2] - cell_vertices[1])
 
-    @parallel (1:length(cell_vertices)) _compute_h_vertex!(
+    launch!(
+        ka_backend(h_vertices), _compute_h_vertex!, length(cell_vertices),
         h_vertices, chain_x, chain_y, cell_vertices, index, _dx
     )
 
     return nothing
 end
 
-@parallel_indices (ivertex) function _compute_h_vertex!(
+@kernel function _compute_h_vertex!(
         h_vertices, chain_x, chain_y, cell_vertices, index, _dx
     )
+    ivertex = @index(Global)
     _compute_h_vertex_kernel!(
         h_vertices, chain_x, chain_y, cell_vertices, index, _dx, ivertex
     )
-    return nothing
 end
 
 function _compute_h_vertex_kernel!(
@@ -40,10 +41,10 @@ function _compute_h_vertex_kernel!(
     for j in (ivertex - 1):ivertex
         if 0 < j < length(cell_vertices)
             for ip in cellaxes(index)
-                @index(index[ip, j]) || continue
+                CAI.@index(index[ip, j]) || continue
 
-                x_m = @index chain_x[ip, j]
-                y_m = @index chain_y[ip, j]
+                x_m = CAI.@index chain_x[ip, j]
+                y_m = CAI.@index chain_y[ip, j]
                 dx_m = multiplier * (x_m - xcorner)
                 ωᵢ = @muladd one(T) - dx_m * _dx
                 h += y_m * ωᵢ
@@ -63,20 +64,21 @@ function reconstruct_chain_from_vertices!(chain::MarkerChain)
     (; coords, index, cell_vertices, h_vertices) = chain
     chain_x, chain_y = coords
 
-    @parallel (1:length(index)) _reconstruct_h_from_vertex!(
+    launch!(
+        ka_backend(index), _reconstruct_h_from_vertex!, length(index),
         h_vertices, chain_x, chain_y, cell_vertices, index
     )
 
     return nothing
 end
 
-@parallel_indices (ivertex) function _reconstruct_h_from_vertex!(
+@kernel function _reconstruct_h_from_vertex!(
         h_vertices, chain_x, chain_y, cell_vertices, index
     )
+    ivertex = @index(Global)
     _reconstruct_h_from_vertex_kernel!(
         h_vertices, chain_x, chain_y, cell_vertices, index, ivertex
     )
-    return nothing
 end
 
 function _reconstruct_h_from_vertex_kernel!(
@@ -92,7 +94,7 @@ function _reconstruct_h_from_vertex_kernel!(
     # count active particles
     np = 0
     for ip in cellaxes(index)
-        @index(index[ip, ivertex]) || break
+        CAI.@index(index[ip, ivertex]) || break
         np += 1
     end
 
@@ -103,12 +105,12 @@ function _reconstruct_h_from_vertex_kernel!(
 
     # fill cell arrays with new particle coordinates
     for ip in cellaxes(index)
-        @index(index[ip, ivertex]) || break
+        CAI.@index(index[ip, ivertex]) || break
 
         xp_new += Δx
         yp_new += Δy
-        @index chain_x[ip, ivertex] = xp_new
-        @index chain_y[ip, ivertex] = yp_new
+        CAI.@index chain_x[ip, ivertex] = xp_new
+        CAI.@index chain_y[ip, ivertex] = yp_new
     end
 
     return nothing
@@ -126,7 +128,8 @@ function smooth_slopes!(chain::MarkerChain, max_angle::Real)
     h_smoothed = similar(h_vertices)
     copyto!(h_smoothed, h_vertices)  # Initialize with original values
 
-    @parallel (2:(n - 1)) smooth_slopes_kernel!(
+    launch!(
+        ka_backend(h_vertices), smooth_slopes_kernel!, n - 2,
         h_smoothed, h_vertices, cell_vertices, tan_max_angle
     )
 
@@ -135,9 +138,12 @@ function smooth_slopes!(chain::MarkerChain, max_angle::Real)
     return nothing
 end
 
-@parallel_indices (i) function smooth_slopes_kernel!(
+@kernel function smooth_slopes_kernel!(
         h_smoothed, h_vertices, cell_vertices, tan_max_angle
     )
+    i0 = @index(Global)
+    i = i0 + 1
+
     # Each thread handles one vertex independently
     dx_left = cell_vertices[i] - cell_vertices[i - 1]
     dx_right = cell_vertices[i + 1] - cell_vertices[i]
@@ -155,6 +161,4 @@ end
         # Keep original value
         h_smoothed[i] = h_vertices[i]
     end
-
-    return nothing
 end

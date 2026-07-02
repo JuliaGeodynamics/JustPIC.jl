@@ -1,13 +1,11 @@
 # Working with CellArrays
 
-## Instantiating a `CellArray` 
+## Instantiating a `CellArray`
 
-With the help of `ParallelStencil.jl` we can easily create a `CellArray` object. The `CellArray` object is a container that holds the data of a grid. The data is stored in small nD-arrays, and the grid is divided into cells. Each cell contains a number of elements. The `CellArray` object is used to store the data of the particles in the simulation.
+JustPIC can create a `CellArray` object directly. The `CellArray` object is a container that holds the data of a grid. The data is stored in small nD-arrays, and the grid is divided into cells. Each cell contains a number of elements. The `CellArray` object is used to store the data of the particles in the simulation.
 
 ```julia
 using JustPIC, JustPIC._2D
-using ParallelStencil
-@init_parallel_stencil(Threads, Float64, 2)
 ```
 
 ```julia-repl
@@ -20,7 +18,7 @@ julia> ncells = (2,)
 julia> x = 20
 20
 
-julia> CA = @fill(x, ni..., celldims = ncells, eltype = Float64) 
+julia> CA = cell_array(JustPIC.CPUBackend, Float64(x), ncells, ni)
 2×2 CellArrays.CPUCellArray{StaticArraysCore.SVector{2, Float64}, 2, 1, Float64}:
  [20.0, 20.0]  [20.0, 20.0]
  [20.0, 20.0]  [20.0, 20.0]
@@ -78,4 +76,3 @@ julia> @cell CA[1,1] = @cell(CA[1,1]) .+ 1
  [21.0, 21.0]  [20.0, 20.0]
  [20.0, 20.0]  [20.0, 20.0]
 ```
-

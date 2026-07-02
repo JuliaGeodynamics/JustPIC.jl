@@ -16,14 +16,14 @@ struct SubgridDiffusionCellArrays{CA, T}
     dt₀::CA # characteristic timescale `dt₀` of the local cell := ρCp / (K * (2/Δx^2 + 2/Δy^2))
     ΔT_subgrid::T # subgrid temperature increment
 
-    function SubgridDiffusionCellArrays(particles::Particles; loc::Symbol = :vertex)
+    function SubgridDiffusionCellArrays(particles::Particles{Backend}; loc::Symbol = :vertex) where {Backend}
         pΔT, pT0, dt₀ = init_cell_arrays(particles, Val(3))
         ni = if loc === :vertex
             size(pΔT) .+ 1
         elseif loc === :center
             size(pΔT)
         end
-        ΔT = @zeros(ni...)
+        ΔT = TA(Backend)(zeros(ni...))
         CA = typeof(pΔT)
         T = typeof(ΔT)
         return new{CA, T}(pT0, pΔT, dt₀, ΔT)
@@ -59,16 +59,16 @@ function subgrid_diffusion!(
     (; pT0, pΔT, dt₀) = subgrid_arrays
     ni = size(pT)
 
-    @parallel (@idx ni) memcopy_cellarray!(pT0, pT)
+    launch!(ka_backend(pT), memcopy_cellarray_kernel!, ni, pT0, pT)
     grid2particle!(pT, T_grid, particles)
 
-    @parallel (@idx ni) subgrid_diffusion!(pT, pT0, pΔT, dt₀, particles.index, d, dt)
+    launch!(ka_backend(pT), subgrid_diffusion_kernel!, ni, pT, pT0, pΔT, dt₀, particles.index, d, dt)
     particle2grid!(subgrid_arrays.ΔT_subgrid, pΔT, particles)
 
-    @parallel (@idx ni .+ 1) update_ΔT_subgrid!(subgrid_arrays.ΔT_subgrid, ΔT_grid)
+    launch!(ka_backend(subgrid_arrays.ΔT_subgrid), update_ΔT_subgrid_kernel!, ni .+ 1, subgrid_arrays.ΔT_subgrid, ΔT_grid)
     grid2particle!(pΔT, subgrid_arrays.ΔT_subgrid, particles)
 
-    @parallel (@idx ni) update_particle_temperature!(pT, pT0, pΔT)
+    launch!(ka_backend(pT), update_particle_temperature_kernel!, ni, pT, pT0, pΔT)
 
     return nothing
 end
@@ -88,52 +88,51 @@ function subgrid_diffusion_centroid!(
     (; pT0, pΔT, dt₀) = subgrid_arrays
     ni = size(pT)
 
-    @parallel memcopy_cellarray!(pT0, pT)
+    launch!(ka_backend(pT), memcopy_cellarray_kernel!, ni, pT0, pT)
     centroid2particle!(pT, T_grid, particles)
 
-    @parallel (@idx ni) subgrid_diffusion!(pT, pT0, pΔT, dt₀, particles.index, d, dt)
+    launch!(ka_backend(pT), subgrid_diffusion_kernel!, ni, pT, pT0, pΔT, dt₀, particles.index, d, dt)
     particle2centroid!(subgrid_arrays.ΔT_subgrid, pΔT, particles)
 
-    @parallel (@idx ni) update_ΔT_subgrid!(subgrid_arrays.ΔT_subgrid, ΔT_grid)
+    launch!(ka_backend(subgrid_arrays.ΔT_subgrid), update_ΔT_subgrid_kernel!, ni, subgrid_arrays.ΔT_subgrid, ΔT_grid)
     centroid2particle!(pΔT, subgrid_arrays.ΔT_subgrid, particles)
 
-    @parallel (@idx ni) update_particle_temperature!(pT, pT0, pΔT)
+    launch!(ka_backend(pT), update_particle_temperature_kernel!, ni, pT, pT0, pΔT)
 
     return nothing
 end
 
-@parallel_indices (I...) function memcopy_cellarray!(A, B)
+@kernel function memcopy_cellarray_kernel!(A, B)
+    I = @index(Global, NTuple)
     for ip in cellaxes(A)
-        @index A[ip, I...] = @index(B[ip, I...])
+        CAI.@index A[ip, I...] = CAI.@index(B[ip, I...])
     end
-    return nothing
 end
 
-@parallel_indices (I...) function subgrid_diffusion!(pT, pT0, pΔT, dt₀, index, d, dt)
+@kernel function subgrid_diffusion_kernel!(pT, pT0, pΔT, dt₀, index, d, dt)
+    I = @index(Global, NTuple)
     for ip in cellaxes(pT)
         # early escape if there is no particle in this memory locations
         doskip(index, ip, I...) && continue
 
-        pT0ᵢ = @index pT0[ip, I...]
-        pTᵢ = @index pT[ip, I...]
+        pT0ᵢ = CAI.@index pT0[ip, I...]
+        pTᵢ = CAI.@index pT[ip, I...]
 
         # subgrid diffusion of the i-th particle
-        pΔTᵢ = (pTᵢ - pT0ᵢ) * (1 - exp(-d * dt / max(@index(dt₀[ip, I...]), 1.0e-9)))
-        @index pT0[ip, I...] = pT0ᵢ + pΔTᵢ
-        @index pΔT[ip, I...] = pΔTᵢ
+        pΔTᵢ = (pTᵢ - pT0ᵢ) * (1 - exp(-d * dt / max(CAI.@index(dt₀[ip, I...]), 1.0e-9)))
+        CAI.@index pT0[ip, I...] = pT0ᵢ + pΔTᵢ
+        CAI.@index pΔT[ip, I...] = pΔTᵢ
     end
-
-    return nothing
 end
 
-@parallel_indices (I...) function update_ΔT_subgrid!(ΔTsubgrid, ΔT)
+@kernel function update_ΔT_subgrid_kernel!(ΔTsubgrid, ΔT)
+    I = @index(Global, NTuple)
     ΔTsubgrid[I...] = ΔT[I .+ 1...] - ΔTsubgrid[I...]
-    return nothing
 end
 
-@parallel_indices (I...) function update_particle_temperature!(pT, pT0, pΔT)
+@kernel function update_particle_temperature_kernel!(pT, pT0, pΔT)
+    I = @index(Global, NTuple)
     for ip in cellaxes(pT)
-        @index pT[ip, I...] = @index(pT0[ip, I...]) + @index(pΔT[ip, I...])
+        CAI.@index pT[ip, I...] = CAI.@index(pT0[ip, I...]) + CAI.@index(pΔT[ip, I...])
     end
-    return nothing
 end

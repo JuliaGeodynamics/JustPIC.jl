@@ -23,13 +23,13 @@ of component arrays.
 function particle2grid!(F, Fp, particles)
     (; coords, index, xvi) = particles
 
-    @parallel (@idx size(F)) particle2grid!(F, Fp, xvi, coords, index)
+    launch!(ka_backend(particles), particle2grid_kernel!, size(F), F, Fp, xvi, coords, index)
     return nothing
 end
 
-@parallel_indices (I...) function particle2grid!(F, Fp, xi, particle_coords, index)
+@kernel function particle2grid_kernel!(F, Fp, xi, particle_coords, index)
+    I = @index(Global, NTuple)
     _particle2grid!(F, Fp, I..., xi, particle_coords, index)
-    return nothing
 end
 
 ## INTERPOLATION KERNEL 2D
@@ -55,11 +55,11 @@ function _particle2grid!(F, Fp, inode, jnode, xi::NTuple{2, T}, p, index) where 
                 # early exit if particle is not in the cell
                 doskip(index, ip, ivertex, jvertex) && continue
 
-                p_i = @index(px[ip, ivertex, jvertex]), @index(py[ip, ivertex, jvertex])
+                p_i = CAI.@index(px[ip, ivertex, jvertex]), CAI.@index(py[ip, ivertex, jvertex])
                 ω_i = distance_weight(xvertex, p_i; order = 2)
                 # ω_i = bilinear_weight(xvertex, p_i, di)
                 ω += ω_i
-                ωxF = fma(ω_i, @index(Fp[ip, ivertex, jvertex]), ωxF)
+                ωxF = fma(ω_i, CAI.@index(Fp[ip, ivertex, jvertex]), ωxF)
             end
         end
     end
@@ -88,13 +88,13 @@ end
                     # ignore lines below for unused allocations
                     doskip(index, i, ivertex, jvertex) && continue
 
-                    p_i = @index(px[i, ivertex, jvertex]), @index(py[i, ivertex, jvertex])
+                    p_i = CAI.@index(px[i, ivertex, jvertex]), CAI.@index(py[i, ivertex, jvertex])
                     ω_i = distance_weight(xvertex, p_i; order = 2)
                     # ω_i = bilinear_weight(xvertex, p_i, di)
                     ω += ω_i
                     ωxF = ntuple(Val(N)) do j
                         Base.@_inline_meta
-                        muladd(ω_i, @index(Fp[j][i, ivertex, jvertex]), ωxF[j])
+                        muladd(ω_i, CAI.@index(Fp[j][i, ivertex, jvertex]), ωxF[j])
                     end
                 end
             end
@@ -133,14 +133,14 @@ end
                         doskip(index, ip, ivertex, jvertex, kvertex) && continue
 
                         p_i = (
-                            @index(px[ip, ivertex, jvertex, kvertex]),
-                            @index(py[ip, ivertex, jvertex, kvertex]),
-                            @index(pz[ip, ivertex, jvertex, kvertex]),
+                            CAI.@index(px[ip, ivertex, jvertex, kvertex]),
+                            CAI.@index(py[ip, ivertex, jvertex, kvertex]),
+                            CAI.@index(pz[ip, ivertex, jvertex, kvertex]),
                         )
                         ω_i = distance_weight(xvertex, p_i; order = 2)
                         # ω_i = bilinear_weight(xvertex, p_i, di)
                         ω += ω_i
-                        ωF = muladd(ω_i, @index(Fp[ip, ivertex, jvertex, kvertex]), ωF)
+                        ωF = muladd(ω_i, CAI.@index(Fp[ip, ivertex, jvertex, kvertex]), ωF)
                     end
                 end
             end
@@ -174,16 +174,16 @@ end
                         doskip(index, ip, ivertex, jvertex, kvertex) && continue
 
                         p_i = (
-                            @index(px[ip, ivertex, jvertex, kvertex]),
-                            @index(py[ip, ivertex, jvertex, kvertex]),
-                            @index(pz[ip, ivertex, jvertex, kvertex]),
+                            CAI.@index(px[ip, ivertex, jvertex, kvertex]),
+                            CAI.@index(py[ip, ivertex, jvertex, kvertex]),
+                            CAI.@index(pz[ip, ivertex, jvertex, kvertex]),
                         )
                         ω_i = distance_weight(xvertex, p_i; order = 2)
                         # ω_i = bilinear_weight(xvertex, p_i, di)
                         ω += ω_i
                         ωxF = ntuple(Val(N)) do j
                             Base.@_inline_meta
-                            muladd(ω_i, @index(Fp[j][i, ivertex, jvertex, kvertex]), ωxF[j])
+                            muladd(ω_i, CAI.@index(Fp[j][i, ivertex, jvertex, kvertex]), ωxF[j])
                         end
                     end
                 end

@@ -8,15 +8,6 @@ This keeps the marker spacing reasonably regular, which improves interpolation
 quality and the stability of subsequent marker-chain operations.
 """
 function resample!(chain::MarkerChain)
-
-    # resampling launch kernel
-    @parallel_indices (i) function resample!(
-            coords, cell_vertices, index, min_xcell, max_xcell, dx_cells
-        )
-        resample_cell!(coords, cell_vertices, index, min_xcell, max_xcell, dx_cells, i)
-        return nothing
-    end
-
     (; coords, index, cell_vertices, min_xcell, max_xcell) = chain
     nx = length(index)
     dx_cells = cell_length(chain)
@@ -26,8 +17,15 @@ function resample!(chain::MarkerChain)
     sort_chain!(chain)
 
     # call kernel
-    @parallel (1:nx) resample!(coords, cell_vertices, index, min_xcell, max_xcell, dx_cells)
+    launch!(ka_backend(index), resample_kernel!, nx, coords, cell_vertices, index, min_xcell, max_xcell, dx_cells)
     return nothing
+end
+
+@kernel function resample_kernel!(
+        coords, cell_vertices, index, min_xcell, max_xcell, dx_cells
+    )
+    i = @index(Global)
+    resample_cell!(coords, cell_vertices, index, min_xcell, max_xcell, dx_cells, i)
 end
 
 function resample_cell!(
@@ -65,15 +63,15 @@ function resample_cell!(
                 # first and last cells
                 interp1D_extremas(xq, x_cell, y_cell)
             end
-            @index px[ip, I] = xq
-            @index py[ip, I] = yq
-            @index index[ip, I] = true
+            CAI.@index px[ip, I] = xq
+            CAI.@index py[ip, I] = yq
+            CAI.@index index[ip, I] = true
         end
         # fill empty memory locations
         for ip in (np_new + 1):max_xcell
-            @index px[ip, I] = NaN
-            @index py[ip, I] = NaN
-            @index index[ip, I] = false
+            CAI.@index px[ip, I] = NaN
+            CAI.@index py[ip, I] = NaN
+            CAI.@index index[ip, I] = false
         end
     end
     return nothing

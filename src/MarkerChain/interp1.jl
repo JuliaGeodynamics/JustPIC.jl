@@ -72,20 +72,20 @@ function interp1D_inner(xq, x, y, coords, I::Integer)
 end
 
 @inline right_cell_left_particle(coords, I::Int) =
-    @index(coords[1][1, I + 1]), @index(coords[2][1, I + 1])
+    CAI.@index(coords[1][1, I + 1]), CAI.@index(coords[2][1, I + 1])
 
 @inline function left_cell_right_particle(coords, I)
     px = coords[1]
     # px = @cell coords[1][I - 1]
     ip = 1
     for i in cellnum(px):-1:2
-        if !isnan(@index px[i, I - 1])
+        if !isnan(CAI.@index px[i, I - 1])
             ip = i
             break
         end
     end
 
-    return @index(px[ip, I - 1]), @index(coords[2][ip, I - 1])
+    return CAI.@index(px[ip, I - 1]), CAI.@index(coords[2][ip, I - 1])
 end
 
 @inline function is_above_surface(xq, yq, coords, cell_vertices)

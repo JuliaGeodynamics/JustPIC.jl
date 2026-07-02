@@ -30,21 +30,21 @@ end
 @inline _idx(args::NTuple{N, Int}) where {N} = _idx(args...)
 
 @inline doskip(index, ip, I::Vararg{Int64, N}) where {N} =
-    iszero(@inbounds @index index[ip, I...])
+    iszero(@inbounds CAI.@index index[ip, I...])
 
 @generated function get_particle_coords(
         p::NTuple{N, CellArray}, ip, idx::Vararg{Int64, N}
     ) where {N}
     return quote
         @inline
-        Base.@ntuple $N i -> @inbounds @index p[i][ip, idx...]
+        Base.@ntuple $N i -> @inbounds CAI.@index p[i][ip, idx...]
     end
 end
 
 function get_particle_coords(p::NTuple{N, CellArray}, ip, idx::Integer) where {N}
     return ntuple(Val(N)) do i
         Base.@_inline_meta
-        @inbounds @index p[i][ip, idx]
+        @inbounds CAI.@index p[i][ip, idx]
     end
 end
 

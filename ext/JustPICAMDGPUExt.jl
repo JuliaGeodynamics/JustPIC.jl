@@ -5,6 +5,8 @@ using JustPIC, CellArrays, StaticArrays
 
 import JustPIC: AbstractBackend, AMDGPUBackend
 
+CellArrays.@define_ROCCellArray()
+
 JustPIC.TA(::Type{AMDGPUBackend}) = ROCArray
 
 function ROCCellArray(
@@ -166,30 +168,29 @@ module _2D
     using AMDGPU
     using ImplicitGlobalGrid
     using MPI: MPI
-    using MuladdMacro, ParallelStencil, CellArrays, CellArraysIndexing, StaticArrays, GridGeometryUtils
+    using MuladdMacro, KernelAbstractions, CellArrays, StaticArrays, GridGeometryUtils
+    import KernelAbstractions: @index
+    using CellArraysIndexing: @cell, getcell, setcell!, getcellindex, setcellindex!
+    import CellArraysIndexing as CAI
     using JustPIC
-
-    @init_parallel_stencil(AMDGPU, Float64, 2)
 
     import JustPIC: Euler, RungeKutta2, AbstractAdvectionIntegrator
     import JustPIC._2D.CA
     import JustPIC: Particles, PassiveMarkers
     import JustPIC: AbstractBackend, AMDGPUBackend
 
-    macro myatomic(expr)
-        return esc(
-            quote
-                AMDGPU.@atomic :monotonic $expr
-            end,
-        )
-    end
-
     function JustPIC._2D.CA(::Type{AMDGPUBackend}, dims; eltype = Float64)
-        return ROCCellArray{eltype}(undef, dims)
+        return JustPICAMDGPUExt.ROCCellArray{eltype}(undef, dims)
     end
 
     include(joinpath(@__DIR__, "../src/common.jl"))
     include(joinpath(@__DIR__, "../src/AMDGPUExt/CellArrays.jl"))
+
+    @inline function undef_cell_array(
+            ::Type{AMDGPUBackend}, ::Type{T}, ni::NTuple{N, <:Integer}
+        ) where {T, N}
+        return JustPICAMDGPUExt.ROCCellArray{T}(undef, Int.(ni))
+    end
 
     # Conversions
     function JustPIC._2D.Particles(
@@ -655,11 +656,11 @@ module _2D
         ) where {T}
         nx, ny = ni
 
-        center = cell_array(zero(T), (nphases,), ni)
-        vertex = cell_array(zero(T), (nphases,), ni .+ 1)
-        Vx = cell_array(zero(T), (nphases,), (nx + 1, ny))
-        Vy = cell_array(zero(T), (nphases,), (nx, ny + 1))
-        dummy = cell_array(zero(T), (nphases,), (1, 1)) # because it cant be a Union{T, Nothing} type on the GPU....
+        center = cell_array(AMDGPUBackend, zero(T), (nphases,), ni)
+        vertex = cell_array(AMDGPUBackend, zero(T), (nphases,), ni .+ 1)
+        Vx = cell_array(AMDGPUBackend, zero(T), (nphases,), (nx + 1, ny))
+        Vy = cell_array(AMDGPUBackend, zero(T), (nphases,), (nx, ny + 1))
+        dummy = cell_array(AMDGPUBackend, zero(T), (nphases,), (1, 1)) # because it cant be a Union{T, Nothing} type on the GPU....
 
         return JustPIC.PhaseRatios(
             AMDGPUBackend, center, vertex, Vx, Vy, dummy, dummy, dummy, dummy
@@ -672,7 +673,8 @@ module _2D
         ni = size(phases)
         di = compute_dx(xci)
 
-        @parallel (@idx ni) phase_ratios_center_kernel!(
+        launch!(
+            ka_backend(phase_ratios), phase_ratios_center_kernel!, ni,
             phase_ratios.center, particles.coords, xci, di, phases
         )
         return nothing
@@ -684,7 +686,8 @@ module _2D
         ni = size(phases) .+ 1
         di = compute_dx(xvi)
 
-        @parallel (@idx ni) phase_ratios_vertex_kernel!(
+        launch!(
+            ka_backend(phase_ratios), phase_ratios_vertex_kernel!, ni,
             phase_ratios.vertex, particles.coords, xvi, di, phases
         )
         return nothing
@@ -707,29 +710,28 @@ module _3D
     using AMDGPU
     using ImplicitGlobalGrid
     using MPI: MPI
-    using MuladdMacro, ParallelStencil, CellArrays, CellArraysIndexing, StaticArrays, GridGeometryUtils
+    using MuladdMacro, KernelAbstractions, CellArrays, StaticArrays, GridGeometryUtils
+    import KernelAbstractions: @index
+    using CellArraysIndexing: @cell, getcell, setcell!, getcellindex, setcellindex!
+    import CellArraysIndexing as CAI
     using JustPIC
-
-    @init_parallel_stencil(AMDGPU, Float64, 3)
 
     import JustPIC:
         Euler, RungeKutta2, AbstractAdvectionIntegrator, Particles, PassiveMarkers
     import JustPIC: AbstractBackend, AMDGPUBackend
 
-    macro myatomic(expr)
-        return esc(
-            quote
-                AMDGPU.@atomic :monotonic $expr
-            end,
-        )
-    end
-
     function JustPIC._3D.CA(::Type{AMDGPUBackend}, dims; eltype = Float64)
-        return ROCCellArray{eltype}(undef, dims)
+        return JustPICAMDGPUExt.ROCCellArray{eltype}(undef, dims)
     end
 
     include(joinpath(@__DIR__, "../src/common.jl"))
     include(joinpath(@__DIR__, "../src/AMDGPUExt/CellArrays.jl"))
+
+    @inline function undef_cell_array(
+            ::Type{AMDGPUBackend}, ::Type{T}, ni::NTuple{N, <:Integer}
+        ) where {T, N}
+        return JustPICAMDGPUExt.ROCCellArray{T}(undef, Int.(ni))
+    end
 
     function JustPIC._3D.Particles(
             coords,
@@ -1116,14 +1118,14 @@ module _3D
         ) where {T}
         nx, ny, nz = ni
 
-        center = cell_array(zero(T), (nphases,), ni)
-        vertex = cell_array(zero(T), (nphases,), ni .+ 1)
-        Vx = cell_array(zero(T), (nphases,), (nx + 1, ny, nz))
-        Vy = cell_array(zero(T), (nphases,), (nx, ny + 1, nz))
-        Vz = cell_array(zero(T), (nphases,), (nx, ny, nz + 1))
-        yz = cell_array(zero(T), (nphases,), (nx, ny + 1, nz + 1))
-        xz = cell_array(zero(T), (nphases,), (nx + 1, ny, nz + 1))
-        xy = cell_array(zero(T), (nphases,), (nx + 1, ny + 1, nz))
+        center = cell_array(AMDGPUBackend, zero(T), (nphases,), ni)
+        vertex = cell_array(AMDGPUBackend, zero(T), (nphases,), ni .+ 1)
+        Vx = cell_array(AMDGPUBackend, zero(T), (nphases,), (nx + 1, ny, nz))
+        Vy = cell_array(AMDGPUBackend, zero(T), (nphases,), (nx, ny + 1, nz))
+        Vz = cell_array(AMDGPUBackend, zero(T), (nphases,), (nx, ny, nz + 1))
+        yz = cell_array(AMDGPUBackend, zero(T), (nphases,), (nx, ny + 1, nz + 1))
+        xz = cell_array(AMDGPUBackend, zero(T), (nphases,), (nx + 1, ny, nz + 1))
+        xy = cell_array(AMDGPUBackend, zero(T), (nphases,), (nx + 1, ny + 1, nz))
 
         return JustPIC.PhaseRatios(AMDGPUBackend, center, vertex, Vx, Vy, Vz, yz, xz, xy)
     end
@@ -1134,7 +1136,8 @@ module _3D
         ni = size(phases)
         di = compute_dx(xci)
 
-        @parallel (@idx ni) phase_ratios_center_kernel!(
+        launch!(
+            ka_backend(phase_ratios), phase_ratios_center_kernel!, ni,
             phase_ratios.center, particles.coords, xci, di, phases
         )
         return nothing
@@ -1146,7 +1149,8 @@ module _3D
         ni = size(phases) .+ 1
         di = compute_dx(xvi)
 
-        @parallel (@idx ni) phase_ratios_vertex_kernel!(
+        launch!(
+            ka_backend(phase_ratios), phase_ratios_vertex_kernel!, ni,
             phase_ratios.vertex, particles.coords, xvi, di, phases
         )
         return nothing

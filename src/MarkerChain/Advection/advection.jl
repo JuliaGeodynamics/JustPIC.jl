@@ -59,7 +59,8 @@ function advection!(
     local_limits = inner_limits(grid_vi)
 
     # launch parallel advection kernel
-    @parallel (@idx ni) advection_markerchain_kernel!(
+    launch!(
+        ka_backend(chain), advection_markerchain_kernel!, ni,
         coords, method, V, index, grid_vi, local_limits, dxi, dt
     )
     return nothing
@@ -67,8 +68,8 @@ end
 
 # DIMENSION AGNOSTIC KERNELS
 
-# ParallelStencil function Runge-Kuttaadvection function for 3D staggered grids
-@parallel_indices (i) function advection_markerchain_kernel!(
+# Runge-Kutta advection kernel for staggered grids.
+@kernel function advection_markerchain_kernel!(
         p,
         method::AbstractAdvectionIntegrator,
         V::NTuple{N, T},
@@ -78,6 +79,8 @@ end
         dxi,
         dt,
     ) where {N, T}
+    i = @index(Global)
+
     for ipart in cellaxes(index)
         # skip if particle does not exist in this memory location
         doskip(index, ipart, i) && continue
@@ -87,11 +90,9 @@ end
         pᵢ_new = advect_particle_markerchain(method, pᵢ, V, grid, local_limits, dxi, dt)
         # update particle coordinates
         for k in 1:N
-            @inbounds @index p[k][ipart, i] = pᵢ_new[k]
+            @inbounds CAI.@index p[k][ipart, i] = pᵢ_new[k]
         end
     end
-
-    return nothing
 end
 
 @inline function interp_velocity2particle_markerchain(

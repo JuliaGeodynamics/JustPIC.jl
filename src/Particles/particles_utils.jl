@@ -10,7 +10,7 @@ quadrants. If it is an `NTuple`, it is interpreted as the number of particles to
 place regularly along each coordinate direction within every cell.
 
 # Arguments
-- `backend`: backend type such as `CPUBackend`.
+- `backend`: backend type such as `JustPIC.CPUBackend`.
 - `nxcell`: either the target number of particles per cell, or an `NTuple`
   describing a structured per-dimension layout.
 - `max_xcell`: number of particle slots reserved per cell.
@@ -24,7 +24,7 @@ place regularly along each coordinate direction within every cell.
 # Example
 ```julia
 xvi = LinRange(0, 1, 33), LinRange(0, 1, 33)
-particles = init_particles(CPUBackend, 24, 48, 12, xvi...)
+particles = init_particles(JustPIC.CPUBackend, 24, 48, 12, xvi...)
 ```
 """
 function init_particles(
@@ -92,10 +92,11 @@ function init_particles(
     nxcell = np_quadrant * NQ
     max_xcell = max(nxcell, max_xcell)
     np = max_xcell * prod(nᵢ)
-    pxᵢ = ntuple(_ -> @fill(NaN, nᵢ..., celldims = (max_xcell,)), Val(N))
-    index = @fill(false, nᵢ..., celldims = (max_xcell,), eltype = Bool)
+    pxᵢ = ntuple(_ -> cell_array(backend, NaN, (max_xcell,), nᵢ), Val(N))
+    index = cell_array(backend, false, (max_xcell,), nᵢ)
 
-    @parallel (@idx nᵢ) fill_coords_index(
+    launch!(
+        ka_backend(index), fill_coords_index!, nᵢ,
         pxᵢ, index, xvi, di.vertex, np_quadrant
     )
 
@@ -149,19 +150,22 @@ function init_particles(
     nxcell = np_quadrant * NQ
     max_xcell = max(nxcell, max_xcell)
     np = max_xcell * prod(nᵢ)
-    pxᵢ = ntuple(_ -> @fill(NaN, nᵢ..., celldims = (max_xcell,)), Val(N))
-    index = @fill(false, nᵢ..., celldims = (max_xcell,), eltype = Bool)
+    pxᵢ = ntuple(_ -> cell_array(backend, NaN, (max_xcell,), nᵢ), Val(N))
+    index = cell_array(backend, false, (max_xcell,), nᵢ)
 
-    @parallel (@idx nᵢ) fill_coords_index(
+    launch!(
+        ka_backend(index), fill_coords_index!, nᵢ,
         pxᵢ, index, xvi, di.vertex, np_quadrant
     )
 
     return Particles(backend, pxᵢ, index, nxcell, max_xcell, min_xcell, np, di, _di, xci, xvi, xi_vel)
 end
 
-@parallel_indices (I...) function fill_coords_index(
+@kernel function fill_coords_index!(
         pxᵢ::NTuple{N, T}, index, coords, di::NTuple{N}, np_quadrant
     ) where {N, T}
+    I = @index(Global, NTuple)
+
     # lower-left corner of the cell
     x0ᵢ = ntuple(Val(N)) do ndim
         @inline
@@ -176,12 +180,11 @@ end
         for _ in 1:np_quadrant
             l += 1
             for ndim in 1:N
-                @index pxᵢ[ndim][l, I...] = xcᵢ[ndim] + dxᵢ[ndim] / 2 * rand()
+                CAI.@index pxᵢ[ndim][l, I...] = xcᵢ[ndim] + dxᵢ[ndim] / 2 * rand()
             end
-            @index index[l, I...] = true
+            CAI.@index index[l, I...] = true
         end
     end
-    return nothing
 end
 
 # regular distribution of markers
@@ -197,54 +200,13 @@ function _init_particles(
     nxcell = prod(nxdim)
     ncells = prod(nᵢ)
     np = max_xcell * ncells
-    pxᵢ = ntuple(_ -> @fill(NaN, nᵢ..., celldims = (max_xcell,)), Val(N))
-    index = @fill(false, nᵢ..., celldims = (max_xcell,), eltype = Bool)
+    pxᵢ = ntuple(_ -> cell_array(backend, NaN, (max_xcell,), nᵢ), Val(N))
+    index = cell_array(backend, false, (max_xcell,), nᵢ)
 
     di = compute_dx(coords)
 
-    @parallel_indices (I...) function fill_coords_index(
-            pxᵢ::NTuple{N, T}, index, coords, nxdim, di
-        ) where {N, T}
-
-        dxi = @dxi di I...
-
-        # lower-left corner of the cell
-        x0ᵢ = ntuple(Val(N)) do ndim
-            coords[ndim][I[ndim]]
-        end
-
-        # fill index array
-        local_dx = @. dxi / (nxdim + 1)
-        if N == 2
-            for i in axes(nxdim[1], 1), j in axes(nxdim[2], 1)
-                l = i + (j - 1) * nxdim[1]
-                ndim = 1
-                @index pxᵢ[ndim][l, I...] = x0ᵢ[ndim] + l * local_dx[ndim][i]
-                ndim = 2
-                @index pxᵢ[ndim][l, I...] = x0ᵢ[ndim] + l * local_dx[ndim][j]
-
-                @index index[l, I...] = true
-            end
-        elseif N == 3
-            for i in axes(nxdim[1], 1), j in axes(nxdim[2], 1), k in axes(nxdim[3], 1)
-                l = i + (j - 1) * nxdim[1] + (k - 1) * nxdim[1] * nxdim[2]
-                ndim = 1
-                @index pxᵢ[ndim][l, I...] = x0ᵢ[ndim] + l * local_dx[ndim][i]
-                ndim = 2
-                @index pxᵢ[ndim][l, I...] = x0ᵢ[ndim] + l * local_dx[ndim][j]
-                ndim = 3
-                @index pxᵢ[ndim][l, I...] = x0ᵢ[ndim] + l * local_dx[ndim][k]
-
-                @index index[l, I...] = true
-            end
-        else
-            error("Unsupported number of dimensions: $N")
-        end
-
-        return nothing
-    end
-
-    @parallel (@idx nᵢ) fill_coords_index(
+    launch!(
+        ka_backend(index), fill_regular_coords_index!, nᵢ,
         pxᵢ, index, coords, nxdim, di
     )
 
@@ -269,6 +231,45 @@ end
     (1, 1, 1),
 )
 
+@kernel function fill_regular_coords_index!(
+        pxᵢ::NTuple{N, T}, index, coords, nxdim, di
+    ) where {N, T}
+    I = @index(Global, NTuple)
+
+    dxi = @dxi di I...
+
+    # lower-left corner of the cell
+    x0ᵢ = ntuple(Val(N)) do ndim
+        coords[ndim][I[ndim]]
+    end
+
+    # fill index array
+    local_dx = @. dxi / (nxdim + 1)
+    if N == 2
+        for i in 1:nxdim[1], j in 1:nxdim[2]
+            l = i + (j - 1) * nxdim[1]
+            ndim = 1
+            CAI.@index pxᵢ[ndim][l, I...] = x0ᵢ[ndim] + l * local_dx[ndim][i]
+            ndim = 2
+            CAI.@index pxᵢ[ndim][l, I...] = x0ᵢ[ndim] + l * local_dx[ndim][j]
+
+            CAI.@index index[l, I...] = true
+        end
+    elseif N == 3
+        for i in 1:nxdim[1], j in 1:nxdim[2], k in 1:nxdim[3]
+            l = i + (j - 1) * nxdim[1] + (k - 1) * nxdim[1] * nxdim[2]
+            ndim = 1
+            CAI.@index pxᵢ[ndim][l, I...] = x0ᵢ[ndim] + l * local_dx[ndim][i]
+            ndim = 2
+            CAI.@index pxᵢ[ndim][l, I...] = x0ᵢ[ndim] + l * local_dx[ndim][j]
+            ndim = 3
+            CAI.@index pxᵢ[ndim][l, I...] = x0ᵢ[ndim] + l * local_dx[ndim][k]
+
+            CAI.@index index[l, I...] = true
+        end
+    end
+end
+
 """
     init_cell_arrays(particles::Particles, ::Val{N})
 
@@ -282,26 +283,9 @@ quantities such as interpolated fields or time-integration work arrays.
 - An `N`-tuple of `CellArray`s with the same particle-cell layout as
   `particles.coords`.
 """
-@inline function init_cell_arrays(particles::Particles, ::Val{N}) where {N}
+@inline function init_cell_arrays(particles::Particles{Backend}, ::Val{N}) where {Backend, N}
     return ntuple(
-        _ -> @fill(
-            0.0, size(particles.coords[1])..., celldims = (cellsize(particles.index))
-        ),
+        _ -> cell_array(Backend, 0.0, cellsize(particles.index), size(particles.coords[1])),
         Val(N),
     )
-end
-
-"""
-    cell_array(x, ncells, ni)
-
-Create a `CellArray` filled with `x`, using `ncells` entries per cell over a grid
-of size `ni`.
-
-This helper is useful when allocating per-cell particle fields or phase-ratio
-storage with the same logical layout as the particle containers.
-"""
-@inline function cell_array(
-        x::T, ncells::NTuple{N1, Integer}, ni::NTuple{N2, Integer}
-    ) where {T, N1, N2}
-    return @fill(x, ni..., celldims = ncells, eltype = T)
 end

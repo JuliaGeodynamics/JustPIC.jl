@@ -3,6 +3,10 @@ module JustPICCUDAExt
 using CUDA
 using JustPIC, CellArrays, StaticArrays
 
+import JustPIC: AbstractBackend, CUDABackend
+
+CellArrays.@define_CuCellArray()
+
 JustPIC.TA(::Type{CUDABackend}) = CuArray
 
 function CuCellArray(
@@ -156,32 +160,31 @@ module _2D
     using CUDA
     using ImplicitGlobalGrid
     using MPI: MPI
-    using MuladdMacro, ParallelStencil, CellArrays, CellArraysIndexing, StaticArrays, GridGeometryUtils
+    using MuladdMacro, KernelAbstractions, CellArrays, StaticArrays, GridGeometryUtils
+    import KernelAbstractions: @index
+    using CellArraysIndexing: @cell, getcell, setcell!, getcellindex, setcellindex!
+    import CellArraysIndexing as CAI
     using JustPIC
-
-    @init_parallel_stencil(CUDA, Float64, 2)
 
     import JustPIC: Euler, RungeKutta2, AbstractAdvectionIntegrator
     import JustPIC._2D.CA
     import JustPIC: Particles, PassiveMarkers
-    import JustPIC: AbstractBackend
+    import JustPIC: AbstractBackend, CUDABackend
 
     export CA
 
     function JustPIC._2D.CA(::Type{CUDABackend}, dims; eltype = Float64)
-        return CuCellArray{eltype}(undef, dims)
-    end
-
-    macro myatomic(expr)
-        return esc(
-            quote
-                CUDA.@atomic $expr
-            end,
-        )
+        return JustPICCUDAExt.CuCellArray{eltype}(undef, dims)
     end
 
     include(joinpath(@__DIR__, "../src/common.jl"))
     include(joinpath(@__DIR__, "../src/CUDAExt/CellArrays.jl"))
+
+    @inline function undef_cell_array(
+            ::Type{CUDABackend}, ::Type{T}, ni::NTuple{N, <:Integer}
+        ) where {T, N}
+        return JustPICCUDAExt.CuCellArray{T}(undef, Int.(ni))
+    end
 
     # Conversions
     function JustPIC._2D.Particles(
@@ -411,7 +414,7 @@ module _2D
             F, Fp, xci::NTuple, particles::Particles{CUDABackend}, di
         )
         (; coords) = particles
-        @parallel (@idx size(coords[1])) _particle2centroid!(F, Fp, xci, coords, di)
+        launch!(ka_backend(coords[1]), _particle2centroid!, size(coords[1]), F, Fp, xci, coords, di)
         return nothing
     end
 
@@ -648,11 +651,11 @@ module _2D
         ) where {T}
         nx, ny = ni
 
-        center = cell_array(zero(T), (nphases,), ni)
-        vertex = cell_array(zero(T), (nphases,), ni .+ 1)
-        Vx = cell_array(zero(T), (nphases,), (nx + 1, ny))
-        Vy = cell_array(zero(T), (nphases,), (nx, ny + 1))
-        dummy = cell_array(zero(T), (nphases,), (1, 1)) # because it cant be a Union{T, Nothing} type on the GPU....
+        center = cell_array(CUDABackend, zero(T), (nphases,), ni)
+        vertex = cell_array(CUDABackend, zero(T), (nphases,), ni .+ 1)
+        Vx = cell_array(CUDABackend, zero(T), (nphases,), (nx + 1, ny))
+        Vy = cell_array(CUDABackend, zero(T), (nphases,), (nx, ny + 1))
+        dummy = cell_array(CUDABackend, zero(T), (nphases,), (1, 1)) # because it cant be a Union{T, Nothing} type on the GPU....
 
         return JustPIC.PhaseRatios(
             CUDABackend, center, vertex, Vx, Vy, dummy, dummy, dummy, dummy
@@ -665,7 +668,8 @@ module _2D
         ni = size(phases)
         di = compute_dx(xci)
 
-        @parallel (@idx ni) phase_ratios_center_kernel!(
+        launch!(
+            ka_backend(phase_ratios), phase_ratios_center_kernel!, ni,
             phase_ratios.center, particles.coords, xci, di, phases
         )
         return nothing
@@ -677,7 +681,8 @@ module _2D
         ni = size(phases) .+ 1
         di = compute_dx(xvi)
 
-        @parallel (@idx ni) phase_ratios_vertex_kernel!(
+        launch!(
+            ka_backend(phase_ratios), phase_ratios_vertex_kernel!, ni,
             phase_ratios.vertex, particles.coords, xvi, di, phases
         )
         return nothing
@@ -695,29 +700,28 @@ module _3D
     using CUDA
     using ImplicitGlobalGrid
     using MPI: MPI
-    using MuladdMacro, ParallelStencil, CellArrays, CellArraysIndexing, StaticArrays, GridGeometryUtils
+    using MuladdMacro, KernelAbstractions, CellArrays, StaticArrays, GridGeometryUtils
+    import KernelAbstractions: @index
+    using CellArraysIndexing: @cell, getcell, setcell!, getcellindex, setcellindex!
+    import CellArraysIndexing as CAI
     using JustPIC
-
-    @init_parallel_stencil(CUDA, Float64, 3)
-
-    macro myatomic(expr)
-        return esc(
-            quote
-                CUDA.@atomic $expr
-            end,
-        )
-    end
 
     import JustPIC:
         Euler, RungeKutta2, AbstractAdvectionIntegrator, Particles, PassiveMarkers
-    import JustPIC: AbstractBackend
+    import JustPIC: AbstractBackend, CUDABackend
 
     function JustPIC._3D.CA(::Type{CUDABackend}, dims; eltype = Float64)
-        return CuCellArray{eltype}(undef, dims)
+        return JustPICCUDAExt.CuCellArray{eltype}(undef, dims)
     end
 
     include(joinpath(@__DIR__, "../src/common.jl"))
     include(joinpath(@__DIR__, "../src/CUDAExt/CellArrays.jl"))
+
+    @inline function undef_cell_array(
+            ::Type{CUDABackend}, ::Type{T}, ni::NTuple{N, <:Integer}
+        ) where {T, N}
+        return JustPICCUDAExt.CuCellArray{T}(undef, Int.(ni))
+    end
 
     # Conversions
     function JustPIC._3D.Particles(
@@ -1133,14 +1137,14 @@ module _3D
         ) where {T}
         nx, ny, nz = ni
 
-        center = cell_array(zero(T), (nphases,), ni)
-        vertex = cell_array(zero(T), (nphases,), ni .+ 1)
-        Vx = cell_array(zero(T), (nphases,), (nx + 1, ny, nz))
-        Vy = cell_array(zero(T), (nphases,), (nx, ny + 1, nz))
-        Vz = cell_array(zero(T), (nphases,), (nx, ny, nz + 1))
-        yz = cell_array(zero(T), (nphases,), (nx, ny + 1, nz + 1))
-        xz = cell_array(zero(T), (nphases,), (nx + 1, ny, nz + 1))
-        xy = cell_array(zero(T), (nphases,), (nx + 1, ny + 1, nz))
+        center = cell_array(CUDABackend, zero(T), (nphases,), ni)
+        vertex = cell_array(CUDABackend, zero(T), (nphases,), ni .+ 1)
+        Vx = cell_array(CUDABackend, zero(T), (nphases,), (nx + 1, ny, nz))
+        Vy = cell_array(CUDABackend, zero(T), (nphases,), (nx, ny + 1, nz))
+        Vz = cell_array(CUDABackend, zero(T), (nphases,), (nx, ny, nz + 1))
+        yz = cell_array(CUDABackend, zero(T), (nphases,), (nx, ny + 1, nz + 1))
+        xz = cell_array(CUDABackend, zero(T), (nphases,), (nx + 1, ny, nz + 1))
+        xy = cell_array(CUDABackend, zero(T), (nphases,), (nx + 1, ny + 1, nz))
 
         return JustPIC.PhaseRatios(CUDABackend, center, vertex, Vx, Vy, Vz, yz, xz, xy)
     end
@@ -1151,7 +1155,8 @@ module _3D
         ni = size(phases)
         di = compute_dx(xci)
 
-        @parallel (@idx ni) phase_ratios_center_kernel!(
+        launch!(
+            ka_backend(phase_ratios), phase_ratios_center_kernel!, ni,
             phase_ratios.center, particles.coords, xci, di, phases
         )
         return nothing
@@ -1163,7 +1168,8 @@ module _3D
         ni = size(phases) .+ 1
         di = compute_dx(xvi)
 
-        @parallel (@idx ni) phase_ratios_vertex_kernel!(
+        launch!(
+            ka_backend(phase_ratios), phase_ratios_vertex_kernel!, ni,
             phase_ratios.vertex, particles.coords, xvi, di, phases
         )
         return nothing

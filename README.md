@@ -10,18 +10,16 @@
 
 Particle-in-Cell advection ready to rock the GPU  :rocket:
 
-# Example:
-The first step is to chose whether we want to run our simulation on the CPU or Nvidia or AMD GPUs. This is done by setting the `backend` variable to either `CUDABackend`, `AMDGPUBackend` or `CPUBackend`. In the following we will assume that we are running on a Nvidia GPU.
-
-```julia
-const backend = CUDABackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
-```
-
-and load the required packages:
+# Example
+Load JustPIC and choose where particle arrays are allocated. Backend tags live
+under the `JustPIC` module; use `JustPIC.CPUBackend` by default, or load CUDA.jl
+/ AMDGPU.jl and switch to `JustPIC.CUDABackend` / `JustPIC.AMDGPUBackend`.
 
 ```julia
 using JustPIC, JustPIC._2D
 using GLMakie
+
+const backend = JustPIC.CPUBackend
 ```
 
 Define domain and grids of the domain:
@@ -60,9 +58,9 @@ Now we can initialize the particles object
 nxcell    = 24 # initial number of particles per cell
 max_xcell = 48 # maximum number of particles per cell
 min_xcell = 12 # minimum number of particles per cell
-    particles = init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi, dxi, (nx, ny)
-    )
+particles = init_particles(
+    backend, nxcell, max_xcell, min_xcell, xvi, dxi, (nx, ny)
+)
 ```
 
 The velocity field is defined by the stream function $\psi=\frac{250}{\pi}\sin(\pi x)\cos(\pi y)$, so that the analytical velocity field at the particle $p=p(x,y)$ is given by
@@ -77,7 +75,8 @@ Vy = TA(backend)([vy_stream(x, y) for x in grid_vy[1], y in grid_vy[2]]);
 V  = Vx, Vy
 dt = min(dx / maximum(abs.(Vx)),  dy / maximum(abs.(Vy))) # time step
 ```
-where `TA(backend)` is a type alias for either `Array`, `CuArray` or `ROCArray`.
+where `TA(backend)` is `Array` on `JustPIC.CPUBackend`, `CuArray` on
+`JustPIC.CUDABackend`, and `ROCArray` on `JustPIC.AMDGPUBackend`.
 
 We save the initial particle positions:
 ```julia

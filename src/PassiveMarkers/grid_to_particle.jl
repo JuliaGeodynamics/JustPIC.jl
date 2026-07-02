@@ -3,16 +3,16 @@ function grid2particle!(Fp, xvi, F, particles::PassiveMarkers)
     (; coords, np) = particles
     dxi = grid_size(xvi)
 
-    @parallel (@idx np) grid2particle_passive_marker!(Fp, F, xvi, dxi, coords)
+    launch!(ka_backend(particles), grid2particle_passive_marker!, np, Fp, F, xvi, dxi, coords)
 
     return nothing
 end
 
-@parallel_indices (ip) function grid2particle_passive_marker!(
+@kernel function grid2particle_passive_marker!(
         Fp, F, xvi, dxi, particle_coords
     )
+    ip = @index(Global)
     _grid2particle_passive_marker!(Fp, F, xvi, dxi, particle_coords, ip)
-    return nothing
 end
 
 # INNERMOST INTERPOLATION KERNEL

@@ -16,9 +16,22 @@ Backend tag for CPU array allocation and CPU execution paths.
 struct CPUBackend <: AbstractBackend end
 
 """
+    CUDABackend
+
+Backend tag for CUDA array allocation and CUDA execution paths.
+
+CUDA-specific array and `CellArray` methods are installed by the CUDA package
+extension when CUDA.jl is loaded.
+"""
+struct CUDABackend <: AbstractBackend end
+
+"""
     AMDGPUBackend
 
-Backend tag for AMDGPU-based array allocation and execution paths.
+Backend tag for AMDGPU array allocation and AMDGPU execution paths.
+
+AMDGPU-specific array and `CellArray` methods are installed by the AMDGPU
+package extension when AMDGPU.jl is loaded.
 """
 struct AMDGPUBackend <: AbstractBackend end
 
@@ -32,8 +45,8 @@ function CA end
 
 Return the plain array type associated with `backend`.
 
-For the CPU backend this is `Array`. Extension packages may add backend-specific
-definitions for accelerator arrays.
+For `CPUBackend` this is `Array`. Loading CUDA.jl or AMDGPU.jl extends this for
+`CUDABackend` and `AMDGPUBackend`, respectively.
 """
 TA() = Array
 TA(::Type{CPUBackend}) = Array

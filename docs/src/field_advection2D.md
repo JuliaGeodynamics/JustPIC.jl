@@ -12,7 +12,7 @@ and the correspondent 2D module (we could also use 3D by loading `JustPIC._3D`)
 using JustPIC._2D
 ```
 
-We need to specify what backend are we running our simulation on. For convenience we define the backend as a constant. In this case we use the CPU backend, but we could also use the CUDA (CUDABackend) or AMDGPU (AMDGPUBackend) backends.
+We need to specify what backend are we running our simulation on. For convenience we define the backend as a constant. In this case we use the CPU backend, but we could also use the CUDA (`JustPIC.CUDABackend`) or AMDGPU (`JustPIC.AMDGPUBackend`) backends.
 
 ```julia
 const backend = JustPIC.CPUBackend

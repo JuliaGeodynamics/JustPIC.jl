@@ -27,22 +27,18 @@ function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args, dx
     domain_limits = extrema.(grid)
     n_color = ntuple(i -> ceil(Int, nxi[i] / 3), Val(N))
 
-    # make some space for incoming particles
-    # @parallel (@idx nxi) empty_particles!(coords, index, max_xcell, args)
     # move particles
     if N == 2 # 2D case
-        nthreads = (16, 16)
-        nblocks = ceil.(Int, n_color ./ nthreads)
         for offsetᵢ in 1:3, offsetⱼ in 1:3
-            @parallel (@idx n_color) nblocks nthreads move_particles_ps!(
+            launch!(
+                ka_backend(index), move_particles_ps!, n_color,
                 coords, grid, dxi, index, domain_limits, args, (offsetᵢ, offsetⱼ)
             )
         end
     elseif N == 3 # 3D case
-        nthreads = (16, 16, 1)
-        nblocks = ceil.(Int, n_color ./ nthreads)
         for offsetᵢ in 1:3, offsetⱼ in 1:3, offsetₖ in 1:3
-            @parallel (@idx n_color) nblocks nthreads move_particles_ps!(
+            launch!(
+                ka_backend(index), move_particles_ps!, n_color,
                 coords, grid, dxi, index, domain_limits, args, (offsetᵢ, offsetⱼ, offsetₖ)
             )
         end
@@ -52,9 +48,10 @@ function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args, dx
     return nothing
 end
 
-@parallel_indices (I...) function move_particles_ps!(
+@kernel function move_particles_ps!(
         coords, grid, dxi, index, domain_limits, args, offsets::NTuple{N}
     ) where {N}
+    I = @index(Global, NTuple)
     indices = ntuple(Val(N)) do i
         3 * (I[i] - 1) + offsets[i]
     end
@@ -62,7 +59,6 @@ end
     if all(indices .≤ size(index))
         _move_particles!(coords, grid, dxi, index, domain_limits, indices, args)
     end
-    return nothing
 end
 
 function _move_particles!(coords, grid, dxi, index, domain_limits, idx, args)
@@ -99,7 +95,7 @@ function move_kernel!(
         # particle went of of the domain, get rid of it
         domain_check = !(indomain(pᵢ, domain_limits))
         if domain_check
-            @index index[ip, idx...] = false
+            CAI.@index index[ip, idx...] = false
             empty_particle!(coords, ip, idx)
             empty_particle!(args, ip, idx)
         end
@@ -111,7 +107,7 @@ function move_kernel!(
         current_args = cache_args(args, ip, idx)
 
         # remove particle from child cell
-        @index index[ip, idx...] = false
+        CAI.@index index[ip, idx...] = false
         empty_particle!(coords, ip, idx)
         empty_particle!(args, ip, idx)
 
@@ -121,7 +117,7 @@ function move_kernel!(
         starting_point = free_idx
 
         # move particle and its fields to the first free memory location
-        @index index[free_idx, new_cell...] = true
+        CAI.@index index[free_idx, new_cell...] = true
         fill_particle!(coords, pᵢ, free_idx, new_cell)
         fill_particle!(args, current_args, free_idx, new_cell)
     end
@@ -188,14 +184,14 @@ end
 
 function find_free_memory(index, I::Vararg{Int, N}) where {N}
     for i in cellaxes(index)
-        (@index(index[i, I...])) || return i
+        (CAI.@index(index[i, I...])) || return i
     end
     return 0
 end
 
 function find_free_memory(initial_index::Integer, index::CellArray, I::Vararg{Int, N}) where {N}
     for i in initial_index:cellnum(index)
-        (@index(index[i, I...])) || return i
+        (CAI.@index(index[i, I...])) || return i
     end
     return 0
 end
@@ -227,11 +223,11 @@ end
 end
 
 @inline function cache_args(args::NTuple{N1, T}, ip, I::NTuple{N2, Int64}) where {T, N1, N2}
-    return ntuple(i -> (@index(args[i][ip, I...])), Val(N1))
+    return ntuple(i -> (CAI.@index(args[i][ip, I...])), Val(N1))
 end
 
 @inline function cache_args(args::NTuple{N}, ip, I::Integer) where {N}
-    return ntuple(i -> (@index(args[i][ip, I])), Val(N))
+    return ntuple(i -> (CAI.@index(args[i][ip, I])), Val(N))
 end
 
 @inline function cache_particle(
@@ -249,14 +245,14 @@ end
     ) where {N1, N2, T}
     return quote
         Base.@_inline_meta
-        Base.Cartesian.@nexprs $N1 i -> @index p[i][ip, I...] = NaN
+        Base.Cartesian.@nexprs $N1 i -> CAI.@index p[i][ip, I...] = NaN
     end
 end
 
 @generated function empty_particle!(p::NTuple{N}, ip, I::Integer) where {N}
     return quote
         Base.@_inline_meta
-        Base.Cartesian.@nexprs $N i -> @index p[i][ip, I] = NaN
+        Base.Cartesian.@nexprs $N i -> CAI.@index p[i][ip, I] = NaN
     end
 end
 
@@ -273,7 +269,7 @@ end
         Base.Cartesian.@nexprs $N1 i -> begin
             Base.@_inline_meta
             tmp = p[i]
-            @index tmp[ip, I...] = field[i]
+            CAI.@index tmp[ip, I...] = field[i]
         end
         return nothing
     end
@@ -292,22 +288,13 @@ function clean_particles!(particles::Particles, grid, args)
     (; coords, index) = particles
     dxi = compute_dx(grid)
     ni = size(index)
-    @parallel (@idx ni) _clean!(coords, grid, dxi, index, args)
+    launch!(ka_backend(index), _clean!, ni, coords, grid, dxi, index, args)
     return nothing
 end
 
-@parallel_indices (i, j) function _clean!(
-        particle_coords::NTuple{2, Any}, grid::NTuple{2, Any}, dxi::NTuple{2, Any}, index, args
-    )
-    clean_kernel!(particle_coords, grid, @dxi(dxi, i, j), index, args, i, j)
-    return nothing
-end
-
-@parallel_indices (i, j, k) function _clean!(
-        particle_coords::NTuple{3, Any}, grid::NTuple{3, Any}, dxi::NTuple{3, Any}, index, args
-    )
-    clean_kernel!(particle_coords, grid, @dxi(dxi, i, j, k), index, args, i, j, k)
-    return nothing
+@kernel function _clean!(particle_coords, grid, dxi, index, args)
+    I = @index(Global, NTuple)
+    clean_kernel!(particle_coords, grid, @dxi(dxi, I...), index, args, I...)
 end
 
 function clean_kernel!(
@@ -318,10 +305,10 @@ function clean_kernel!(
     for ip in cellaxes(index)
         pᵢ = cache_particle(particle_coords, ip, cell_indices)
 
-        if @index index[ip, cell_indices...] # true if memory allocation is filled with a particle
+        if CAI.@index index[ip, cell_indices...] # true if memory allocation is filled with a particle
             if !(isincell(pᵢ, corner_xi, dxi))
                 # remove particle from child cell
-                @index index[ip, cell_indices...] = false
+                CAI.@index index[ip, cell_indices...] = false
                 empty_particle!(particle_coords, ip, cell_indices)
                 empty_particle!(args, ip, cell_indices)
             end
@@ -344,9 +331,9 @@ end
 # The following kernels are used in the `move_particles!` function
 # to remove a random particle from the memory location so that the
 # cell capacity is always below 80% of its maximum.
-@parallel_indices (I...) function empty_particles!(coords, index, cell_length, args)
+@kernel function empty_particles!(coords, index, cell_length, args)
+    I = @index(Global, NTuple)
     empty_kernel!(coords, index, cell_length, args, I)
-    return nothing
 end
 
 function empty_kernel!(
@@ -370,7 +357,7 @@ function empty_kernel!(
         # check if a particle is actually in that memory location
         doskip(index, index_to_remove, I...) && continue
         # great, lets get rid of it
-        @index index[index_to_remove, I...] = false
+        CAI.@index index[index_to_remove, I...] = false
         empty_particle!(coords, index_to_remove, I)
         empty_particle!(args, index_to_remove, I)
         counter += 1
@@ -381,7 +368,7 @@ end
 function count_particles(index, I::Vararg{Int, N}) where {N}
     count = 0
     for i in cellaxes(index)
-        count += @index index[i, I...]
+        count += CAI.@index index[i, I...]
     end
     return count
 end

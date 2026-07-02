@@ -3,34 +3,28 @@ const year = 365 * 3600 * 24
 const USE_GPU = false
 
 using JustPIC, JustPIC._2D
+import KernelAbstractions: @kernel, @index
 const backend = JustPIC.CPUBackend
 
 const ALE = true
 
-using ParallelStencil
-using ParallelStencil.FiniteDifferences2D
-@static if USE_GPU
-    @init_parallel_stencil(CUDA, Float64, 2)
-else
-    @init_parallel_stencil(Threads, Float64, 2)
-end
-
-@parallel_indices (I...) function InitialFieldsParticles!(phases, px, py, index)
+@kernel function InitialFieldsParticles!(phases, px, py, index)
+    I = @index(Global, NTuple)
     for ip in cellaxes(phases)
         # quick escape
-        @index(index[ip, I...]) == 0 && continue
-        x = @index px[ip, I...]
-        y = @index py[ip, I...]
+        JustPIC.@index(index[ip, I...]) == 0 && continue
+        x = JustPIC.@index px[ip, I...]
+        y = JustPIC.@index py[ip, I...]
         if x < y
-            @index phases[ip, I...] = 1.0
+            JustPIC.@index phases[ip, I...] = 1.0
         else
-            @index phases[ip, I...] = 2.0
+            JustPIC.@index phases[ip, I...] = 2.0
         end
     end
-    return nothing
 end
 
-@parallel_indices (I...) function SetVelocity(V, verts, ε̇bg)
+@kernel function SetVelocity(V, verts, ε̇bg)
+    I = @index(Global, NTuple)
 
     if I[1] <= size(V.x, 1) &&  I[2] <= size(V.x, 2)
         V.x[I...] = verts.x[I[1]] * ε̇bg
@@ -39,9 +33,9 @@ end
     if I[1] <= size(V.y, 1) &&  I[2] <= size(V.y, 2)
         V.y[I...] = -verts.y[I[2]] * ε̇bg
     end
-
-    return nothing
 end
+
+velocity_ndrange(V) = map(max, size(V.x), size(V.y))
 
 function main()
 
@@ -67,13 +61,13 @@ function main()
     size_x = (Nc.x + 1, Nc.y + 2)
     size_y = (Nc.x + 2, Nc.y + 1)
     V = (
-        x = @zeros(size_x),
-        y = @zeros(size_y),
+        x = TA(backend)(zeros(size_x)),
+        y = TA(backend)(zeros(size_y)),
     )
 
     # Set velocity field
     ε̇bg = 1.0
-    @parallel SetVelocity(V, verts, ε̇bg)
+    launch!(ka_backend(V.x), SetVelocity, velocity_ndrange(V), V, verts, ε̇bg)
 
     # Initialize particles -------------------------------
     nxcell, max_xcell, min_xcell = 12, 24, 5
@@ -90,7 +84,10 @@ function main()
     # Initialise phase field
     particle_args = phases, = init_cell_arrays(particles, Val(1))  # cool
 
-    @parallel InitialFieldsParticles!(phases, particles.coords..., particles.index)
+    launch!(
+        ka_backend(particles), InitialFieldsParticles!, size(phases),
+        phases, particles.coords..., particles.index
+    )
 
     phase_ratios = JustPIC._2D.PhaseRatios(backend, 2, values(Nc))
     phase_ratios_vertex!(phase_ratios, particles, values(verts), phases)
@@ -148,7 +145,7 @@ function main()
             grid_vx = (verts.x, cents_ext.y)
             grid_vy = (cents_ext.x, verts.y)
             Δt = C * min(Δ...) / max(maximum(abs.(V.x)), maximum(abs.(V.y)))
-            @parallel SetVelocity(V, verts, ε̇bg)
+            launch!(ka_backend(V.x), SetVelocity, velocity_ndrange(V), V, verts, ε̇bg)
             move_particles!(particles, (phases,))
             phase_ratios_vertex!(phase_ratios, particles, values(verts), phases)
         end

@@ -16,7 +16,7 @@ Insert particles from `p_new` directly into free particle slots.
 function force_injection!(particles::Particles{Backend}, p_new, fields::NTuple{N, Any}, values::NTuple{N, Any}) where {Backend, N}
     (; coords, index) = particles
     ni = size(index)
-    @parallel (@idx ni) force_injection!(coords, index, p_new, fields, values)
+    launch!(ka_backend(index), force_injection_kernel!, ni, coords, index, p_new, fields, values)
     return nothing
 end
 
@@ -29,7 +29,8 @@ to be initialized.
 force_injection!(particles::Particles{Backend}, p_new) where {Backend} = force_injection!(particles, p_new, (), ())
 
 
-@parallel_indices (I...) function force_injection!(coords::NTuple{2}, index, p_new, fields::NTuple{N, Any}, values::NTuple{N, Any}) where {N}
+@kernel function force_injection_kernel!(coords::NTuple{2}, index, p_new, fields::NTuple{N, Any}, values::NTuple{N, Any}) where {N}
+    I = @index(Global, NTuple)
 
     # check whether there are new particles to inject in the ij-th cell
     if !isnan(p_new[I..., begin])
@@ -40,21 +41,20 @@ force_injection!(particles::Particles{Backend}, p_new) where {Backend} = force_i
             c > cellnum(index)  && continue
             doskip(index, ip, I...) || continue
             pᵢ = p_new[I..., c]
-            @index coords[1][ip, I...] = pᵢ[1]
-            @index coords[2][ip, I...] = pᵢ[2]
-            @index index[ip, I...] = true
+            CAI.@index coords[1][ip, I...] = pᵢ[1]
+            CAI.@index coords[2][ip, I...] = pᵢ[2]
+            CAI.@index index[ip, I...] = true
 
             # force fields to have a given value
             for (value, field) in zip(values, fields)
-                @index field[ip, I...] = value
+                CAI.@index field[ip, I...] = value
             end
         end
     end
-
-    return nothing
 end
 
-@parallel_indices (I...) function force_injection!(coords::NTuple{3}, index, p_new, fields::NTuple{N, Any}, values::NTuple{N, Any}) where {N}
+@kernel function force_injection_kernel!(coords::NTuple{3}, index, p_new, fields::NTuple{N, Any}, values::NTuple{N, Any}) where {N}
+    I = @index(Global, NTuple)
 
     # check whether there are new particles to inject in the ij-th cell
     if !isnan(p_new[I..., begin])
@@ -65,17 +65,15 @@ end
             c > cellnum(index)  && continue
             doskip(index, ip, I...) || continue
             pᵢ = p_new[I..., c]
-            @index coords[1][ip, I...] = pᵢ[1]
-            @index coords[2][ip, I...] = pᵢ[2]
-            @index coords[3][ip, I...] = pᵢ[3]
-            @index index[ip, I...] = true
+            CAI.@index coords[1][ip, I...] = pᵢ[1]
+            CAI.@index coords[2][ip, I...] = pᵢ[2]
+            CAI.@index coords[3][ip, I...] = pᵢ[3]
+            CAI.@index index[ip, I...] = true
 
             # force fields to have a given value
             for (value, field) in zip(values, fields)
-                @index field[ip, I...] = value
+                CAI.@index field[ip, I...] = value
             end
         end
     end
-
-    return nothing
 end

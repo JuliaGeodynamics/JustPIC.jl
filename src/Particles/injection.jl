@@ -29,13 +29,15 @@ function inject_particles!(particles::Particles, args, grid::NTuple{N}, di) wher
     # we are look for the closest particle, which can be in a neighboring cell
     return if N == 2
         for offsetᵢ in 1:2, offsetⱼ in 1:2
-            @parallel (@idx n_color) inject_particles!(
+            launch!(
+                ka_backend(index), inject_particles_kernel!, n_color,
                 args, coords, index, grid, di, min_xcell, (offsetᵢ, offsetⱼ)
             )
         end
     elseif N == 3
         for offsetᵢ in 1:2, offsetⱼ in 1:2, offsetₖ in 1:2
-            @parallel (@idx n_color) inject_particles!(
+            launch!(
+                ka_backend(index), inject_particles_kernel!, n_color,
                 args,
                 coords,
                 index,
@@ -50,9 +52,10 @@ function inject_particles!(particles::Particles, args, grid::NTuple{N}, di) wher
     end
 end
 
-@parallel_indices (I...) function inject_particles!(
+@kernel function inject_particles_kernel!(
         args, coords, index, grid, di, min_xcell, offsets::NTuple{N}
     ) where {N}
+    I = @index(Global, NTuple)
     indices = ntuple(Val(N)) do i
         2 * (I[i] - 1) + offsets[i]
     end
@@ -60,7 +63,6 @@ end
     if all(indices .≤ size(index))
         _inject_particles!(args, coords, index, grid, @dxi(di, indices...) ./ 2, min_xcell, indices)
     end
-    return nothing
 end
 
 function _inject_particles!(
@@ -83,7 +85,7 @@ function _inject_particles!(
         # count current number of particles inside the cell
         particles_num = 0
         for i in cellaxes(index)
-            (@index index[i, idx_cell...]) || continue
+            (CAI.@index index[i, idx_cell...]) || continue
 
             # check if particle is in local quadrant
             pcoords = extract_particle_coordinates(pcell, i)
@@ -97,7 +99,7 @@ function _inject_particles!(
         particles_num ≥ min_xQuadrant && break
 
         for i in cellaxes(index)
-            !(@index index[i, idx_cell...]) || continue
+            !(CAI.@index index[i, idx_cell...]) || continue
 
             particles_num += 1
 
@@ -110,13 +112,13 @@ function _inject_particles!(
 
             # fill new particles information
             fill_particle!(coords, p_new, i, idx_cell)
-            @index index[i, idx_cell...] = true
+            CAI.@index index[i, idx_cell...] = true
 
             # add phase to new particle
             particle_idx, min_idx = index_min_distance(coords, p_new, index, i, idx_cell...)
             for j in 1:N
-                new_value = @index args[j][particle_idx, min_idx...]
-                @index args[j][i, idx_cell...] = new_value
+                new_value = CAI.@index args[j][particle_idx, min_idx...]
+                CAI.@index args[j][i, idx_cell...] = new_value
             end
 
             # we are done with injection if
@@ -156,7 +158,8 @@ function inject_particles_phase!(
 
     return if N == 2
         for offsetᵢ in 1:2, offsetⱼ in 1:2
-            @parallel (@idx n_color) inject_particles_phase!(
+            launch!(
+                ka_backend(index), inject_particles_phase_kernel!, n_color,
                 particles_phases,
                 args,
                 fields,
@@ -172,7 +175,8 @@ function inject_particles_phase!(
         end
     elseif N == 3
         for offsetᵢ in 1:2, offsetⱼ in 1:2, offsetₖ in 1:2
-            @parallel (@idx n_color) inject_particles_phase!(
+            launch!(
+                ka_backend(index), inject_particles_phase_kernel!, n_color,
                 particles_phases,
                 args,
                 fields,
@@ -191,7 +195,7 @@ function inject_particles_phase!(
     end
 end
 
-@parallel_indices (I...) function inject_particles_phase!(
+@kernel function inject_particles_phase_kernel!(
         particles_phases,
         args,
         fields,
@@ -204,6 +208,7 @@ end
         min_xcell,
         offsets::NTuple{N},
     ) where {N}
+    I = @index(Global, NTuple)
     indices = ntuple(Val(N)) do i
         2 * (I[i] - 1) + offsets[i]
     end
@@ -227,8 +232,6 @@ end
             indices,
         )
     end
-
-    return nothing
 end
 
 function _inject_particles_phase!(
@@ -262,7 +265,7 @@ function _inject_particles_phase!(
         # count current number of particles inside the cell
         particles_num = 0
         for i in cellaxes(index)
-            (@index index[i, idx_cell...]) || continue
+            (CAI.@index index[i, idx_cell...]) || continue
 
             # check if particle is in local quadrant
             pcoords = extract_particle_coordinates(pcell, i)
@@ -276,7 +279,7 @@ function _inject_particles_phase!(
         particles_num ≥ min_xQuadrant && continue
 
         for i in cellaxes(index)
-            !(@index index[i, idx_cell...]) || continue
+            !(CAI.@index index[i, idx_cell...]) || continue
 
             particles_num += 1
             # add at cellcenter + small random perturbation
@@ -284,12 +287,12 @@ function _inject_particles_phase!(
 
             # add phase to new particle
             particle_idx, min_idx = index_min_distance(coords, p_new, index, i, idx_cell...)
-            new_phase = @index particles_phases[particle_idx, min_idx...]
-            @index particles_phases[i, idx_cell...] = new_phase
+            new_phase = CAI.@index particles_phases[particle_idx, min_idx...]
+            CAI.@index particles_phases[i, idx_cell...] = new_phase
 
             # fill new particle information
             fill_particle!(coords, p_new, i, idx_cell)
-            @index index[i, idx_cell...] = true
+            CAI.@index index[i, idx_cell...] = true
 
             # interpolate fields into newly injected particle
             for j in eachindex(args)
@@ -302,13 +305,13 @@ function _inject_particles_phase!(
                     tmp = _grid2particle(p_new, grid_center, di_center, fields[j], idx_center)
                     local_field = cell_field(fields[j], idx_center...)
                     lower, upper = extrema(local_field)
-                    @index args[j][i, idx_cell...] = clamp(tmp, lower, upper)
+                    CAI.@index args[j][i, idx_cell...] = clamp(tmp, lower, upper)
 
                 else
                     tmp = _grid2particle(p_new, grid, di, fields[j], idx_cell)
                     local_field = cell_field(fields[j], idx_cell...)
                     lower, upper = extrema(local_field)
-                    @index args[j][i, idx_cell...] = clamp(tmp, lower, upper)
+                    CAI.@index args[j][i, idx_cell...] = clamp(tmp, lower, upper)
                 end
             end
 
@@ -334,10 +337,10 @@ function index_min_distance(coords, pn, index, current_cell, icell, jcell)
         ((i < 1) || (j < 1)) && continue # out of the domain
         ((i > nx) || (j > ny)) && continue # out of the domain
         (i == icell) && (j == jcell) && (ip == current_cell) && continue # current injected particle
-        (@index index[ip, i, j]) || continue
+        (CAI.@index index[ip, i, j]) || continue
 
         # distance from new point to the existing particle
-        pxi = @index(px[ip, i, j]), @index(py[ip, i, j])
+        pxi = CAI.@index(px[ip, i, j]), CAI.@index(py[ip, i, j])
 
         any(isnan, pxi) && continue
 
@@ -368,10 +371,10 @@ function index_min_distance(coords, pn, index, current_cell, icell, jcell, kcell
         ((i < 1) || (j < 1) || (k < 1)) && continue # out of the domain
         ((i > nx) || (j > ny) || (k > nz)) && continue # out of the domain
         (i == icell) && (j == jcell) && (k == kcell) && (ip == current_cell) && continue # current injected particle
-        (@index index[ip, i, j, k]) || continue
+        (CAI.@index index[ip, i, j, k]) || continue
 
         # distance from new point to the existing particle
-        pxi = @index(px[ip, i, j, k]), @index(py[ip, i, j, k]), @index(pz[ip, i, j, k])
+        pxi = CAI.@index(px[ip, i, j, k]), CAI.@index(py[ip, i, j, k]), CAI.@index(pz[ip, i, j, k])
         d = distance(pxi, pn)
 
         if d < dist_min

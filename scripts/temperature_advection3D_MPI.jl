@@ -5,9 +5,6 @@ using JustPIC, JustPIC._3D
 # and to run on an AMD GPU load AMDGPU.jl (i.e. "using AMDGPU")
 const backend = JustPIC.CPUBackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
 
-using ParallelStencil
-@init_parallel_stencil(Threads, Float64, 3)
-
 using GLMakie
 using ImplicitGlobalGrid
 using MPI: MPI

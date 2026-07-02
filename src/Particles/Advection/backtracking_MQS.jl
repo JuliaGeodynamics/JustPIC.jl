@@ -21,11 +21,9 @@ function semilagrangian_advection_MQS!(
     dxi_vertex = compute_dx(grid)
     # compute some basic stuff
     ni = size(F isa Tuple ? first(F) : F)
-    ranges = ntuple(Val(N)) do i
-        2:(ni[i] - 1)
-    end
     # launch parallel backtrack kernel
-    @parallel (ranges) backtrack_kernel_MQS!(
+    launch!(
+        ka_backend(F isa Tuple ? first(F) : F), backtrack_kernel_MQS!, ni .- 2,
         F, F0, method, V, grid_vi, grid, dxi_velocity, dxi_vertex, dt
     )
 
@@ -34,7 +32,7 @@ end
 
 # DIMENSION AGNOSTIC KERNELS
 
-@parallel_indices (I...) function backtrack_kernel_MQS!(
+@kernel function backtrack_kernel_MQS!(
         F::AbstractArray,
         F0::AbstractArray,
         method::AbstractAdvectionIntegrator,
@@ -45,6 +43,8 @@ end
         dxi_vertex,
         dt,
     ) where {N, T}
+    I0 = @index(Global, NTuple)
+    I = I0 .+ 1
 
     # extract particle coordinates
     pᵢ = ntuple(Val(N)) do i
@@ -58,11 +58,9 @@ end
     end
     di_vertex = @dxi(dxi_vertex, I_backtrack...)
     F[I...] = _grid2particle(pᵢ_backtrack, grid, di_vertex, F0, I_backtrack)
-
-    return nothing
 end
 
-@parallel_indices (I...) function backtrack_kernel_MQS!(
+@kernel function backtrack_kernel_MQS!(
         F::NTuple{NF, AbstractArray},
         F0::NTuple{NF, AbstractArray},
         method::AbstractAdvectionIntegrator,
@@ -73,6 +71,8 @@ end
         dxi_vertex,
         dt,
     ) where {NF, N, T}
+    I0 = @index(Global, NTuple)
+    I = I0 .+ 1
 
     # extract particle coordinates
     pᵢ = ntuple(Val(N)) do i
@@ -91,8 +91,6 @@ end
         # interpolate field F onto particle
         F[i][I...] = _grid2particle(pᵢ_backtrack, grid, di_vertex, F0[i], I_backtrack)
     end
-
-    return nothing
 end
 
 @inline function interp_velocity2particle_MQS(

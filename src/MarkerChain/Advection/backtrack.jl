@@ -47,7 +47,8 @@ function semilagrangian_advection!(
     local_limits = inner_limits(grid_vxi)
 
     # launch parallel advection kernel
-    @parallel (@idx ni) semilagrangian_advection_markerchain_kernel!(
+    launch!(
+        ka_backend(h_vertices), semilagrangian_advection_markerchain_kernel!, ni,
         h_vertices, method, V, grid_vxi, grid, local_limits, dxi, dt
     )
     return nothing
@@ -55,8 +56,8 @@ end
 
 # DIMENSION AGNOSTIC KERNELS
 
-# ParallelStencil function Runge-Kuttaadvection function for 3D staggered grids
-@parallel_indices (i) function semilagrangian_advection_markerchain_kernel!(
+# Semilagrangian backtracking kernel for staggered grids.
+@kernel function semilagrangian_advection_markerchain_kernel!(
         h_vertices,
         method::AbstractAdvectionIntegrator,
         V::NTuple{N, T},
@@ -66,12 +67,11 @@ end
         dxi,
         dt,
     ) where {N, T}
+    i = @index(Global)
 
     hᵢ = h_vertices[i]
     pᵢ = grid[1][i], hᵢ
     # backtrack particle position
     _, hᵢ_new = advect_particle_markerchain(method, pᵢ, V, grid_vxi, local_limits, dxi, dt; backtracking = true)
     h_vertices[i] -= (hᵢ_new - h_vertices[i])
-
-    return nothing
 end

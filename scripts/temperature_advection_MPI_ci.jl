@@ -39,7 +39,7 @@ end
 function main()
     # Initialize particles -------------------------------
     nxcell, max_xcell, min_xcell = 24, 40, 1
-    n = 64
+    n = parse(Int, get(ENV, "JUSTPIC_MPI_CI_N", "64"))
     nx = ny = n - 1
     me, dims, = init_global_grid(
         n - 1, n - 1, 1;
@@ -89,7 +89,7 @@ function main()
     particle_args = pT, = init_cell_arrays(particles, Val(1))
     grid2particle!(pT, T, particles)
 
-    niter = 250
+    niter = parse(Int, get(ENV, "JUSTPIC_MPI_CI_NITER", "250"))
     for iter in 1:niter
         me == 0 && @show iter
 

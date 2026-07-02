@@ -45,7 +45,8 @@ function advection_MQS!(
     local_limits = inner_limits(grid_vi)
 
     # launch parallel advection kernel
-    @parallel (@idx ni) advection_kernel_MQS!(
+    launch!(
+        ka_backend(particles), advection_kernel_MQS!, ni,
         coords, method, V, index, grid_vi, local_limits, dxi, dt, interpolation_fn
     )
 
@@ -54,7 +55,7 @@ end
 
 # DIMENSION AGNOSTIC KERNELS
 
-@parallel_indices (I...) function advection_kernel_MQS!(
+@kernel function advection_kernel_MQS!(
         p,
         method::AbstractAdvectionIntegrator,
         V::NTuple{N},
@@ -65,6 +66,7 @@ end
         dt,
         interpolation_fn::F,
     ) where {N, F}
+    I = @index(Global, NTuple)
 
     # iterate over particles in the I-th cell
     for ipart in cellaxes(index)
@@ -78,11 +80,9 @@ end
         )
         # update particle coordinates
         for k in 1:N
-            @inbounds @index p[k][ipart, I...] = pᵢ_new[k]
+            @inbounds CAI.@index p[k][ipart, I...] = pᵢ_new[k]
         end
     end
-
-    return nothing
 end
 
 @inline function interp_velocity2particle_MQS(

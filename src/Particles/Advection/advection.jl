@@ -42,7 +42,8 @@ function advection!(
     local_limits = inner_limits(grid_vi)
 
     # launch parallel advection kernel
-    @parallel (@idx ni) advection_kernel!(
+    launch!(
+        ka_backend(particles), advection_kernel!, ni,
         coords, method, V, index, grid_vi, local_limits, dxi, dt
     )
 
@@ -51,7 +52,7 @@ end
 
 # DIMENSION AGNOSTIC KERNELS
 
-@parallel_indices (I...) function advection_kernel!(
+@kernel function advection_kernel!(
         p,
         method::AbstractAdvectionIntegrator,
         V::NTuple{N, T},
@@ -61,6 +62,7 @@ end
         dxi,
         dt,
     ) where {N, T}
+    I = @index(Global, NTuple)
 
     # iterate over particles in the I-th cell
     for ipart in cellaxes(index)
@@ -72,11 +74,9 @@ end
         pᵢ_new = advect_particle(method, pᵢ, V, grid_vi, local_limits, dxi, dt, I)
         # update particle coordinates
         for k in 1:N
-            @index p[k][ipart, I...] = pᵢ_new[k]
+            CAI.@index p[k][ipart, I...] = pᵢ_new[k]
         end
     end
-
-    return nothing
 end
 
 @inline function interp_velocity2particle(

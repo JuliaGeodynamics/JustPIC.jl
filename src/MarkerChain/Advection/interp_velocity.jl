@@ -22,14 +22,15 @@ function interpolate_velocity_to_markerchain!(
     local_limits = inner_limits(grid_vi)
 
     # launch parallel advection kernel
-    @parallel (@idx ni) interpolate_velocity_to_markerchain_kernel!(
+    launch!(
+        ka_backend(chain), interpolate_velocity_to_markerchain_kernel!, ni,
         coords, chain_V, V, index, grid_vi, local_limits, dxi,
     )
     return nothing
 end
 
-# ParallelStencil function Runge-Kuttaadvection function for 3D staggered grids
-@parallel_indices (i) function interpolate_velocity_to_markerchain_kernel!(
+# Velocity interpolation kernel for marker chains on staggered grids.
+@kernel function interpolate_velocity_to_markerchain_kernel!(
         p,
         chain_V,
         V::NTuple{N, T},
@@ -38,6 +39,8 @@ end
         local_limits,
         dxi,
     ) where {N, T}
+    i = @index(Global)
+
     for ipart in cellaxes(index)
         # skip if particle does not exist in this memory location
         doskip(index, ipart, i) && continue
@@ -45,9 +48,7 @@ end
         pᵢ = get_particle_coords(p, ipart, i)
         # interpolate velocity to particle
         v = interp_velocity2particle_markerchain(pᵢ, grid, local_limits, dxi, V)
-        @index chain_V[1][ipart, i] = v[1]
-        @index chain_V[2][ipart, i] = v[2]
+        CAI.@index chain_V[1][ipart, i] = v[1]
+        CAI.@index chain_V[2][ipart, i] = v[2]
     end
-
-    return nothing
 end
