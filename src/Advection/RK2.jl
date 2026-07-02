@@ -5,8 +5,11 @@
         particle_coordinate::NTuple{N, T};
         backtracking::Bool = false
     ) where {N, T}
-    (; α) = integrator
-    backtracking_sign = 1 - 2 * backtracking # flip sign if backtracking is true, used for backtracking particles during Semi-Lagrangian advection
+    # work in the particle-coordinate precision T so Float32 backends (e.g. Metal,
+    # which has no Float64) are not silently promoted by a Float64 α / dt / literal.
+    α = convert(T, integrator.α)
+    dt = convert(T, dt)
+    backtracking_sign = convert(T, 1 - 2 * backtracking) # flip sign if backtracking is true, used for backtracking particles during Semi-Lagrangian advection
     return @. @muladd particle_coordinate + backtracking_sign * α * dt * particle_velocity
 end
 
@@ -18,14 +21,17 @@ end
         particle_coordinate::NTuple{N, T};
         backtracking::Bool = false
     ) where {N, T}
-    (; α) = integrator
-    backtracking_sign = 1 - 2 * backtracking # flip sign if backtracking is true, used for backtracking particles during Semi-Lagrangian advection
-    p = if α == 0.5
+    # work in the particle-coordinate precision T (see first_stage).
+    α = convert(T, integrator.α)
+    dt = convert(T, dt)
+    backtracking_sign = convert(T, 1 - 2 * backtracking) # flip sign if backtracking is true, used for backtracking particles during Semi-Lagrangian advection
+    half = convert(T, 0.5)
+    p = if α == half
         @. @muladd particle_coordinate + backtracking_sign * dt * particle_velocity1
     else
         @. @muladd particle_coordinate +
             backtracking_sign * dt * (
-            (1.0 - 0.5 * inv(α)) * particle_velocity0 + 0.5 * inv(α) * particle_velocity1
+            (one(T) - half * inv(α)) * particle_velocity0 + half * inv(α) * particle_velocity1
         )
     end
     return p

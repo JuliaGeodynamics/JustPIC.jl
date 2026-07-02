@@ -33,7 +33,7 @@ end
     cell_face = @. cell_center + di * offsets / 2
     ni = size(phases)
     NC = nphases(ratio_faces)
-    w = ntuple(_ -> 0.0e0, NC)
+    w = ntuple(_ -> zero(eltype(eltype(ratio_faces))), NC)
 
     # general case
     for offsetsᵢ in (ntuple(_ -> 0, Val(N)), offsets)
@@ -62,7 +62,7 @@ end
     if isboundary(offsets, I)
         # index corresponding to the cell center
         cell_face = @. cell_center - di * offsets / 2
-        w = ntuple(_ -> 0.0e0, NC)
+        w = ntuple(_ -> zero(eltype(eltype(ratio_faces))), NC)
 
         for ip in cellaxes(phases)
             p = get_particle_coords(pxi, ip, I...)
@@ -144,7 +144,7 @@ function _phase_ratios_midpoint_kernel!(
     ni = size(phases)
     nm = size(ratio_midpoints)
     NC = nphases(ratio_midpoints)
-    w = ntuple(_ -> 0.0e0, NC)
+    w = ntuple(_ -> zero(eltype(eltype(ratio_midpoints))), NC)
 
     # general case
     for mask in MASK_3D
@@ -182,7 +182,7 @@ function _phase_ratios_midpoint_kernel!(
             di = @dxi(dxi_vertex, min.(I, ni)...)
 
             cell_midpoint = @. cell_center - (di * offsets * flip_sign_mask) / 2
-            w = ntuple(_ -> 0.0e0, NC)
+            w = ntuple(_ -> zero(eltype(eltype(ratio_midpoints))), NC)
 
             for mask in MASK_3D
                 offsetsᵢ = offsets .* mask

@@ -44,6 +44,11 @@ function advection_MQS!(
     # compute local limits (i.e. domain or MPI rank limits)
     local_limits = inner_limits(grid_vi)
 
+    # recast integrator/timestep to the particle precision (see advection!)
+    Tc = eltype(eltype(coords[1]))
+    method = set_precision(method, Tc)
+    dt = convert(Tc, dt)
+
     # launch parallel advection kernel
     launch!(
         ka_backend(particles), advection_kernel_MQS!, ni,
@@ -94,7 +99,7 @@ end
         v = if check_local_limits(local_lims, particle_coords)
             interp_velocity2particle_MQS(particle_coords, grid_vi[i], dxi[i], V[i], Val(i), idx)
         else
-            Inf
+            convert(eltype(V[i]), Inf)
         end
     end
 end

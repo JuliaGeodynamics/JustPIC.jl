@@ -35,6 +35,16 @@ package extension when AMDGPU.jl is loaded.
 """
 struct AMDGPUBackend <: AbstractBackend end
 
+"""
+    MetalBackend
+
+Backend tag for Metal (Apple GPU) array allocation and execution paths.
+
+Metal-specific array and `CellArray` methods are installed by the Metal package
+extension when Metal.jl is loaded.
+"""
+struct MetalBackend <: AbstractBackend end
+
 export TA
 
 function CA end
@@ -58,7 +68,7 @@ include("PhaseRatios/PhaseRatios.jl")
 export nphases, numphases
 
 include("Advection/types.jl")
-export AbstractAdvectionIntegrator, Euler, RungeKutta2, RungeKutta4
+export AbstractAdvectionIntegrator, Euler, RungeKutta2, RungeKutta4, set_precision
 
 include("JustPIC_CPU.jl")
 

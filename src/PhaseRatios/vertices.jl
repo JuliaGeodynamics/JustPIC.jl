@@ -20,7 +20,7 @@ end
     cell_vertex = xvi[1][I[1]], xvi[2][I[2]], xvi[3][I[3]]
     ni = size(phases)
     NC = nphases(ratio_vertices)
-    w = ntuple(_ -> 0.0e0, NC)
+    w = ntuple(_ -> zero(eltype(eltype(ratio_vertices))), NC)
 
     for offsetᵢ in -1:0, offsetⱼ in -1:0, offsetₖ in -1:0
         i_cell = I[1] + offsetᵢ
@@ -69,7 +69,7 @@ end
     cell_vertex = xvi[1][I[1]], xvi[2][I[2]]
     ni = size(phases)
     NC = nphases(ratio_vertices)
-    w = ntuple(_ -> 0.0e0, NC)
+    w = ntuple(_ -> zero(eltype(eltype(ratio_vertices))), NC)
 
     for offsetᵢ in -1:0, offsetⱼ in -1:0
         i_cell = I[1] + offsetᵢ

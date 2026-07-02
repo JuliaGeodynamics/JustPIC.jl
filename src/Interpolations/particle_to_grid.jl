@@ -37,7 +37,7 @@ end
 function _particle2grid!(F, Fp, inode, jnode, xi::NTuple{2, T}, p, index) where {T}
     px, py = p # particle coordinates
     xvertex = xi[1][inode], xi[2][jnode] # cell lower-left coordinates
-    ω, ωxF = 0.0, 0.0 # init weights
+    ω, ωxF = zero(eltype(F)), zero(eltype(F)) # init weights
 
     # iterate over cells around i-th node
     @inbounds for joffset in -1:0
@@ -73,7 +73,7 @@ end
     px, py = p # particle coordinates
     nx, ny = size(F[1])
     xvertex = xi[1][inode], xi[2][jnode] # cell lower-left coordinates
-    ω, ωxF = 0.0, 0.0 # init weights
+    ω, ωxF = zero(eltype(F[1])), zero(eltype(F[1])) # init weights
 
     # iterate over cells around i-th node
     for joffset in -1:0

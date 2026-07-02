@@ -41,6 +41,12 @@ function advection!(
     # compute local limits (i.e. domain or MPI rank limits)
     local_limits = inner_limits(grid_vi)
 
+    # recast the integrator/timestep to the particle precision so Float32 backends
+    # (e.g. Metal) don't carry a Float64 value into the kernel
+    Tc = eltype(eltype(coords[1]))
+    method = set_precision(method, Tc)
+    dt = convert(Tc, dt)
+
     # launch parallel advection kernel
     launch!(
         ka_backend(particles), advection_kernel!, ni,
@@ -93,7 +99,7 @@ end
         v = if check_local_limits(local_lims, particle_coords)
             interp_velocity2particle(particle_coords, grid_vi[i], dxi[i], V[i], idx)
         else
-            Inf
+            convert(eltype(V[i]), Inf)
         end
     end
 end

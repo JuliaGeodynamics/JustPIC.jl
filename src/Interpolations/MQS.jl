@@ -1,24 +1,25 @@
 # 2D MQS-x
 @inline function MQS(F, v::NTuple{4}, t::NTuple{2}, i, j, ::Val{1})
     t1, t2 = t
+    half = oftype(t1, 0.5)
     lerp_bot = lerp(v[1:2], (t1,))
     lerp_top = lerp(v[3:4], (t1,))
 
-    v0, v1, v2 = if t1 < 0.5
+    v0, v1, v2 = if t1 < half
         F[i - 1, j], v[1], v[2]
     else
         v[1], v[2], F[i + 2, j]
     end
-    correction_bot = 0.5 * (t1 - 0.5)^2 * (muladd(-2, v1, v0) + v2)
-    # correction_bot = 0.5 * (t1 - 0.5)^2 * (v0 - 2*v1 + v2)
+    correction_bot = half * (t1 - half)^2 * (muladd(-2, v1, v0) + v2)
+    # correction_bot = half * (t1 - half)^2 * (v0 - 2*v1 + v2)
 
-    v0, v1, v2 = if t[1] < 0.5
+    v0, v1, v2 = if t[1] < half
         F[i - 1, j + 1], v[3], v[4]
     else
         v[3], v[4], F[i + 2, j + 1]
     end
-    correction_top = 0.5 * (t1 - 0.5)^2 * (muladd(-2, v1, v0) + v2)
-    # correction_top = 0.5 * (t1 - 0.5)^2 * (v0 - 2*v1 + v2)
+    correction_top = half * (t1 - half)^2 * (muladd(-2, v1, v0) + v2)
+    # correction_top = half * (t1 - half)^2 * (v0 - 2*v1 + v2)
 
     v0_MQS = lerp_bot + correction_bot
     v1_MQS = lerp_top + correction_top
@@ -29,24 +30,25 @@ end
 # 2D MQS-y
 @inline function MQS(F, v::NTuple{4}, t::NTuple{2}, i, j, ::Val{2})
     t1, t2 = t
+    half = oftype(t1, 0.5)
     v_left = (v[1], v[3])
     v_right = (v[2], v[4])
     lerp_left = lerp(v_left, (t2,))
     lerp_right = lerp(v_right, (t2,))
 
-    v0, v1, v2 = if t2 < 0.5
+    v0, v1, v2 = if t2 < half
         F[i, j - 1], v_left...
     else
         v_left..., F[i, j + 2]
     end
-    correction_left = 0.5 * (t2 - 0.5)^2 * (muladd(-2, v1, v0) + v2)
+    correction_left = half * (t2 - half)^2 * (muladd(-2, v1, v0) + v2)
 
-    v0, v1, v2 = if t2 < 0.5
+    v0, v1, v2 = if t2 < half
         F[i + 1, j - 1], v_right...
     else
         v_right..., F[i + 1, j + 2]
     end
-    correction_right = 0.5 * (t2 - 0.5)^2 * (muladd(-2, v1, v0) + v2)
+    correction_right = half * (t2 - half)^2 * (muladd(-2, v1, v0) + v2)
 
     v0_MQS = lerp_left + correction_left
     v1_MQS = lerp_right + correction_right
@@ -75,22 +77,23 @@ end
 # 3D MQS-x
 @inline function MQS(F, v::NTuple{4}, t::NTuple{2}, i, j, k, ::Val{1})
     t1, t2 = t
+    half = oftype(t1, 0.5)
     lerp_bot = lerp(v[1:2], (t1,))
     lerp_top = lerp(v[3:4], (t1,))
 
-    v0, v1, v2 = if t1 < 0.5
+    v0, v1, v2 = if t1 < half
         F[i - 1, j, k], v[1], v[2]
     else
         v[1], v[2], F[i + 2, j, k]
     end
-    correction_bot = 0.5 * (t1 - 0.5)^2 * (muladd(-2, v1, v0) + v2)
+    correction_bot = half * (t1 - half)^2 * (muladd(-2, v1, v0) + v2)
 
-    v0, v1, v2 = if t[1] < 0.5
+    v0, v1, v2 = if t[1] < half
         F[i - 1, j + 1, k], v[3], v[4]
     else
         v[3], v[4], F[i + 2, j + 1, k]
     end
-    correction_top = 0.5 * (t1 - 0.5)^2 * (muladd(-2, v1, v0) + v2)
+    correction_top = half * (t1 - half)^2 * (muladd(-2, v1, v0) + v2)
 
     v0_MQS = lerp_bot + correction_bot
     v1_MQS = lerp_top + correction_top
@@ -101,24 +104,25 @@ end
 # 3D MQS-y
 @inline function MQS(F, v::NTuple{4}, t::NTuple{2}, i, j, k, ::Val{2})
     t1, t2 = t
+    half = oftype(t1, 0.5)
     v_left = (v[1], v[3])
     v_right = (v[2], v[4])
     lerp_left = lerp(v_left, (t2,))
     lerp_right = lerp(v_right, (t2,))
 
-    v0, v1, v2 = if t2 < 0.5
+    v0, v1, v2 = if t2 < half
         F[i, j - 1, k], v_left...
     else
         v_left..., F[i, j + 2, k]
     end
-    correction_left = 0.5 * (t2 - 0.5)^2 * (muladd(-2, v1, v0) + v2)
+    correction_left = half * (t2 - half)^2 * (muladd(-2, v1, v0) + v2)
 
-    v0, v1, v2 = if t2 < 0.5
+    v0, v1, v2 = if t2 < half
         F[i + 1, j - 1, k], v_right...
     else
         v_right..., F[i + 1, j + 2, k]
     end
-    correction_right = 0.5 * (t2 - 0.5)^2 * (muladd(-2, v1, v0) + v2)
+    correction_right = half * (t2 - half)^2 * (muladd(-2, v1, v0) + v2)
 
     v0_MQS = lerp_left + correction_left
     v1_MQS = lerp_right + correction_right
@@ -129,22 +133,23 @@ end
 # 3D MQS-z
 @inline function MQS(F, v::NTuple{4}, t::NTuple{2}, i, j, k, ::Val{3})
     t1, t2 = t
+    half = oftype(t1, 0.5)
     lerp_bot = lerp(v[1:2], (t1,))
     lerp_top = lerp(v[3:4], (t1,))
 
-    v0, v1, v2 = if t1 < 0.5
+    v0, v1, v2 = if t1 < half
         F[i - 1, j, k], v[1], v[2]
     else
         v[1], v[2], F[i + 2, j, k]
     end
-    correction_bot = 0.5 * (t1 - 0.5)^2 * (muladd(-2, v1, v0) + v2)
+    correction_bot = half * (t1 - half)^2 * (muladd(-2, v1, v0) + v2)
 
-    v0, v1, v2 = if t[1] < 0.5
+    v0, v1, v2 = if t[1] < half
         F[i - 1, j, k + 1], v[3], v[4]
     else
         v[3], v[4], F[i + 2, j, k + 1]
     end
-    correction_top = 0.5 * (t1 - 0.5)^2 * (muladd(-2, v1, v0) + v2)
+    correction_top = half * (t1 - half)^2 * (muladd(-2, v1, v0) + v2)
 
     v0_MQS = lerp_bot + correction_bot * 1
     v1_MQS = lerp_top + correction_top * 1

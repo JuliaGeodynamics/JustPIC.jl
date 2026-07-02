@@ -8,6 +8,11 @@ function advection!(
     dxi = compute_dx(first(grid_vxi))
     local_limits = inner_limits(grid_vxi)
 
+    # recast integrator/timestep to the marker precision (see advection!)
+    Tc = eltype(coords[1])
+    method = set_precision(method, Tc)
+    dt = convert(Tc, dt)
+
     # launch parallel advection kernel
     launch!(ka_backend(particles), _advection!, np, method, coords, V, grid_vxi, local_limits, dxi, dt)
     return nothing
