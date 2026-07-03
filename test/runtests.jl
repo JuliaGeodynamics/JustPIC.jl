@@ -1,4 +1,4 @@
-push!(LOAD_PATH, dirname(@__DIR__))
+pushfirst!(LOAD_PATH, dirname(@__DIR__))
 
 using JustPIC
 
@@ -29,6 +29,7 @@ end
 function runtests()
     testdir = @__DIR__
     projectdir = dirname(testdir)
+    load_path = string(projectdir, ":", get(ENV, "JULIA_LOAD_PATH", "@:@v#.#:@stdlib"))
     testfiles = sort(
         filter(
             istest,
@@ -42,17 +43,17 @@ function runtests()
 
         try
             printstyled("Running 2D tests\n"; bold = true, color = :white)
-            include("test_Aqua.jl")
-            include("test_2D.jl")
-            include("test_integrators.jl")
-            include("test_CellArrays.jl")
-            include("test_save_load.jl")
+            include(joinpath(testdir, "test_Aqua.jl"))
+            include(joinpath(testdir, "test_2D.jl"))
+            include(joinpath(testdir, "test_integrators.jl"))
+            include(joinpath(testdir, "test_CellArrays.jl"))
+            include(joinpath(testdir, "test_save_load.jl"))
         catch
             nfail += 1
         end
         try
             printstyled("Running 3D tests\n"; bold = true, color = :white)
-            include("test_3D.jl")
+            include(joinpath(testdir, "test_3D.jl"))
         catch
             nfail += 1
         end
@@ -67,7 +68,11 @@ function runtests()
         for f in gpu_testfiles
             println("\n Running tests from $f")
             try
-                run(`$(Base.julia_cmd()) --project=$(projectdir) --startup-file=no $(joinpath(testdir, f))`)
+                cmd = addenv(
+                    `$(Base.julia_cmd()) --startup-file=no $(joinpath(testdir, f))`,
+                    "JULIA_LOAD_PATH" => load_path,
+                )
+                run(cmd)
             catch ex
                 nfail += 1
             end
