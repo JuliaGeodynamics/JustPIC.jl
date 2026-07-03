@@ -13,7 +13,9 @@ steps:
     command: |
       julia --project=. -e 'println("--- :julia: Instantiating project")
                 using Pkg
-                Pkg.instantiate()' || exit 3
+                Pkg.instantiate()
+                Pkg.add("CUDA")
+                ' || exit 3
 
       julia --project=. -e 'println("+++ :julia: Running tests")
                 using Pkg
@@ -40,7 +42,9 @@ steps:
     command: |
       julia --project=. -e 'println("--- :julia: Instantiating project")
                 using Pkg
-                Pkg.instantiate()' || exit 3
+                Pkg.instantiate()
+                Pkg.add("AMDGPU")
+                ' || exit 3
 
       julia --project=. -e 'println("+++ :julia: Running tests")
                 using Pkg
