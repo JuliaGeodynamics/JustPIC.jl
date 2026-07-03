@@ -1,5 +1,4 @@
 using JustPIC
-using JustPIC
 using GLMakie
 
 const backend = JustPIC.CPU

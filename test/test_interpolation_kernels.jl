@@ -1,7 +1,35 @@
+const BACKEND_NAME = get(ENV, "JULIA_JUSTPIC_BACKEND", "CPU")
+
+@static if BACKEND_NAME == "AMDGPU"
+    using AMDGPU
+    AMDGPU.allowscalar(true)
+elseif BACKEND_NAME == "CUDA"
+    using CUDA
+    CUDA.allowscalar(true)
+end
+
 using Test
 using JustPIC
 using LinearAlgebra
 import JustPIC: lerp
+import KernelAbstractions: CPU
+
+const backend = @static if BACKEND_NAME == "AMDGPU"
+    AMDGPU.ROCBackend
+elseif BACKEND_NAME == "CUDA"
+    CUDA.CUDABackend
+else
+    CPU
+end
+
+function expand_range(x::AbstractRange)
+    dx = x[2] - x[1]
+    n = length(x)
+    x1, x2 = extrema(x)
+    xI = x1 - dx
+    xF = x2 + dx
+    return LinRange(xI, xF, n + 2)
+end
 
 @testset "Interpolation kernels" begin
     @testset "lerp" begin
@@ -31,10 +59,14 @@ end
     # nodal centers
     xci = xc, yc = LinRange(0 + dx / 2, Lx - dx / 2, n - 1), LinRange(0 + dy / 2, Ly - dy / 2, n - 1)
     # staggered grid velocity nodal locations
+    grid_vx = xv, expand_range(yc)
+    grid_vy = expand_range(xc), yv
+    xvi_device = TA(backend).(xvi)
+    grid_vel = TA(backend).(grid_vx), TA(backend).(grid_vy)
 
     # Initialize particles & particle fields
     particles = JustPIC.init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi...,
+        backend, nxcell, max_xcell, min_xcell, grid_vel...,
     )
     pT, = JustPIC.init_cell_arrays(particles, Val(1))
 
@@ -50,7 +82,7 @@ end
     @test pT == particles.coords[2]
 
     # Grid to particle test
-    JustPIC.grid2particle_flip!(pT, xvi, T, T0, particles)
+    JustPIC.grid2particle_flip!(pT, xvi_device, T, T0, particles)
 
     @test pT == particles.coords[2]
 
@@ -61,13 +93,13 @@ end
     @test norm(T2 .- T) / length(T) < 1.0e-1
 
     # Grid to centroid test
-    JustPIC.centroid2particle!(pT, xci, Tc, particles)
+    JustPIC.centroid2particle!(pT, Tc, particles)
 
     @test all(pT[2, 2] .≈ particles.coords[2][2, 2])
 
     # Particle to centroid test
     Tc2 = similar(Tc)
-    JustPIC.particle2centroid!(Tc2, pT, xvi, particles)
+    JustPIC.particle2centroid!(Tc2, pT, particles)
     # norm(T2 .- T) / length(T)
     @test norm(Tc2 .- Tc) / length(Tc) < 1.0e-1
 
@@ -93,10 +125,15 @@ end
     dxi = dx, dy, dz = ntuple(i -> xvi[i][2] - xvi[i][1], Val(3))
     # nodal centers
     xci = xc, yc, zc = ntuple(i -> LinRange(0 + dxi[i] / 2, Li[i] - dxi[i] / 2, ni[i]), Val(3))
+    grid_vx = xv, expand_range(yc), expand_range(zc)
+    grid_vy = expand_range(xc), yv, expand_range(zc)
+    grid_vz = expand_range(xc), expand_range(yc), zv
+    xvi_device = TA(backend).(xvi)
+    grid_vel = TA(backend).(grid_vx), TA(backend).(grid_vy), TA(backend).(grid_vz)
 
     # Initialize particles -------------------------------
     particles = JustPIC.init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi...
+        backend, nxcell, max_xcell, min_xcell, grid_vel...
     )
     pT, = JustPIC.init_cell_arrays(particles, Val(1))
 
@@ -112,7 +149,7 @@ end
     @test pT ≈ particles.coords[3]
 
     # Grid to particle test
-    JustPIC.grid2particle_flip!(pT, xvi, T, T0, particles)
+    JustPIC.grid2particle_flip!(pT, xvi_device, T, T0, particles)
 
     @test pT ≈ particles.coords[3]
 
@@ -122,12 +159,12 @@ end
     @test norm(T2 .- T) / length(T) < 1.0e-1
 
     # Grid to centroid test
-    JustPIC.centroid2particle!(pT, xci, Tc, particles)
+    JustPIC.centroid2particle!(pT, Tc, particles)
     @test all(pT .≈ particles.coords[3])
 
     # Particle to centroid test
     Tc2 = similar(Tc)
-    JustPIC.particle2centroid!(Tc2, pT, xvi, particles)
+    JustPIC.particle2centroid!(Tc2, pT, particles)
     # norm(T2 .- T) / length(T)
     @test norm(Tc2 .- Tc) / length(Tc) < 1.0e-1
 

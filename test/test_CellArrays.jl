@@ -1,5 +1,24 @@
+const BACKEND_NAME = get(ENV, "JULIA_JUSTPIC_BACKEND", "CPU")
+
+@static if BACKEND_NAME == "AMDGPU"
+    using AMDGPU
+    AMDGPU.allowscalar(true)
+elseif BACKEND_NAME == "CUDA"
+    using CUDA
+    CUDA.allowscalar(true)
+end
+
 using JustPIC, Test, StaticArrays
 import CellArraysIndexing as CAI
+import KernelAbstractions: CPU
+
+const backend = @static if BACKEND_NAME == "AMDGPU"
+    AMDGPU.ROCBackend
+elseif BACKEND_NAME == "CUDA"
+    CUDA.CUDABackend
+else
+    CPU
+end
 
 function expand_range(x::AbstractRange)
     dx = x[2] - x[1]
@@ -138,7 +157,7 @@ end
     T = typeof(phases.data)
     phases.data .= T(rand(1:nphases, size(phases.data)))
 
-    phase_ratios = JustPIC.PhaseRatios(backend, nphases, ni);|
+    phase_ratios = JustPIC.PhaseRatios(backend, nphases, ni)
 
     JustPIC.update_phase_ratios!(phase_ratios, particles, phases)
 

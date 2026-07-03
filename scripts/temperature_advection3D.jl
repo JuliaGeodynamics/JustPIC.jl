@@ -1,6 +1,5 @@
 using CUDA
 using JustPIC
-using JustPIC
 
 # Threads is the default backend,
 # to run on a CUDA GPU load CUDA.jl (i.e. "using CUDA"),

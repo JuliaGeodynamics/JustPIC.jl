@@ -1,6 +1,5 @@
 using AMDGPU
 using JustPIC
-using JustPIC
 
 const backend = AMDGPU.ROCBackend
 using CairoMakie

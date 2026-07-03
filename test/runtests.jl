@@ -1,8 +1,8 @@
+push!(LOAD_PATH, dirname(@__DIR__))
+
 using JustPIC
 
 using Pkg
-
-push!(LOAD_PATH, "..")
 
 istest(f) = endswith(f, ".jl") && startswith(basename(f), "test_")
 
@@ -27,7 +27,8 @@ function parse_flags!(args, flag; default = nothing, type = typeeof(default))
 end
 
 function runtests()
-    testdir = pwd()
+    testdir = @__DIR__
+    projectdir = dirname(testdir)
     testfiles = sort(
         filter(
             istest,
@@ -56,34 +57,21 @@ function runtests()
             nfail += 1
         end
     else
-        # 2D tests --------------------------------------------------
-        printstyled("Running 2D tests\n"; bold = true, color = :white)
-        for f in testfiles
-            if occursin("2D", f)
-                println("\n Running tests from $f")
-                try
-                    run(`$(Base.julia_cmd()) --startup-file=no $(joinpath(testdir, f))`)
-                catch ex
-                    nfail += 1
-                end
+        gpu_testfiles = (
+            "test_2D.jl",
+            "test_3D.jl",
+            "test_CellArrays.jl",
+            "test_interpolation_kernels.jl",
+            "test_save_load.jl",
+        )
+        for f in gpu_testfiles
+            println("\n Running tests from $f")
+            try
+                run(`$(Base.julia_cmd()) --project=$(projectdir) --startup-file=no $(joinpath(testdir, f))`)
+            catch ex
+                nfail += 1
             end
         end
-
-        # 3D tests --------------------------------------------------
-        printstyled("Running 3D tests\n"; bold = true, color = :white)
-        for f in testfiles
-            if occursin("3D", f)
-                println("\n Running tests from $f")
-                try
-                    run(`$(Base.julia_cmd()) --startup-file=no $(joinpath(testdir, f))`)
-                catch ex
-                    nfail += 1
-                end
-            end
-        end
-
-        # Force IO test on GPU
-        run(`$(Base.julia_cmd()) --startup-file=no $(joinpath(testdir, "test_save_load.jl"))`)
     end
 
     return nfail
@@ -92,11 +80,8 @@ end
 _, backend_name = parse_flags!(ARGS, "--backend"; default = "CPU", type = String)
 
 @static if backend_name == "AMDGPU"
-    Pkg.add("AMDGPU")
-    Pkg.update()
     ENV["JULIA_JUSTPIC_BACKEND"] = "AMDGPU"
 elseif backend_name == "CUDA"
-    Pkg.add("CUDA")
     ENV["JULIA_JUSTPIC_BACKEND"] = "CUDA"
 elseif backend_name == "CPU"
     ENV["JULIA_JUSTPIC_BACKEND"] = "CPU"
