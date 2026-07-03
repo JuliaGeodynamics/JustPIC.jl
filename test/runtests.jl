@@ -85,16 +85,11 @@ end
 
 _, backend_name = parse_flags!(ARGS, "--backend"; default = "CPU", type = String)
 
-# Cluster CI may lack the GPU stack in the test sandbox; add it only when missing —
-# an unconditional Pkg.add writes through to the package Project.toml (promoting the
-# weakdep to a hard dep), which breaks Aqua's stale-deps check
-ensure_dep(pkg) = Base.find_package(pkg) === nothing && Pkg.add(pkg)
-
 @static if backend_name == "AMDGPU"
-    ensure_dep("AMDGPU")
+     Pkg.add("AMDGPU")
     ENV["JULIA_JUSTPIC_BACKEND"] = "AMDGPU"
 elseif backend_name == "CUDA"
-    ensure_dep("CUDA")
+     Pkg.add("CUDA")
     ENV["JULIA_JUSTPIC_BACKEND"] = "CUDA"
 elseif backend_name == "CPU"
     ENV["JULIA_JUSTPIC_BACKEND"] = "CPU"
