@@ -13,8 +13,7 @@ steps:
     command: |
       julia --project=. -e 'println("--- :julia: Instantiating project")
                 using Pkg
-                Pkg.develop(; path=pwd())
-                Pkg.instantiate()' || exit 3
+                Pkg.develop(; path=pwd())' || exit 3
 
       julia --project=. -e 'println("+++ :julia: Running tests")
                 using Pkg
@@ -41,8 +40,7 @@ steps:
     command: |
       julia --project=. -e 'println("--- :julia: Instantiating project")
                 using Pkg
-                Pkg.develop(; path=pwd())
-                Pkg.instantiate()' || exit 3
+                Pkg.develop(; path=pwd())' || exit 3
 
       julia --project=. -e 'println("+++ :julia: Running tests")
                 using Pkg
