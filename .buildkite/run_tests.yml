@@ -15,9 +15,13 @@ steps:
                 using Pkg
                 Pkg.develop(; path=pwd())' || exit 3
 
-      julia -e 'println("+++ :julia: Running tests")
+      julia --project=. -e 'println("--- :julia: Instantiating project")
                 using Pkg
-                Pkg.test("JustPIC"; test_args=["--backend=CUDA"], coverage=true)'
+                Pkg.instantiate()' || exit 3
+
+      julia --project=. -e 'println("+++ :julia: Running tests")
+                using Pkg
+                Pkg.test(; test_args=["--backend=CUDA"], coverage=true)'
     agents:
       queue: "cuda"
     timeout_in_minutes: 120
@@ -42,9 +46,13 @@ steps:
                 using Pkg
                 Pkg.develop(; path=pwd())' || exit 3
 
+      julia --project=. -e 'println("--- :julia: Instantiating project")
+                using Pkg
+                Pkg.instantiate()' || exit 3
+
       julia --project=. -e 'println("+++ :julia: Running tests")
                 using Pkg
-                Pkg.test("JustPIC"; test_args=["--backend=AMDGPU"], coverage=true)'
+                Pkg.test(; test_args=["--backend=AMDGPU"], coverage=true)'
     agents:
       queue: "rocm"
       rocmgpu: "*"
