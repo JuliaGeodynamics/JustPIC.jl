@@ -29,6 +29,7 @@ end
 function runtests()
     testdir = @__DIR__
     projectdir = dirname(testdir)
+    test_project = Base.active_project()
     load_path = string("@:", projectdir, ":@v#.#:@stdlib")
     testfiles = sort(
         filter(
@@ -69,7 +70,7 @@ function runtests()
             println("\n Running tests from $f")
             try
                 cmd = addenv(
-                    `$(Base.julia_cmd()) --project=$(testdir) --startup-file=no $(joinpath(testdir, f))`,
+                    `$(Base.julia_cmd()) --project=$(test_project) --startup-file=no $(joinpath(testdir, f))`,
                     "JULIA_LOAD_PATH" => load_path,
                 )
                 run(cmd)
