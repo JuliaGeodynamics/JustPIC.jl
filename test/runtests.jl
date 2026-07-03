@@ -29,7 +29,7 @@ end
 function runtests()
     testdir = @__DIR__
     projectdir = dirname(testdir)
-    test_project = Base.active_project()
+    test_project = dirname(Base.active_project())
     load_path = string("@:", projectdir, ":@v#.#:@stdlib")
     testfiles = sort(
         filter(
