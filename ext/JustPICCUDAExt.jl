@@ -3,7 +3,7 @@ module JustPICCUDAExt
 using CUDA
 using JustPIC, CellArrays, StaticArrays
 
-import JustPIC: AbstractBackend, CUDABackend, Particles, MarkerChain, PassiveMarkers
+import JustPIC: AbstractBackend, CUDABackend, Particles, MarkerChain
 
 # ---------------------------------------------------------------------------
 # Collapsed GPU extension
