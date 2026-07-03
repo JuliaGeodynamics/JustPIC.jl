@@ -46,7 +46,7 @@ struct Particles{Backend, N, I, T1, T2, D, V} <: AbstractParticles
 end
 
 function Particles(coords, index::CPUCellArray, nxcell, max_xcell, min_xcell, np, di, _di, xci, xvi, xi_vel)
-    return Particles(CPUBackend, coords, index, nxcell, max_xcell, min_xcell, np, di, _di, xci, xvi, xi_vel)
+    return Particles(CPU, coords, index, nxcell, max_xcell, min_xcell, np, di, _di, xci, xvi, xi_vel)
 end
 
 """
@@ -98,7 +98,7 @@ end
 
 function MarkerChain(coords, index::CPUCellArray, cell_vertices, min_xcell, max_xcell)
     return MarkerChain(
-        CPUBackend,
+        CPU,
         coords,
         coords0,
         h_vertices,
@@ -137,7 +137,7 @@ struct PassiveMarkers{Backend, T} <: AbstractParticles
 end
 
 function PassiveMarkers(coords::Union{AbstractArray, NTuple{N, T}}) where {N, T}
-    return PassiveMarkers(CPUBackend, coords)
+    return PassiveMarkers(CPU, coords)
 end
 
 # useful functions

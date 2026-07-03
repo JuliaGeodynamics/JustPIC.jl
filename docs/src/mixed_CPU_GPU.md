@@ -5,18 +5,18 @@ This involves basically four steps:
 
 1. *At the top of the script*. The JustPIC backend must be set to CPU, while other packages may still run their own GPU work:
 ```julia
-const backend = JustPIC.CPUBackend 
+const backend = JustPIC.CPU 
 ```
 
 2. *At memory allocation stage*. A copy of relevant CPU arrays must be allocated on the GPU memory. For example, phase ratios on mesh vertices:
 ```julia
-using JustPIC, JustPIC._3D
+using JustPIC
 using CUDA
 
-phv_GPU = cell_array(JustPIC.CUDABackend, 0.0, (N_phases,), (nx + 1, ny + 1, nz + 1))
+phv_GPU = cell_array(CUDA.CUDABackend, 0.0, (N_phases,), (nx + 1, ny + 1, nz + 1))
 ```
 where `N_phases` is the number of different material phases and
-`cell_array(JustPIC.CUDABackend, ...)` allocates a GPU-backed `CellArray`.
+`cell_array(CUDA.CUDABackend, ...)` allocates a GPU-backed `CellArray`.
 
 Similarly, GPU arrays must be copied to CPU memory:
 ```julia

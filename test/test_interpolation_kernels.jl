@@ -1,7 +1,7 @@
 using Test
-using JustPIC, JustPIC._2D
+using JustPIC
 using LinearAlgebra
-import JustPIC._2D: lerp
+import JustPIC: lerp
 
 @testset "Interpolation kernels" begin
     @testset "lerp" begin
@@ -33,10 +33,10 @@ end
     # staggered grid velocity nodal locations
 
     # Initialize particles & particle fields
-    particles = _2D.init_particles(
+    particles = JustPIC.init_particles(
         backend, nxcell, max_xcell, min_xcell, xvi...,
     )
-    pT, = _2D.init_cell_arrays(particles, Val(1))
+    pT, = JustPIC.init_cell_arrays(particles, Val(1))
 
     # Linear field at the vertices
     T = TA(backend)([y for x in xv, y in yv])
@@ -45,29 +45,29 @@ end
     Tc = TA(backend)([y for x in xc, y in yc])
 
     # Grid to particle test
-    _2D.grid2particle!(pT, T, particles)
+    JustPIC.grid2particle!(pT, T, particles)
 
     @test pT == particles.coords[2]
 
     # Grid to particle test
-    _2D.grid2particle_flip!(pT, xvi, T, T0, particles)
+    JustPIC.grid2particle_flip!(pT, xvi, T, T0, particles)
 
     @test pT == particles.coords[2]
 
     # Particle to grid test
     T2 = similar(T)
-    _2D.particle2grid!(T2, pT, particles)
+    JustPIC.particle2grid!(T2, pT, particles)
     # norm(T2 .- T) / length(T)
     @test norm(T2 .- T) / length(T) < 1.0e-1
 
     # Grid to centroid test
-    _2D.centroid2particle!(pT, xci, Tc, particles)
+    JustPIC.centroid2particle!(pT, xci, Tc, particles)
 
     @test all(pT[2, 2] .≈ particles.coords[2][2, 2])
 
     # Particle to centroid test
     Tc2 = similar(Tc)
-    _2D.particle2centroid!(Tc2, pT, xvi, particles)
+    JustPIC.particle2centroid!(Tc2, pT, xvi, particles)
     # norm(T2 .- T) / length(T)
     @test norm(Tc2 .- Tc) / length(Tc) < 1.0e-1
 
@@ -80,7 +80,6 @@ end
 
 @testset "Interpolations 3D" begin
 
-    import JustPIC._3D as JP3
 
     nxcell, max_xcell, min_xcell = 12, 12, 1
     n = 5 # number of vertices
@@ -96,10 +95,10 @@ end
     xci = xc, yc, zc = ntuple(i -> LinRange(0 + dxi[i] / 2, Li[i] - dxi[i] / 2, ni[i]), Val(3))
 
     # Initialize particles -------------------------------
-    particles = JP3.init_particles(
+    particles = JustPIC.init_particles(
         backend, nxcell, max_xcell, min_xcell, xvi...
     )
-    pT, = JP3.init_cell_arrays(particles, Val(1))
+    pT, = JustPIC.init_cell_arrays(particles, Val(1))
 
     # Linear field at the vertices
     T = TA(backend)([z for x in xv, y in yv, z in zv])
@@ -108,27 +107,27 @@ end
     Tc = TA(backend)([z for x in xc, y in yc, z in zc])
 
     # Grid to particle test
-    JP3.grid2particle!(pT, T, particles)
+    JustPIC.grid2particle!(pT, T, particles)
 
     @test pT ≈ particles.coords[3]
 
     # Grid to particle test
-    JP3.grid2particle_flip!(pT, xvi, T, T0, particles)
+    JustPIC.grid2particle_flip!(pT, xvi, T, T0, particles)
 
     @test pT ≈ particles.coords[3]
 
     # Particle to grid test
     T2 = similar(T)
-    JP3.particle2grid!(T2, pT, particles)
+    JustPIC.particle2grid!(T2, pT, particles)
     @test norm(T2 .- T) / length(T) < 1.0e-1
 
     # Grid to centroid test
-    JP3.centroid2particle!(pT, xci, Tc, particles)
+    JustPIC.centroid2particle!(pT, xci, Tc, particles)
     @test all(pT .≈ particles.coords[3])
 
     # Particle to centroid test
     Tc2 = similar(Tc)
-    JP3.particle2centroid!(Tc2, pT, xvi, particles)
+    JustPIC.particle2centroid!(Tc2, pT, xvi, particles)
     # norm(T2 .- T) / length(T)
     @test norm(Tc2 .- Tc) / length(Tc) < 1.0e-1
 

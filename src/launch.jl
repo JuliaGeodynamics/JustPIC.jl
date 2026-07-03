@@ -76,7 +76,7 @@ end
 # backend-appropriate block length (1 == array-of-struct on the CPU,
 # 0 == struct-of-array on the GPU). GPU backends define their own methods.
 @inline function undef_cell_array(
-        ::Type{CPUBackend}, ::Type{T}, ni::NTuple{N, <:Integer}
+        ::Type{CPU}, ::Type{T}, ni::NTuple{N, <:Integer}
     ) where {T, N}
     return CPUCellArray{T, 1}(undef, ni)
 end
@@ -85,21 +85,21 @@ end
     cell_array(backend, x, ncells::NTuple, ni::NTuple)
     cell_array(x, ncells::NTuple, ni::NTuple)
 
-Allocate a `CellArray` on `backend`, with `ncells` entries per grid cell over a
-grid of size `ni`, and fill every entry with `x`.
+Allocate a `CellArray` on `backend` (a KernelAbstractions backend type such as
+`CPU`), with `ncells` entries per grid cell over a grid of size `ni`, and fill
+every entry with `x`.
 
-The two-argument backend form is the preferred allocation path for particle
-storage and phase-ratio arrays. The backend-less form allocates on
-`CPUBackend`.
+The backend form is the preferred allocation path for particle storage and
+phase-ratio arrays. The backend-less form allocates on `CPU`.
 
 # Examples
 ```julia
-index = cell_array(JustPIC.CPUBackend, false, (24,), (64, 64))
-field = cell_array(JustPIC.CPUBackend, 0.0, (3,), (64, 64))
+index = cell_array(CPU, false, (24,), (64, 64))
+field = cell_array(CPU, 0.0, (3,), (64, 64))
 ```
 """
 @inline function cell_array(
-        backend::Type{<:AbstractBackend}, x::T, ncells::NTuple{Nc, <:Integer}, ni::NTuple{Nd, <:Integer}
+        backend::Type{<:Backend}, x::T, ncells::NTuple{Nc, <:Integer}, ni::NTuple{Nd, <:Integer}
     ) where {T, Nc, Nd}
     celltype = SArray{Tuple{ncells...}, T, Nc, prod(ncells)}
     A = undef_cell_array(backend, celltype, ni)
@@ -108,5 +108,5 @@ field = cell_array(JustPIC.CPUBackend, 0.0, (3,), (64, 64))
 end
 
 @inline function cell_array(x::T, ncells::NTuple{Nc, <:Integer}, ni::NTuple{Nd, <:Integer}) where {T, Nc, Nd}
-    return cell_array(CPUBackend, x, ncells, ni)
+    return cell_array(CPU, x, ncells, ni)
 end

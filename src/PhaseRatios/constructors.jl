@@ -7,7 +7,7 @@ Allocate a `PhaseRatios` container for `nphases` material phases on a grid of
 size `ni`.
 
 The default element type is `Float64` and the default backend is
-`JustPIC.CPUBackend`.
+KernelAbstractions' `CPU`.
 
 # Arguments
 - `T`: scalar storage type for the phase fractions.
@@ -47,11 +47,11 @@ function PhaseRatios(
 end
 
 function PhaseRatios(nphases::Integer, ni::NTuple{N, Integer}) where {N}
-    return PhaseRatios(Float64, CPUBackend, nphases, ni)
+    return PhaseRatios(Float64, CPU, nphases, ni)
 end
 
 function PhaseRatios(
         ::Type{B}, nphases::Integer, ni::NTuple{N, Integer}
-    ) where {N, B <: AbstractBackend}
+    ) where {N, B <: Backend}
     return PhaseRatios(Float64, B, nphases, ni)
 end

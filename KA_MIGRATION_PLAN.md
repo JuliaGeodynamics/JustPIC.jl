@@ -1,15 +1,17 @@
 # Migration plan: ParallelStencil.jl → KernelAbstractions.jl
 
-Status: **in progress / CPU path green and clean**
+Status: **CPU path green & PS-free; all three GPU extensions collapsed; Metal GPU-verified;
+CUDA/AMDGPU pending hardware validation**
 Scope: entire package (`src/`, `ext/`, `test/`, `scripts/`, `docs/`)
 
-Progress snapshot (2026-07-02, from the current worktree):
+Progress snapshot (updated 2026-07-03, from the current worktree):
 - [x] `KernelAbstractions` has been added to `Project.toml`; direct `ParallelStencil` and `Atomix`
       dependencies have been removed.
 - [x] `src/launch.jl` now exists with `ka_backend`, synchronous `launch!`, and backend-aware
       `cell_array` scaffolding.
-- [x] `common.jl` includes `launch.jl`, and the CPU `_2D`/`_3D` modules import KA's bare
-      `@index` while qualifying CellArraysIndexing element access as `CAI.@index`.
+- [x] `common.jl` includes `launch.jl`, and the algorithm catalog is included once into the
+      root `JustPIC` module. `_2D`/`_3D` submodules are gone (breaking public API change);
+      callers now use `using JustPIC`.
 - [x] The CellArraysIndexing qualification pass is mostly done in `src/` and `test/test_CellArrays.jl`
       (`rg "CAI\\.@index" src test` currently finds 169 sites).
 - [x] `src/Interpolations/` has been ported to KA launches/kernels.
@@ -18,23 +20,31 @@ Progress snapshot (2026-07-02, from the current worktree):
 - [x] The CPU `src/` path no longer uses active ParallelStencil macros or stale migration comments.
 - [x] `test/test_2D.jl`, `test/test_3D.jl`, and `test/Project.toml` no longer depend on
       ParallelStencil; CPU tests now use KA helpers directly.
-- [x] CUDA/AMDGPU extensions no longer contain active ParallelStencil macros/imports; they still keep
-      the old `_2D`/`_3D` forwarding layer pending a later collapse.
+- [x] **All three GPU extensions are collapsed to the flat target architecture** (no `_2D`/`_3D`
+      submodules, no `common.jl` re-include, no forwarding layer): `ext/JustPICCUDAExt.jl` (~232),
+      `ext/JustPICAMDGPUExt.jl` (~235, down from ~1171), `ext/JustPICMetalExt.jl` (~159). Each is
+      just `@define_*CellArray`, `TA`, per-dim `CA`/`undef_cell_array`, host↔device conversions and
+      positional reconstruction constructors. The dead `src/CUDAExt/CellArrays.jl` and
+      `src/AMDGPUExt/CellArrays.jl` helper files were deleted.
 - [x] Script/doc active ParallelStencil examples have been ported or removed.
 - [x] CPU-side migration lint is now part of the test suite.
 - [x] CPU timer and MPI smoke scripts are runnable in local CPU mode.
 - [x] Public docs/docstrings now describe backend-qualified tags and `cell_array` allocation
       instead of legacy ParallelStencil allocation macros.
-- [ ] GPU runtime validation, GPU benchmarks, and release/optional cleanup are not yet migrated.
-- [~] A **collapsed** GPU extension (`ext/JustPICMetalExt.jl`, Metal/Apple GPU) has been added
-      as the reference implementation of the Phase 3/4 target architecture: no `_2D`/`_3D`
-      re-include of `common.jl`, no forwarding layer — just `TA`/`CA`/`undef_cell_array` +
-      host↔device conversions (~180 lines vs ~1180 for CUDA/AMDGPU). The full volumetric
-      particle pipeline runs on the Apple M5 GPU (all 3 advection variants + Euler/RK2, move,
-      both interpolation directions, phase ratios center/vertex/face — see 23:40 log), plus
-      marker-chain `advection!` and passive-marker `advection!` (see 00:40 log). Remaining Metal
-      gaps: the full `advect_markerchain!` resample (`sort_chain!` device-sort, an algorithm
-      problem not a `Float64` one) and subgrid diffusion — the tracked follow-up.
+- [x] **Metal GPU runtime-verified** (Apple M5, `ext/JustPICMetalExt.jl`): the full volumetric
+      particle pipeline runs — all 3 advection variants + Euler/RK2, move, both interpolation
+      directions, phase ratios center/vertex/face — plus marker-chain `advection!` and
+      passive-marker `advection!`. This is the reference implementation of the collapsed
+      Phase 3/4 architecture. Metal exposed the package's latent `Float64` assumptions (see the
+      23:40 / 00:40 logs); the fixes are all no-ops on the `Float64` CPU/CUDA/AMDGPU path.
+- [ ] **CUDA / AMDGPU runtime validation + GPU benchmarks** — pending (no CUDA/AMDGPU hardware
+      locally). The collapsed exts parse, the CPU package loads with all backend tags defined, and
+      the migration lint passes; they mirror the GPU-verified Metal ext.
+- [ ] Metal follow-ups (not blockers for CUDA/AMDGPU, which support `Float64`): full
+      `advect_markerchain!` resample (`sort_chain!` needs a GPU-friendly sort — an algorithm
+      problem, not `Float64`) and subgrid diffusion `Float64`-literal cleanup.
+- [ ] Release / optional cleanup (version bump, changelog/release notes, CUDA/AMDGPU runtime
+      validation and benchmarks) not yet done.
 
 ## Checkpoint log
 
@@ -185,6 +195,47 @@ Progress snapshot (2026-07-02, from the current worktree):
   device-side `sortperm(…; dims=2)` + permutation gather that triggers "scalar indexing is
   disallowed" — a GPU sort/gather algorithm problem, not a `Float64` one. The lower-level
   `advection!(::MarkerChain, …)` (no resample) works.
+- 2026-07-03 01:30 CEST — area: Phase 4 AMDGPU extension collapse (+ CUDA/Metal parity);
+  validation: `Meta.parseall` on all three exts OK, `using JustPIC` loads on CPU with
+  `CUDABackend`/`AMDGPUBackend`/`MetalBackend` defined, migration lint clean over `ext/`.
+  Rewrote `ext/JustPICAMDGPUExt.jl` in the collapsed form (~1171 → ~235 lines): dropped the
+  `_2D`/`_3D` submodules, the `include("../src/common.jl")` re-includes and the entire
+  forwarding-method layer; kept `@define_ROCCellArray`, `TA`, per-dim `CA`/`undef_cell_array`
+  (via a `for D in (JustPIC._2D, JustPIC._3D)` loop), all host↔device conversions and the
+  positional reconstruction constructors — structurally identical to `JustPICCUDAExt.jl`
+  (already collapsed in the "CUDA ext" commit) modulo `Cu`↔`ROC` naming. Deleted the now-orphan
+  `src/CUDAExt/CellArrays.jl` (all comments) and `src/AMDGPUExt/CellArrays.jl` (dead
+  `element`/`setelement!` fallbacks, zero call sites). No CUDA/AMDGPU hardware here — runtime
+  validation is the user's next step; the collapse mirrors the Metal ext, which is GPU-verified.
+- 2026-07-03 02:30 CEST — area: dropped JustPIC's own backend tags in favor of KernelAbstractions'
+  backends (**public-API change — overrides the original "no public API changes" non-goal**);
+  validation: full CPU suite `Pkg.test(--backend=CPU)` => pass, Metal consolidated smoke still
+  9/9 on the M5. Deleted `AbstractBackend`, `CPUBackend`, `CUDABackend`, `AMDGPUBackend`,
+  `MetalBackend` from `src/JustPIC.jl`. Core now dispatches on KA's backend *types*:
+  `CPU` (from `using KernelAbstractions: CPU, Backend` — selective to avoid the `@index` clash),
+  with `Backend` as the abstract constraint. The extensions dispatch on the vendor KA backends
+  they own: `CUDA.CUDABackend`, `AMDGPU.ROCBackend`, `Metal.MetalBackend` (pulled via
+  `using CUDA: CUDABackend` etc.). `TA`/`CA`/`undef_cell_array`/`cell_array`/`PhaseRatios`/the
+  struct type parameters and the `init_*`/conversion entry points all now take a KA backend type.
+  Migration for callers: `JustPIC.CPUBackend → CPU`, `JustPIC.CUDABackend → CUDA.CUDABackend`,
+  `JustPIC.AMDGPUBackend → AMDGPU.ROCBackend`, `JustPIC.MetalBackend → Metal.MetalBackend`
+  (`JustPIC.CPU` also resolves, since JustPIC re-imports it). Updated `src/`, all three `ext/`,
+  `test/`, `scripts/`, and `docs/` (incl. removing the GPU tags from the `@docs` block so the
+  docs build doesn't require GPU packages). Downstream (JustRelax) will need the same rename.
+- 2026-07-03 08:52 CEST — area: root-only API partial; validation:
+  `julia --project=. -e 'using JustPIC; @assert !isdefined(JustPIC, :_2D); @assert !isdefined(JustPIC, :_3D); @assert isdefined(JustPIC, :cell_array); println("loaded root-only JustPIC")'`
+  => pass; `julia --project=. -e 'using Pkg; Pkg.test(; test_args=["--backend=CPU"])'`
+  => fail; remaining: 0 `@parallel_indices`, 0 `@parallel`, 0 `@fill`; notes:
+  `src/` includes `common.jl` once into `JustPIC`; remaining `_2D`/`_3D` imports and qualified
+  calls were removed from docs/scripts/README. Failure was the root-module macro collision:
+  old `JustPIC.@index` CellArrays tests now resolved to KA's `@index`.
+- 2026-07-03 08:55 CEST — area: root-only API done; validation:
+  `julia --project=. -e 'ENV["JULIA_JUSTPIC_BACKEND"]="CPU"; include("test/test_2D.jl")'`
+  => pass; `julia --project=. -e 'using Pkg; Pkg.test(; test_args=["--backend=CPU"])'`
+  => pass; `julia --project=docs docs/make.jl` => pass; remaining: 0 `@parallel_indices`,
+  0 `@parallel`, 0 `@fill`; notes: no live `_2D`/`_3D` references remain outside generated
+  `docs/build`; CellArrays element access is explicit as `CellArraysIndexing.@index`/`CAI.@index`;
+  docs build still reports the existing non-fatal uncatalogued-docstring backlog.
 
 ---
 
@@ -203,20 +254,26 @@ codebase. Everything PS does for us is expressible in KernelAbstractions (KA) di
 | `CuCellArray` / `ROCCellArray` type aliases (defined by PS init) | both `ext/` files | `CellArrays.@define_CuCellArray()` / `@define_ROCCellArray()` |
 | Per-backend `@myatomic` macro (Atomix / `CUDA.@atomic` / `AMDGPU.@atomic`) | defined in each backend module, used in `src/PassiveMarkers/particle_to_grid.jl` | single `KernelAbstractions.@atomic` (Atomix-based, works on all backends) |
 
-**The structural payoff** is bigger than the dependency swap. The whole reason
-`src/common.jl` is textually `include`d **six times** (2D/3D × CPU/CUDA/AMDGPU) and the reason
-`ext/JustPICCUDAExt.jl` / `ext/JustPICAMDGPUExt.jl` are ~1,180 lines each is that
-`@init_parallel_stencil` bakes backend + dimension into a module at macro-expansion time, forcing
+**The structural payoff** is bigger than the dependency swap, and it has now been realized. The
+reason `ext/JustPICCUDAExt.jl` / `ext/JustPICAMDGPUExt.jl` *were* ~1,180 lines each is that
+`@init_parallel_stencil` baked backend + dimension into a module at macro-expansion time, forcing
 one module per (backend, dim) pair plus a hand-written forwarding layer
 (`JustPIC._2D.advection!(::Particles{CUDABackend}, …) = advection!(…)`, repeated for every public
-function). With KA, kernels are backend-generic and dimension-generic; the extensions shrink to
-host↔device conversions (`CuArray(particles)` etc.) plus `TA`/`CA` definitions — roughly 150 lines
-each. As a bonus, Metal and oneAPI backends become nearly free to add later
-(`CellArrays.@define_MtlCellArray` already exists).
+function). With KA, kernels are backend-generic and dimension-generic, so **all three extensions
+are now flat modules** of host↔device conversions (`CuArray(particles)` etc.) plus `TA`/`CA` /
+`undef_cell_array` definitions: CUDA ~232, AMDGPU ~235, Metal ~159 lines. Metal was added as the
+proof (it is GPU-verified), showing new backends are indeed nearly free (`@define_MtlCellArray`
+etc.). `src/common.jl` is now `include`d only twice (2D/3D × CPU); the optional final collapse to a
+single include with `_2D`/`_3D` re-export shims (Phase 5) is still open.
 
-**Non-goals:** no public API changes (`JustPIC._2D` / `JustPIC._3D` namespaces, function names and
-signatures stay), no algorithm changes, no MPI/ImplicitGlobalGrid changes
-(`update_cell_halo!` operates on `.data` arrays and is PS-independent).
+**Non-goals** (as originally scoped): no public API changes (`JustPIC._2D` / `JustPIC._3D`
+namespaces, function names and signatures stay), no algorithm changes, no MPI/ImplicitGlobalGrid
+changes (`update_cell_halo!` operates on `.data` arrays and is PS-independent).
+
+> Update (2026-07-03): the "no public API changes" non-goal was **deliberately relaxed** — JustPIC's
+> own backend tags (`CPUBackend`/`CUDABackend`/`AMDGPUBackend`/`MetalBackend`/`AbstractBackend`)
+> were removed in favor of KernelAbstractions' backends (`CPU`, `CUDA.CUDABackend`,
+> `AMDGPU.ROCBackend`, `Metal.MetalBackend`). See the 02:30 checkpoint for the caller migration.
 
 ---
 
@@ -422,21 +479,24 @@ test) rather than at the end.
 
 ---
 
-## 4. Target architecture
+## 4. Target architecture — **reached** (extensions now match this)
 
 ```
-src/JustPIC.jl            # structs, backend tags, ka_backend() mapping, TA
-src/common.jl             # included ONCE per dimension module (Phase 1) → ONCE total (Phase 5)
+src/JustPIC.jl            # structs, backend tags (incl. MetalBackend), ka_backend() mapping, TA
+src/common.jl             # included ONCE per dimension module (2D/3D × CPU) → ONCE total (Phase 5, optional)
 src/JustPIC_CPU.jl        # _2D/_3D modules WITHOUT @init_parallel_stencil; CPU CA()
-ext/JustPICCUDAExt.jl     # ~150 lines: @define_CuCellArray, TA/CA methods, host↔device conversions
-ext/JustPICAMDGPUExt.jl   # ~150 lines: same for ROC
+ext/JustPICCUDAExt.jl     # ~232 lines: @define_CuCellArray, TA/CA/undef_cell_array, host↔device conversions, reconstruction ctors
+ext/JustPICAMDGPUExt.jl   # ~235 lines: same for ROC
+ext/JustPICMetalExt.jl    # ~159 lines: same for Mtl (Float32-only; GPU-verified reference)
 ```
 
-Key change in dispatch philosophy: instead of *compiling the same generic code once per backend
-module*, kernels are generic and the backend is a **runtime value** derived from the arrays
-(`get_backend`). The entire forwarding layer in the extensions
-(every `JustPIC._2D.f(::Particles{CUDABackend}, …) = f(…)` method) is deleted — the generic methods
-in `common.jl` already handle any array type once launches go through `launch!(backend, …)`.
+Key change in dispatch philosophy, now in force: instead of *compiling the same generic code once
+per backend module*, kernels are generic and the backend is a **runtime value** derived from the
+arrays (`get_backend`). The entire forwarding layer in the extensions
+(every `JustPIC._2D.f(::Particles{CUDABackend}, …) = f(…)` method) has been **deleted** — the
+generic methods in `common.jl` (compiled into `JustPIC._2D`/`_3D`) handle any array type because
+launches go through `launch!(ka_backend(x), …)`. Each extension now adds `CA`/`undef_cell_array`
+methods to both `JustPIC._2D` and `JustPIC._3D` via a `for D in (JustPIC._2D, JustPIC._3D)` loop.
 
 The `_2D`/`_3D` split remains **only** as an API namespace (users do `using JustPIC._2D`). In
 Phase 1 both modules still `include("common.jl")` (now backend-generic, so 2 includes instead
@@ -497,21 +557,33 @@ Convert per feature area, in dependency order; each bullet = one commit:
 ### Phase 3 — rewrite CUDA extension
 - [x] Remove active `ParallelStencil` import/init, `@myatomic`, and extension-local `@parallel`
       launches from `ext/JustPICCUDAExt.jl`; add KA imports and `undef_cell_array` for CUDA.
-- [ ] Strip `ext/JustPICCUDAExt.jl` `_2D`/`_3D` submodules: delete `@init_parallel_stencil`,
-      the `include("../src/common.jl")` re-includes, `@myatomic`, and the entire forwarding-method
-      layer.
-- [ ] Keep/move to top level: `@define_CuCellArray()` (§3.3), `TA(::Type{CUDABackend}) = CuArray`,
+- [x] Strip `ext/JustPICCUDAExt.jl` `_2D`/`_3D` submodules: delete the
+      `include("../src/common.jl")` re-includes and the entire forwarding-method layer. Now a
+      flat ~232-line module (was ~1180): `@define_CuCellArray`, `TA`, per-dim `CA` /
+      `undef_cell_array` (defined via a `for D in (JustPIC._2D, JustPIC._3D)` loop), the host↔
+      device conversions, and the positional reconstruction constructors. Mirrors
+      `ext/JustPICMetalExt.jl`.
+- [x] Keep/move to top level: `@define_CuCellArray()` (§3.3), `TA(::Type{CUDABackend}) = CuArray`,
       `CA(::Type{CUDABackend}, …)`, all `CUDA.CuArray(::Particles/MarkerChain/PhaseRatios/CellArray)`
       conversions, the `Particles(coords, index::…CuArray…)` reconstruction constructors.
-- [ ] `src/CUDAExt/CellArrays.jl`: fold into the extension or port as-is.
+- [x] `src/CUDAExt/CellArrays.jl`: deleted (was all comments; only the removed submodule
+      `include`d it). `src/AMDGPUExt/CellArrays.jl` likewise deleted — its `element`/`setelement!`
+      ROCArray fallbacks have zero call sites (kernels use `CAI.@index`).
 - [ ] Smoke test early (§3.5), then full Buildkite CUDA suite
-      (`Pkg.test(test_args=["--backend=CUDA"])`).
+      (`Pkg.test(test_args=["--backend=CUDA"])`). **Not runnable locally (no CUDA hardware) — the
+      collapsed ext parses, the CPU package loads with `CUDABackend` defined, and the migration
+      lint passes; runtime validation is pending user GPU test.**
 - [ ] GPU benchmark vs baseline.
 
 ### Phase 4 — rewrite AMDGPU extension
 - [x] Remove active `ParallelStencil` import/init, `@myatomic`, and extension-local `@parallel`
       launches from `ext/JustPICAMDGPUExt.jl`; add KA imports and `undef_cell_array` for AMDGPU.
-- [ ] Collapse `ext/JustPICAMDGPUExt.jl` forwarding layer after GPU runtime validation.
+- [x] Collapse `ext/JustPICAMDGPUExt.jl` forwarding layer (~1171 → ~235 lines), mirroring the
+      CUDA/Metal exts: flat module with `@define_ROCCellArray`, `TA`, per-dim `CA` /
+      `undef_cell_array`, host↔device conversions, and reconstruction constructors; no `_2D`/`_3D`
+      submodules. Structurally verified identical to the CUDA ext (modulo `Cu`↔`ROC` naming and
+      AMDGPU-specific `ROCArray(::Type{Float64}, ::Vector{Float64})` / `AbstractRange` passthroughs).
+      **Runtime validation pending user AMDGPU test** (parses, CPU package loads, lint passes here).
 - [ ] Buildkite AMDGPU suite + CSCS CI (`ci/cscs-mi300.yml`, `ci/cscs-gh200.yml`).
 
 ### Phase 5 — cleanup & consolidation

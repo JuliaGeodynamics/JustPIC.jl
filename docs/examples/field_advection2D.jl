@@ -3,11 +3,8 @@
 # First we load JustPIC
 using JustPIC
 
-# and the correspondent 2D module (we could also use 3D by loading `JustPIC._3D`)
-using JustPIC._2D
-
-# We need to specify what backend are we running our simulation on. For convenience we define the backend as a constant. In this case we use the CPU backend, but we could also use the CUDA (JustPIC.CUDABackend) or AMDGPU (JustPIC.AMDGPUBackend) backends.
-const backend = JustPIC.CPUBackend
+# We need to specify what backend are we running our simulation on. For convenience we define the backend as a constant. In this case we use the CPU backend, but we could also use the CUDA (CUDA.CUDABackend) or AMDGPU (AMDGPU.ROCBackend) backends.
+const backend = JustPIC.CPU
 
 # we define an analytical flow solution to advected our particles
 vx_stream(x, y) = 250 * sin(π * x) * cos(π * y)

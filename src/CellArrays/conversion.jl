@@ -54,7 +54,7 @@ function Array(::Type{T}, x::P) where {T <: Number, P <: AbstractParticles}
         end
     end
     T_clean = remove_parameters(x)
-    return T_clean(CPUBackend, cpu_fields...)
+    return T_clean(CPU, cpu_fields...)
 end
 
 function Array(x::P) where {P <: AbstractParticles}
@@ -65,7 +65,7 @@ function Array(x::P) where {P <: AbstractParticles}
         _Array(A)
     end
     T_clean = remove_parameters(x)
-    return T_clean(CPUBackend, cpu_fields...)
+    return T_clean(CPU, cpu_fields...)
 end
 # Array(x::T) where {T<:AbstractParticles} = Array(Float64, x)
 

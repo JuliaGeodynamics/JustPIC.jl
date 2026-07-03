@@ -5,7 +5,7 @@ using Documenter, JustPIC
 makedocs(;
     sitename = "JustPIC.jl",
     authors = "Albert de Montserrat and contributors",
-    modules = [JustPIC, JustPIC._2D, JustPIC._3D],
+    modules = [JustPIC],
     format = Documenter.HTML(; prettyurls = get(ENV, "CI", nothing) == "true"), # easier local build
     warnonly = Documenter.except(:footnote),
     pages = [

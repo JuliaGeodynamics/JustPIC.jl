@@ -3,8 +3,8 @@
 As usual, we start loading JustPIC.jl modules and specifying the backend
 
 ```julia
-using JustPIC, JustPIC._2D
-const backend = JustPIC.CPUBackend
+using JustPIC
+const backend = JustPIC.CPU
 ```
 
 and we define the usual analytical flow solution

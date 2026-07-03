@@ -3,7 +3,10 @@ module JustPICCUDAExt
 using CUDA
 using JustPIC, CellArrays, StaticArrays
 
-import JustPIC: AbstractBackend, CUDABackend, Particles, MarkerChain
+import JustPIC: Particles, MarkerChain
+# `CUDABackend` is CUDA.jl's KernelAbstractions backend (JustPIC no longer defines
+# its own backend tags — it dispatches on the KA backends directly).
+using CUDA: CUDABackend
 
 # ---------------------------------------------------------------------------
 # Collapsed GPU extension
@@ -12,9 +15,9 @@ import JustPIC: AbstractBackend, CUDABackend, Particles, MarkerChain
 # `launch!(ka_backend(x), ...)` and pick the KernelAbstractions backend from the
 # array type at runtime. This extension therefore only supplies the CUDA-specific
 # *allocation* and *host <-> device conversion* primitives; the generic methods
-# already compiled into `JustPIC._2D` / `JustPIC._3D` dispatch to CUDA
+# already compiled into `JustPIC` dispatch to CUDA
 # automatically. No `common.jl` re-include and no per-function forwarding layer
-# (`JustPIC._2D.f(::Particles{CUDABackend}, ...) = f(...)`) are needed.
+# (`JustPIC.f(::Particles{CUDABackend}, ...) = f(...)`) are needed.
 
 CellArrays.@define_CuCellArray()
 
@@ -32,20 +35,13 @@ end
 # ---------------------------------------------------------------------------
 # Backend-specific CellArray allocation
 # ---------------------------------------------------------------------------
-# `CA` and `undef_cell_array` are per-dimension bindings (they live inside the
-# `JustPIC._2D` / `JustPIC._3D` submodules because `launch.jl` is `include`d
-# there), so both dimensions need a CUDA method.
-for D in (JustPIC._2D, JustPIC._3D)
-    @eval begin
-        $D.CA(::Type{CUDABackend}, dims; eltype = Float64) =
-            CuCellArray{eltype}(undef, dims)
 
-        @inline function $D.undef_cell_array(
-                ::Type{CUDABackend}, ::Type{T}, ni::NTuple{N, <:Integer}
-            ) where {T, N}
-            return CuCellArray{T}(undef, Int.(ni))
-        end
-    end
+JustPIC.CA(::Type{CUDABackend}, dims; eltype = Float64) = CuCellArray{eltype}(undef, dims)
+
+@inline function JustPIC.undef_cell_array(
+        ::Type{CUDABackend}, ::Type{T}, ni::NTuple{N, <:Integer}
+    ) where {T, N}
+    return CuCellArray{T}(undef, Int.(ni))
 end
 
 # ---------------------------------------------------------------------------

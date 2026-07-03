@@ -1,16 +1,16 @@
-using JustPIC, JustPIC._2D
+using JustPIC
 
 # Backend is selected via the JULIA_JUSTPIC_BACKEND environment variable.
 # Options: "CPU" (default), "CUDA", "AMDGPU"
 const backend_name = get(ENV, "JULIA_JUSTPIC_BACKEND", "CPU")
 const backend = if backend_name == "CUDA"
     using CUDA
-    CUDABackend
+    CUDA.CUDABackend
 elseif backend_name == "AMDGPU"
     using AMDGPU
-    AMDGPUBackend
+    AMDGPU.ROCBackend
 elseif backend_name == "CPU"
-    JustPIC.CPUBackend
+    JustPIC.CPU
 else
     error("Unknown backend: $backend_name. Options: \"CPU\", \"CUDA\", \"AMDGPU\"")
 end

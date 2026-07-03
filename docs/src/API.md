@@ -20,18 +20,20 @@ The most commonly used public names are:
 - Advection: `advection!`, `advection_LinP!`, `advection_MQS!`, `semilagrangian_advection!`, `semilagrangian_advection_LinP!`, `semilagrangian_advection_MQS!`
 - Marker-chain utilities: `init_markerchain`, `fill_chain_from_chain!`, `fill_chain_from_vertices!`, `advect_markerchain!`, `semilagrangian_advection_markerchain!`, `interpolate_velocity_to_markerchain!`, `compute_topography_vertex!`, `resample!`
 - Phase ratios and diffusion: `PhaseRatios`, `update_phase_ratios!`, `SubgridDiffusionCellArrays`, `subgrid_diffusion!`, `subgrid_diffusion_centroid!`
-- Backend tags and allocation helpers: `JustPIC.CPUBackend`, `JustPIC.CUDABackend`, `JustPIC.AMDGPUBackend`, `TA`, `cell_array`
+- Backends and allocation helpers: KernelAbstractions' `CPU` (and the vendor backends `CUDA.CUDABackend`, `AMDGPU.ROCBackend`, `Metal.MetalBackend`), plus `TA`, `cell_array`
 - Integrators: `Euler`, `RungeKutta2`, `RungeKutta4`
 - Checkpointing: `checkpointing_particles`
 
 ## Backend Helpers
 
+JustPIC dispatches on KernelAbstractions backend types directly — `CPU` for the CPU
+path and the vendor backends `CUDA.CUDABackend`, `AMDGPU.ROCBackend`,
+`Metal.MetalBackend` (introduced by the respective package extensions). It no longer
+defines its own backend tags.
+
 ```@docs
-JustPIC.CPUBackend
-JustPIC.CUDABackend
-JustPIC.AMDGPUBackend
 JustPIC.TA
-JustPIC._2D.cell_array
+JustPIC.cell_array
 ```
 
 ## Finding Method Docs

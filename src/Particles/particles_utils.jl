@@ -10,7 +10,7 @@ quadrants. If it is an `NTuple`, it is interpreted as the number of particles to
 place regularly along each coordinate direction within every cell.
 
 # Arguments
-- `backend`: backend type such as `JustPIC.CPUBackend`.
+- `backend`: KernelAbstractions backend type such as `CPU`.
 - `nxcell`: either the target number of particles per cell, or an `NTuple`
   describing a structured per-dimension layout.
 - `max_xcell`: number of particle slots reserved per cell.
@@ -24,7 +24,7 @@ place regularly along each coordinate direction within every cell.
 # Example
 ```julia
 xvi = LinRange(0, 1, 33), LinRange(0, 1, 33)
-particles = init_particles(JustPIC.CPUBackend, 24, 48, 12, xvi...)
+particles = init_particles(CPU, 24, 48, 12, xvi...)
 ```
 """
 function init_particles(

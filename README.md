@@ -12,14 +12,14 @@ Particle-in-Cell advection ready to rock the GPU  :rocket:
 
 # Example
 Load JustPIC and choose where particle arrays are allocated. Backend tags live
-under the `JustPIC` module; use `JustPIC.CPUBackend` by default, or load CUDA.jl
-/ AMDGPU.jl and switch to `JustPIC.CUDABackend` / `JustPIC.AMDGPUBackend`.
+in KernelAbstractions; use `JustPIC.CPU` by default, or load CUDA.jl /
+AMDGPU.jl and switch to `CUDA.CUDABackend` / `AMDGPU.ROCBackend`.
 
 ```julia
-using JustPIC, JustPIC._2D
+using JustPIC
 using GLMakie
 
-const backend = JustPIC.CPUBackend
+const backend = JustPIC.CPU
 ```
 
 Define domain and grids of the domain:
@@ -75,8 +75,8 @@ Vy = TA(backend)([vy_stream(x, y) for x in grid_vy[1], y in grid_vy[2]]);
 V  = Vx, Vy
 dt = min(dx / maximum(abs.(Vx)),  dy / maximum(abs.(Vy))) # time step
 ```
-where `TA(backend)` is `Array` on `JustPIC.CPUBackend`, `CuArray` on
-`JustPIC.CUDABackend`, and `ROCArray` on `JustPIC.AMDGPUBackend`.
+where `TA(backend)` is `Array` on `JustPIC.CPU`, `CuArray` on
+`CUDA.CUDABackend`, and `ROCArray` on `AMDGPU.ROCBackend`.
 
 We save the initial particle positions:
 ```julia

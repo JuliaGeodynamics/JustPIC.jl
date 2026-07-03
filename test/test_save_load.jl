@@ -5,10 +5,9 @@ elseif ENV["JULIA_JUSTPIC_BACKEND"] === "CUDA"
 end
 
 using JLD2, JustPIC, Test
-import JustPIC._2D as JP2
-import JustPIC._3D as JP3
+import KernelAbstractions: CPU
 
-const backend = JustPIC.CPUBackend
+const backend = CPU
 
 function expand_range(x::AbstractRange)
     dx = x[2] - x[1]
@@ -45,18 +44,18 @@ end
     grid_vy = expand_range(xc), yv
     grid_vel = grid_vx, grid_vx
 
-    particles = JP2.init_particles(backend, nxcell, max_xcell, min_xcell, grid_vel...)
-    phases, pT = JP2.init_cell_arrays(particles, Val(2))
+    particles = JustPIC.init_particles(backend, nxcell, max_xcell, min_xcell, grid_vel...)
+    phases, pT = JustPIC.init_cell_arrays(particles, Val(2))
     particle_args = (phases, pT)
     particle_args_reduced = (phases,)
     particle_args_kwarg = (phases,)
-    phase_ratios = JP2.PhaseRatios(backend, 2, ni)
+    phase_ratios = JustPIC.PhaseRatios(backend, 2, ni)
     initial_elevation = Ly / 2
-    chain = JP2.init_markerchain(backend, nxcell, min_xcell, max_xcell, xv, initial_elevation)
+    chain = JustPIC.init_markerchain(backend, nxcell, min_xcell, max_xcell, xv, initial_elevation)
     @views particles.index.data[:, 1:3, 1] .= 1.0
     @views particles.index.data[:, 4:6, 1] .= 0.0
 
-    JP2.checkpointing_particles(pwd(), particles; phases = phases, phase_ratios = phase_ratios, chain = chain, particle_args = particle_args, particle_args_reduced = particle_args_reduced, particle_args_kwarg = particle_args_kwarg)
+    JustPIC.checkpointing_particles(pwd(), particles; phases = phases, phase_ratios = phase_ratios, chain = chain, particle_args = particle_args, particle_args_reduced = particle_args_reduced, particle_args_kwarg = particle_args_kwarg)
 
     # test type conversion
     @test eltype(eltype(Array(phases))) === Float64
@@ -106,7 +105,7 @@ end
     particle_args_reduced3 = data1["particle_args_reduced"]
     particle_args_kwarg3 = data1["particle_args_kwarg"]
 
-    @test chain3 isa JustPIC.MarkerChain{JustPIC.CPUBackend}
+    @test chain3 isa JustPIC.MarkerChain{CPU}
     @test particle_args3 isa Tuple
     @test particle_args_reduced3 isa Tuple
     @test particle_args_kwarg3 isa Tuple
@@ -129,7 +128,7 @@ end
 
     if isCUDA || isAMDGPU
         T = isCUDA ? CuArray : ROCArray
-        Backend = isCUDA ? JustPIC.CUDABackend : JustPIC.AMDGPUBackend
+        Backend = isCUDA ? CUDA.CUDABackend : AMDGPU.ROCBackend
 
         particles2 = Array(particles)
         phases2 = Array(phases)
@@ -207,19 +206,19 @@ end
     grid_vz = expand_range(xc), expand_range(yc), zv
     grid_vel = grid_vx, grid_vy, grid_vz
 
-    particles = JP3.init_particles(backend, nxcell, max_xcell, min_xcell, grid_vel...)
-    phases, pT = JP3.init_cell_arrays(particles, Val(2))
-    phase_ratios = JP3.PhaseRatios(backend, 2, ni)
+    particles = JustPIC.init_particles(backend, nxcell, max_xcell, min_xcell, grid_vel...)
+    phases, pT = JustPIC.init_cell_arrays(particles, Val(2))
+    phase_ratios = JustPIC.PhaseRatios(backend, 2, ni)
     particle_args = (phases, pT)
     particle_args_reduced = (phases,)
     particle_args_kwarg = (phases,)
     initial_elevation = Ly / 2
-    chain = JP2.init_markerchain(backend, nxcell, min_xcell, max_xcell, xv, initial_elevation)
+    chain = JustPIC.init_markerchain(backend, nxcell, min_xcell, max_xcell, xv, initial_elevation)
     it = 500
     @views particles.index.data[:, 1:3, 1] .= 1.0
     @views particles.index.data[:, 4:6, 1] .= 0.0
 
-    JP3.checkpointing_particles(pwd(), particles; phases = phases, phase_ratios = phase_ratios, particle_args = particle_args, particle_args_reduced = particle_args_reduced, particle_args_kwarg = particle_args_kwarg, it = it)
+    JustPIC.checkpointing_particles(pwd(), particles; phases = phases, phase_ratios = phase_ratios, particle_args = particle_args, particle_args_reduced = particle_args_reduced, particle_args_kwarg = particle_args_kwarg, it = it)
 
     # test type conversion
     @test eltype(eltype(Array(phases))) === Float64
@@ -293,7 +292,7 @@ end
 
     if isCUDA || isAMDGPU
         T = isCUDA ? CuArray : ROCArray
-        Backend = isCUDA ? JustPIC.CUDABackend : JustPIC.AMDGPUBackend
+        Backend = isCUDA ? CUDA.CUDABackend : AMDGPU.ROCBackend
 
         particles2 = Array(particles)
         phases2 = Array(phases)

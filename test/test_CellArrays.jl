@@ -1,4 +1,5 @@
 using JustPIC, Test, StaticArrays
+import CellArraysIndexing as CAI
 
 function expand_range(x::AbstractRange)
     dx = x[2] - x[1]
@@ -24,26 +25,26 @@ end
     ## Test a 2x2 grid with 2x1 CellArrays per grid cell
     ncells = (2,)
     # instantiate CellArray object
-    CA = JustPIC._2D.cell_array(x, ncells, ni)
+    CA = JustPIC.cell_array(x, ncells, ni)
     # test all the data is one
     @test all(isone, CA.data)
     # create empty cell
-    @test JustPIC._2D.new_empty_cell(CA) == @SArray zeros(2)
+    @test JustPIC.new_empty_cell(CA) == @SArray zeros(2)
     # mutate and read 2nd element in grid cell [1, 1]
-    JustPIC.@index CA[2, 1, 1] = 2.0
-    @test JustPIC.@index(CA[2, 1, 1]) == 2.0
+    CAI.@index CA[2, 1, 1] = 2.0
+    @test CAI.@index(CA[2, 1, 1]) == 2.0
 
     ## Test a 2x2 grid with 2x2 CellArrays per grid cell
     ncells = (2, 2)
     # instantiate CellArray object
-    CA = JustPIC._2D.cell_array(x, ncells, ni)
+    CA = JustPIC.cell_array(x, ncells, ni)
     # test all the data is one
     @test all(isone, CA.data)
     # create empty cell
-    @test JustPIC._2D.new_empty_cell(CA) == @SArray zeros(2, 2)
+    @test JustPIC.new_empty_cell(CA) == @SArray zeros(2, 2)
     # mutate and read [2,2] element in grid cell [1, 1]
-    JustPIC.@index CA[2, 2, 1, 1] = 2.0
-    @test JustPIC.@index(CA[2, 2, 1, 1]) == 2.0
+    CAI.@index CA[2, 2, 1, 1] = 2.0
+    @test CAI.@index(CA[2, 2, 1, 1]) == 2.0
 end
 
 @testset "Phase ratios - 2D" begin
@@ -61,18 +62,18 @@ end
     grid_vx = xv, expand_range(yc)
     grid_vy = expand_range(xc), yv
 
-    particles = JustPIC._2D.init_particles(
+    particles = JustPIC.init_particles(
         backend, nxcell, max_xcell, min_xcell, (grid_vx, grid_vy)...,
     )
 
     nphases = 5
-    phases, = JustPIC._2D.init_cell_arrays(particles, Val(1))
+    phases, = JustPIC.init_cell_arrays(particles, Val(1))
     T = typeof(phases.data)
     phases.data .= T(rand(1:nphases, size(phases.data)))
 
-    phase_ratios = JustPIC._2D.PhaseRatios(backend, nphases, ni)
+    phase_ratios = JustPIC.PhaseRatios(backend, nphases, ni)
 
-    JustPIC._2D.update_phase_ratios!(phase_ratios, particles, phases)
+    JustPIC.update_phase_ratios!(phase_ratios, particles, phases)
 
     @test all(extrema([sum(p) for p in phase_ratios.vertex]) .≈ 1)
     @test all(extrema([sum(p) for p in phase_ratios.center]) .≈ 1)
@@ -87,26 +88,26 @@ end
     ## Test a 2x2x2 grid with 2x1 CellArrays per grid cell
     ncells = (2,)
     # instantiate CellArray object
-    CA = JustPIC._3D.cell_array(x, ncells, ni)
+    CA = JustPIC.cell_array(x, ncells, ni)
     # test all the data is one
     @test all(isone, CA.data)
     # create empty cell
-    @test JustPIC._3D.new_empty_cell(CA) == @SArray zeros(2)
+    @test JustPIC.new_empty_cell(CA) == @SArray zeros(2)
     # mutate and read 2nd element in grid cell [1, 1, 1]
-    JustPIC.@index CA[2, 1, 1, 1] = 2.0
-    @test JustPIC.@index(CA[2, 1, 1, 1]) == 2.0
+    CAI.@index CA[2, 1, 1, 1] = 2.0
+    @test CAI.@index(CA[2, 1, 1, 1]) == 2.0
 
     ## Test a 2x2x2 grid with 2x2 CellArrays per grid cell
     ncells = (2, 2)
     # instantiate CellArray object
-    CA = JustPIC._3D.cell_array(x, ncells, ni)
+    CA = JustPIC.cell_array(x, ncells, ni)
     # test all the data is one
     @test all(isone, CA.data)
     # create empty cell
-    @test JustPIC._3D.new_empty_cell(CA) == @SArray zeros(2, 2)
+    @test JustPIC.new_empty_cell(CA) == @SArray zeros(2, 2)
     # mutate and read [2,2] element in grid cell [1, 1, 1]
-    JustPIC.@index CA[2, 2, 1, 1, 1] = 2.0
-    @test JustPIC.@index(CA[2, 2, 1, 1, 1]) == 2.0
+    CAI.@index CA[2, 2, 1, 1, 1] = 2.0
+    @test CAI.@index(CA[2, 2, 1, 1, 1]) == 2.0
 end
 
 @testset "Phase ratios - 3D" begin
@@ -128,18 +129,18 @@ end
     grid_vel = grid_vx, grid_vy, grid_vz
 
     nxcell, max_xcell, min_xcell = 125, 125, 125
-    particles = JustPIC._3D.init_particles(
+    particles = JustPIC.init_particles(
         backend, nxcell, max_xcell, min_xcell, grid_vel...,
     )
 
     nphases = 5
-    phases, = JustPIC._3D.init_cell_arrays(particles, Val(1))
+    phases, = JustPIC.init_cell_arrays(particles, Val(1))
     T = typeof(phases.data)
     phases.data .= T(rand(1:nphases, size(phases.data)))
 
-    phase_ratios = JustPIC._3D.PhaseRatios(backend, nphases, ni);|
+    phase_ratios = JustPIC.PhaseRatios(backend, nphases, ni);|
 
-    JustPIC._3D.update_phase_ratios!(phase_ratios, particles, phases)
+    JustPIC.update_phase_ratios!(phase_ratios, particles, phases)
 
     @test all(extrema([sum(p) for p in phase_ratios.vertex]) .≈ 1)
     @test all(extrema([sum(p) for p in phase_ratios.center]) .≈ 1)

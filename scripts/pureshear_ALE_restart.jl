@@ -2,9 +2,9 @@ using Statistics, LinearAlgebra, Printf, Base.Threads, CairoMakie, JLD2
 const year = 365 * 3600 * 24
 const USE_GPU = false
 
-using JustPIC, JustPIC._2D
+using JustPIC
 import KernelAbstractions: @kernel, @index
-const backend = JustPIC.CPUBackend
+const backend = JustPIC.CPU
 
 @kernel function InitialFieldsParticles!(phases, px, py, index)
     I = @index(Global, NTuple)
@@ -113,7 +113,7 @@ function main(ALE, restart, last_step)
         )
     end
 
-    phase_ratios = JustPIC._2D.PhaseRatios(backend, 2, values(Nc))
+    phase_ratios = JustPIC.PhaseRatios(backend, 2, values(Nc))
     phase_ratios_vertex!(phase_ratios, particles, values(verts), phases)
     phase_ratios_center!(phase_ratios, particles, values(cents), phases)
     Npart = sum(particles.index.data)

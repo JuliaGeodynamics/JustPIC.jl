@@ -2,9 +2,9 @@ using Statistics, LinearAlgebra, Printf, Base.Threads, GLMakie
 const year = 365 * 3600 * 24
 const USE_GPU = false
 
-using JustPIC, JustPIC._2D
+using JustPIC
 import KernelAbstractions: @kernel, @index
-const backend = JustPIC.CPUBackend
+const backend = JustPIC.CPU
 
 const ALE = true
 
@@ -89,7 +89,7 @@ function main()
         phases, particles.coords..., particles.index
     )
 
-    phase_ratios = JustPIC._2D.PhaseRatios(backend, 2, values(Nc))
+    phase_ratios = JustPIC.PhaseRatios(backend, 2, values(Nc))
     phase_ratios_vertex!(phase_ratios, particles, values(verts), phases)
     phase_ratios_center!(phase_ratios, particles, values(verts), phases)
 

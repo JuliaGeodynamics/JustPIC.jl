@@ -1,8 +1,8 @@
 using JustPIC
-using JustPIC._2D
+using JustPIC
 using GLMakie
 
-const backend = JustPIC.CPUBackend
+const backend = JustPIC.CPU
 
 function expand_range(x::AbstractRange)
     dx = x[2] - x[1]

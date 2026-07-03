@@ -6,15 +6,16 @@ elseif ENV["JULIA_JUSTPIC_BACKEND"] === "CUDA"
     CUDA.allowscalar(true)
 end
 
-using JustPIC, JustPIC._2D, CellArrays, Test, LinearAlgebra
-import KernelAbstractions: @kernel, @index
+using JustPIC, CellArrays, Test, LinearAlgebra
+import CellArraysIndexing as CAI
+import KernelAbstractions: @kernel, @index, CPU
 
 const backend = @static if ENV["JULIA_JUSTPIC_BACKEND"] === "AMDGPU"
-    JustPIC.AMDGPUBackend
+    AMDGPU.ROCBackend
 elseif ENV["JULIA_JUSTPIC_BACKEND"] === "CUDA"
-    JustPIC.CUDABackend
+    CUDA.CUDABackend
 else
-    JustPIC.CPUBackend
+    CPU
 end
 
 function expand_range(x::LinRange)
@@ -81,11 +82,11 @@ Base.getindex(p::ForceInjectionPoint2D, i::Int) = p.coords[i]
     grid_vy = expand_range(xc), yv
     grid_vel = grid_vx, grid_vx
     # Initialize particles & particle fields
-    particles = _2D.init_particles(
+    particles = JustPIC.init_particles(
         backend, nxcell, max_xcell, min_xcell, grid_vel...,
     )
 
-    arrays = _2D.SubgridDiffusionCellArrays(particles)
+    arrays = JustPIC.SubgridDiffusionCellArrays(particles)
     # Test they are allocated in the right backend
     @test arrays.ΔT_subgrid isa TA(backend)
     @test arrays.pT0.data isa TA(backend)
@@ -112,11 +113,11 @@ end
     grid_vx = xv, expand_range(yc)
     grid_vy = expand_range(xc), yv
 
-    particles1 = _2D.init_particles(
+    particles1 = JustPIC.init_particles(
         backend, nxcell, max_xcell, min_xcell, (grid_vx, grid_vy)...,
     )
 
-    particles2 = _2D.init_particles(
+    particles2 = JustPIC.init_particles(
         backend, nxcell, max_xcell, min_xcell, (grid_vx, grid_vy)...,
     )
 
@@ -131,11 +132,11 @@ end
     xv = x, x
 
     px = rand()
-    idx = _2D.cell_index(px, x)
+    idx = JustPIC.cell_index(px, x)
     @test x[idx] ≤ px < x[idx + 1]
 
     px, py = rand(2)
-    i, j = _2D.cell_index((px, py), xv)
+    i, j = JustPIC.cell_index((px, py), xv)
     @test x[i] ≤ px < x[i + 1]
     @test x[j] ≤ py < x[j + 1]
 
@@ -146,7 +147,7 @@ end
     @test y[idx] ≤ py < y[idx + 1]
 
     xv = x, y
-    i, j = _2D.cell_index((px, py), xv)
+    i, j = JustPIC.cell_index((px, py), xv)
     @test x[i] ≤ px < x[i + 1]
     @test y[j] ≤ py < y[j + 1]
 end
@@ -160,23 +161,23 @@ end
     grid_vx = xv, TA(backend)(expand_range(Array(yc)))
     grid_vy = TA(backend)(expand_range(Array(xc))), yv
     grid_vi = grid_vx, grid_vy
-    dxi_velocity = JustPIC._2D.compute_dx.(grid_vi)
-    dxi_vertex = JustPIC._2D.compute_dx((xv, yv))
+    dxi_velocity = JustPIC.compute_dx.(grid_vi)
+    dxi_vertex = JustPIC.compute_dx((xv, yv))
 
     p = (0.22, 0.48)
     idx = (3, 3)
     corrected_idx = (
-        JustPIC._2D.find_parent_cell_bisection(p[1], xv, idx[1]),
-        JustPIC._2D.find_parent_cell_bisection(p[2], yv, idx[2]),
+        JustPIC.find_parent_cell_bisection(p[1], xv, idx[1]),
+        JustPIC.find_parent_cell_bisection(p[2], yv, idx[2]),
     )
 
     Vx = TA(backend)([2.0 * x + y for x in Array(grid_vx[1]), y in Array(grid_vx[2])])
     Vy = TA(backend)([x - 3.0 * y for x in Array(grid_vy[1]), y in Array(grid_vy[2])])
 
-    v_linp = JustPIC._2D.interp_velocity2particle_LinP(p, grid_vi, dxi_velocity, (Vx, Vy), idx)
-    v_mqs = JustPIC._2D.interp_velocity2particle_MQS(p, grid_vi, dxi_velocity, (Vx, Vy), idx)
-    v_linp_corrected = JustPIC._2D.interp_velocity2particle_LinP(p, grid_vi, dxi_velocity, (Vx, Vy), corrected_idx)
-    v_mqs_corrected = JustPIC._2D.interp_velocity2particle_MQS(p, grid_vi, dxi_velocity, (Vx, Vy), corrected_idx)
+    v_linp = JustPIC.interp_velocity2particle_LinP(p, grid_vi, dxi_velocity, (Vx, Vy), idx)
+    v_mqs = JustPIC.interp_velocity2particle_MQS(p, grid_vi, dxi_velocity, (Vx, Vy), idx)
+    v_linp_corrected = JustPIC.interp_velocity2particle_LinP(p, grid_vi, dxi_velocity, (Vx, Vy), corrected_idx)
+    v_mqs_corrected = JustPIC.interp_velocity2particle_MQS(p, grid_vi, dxi_velocity, (Vx, Vy), corrected_idx)
 
     @test all(v_linp .≈ v_linp_corrected)
     @test all(v_mqs .≈ v_mqs_corrected)
@@ -196,11 +197,11 @@ end
 
     p_backtrack = (xv[3] - 0.08, yv[3] - 0.02)
     I_backtrack = (
-        JustPIC._2D.find_parent_cell_bisection(p_backtrack[1], xv, 3),
-        JustPIC._2D.find_parent_cell_bisection(p_backtrack[2], yv, 3),
+        JustPIC.find_parent_cell_bisection(p_backtrack[1], xv, 3),
+        JustPIC.find_parent_cell_bisection(p_backtrack[2], yv, 3),
     )
     di_backtrack = (dxi_vertex[1][I_backtrack[1]], dxi_vertex[2][I_backtrack[2]])
-    expected = JustPIC._2D._grid2particle(
+    expected = JustPIC._grid2particle(
         p_backtrack, (xv, yv), di_backtrack, F0, I_backtrack
     )
     @test F_linp[3, 3] ≈ expected atol = 1.0e-12 rtol = 1.0e-12
@@ -223,7 +224,7 @@ end
     )
 
     nxcell, max_xcell, min_xcell = 8, 12, 4
-    particles = _2D.init_particles(
+    particles = JustPIC.init_particles(
         backend, nxcell, max_xcell, min_xcell, grid_vi...,
     )
 
@@ -269,11 +270,11 @@ end
     P_marker = TA(backend)(zeros(np))
 
     for _ in 1:50
-        _2D.advection!(passive_markers, RungeKutta2(2 / 3), V, (grid_vx, grid_vy), dt)
+        JustPIC.advection!(passive_markers, RungeKutta2(2 / 3), V, (grid_vx, grid_vy), dt)
     end
 
     # interpolate grid fields T and P onto the marker locations
-    _2D.grid2particle!((T_marker, P_marker), xvi, (T, P), passive_markers)
+    JustPIC.grid2particle!((T_marker, P_marker), xvi, (T, P), passive_markers)
     x_marker = passive_markers.coords[1]
     y_marker = passive_markers.coords[2]
 
@@ -299,8 +300,8 @@ end
     grid_vel = grid_vx, grid_vy
 
     # Initialize particles & particle fields
-    particles = _2D.init_particles(backend, nxcell, max_xcell, min_xcell, grid_vel...)
-    pPhases, = _2D.init_cell_arrays(particles, Val(1))
+    particles = JustPIC.init_particles(backend, nxcell, max_xcell, min_xcell, grid_vel...)
+    pPhases, = JustPIC.init_cell_arrays(particles, Val(1))
 
     n_circle = 16 # number of particles in the circular cluster
     θ = LinRange(0, 2π * (1 - 1 / n_circle), n_circle)
@@ -325,7 +326,7 @@ end
     end
 
     index_before = vec(Array(particles.index.data))
-    _2D.force_injection!(particles, p_new, (pPhases,), (3.0,))
+    JustPIC.force_injection!(particles, p_new, (pPhases,), (3.0,))
 
     index_after = vec(Array(particles.index.data))
     x_data = vec(Array(particles.coords[1].data))
@@ -353,17 +354,17 @@ end
     @test all(phase_data[injected_mask] .== 3.0)
     @test all(phase_data[existing_mask] .== 1.0)
 
-    particles_no_fields = _2D.init_particles(backend, nxcell, max_xcell, min_xcell, grid_vel...)
-    _2D.force_injection!(particles_no_fields, p_new)
+    particles_no_fields = JustPIC.init_particles(backend, nxcell, max_xcell, min_xcell, grid_vel...)
+    JustPIC.force_injection!(particles_no_fields, p_new)
     @test count(vec(Array(particles_no_fields.index.data))) == nslots
 
-    particles_skip = _2D.init_particles(backend, nxcell, max_xcell, min_xcell, grid_vel...)
-    pPhases_skip, = _2D.init_cell_arrays(particles_skip, Val(1))
+    particles_skip = JustPIC.init_particles(backend, nxcell, max_xcell, min_xcell, grid_vel...)
+    pPhases_skip, = JustPIC.init_cell_arrays(particles_skip, Val(1))
     particles_skip, pPhases_skip = setup_circle_particles(
         particles_skip, pPhases_skip, n_circle, x_circle, y_circle, x_shift,
     )
     p_empty = TA(backend)(fill(p_invalid, ni..., nslots))
-    _2D.force_injection!(particles_skip, p_empty)
+    JustPIC.force_injection!(particles_skip, p_empty)
     @test count(vec(Array(particles_skip.index.data))) == n_circle
 end
 
@@ -373,13 +374,13 @@ end
         I = @index(Global, NTuple)
         for ip in cellaxes(phases)
             # quick escape
-            JustPIC.@index(index[ip, I...]) == 0 && continue
-            x = JustPIC.@index px[ip, I...]
-            y = JustPIC.@index py[ip, I...]
+            CAI.@index(index[ip, I...]) == 0 && continue
+            x = CAI.@index px[ip, I...]
+            y = CAI.@index py[ip, I...]
             if x < y
-                JustPIC.@index phases[ip, I...] = 1.0
+                CAI.@index phases[ip, I...] = 1.0
             else
-                JustPIC.@index phases[ip, I...] = 2.0
+                CAI.@index phases[ip, I...] = 2.0
             end
         end
     end
@@ -431,7 +432,7 @@ end
 
     launch!(ka_backend(particles), InitialFieldsParticles!, size(phases), phases, particles.coords..., particles.index)
 
-    phase_ratios = JustPIC._2D.PhaseRatios(backend, 2, values(Nc))
+    phase_ratios = JustPIC.PhaseRatios(backend, 2, values(Nc))
     update_phase_ratios!(phase_ratios, particles, phases)
 
     @test all(extrema(sum(phase_ratios.vertex.data, dims = 2)) .≈ 1)
@@ -477,7 +478,7 @@ function advection_test_2D()
     grid_vx = xv, expand_range(yc)
     grid_vy = expand_range(xc), yv
 
-    particles = _2D.init_particles(
+    particles = JustPIC.init_particles(
         backend, nxcell, max_xcell, min_xcell, (grid_vx, grid_vy)...,
     )
 
@@ -492,18 +493,18 @@ function advection_test_2D()
 
     # Advection test
     particle_args = pT, = init_cell_arrays(particles, Val(1))
-    _2D.grid2particle!(pT, T, particles)
+    JustPIC.grid2particle!(pT, T, particles)
 
     sumT = sum(T)
 
     niter = 25
     for it in 1:niter
-        _2D.particle2grid!(T, pT, particles)
+        JustPIC.particle2grid!(T, pT, particles)
         copyto!(T0, T)
-        _2D.advection!(particles, RungeKutta2(2 / 3), V, dt)
-        _2D.move_particles!(particles, particle_args)
-        _2D.inject_particles!(particles, (pT,))
-        _2D.grid2particle!(pT, T, particles)
+        JustPIC.advection!(particles, RungeKutta2(2 / 3), V, dt)
+        JustPIC.move_particles!(particles, particle_args)
+        JustPIC.inject_particles!(particles, (pT,))
+        JustPIC.grid2particle!(pT, T, particles)
     end
 
     sumT_final = sum(T)
@@ -530,7 +531,7 @@ function advection_test_2D_refined()
     grid_vx = xv, expand_range(yc)
     grid_vy = expand_range(xc), yv
 
-    particles = _2D.init_particles(
+    particles = JustPIC.init_particles(
         backend, nxcell, max_xcell, min_xcell, grid_vx, grid_vy,
     )
 
@@ -545,18 +546,18 @@ function advection_test_2D_refined()
     dt = min(dx_min / maximum(abs.(Array(Vx))), dy_min / maximum(abs.(Array(Vy)))) / 2
 
     particle_args = pT, = init_cell_arrays(particles, Val(1))
-    _2D.grid2particle!(pT, T, particles)
+    JustPIC.grid2particle!(pT, T, particles)
 
     sumT = sum(T)
 
     niter = 25
     for _ in 1:niter
-        _2D.particle2grid!(T, pT, particles)
+        JustPIC.particle2grid!(T, pT, particles)
         copyto!(T0, T)
-        _2D.advection!(particles, RungeKutta2(2 / 3), V, dt)
-        _2D.move_particles!(particles, particle_args)
-        _2D.inject_particles!(particles, (pT,))
-        _2D.grid2particle!(pT, T, particles)
+        JustPIC.advection!(particles, RungeKutta2(2 / 3), V, dt)
+        JustPIC.move_particles!(particles, particle_args)
+        JustPIC.inject_particles!(particles, (pT,))
+        JustPIC.grid2particle!(pT, T, particles)
     end
 
     sumT_final = sum(T)
@@ -587,7 +588,7 @@ function test_rotating_circle()
     grid_vx = xv, expand_range(yc)
     grid_vy = expand_range(xc), yv
 
-    particles = _2D.init_particles(
+    particles = JustPIC.init_particles(
         backend, nxcell, max_xcell, min_xcell, (grid_vx, grid_vy)...,
     )
 
@@ -606,18 +607,18 @@ function test_rotating_circle()
     dt = 200.0
 
     particle_args = pT, = init_cell_arrays(particles, Val(1))
-    _2D.grid2particle!(pT, T, particles)
+    JustPIC.grid2particle!(pT, T, particles)
 
     t = 0
     it = 0
     sumT = sum(T)
     while t ≤ tmax
-        _2D.particle2grid!(T, pT, particles)
+        JustPIC.particle2grid!(T, pT, particles)
         copyto!(T0, T)
-        _2D.advection!(particles, _2D.RungeKutta2(), V, dt)
-        _2D.move_particles!(particles, particle_args)
-        _2D.inject_particles!(particles, (pT,))
-        _2D.grid2particle!(pT, T, particles)
+        JustPIC.advection!(particles, JustPIC.RungeKutta2(), V, dt)
+        JustPIC.move_particles!(particles, particle_args)
+        JustPIC.inject_particles!(particles, (pT,))
+        JustPIC.grid2particle!(pT, T, particles)
         t += dt
         it += 1
     end

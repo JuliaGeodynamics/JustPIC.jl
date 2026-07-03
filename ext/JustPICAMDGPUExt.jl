@@ -3,7 +3,10 @@ module JustPICAMDGPUExt
 using AMDGPU
 using JustPIC, CellArrays, StaticArrays
 
-import JustPIC: AbstractBackend, AMDGPUBackend, Particles, MarkerChain
+import JustPIC: Particles, MarkerChain
+# `ROCBackend` is AMDGPU.jl's KernelAbstractions backend (JustPIC no longer defines
+# its own backend tags — it dispatches on the KA backends directly).
+using AMDGPU: ROCBackend
 
 # ---------------------------------------------------------------------------
 # Collapsed GPU extension
@@ -12,13 +15,13 @@ import JustPIC: AbstractBackend, AMDGPUBackend, Particles, MarkerChain
 # `launch!(ka_backend(x), ...)` and pick the KernelAbstractions backend from the
 # array type at runtime. This extension therefore only supplies the AMDGPU-specific
 # *allocation* and *host <-> device conversion* primitives; the generic methods
-# already compiled into `JustPIC._2D` / `JustPIC._3D` dispatch to AMDGPU
+# already compiled into `JustPIC` dispatch to AMDGPU
 # automatically. No `common.jl` re-include and no per-function forwarding layer
-# (`JustPIC._2D.f(::Particles{AMDGPUBackend}, ...) = f(...)`) are needed.
+# (`JustPIC.f(::Particles{ROCBackend}, ...) = f(...)`) are needed.
 
 CellArrays.@define_ROCCellArray()
 
-JustPIC.TA(::Type{AMDGPUBackend}) = ROCArray
+JustPIC.TA(::Type{ROCBackend}) = ROCArray
 
 function ROCCellArray(
         ::Type{T}, ::UndefInitializer, dims::NTuple{N, Int}
@@ -34,20 +37,13 @@ end
 # ---------------------------------------------------------------------------
 # Backend-specific CellArray allocation
 # ---------------------------------------------------------------------------
-# `CA` and `undef_cell_array` are per-dimension bindings (they live inside the
-# `JustPIC._2D` / `JustPIC._3D` submodules because `launch.jl` is `include`d
-# there), so both dimensions need an AMDGPU method.
-for D in (JustPIC._2D, JustPIC._3D)
-    @eval begin
-        $D.CA(::Type{AMDGPUBackend}, dims; eltype = Float64) =
-            ROCCellArray{eltype}(undef, dims)
 
-        @inline function $D.undef_cell_array(
-                ::Type{AMDGPUBackend}, ::Type{T}, ni::NTuple{N, <:Integer}
-            ) where {T, N}
-            return ROCCellArray{T}(undef, Int.(ni))
-        end
-    end
+JustPIC.CA(::Type{ROCBackend}, dims; eltype = Float64) = ROCCellArray{eltype}(undef, dims)
+
+@inline function JustPIC.undef_cell_array(
+        ::Type{ROCBackend}, ::Type{T}, ni::NTuple{N, <:Integer}
+    ) where {T, N}
+    return ROCCellArray{T}(undef, Int.(ni))
 end
 
 # ---------------------------------------------------------------------------
@@ -63,7 +59,7 @@ function AMDGPU.ROCArray(::Type{T}, particles::JustPIC.Particles) where {T <: Nu
     xvi_gpu = map(x -> ROCArray(T, x), xvi)
     xi_vel_gpu = map(vg -> map(x -> ROCArray(T, x), vg), xi_vel)
     return Particles(
-        AMDGPUBackend,
+        ROCBackend,
         coords_gpu,
         ROCArray(Bool, index),
         nxcell,
@@ -85,7 +81,7 @@ function AMDGPU.ROCArray(::Type{T}, chain::JustPIC.MarkerChain) where {T <: Numb
     coords_gpu = ntuple(i -> ROCArray(T, coords[i]), Val(length(coords)))
     coords0_gpu = ntuple(i -> ROCArray(T, coords0[i]), Val(length(coords0)))
     return MarkerChain(
-        AMDGPUBackend,
+        ROCBackend,
         coords_gpu,
         coords0_gpu,
         ROCArray(h_vertices),
@@ -100,7 +96,7 @@ end
 function AMDGPU.ROCArray(::Type{T}, phase_ratios::JustPIC.PhaseRatios) where {T <: Number}
     (; center, vertex, Vx, Vy, Vz, yz, xz, xy) = phase_ratios
     return JustPIC.PhaseRatios(
-        AMDGPUBackend,
+        ROCBackend,
         ROCArray(T, center),
         ROCArray(T, vertex),
         ROCArray(T, Vx),
@@ -115,7 +111,7 @@ end
 function AMDGPU.ROCArray(phase_ratios::JustPIC.PhaseRatios)
     (; center, vertex, Vx, Vy, Vz, yz, xz, xy) = phase_ratios
     return JustPIC.PhaseRatios(
-        AMDGPUBackend,
+        ROCBackend,
         ROCArray(center),
         ROCArray(vertex),
         ROCArray(Vx),
@@ -136,7 +132,7 @@ function AMDGPU.ROCArray(particles::JustPIC.Particles)
     xvi_gpu = map(ROCArray, xvi)
     xi_vel_gpu = map(vg -> map(ROCArray, vg), xi_vel)
     return Particles(
-        AMDGPUBackend,
+        ROCBackend,
         coords_gpu,
         ROCArray(index),
         nxcell,
@@ -158,7 +154,7 @@ function AMDGPU.ROCArray(chain::JustPIC.MarkerChain)
     coords_gpu = ntuple(i -> ROCArray(coords[i]), Val(length(coords)))
     coords0_gpu = ntuple(i -> ROCArray(coords0[i]), Val(length(coords0)))
     return MarkerChain(
-        AMDGPUBackend,
+        ROCBackend,
         coords_gpu,
         coords0_gpu,
         ROCArray(h_vertices),
@@ -185,8 +181,8 @@ function AMDGPU.ROCArray(::Type{T}, CA::CellArray) where {T <: Number}
     return CA_ROC
 end
 
-AMDGPU.ROCArray(particles::JustPIC.Particles{AMDGPUBackend}) = particles
-AMDGPU.ROCArray(phase_ratios::JustPIC.PhaseRatios{AMDGPUBackend}) = phase_ratios
+AMDGPU.ROCArray(particles::JustPIC.Particles{ROCBackend}) = particles
+AMDGPU.ROCArray(phase_ratios::JustPIC.PhaseRatios{ROCBackend}) = phase_ratios
 AMDGPU.ROCArray(CA::CellArray) = AMDGPU.ROCArray(eltype(eltype(CA)), CA)
 AMDGPU.ROCArray(::Type{Float64}, A::Vector{Float64}) = AMDGPU.ROCArray(A)
 AMDGPU.ROCArray(::Type{T}, x::Number) where {T <: AbstractFloat} = x
@@ -197,7 +193,7 @@ AMDGPU.ROCArray(x::T) where {T <: AbstractFloat} = x
 # Positional reconstruction constructors (device-array `index`)
 # ---------------------------------------------------------------------------
 # GPU analogue of `Particles(coords, index::CPUCellArray, ...)` in `particles.jl`:
-# reattach the `AMDGPUBackend` tag when a `Particles` is rebuilt positionally from
+# reattach the `ROCBackend` tag when a `Particles` is rebuilt positionally from
 # device arrays (e.g. checkpoint restore). Dispatched on the `index` cell-array
 # dimension so 2D and 3D pick the right method.
 function JustPIC.Particles(
@@ -205,7 +201,7 @@ function JustPIC.Particles(
         index::CellArray{SVector{N1, Bool}, 2, 0, ROCArray{Bool, N2}},
         nxcell, max_xcell, min_xcell, np, di, _di, xci, xvi, xi_vel,
     ) where {N1, N2}
-    return Particles(AMDGPUBackend, coords, index, nxcell, max_xcell, min_xcell, np, di, _di, xci, xvi, xi_vel)
+    return Particles(ROCBackend, coords, index, nxcell, max_xcell, min_xcell, np, di, _di, xci, xvi, xi_vel)
 end
 
 function JustPIC.Particles(
@@ -213,7 +209,7 @@ function JustPIC.Particles(
         index::CellArray{SVector{N1, Bool}, 2, 0, ROCArray{Bool, N2, B}},
         nxcell, max_xcell, min_xcell, np, di, _di, xci, xvi, xi_vel,
     ) where {B, N1, N2}
-    return Particles(AMDGPUBackend, coords, index, nxcell, max_xcell, min_xcell, np, di, _di, xci, xvi, xi_vel)
+    return Particles(ROCBackend, coords, index, nxcell, max_xcell, min_xcell, np, di, _di, xci, xvi, xi_vel)
 end
 
 function JustPIC.Particles(
@@ -221,7 +217,7 @@ function JustPIC.Particles(
         index::CellArray{SVector{N1, Bool}, 3, 0, ROCArray{Bool, N2}},
         nxcell, max_xcell, min_xcell, np, di, _di, xci, xvi, xi_vel,
     ) where {N1, N2}
-    return Particles(AMDGPUBackend, coords, index, nxcell, max_xcell, min_xcell, np, di, _di, xci, xvi, xi_vel)
+    return Particles(ROCBackend, coords, index, nxcell, max_xcell, min_xcell, np, di, _di, xci, xvi, xi_vel)
 end
 
 function JustPIC.Particles(
@@ -229,7 +225,7 @@ function JustPIC.Particles(
         index::CellArray{SVector{N1, Bool}, 3, 0, ROCArray{Bool, N2, B}},
         nxcell, max_xcell, min_xcell, np, di, _di, xci, xvi, xi_vel,
     ) where {B, N1, N2}
-    return Particles(AMDGPUBackend, coords, index, nxcell, max_xcell, min_xcell, np, di, _di, xci, xvi, xi_vel)
+    return Particles(ROCBackend, coords, index, nxcell, max_xcell, min_xcell, np, di, _di, xci, xvi, xi_vel)
 end
 
 end # module

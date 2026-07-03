@@ -3,7 +3,10 @@ module JustPICMetalExt
 using Metal
 using JustPIC, CellArrays, StaticArrays
 
-import JustPIC: AbstractBackend, MetalBackend
+import JustPIC: Particles, MarkerChain
+# `MetalBackend` is Metal.jl's KernelAbstractions backend (JustPIC no longer defines
+# its own backend tags — it dispatches on the KA backends directly).
+using Metal: MetalBackend
 
 # ---------------------------------------------------------------------------
 # Reference "collapsed" GPU extension
@@ -11,12 +14,12 @@ import JustPIC: AbstractBackend, MetalBackend
 # Because JustPIC's kernels are now backend-generic (they launch through
 # `launch!(ka_backend(x), ...)` and pick the KernelAbstractions backend from the
 # array type at runtime), a GPU extension no longer needs to re-`include`
-# `common.jl` into its own `_2D`/`_3D` submodules, nor a hand-written forwarding
-# layer (`JustPIC._2D.f(::Particles{Backend}, ...) = f(...)`) per public function.
+# `common.jl`, nor a hand-written forwarding
+# layer (`JustPIC.f(::Particles{Backend}, ...) = f(...)`) per public function.
 #
 # All this extension supplies is the backend-specific *allocation* and
 # *host <-> device conversion* primitives; the generic methods already compiled
-# into `JustPIC._2D` / `JustPIC._3D` dispatch to Metal automatically.
+# into `JustPIC` dispatch to Metal automatically.
 #
 # NOTE ON PRECISION: Apple Metal GPUs do not support `Float64`. Build containers
 # on the CPU (`Float64`) and move them to the GPU with the eltype-typed
@@ -31,21 +34,13 @@ JustPIC.TA(::Type{MetalBackend}) = MtlArray
 # ---------------------------------------------------------------------------
 # Backend-specific CellArray allocation
 # ---------------------------------------------------------------------------
-# `CA` and `undef_cell_array` are per-dimension bindings (they live inside the
-# `JustPIC._2D` / `JustPIC._3D` submodules because `launch.jl` is `include`d
-# there), so both need a Metal method.
 
-for D in (JustPIC._2D, JustPIC._3D)
-    @eval begin
-        $D.CA(::Type{MetalBackend}, dims; eltype = Float32) =
-            MtlCellArray{eltype}(undef, dims)
+JustPIC.CA(::Type{MetalBackend}, dims; eltype = Float32) = MtlCellArray{eltype}(undef, dims)
 
-        @inline function $D.undef_cell_array(
-                ::Type{MetalBackend}, ::Type{T}, ni::NTuple{N, <:Integer}
-            ) where {T, N}
-            return MtlCellArray{T}(undef, Int.(ni))
-        end
-    end
+@inline function JustPIC.undef_cell_array(
+        ::Type{MetalBackend}, ::Type{T}, ni::NTuple{N, <:Integer}
+    ) where {T, N}
+    return MtlCellArray{T}(undef, Int.(ni))
 end
 
 # ---------------------------------------------------------------------------

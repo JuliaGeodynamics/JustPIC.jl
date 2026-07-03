@@ -1,65 +1,46 @@
 module JustPIC
 
-# using ImplicitGlobalGrid
 using MPI: MPI
-using CellArrays, CellArraysIndexing, StaticArrays
+using ImplicitGlobalGrid
+using MuladdMacro
+using GridGeometryUtils
+using CellArrays, StaticArrays
 
-export @cell, @index
+# `using KernelAbstractions` (full) makes bare `@index` resolve to KA's, which is
+# what `@kernel` bodies need. It also brings the KA backends `CPU` and the abstract
+# supertype `Backend`. The vendor backends `CUDA.CUDABackend`, `AMDGPU.ROCBackend`,
+# `Metal.MetalBackend` are introduced by the respective package extensions. JustPIC
+# no longer defines its own backend tags.
+using KernelAbstractions
 
-abstract type AbstractBackend end
+# CellArraysIndexing element access is used through the `CAI.@index` qualifier so it
+# does not clash with KA's `@index`; the non-`@index` names are used bare.
+using CellArraysIndexing: @cell, getcell, setcell!, getcellindex, setcellindex!
+import CellArraysIndexing as CAI
 
-"""
-    CPUBackend
-
-Backend tag for CPU array allocation and CPU execution paths.
-"""
-struct CPUBackend <: AbstractBackend end
-
-"""
-    CUDABackend
-
-Backend tag for CUDA array allocation and CUDA execution paths.
-
-CUDA-specific array and `CellArray` methods are installed by the CUDA package
-extension when CUDA.jl is loaded.
-"""
-struct CUDABackend <: AbstractBackend end
-
-"""
-    AMDGPUBackend
-
-Backend tag for AMDGPU array allocation and AMDGPU execution paths.
-
-AMDGPU-specific array and `CellArray` methods are installed by the AMDGPU
-package extension when AMDGPU.jl is loaded.
-"""
-struct AMDGPUBackend <: AbstractBackend end
-
-"""
-    MetalBackend
-
-Backend tag for Metal (Apple GPU) array allocation and execution paths.
-
-Metal-specific array and `CellArray` methods are installed by the Metal package
-extension when Metal.jl is loaded.
-"""
-struct MetalBackend <: AbstractBackend end
-
-export TA
-
-function CA end
+export @cell
+export TA, CA
 
 """
     TA()
     TA(backend)
 
-Return the plain array type associated with `backend`.
+Return the plain array type associated with `backend` (a KernelAbstractions
+backend type such as `CPU`).
 
-For `CPUBackend` this is `Array`. Loading CUDA.jl or AMDGPU.jl extends this for
-`CUDABackend` and `AMDGPUBackend`, respectively.
+For `CPU` this is `Array`. Loading CUDA.jl / AMDGPU.jl / Metal.jl extends this for
+`CUDA.CUDABackend`, `AMDGPU.ROCBackend`, and `Metal.MetalBackend`, respectively.
 """
 TA() = Array
-TA(::Type{CPUBackend}) = Array
+TA(::Type{CPU}) = Array
+
+"""
+    CA(backend, dims; eltype = Float64)
+
+Allocate an uninitialized `CellArray` of size `dims` on `backend`. Extended for
+the GPU backends by the package extensions.
+"""
+CA(::Type{CPU}, dims; eltype = Float64) = CPUCellArray{eltype}(undef, dims)
 
 include("particles.jl")
 export AbstractParticles, Particles, MarkerChain, PassiveMarkers, cell_index, cell_length
@@ -70,7 +51,9 @@ export nphases, numphases
 include("Advection/types.jl")
 export AbstractAdvectionIntegrator, Euler, RungeKutta2, RungeKutta4, set_precision
 
-include("JustPIC_CPU.jl")
+# The algorithm catalog. Since the KA kernels are dimension-generic, this is
+# included once into `JustPIC` directly. Use `using JustPIC`.
+include("common.jl")
 
 include("CellArrays/conversion.jl")
 export Array, copy
