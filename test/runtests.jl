@@ -6,7 +6,7 @@ using Pkg
 
 istest(f) = endswith(f, ".jl") && startswith(basename(f), "test_")
 
-function parse_flags!(args, flag; default = nothing, type = typeeof(default))
+function parse_flags!(args, flag; default = nothing, type = typeof(default))
     for f in args
         startswith(f, flag) || continue
 
