@@ -31,7 +31,8 @@ end
         check_extras = false,
         check_weakdeps = true,
     ).anynonpass
-    @test Aqua.test_stale_deps(JustPIC).value
+    # GPU stacks are weakdeps that cluster CI may promote to hard deps (see runtests.jl)
+    @test Aqua.test_stale_deps(JustPIC; ignore = [:CUDA, :AMDGPU, :Metal]).value
 end
 
 @testset "Persistent tasks" begin
