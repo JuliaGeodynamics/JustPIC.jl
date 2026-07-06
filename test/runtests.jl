@@ -86,10 +86,10 @@ end
 _, backend_name = parse_flags!(ARGS, "--backend"; default = "CPU", type = String)
 
 @static if backend_name == "AMDGPU"
-     Pkg.add("AMDGPU")
+    Pkg.add("AMDGPU")
     ENV["JULIA_JUSTPIC_BACKEND"] = "AMDGPU"
 elseif backend_name == "CUDA"
-     Pkg.add("CUDA")
+    Pkg.add("CUDA")
     ENV["JULIA_JUSTPIC_BACKEND"] = "CUDA"
 elseif backend_name == "CPU"
     ENV["JULIA_JUSTPIC_BACKEND"] = "CPU"
