@@ -195,18 +195,6 @@ module _2D
     include(joinpath(@__DIR__, "../src/common.jl"))
     include(joinpath(@__DIR__, "../src/CUDAExt/CellArrays.jl"))
 
-    # halo update
-    function JustPIC._2D.update_cell_halo!(
-            x::Vararg{CellArray{S, N, D, CuArray{T, nD}}, NA}
-        ) where {NA, S, N, D, T, nD}
-        return update_cell_halo!(x...)
-    end
-    function JustPIC._2D.update_cell_halo!(
-            x::Vararg{CellArray{S, N, D, CuArray{T, nD, B}}, NA}
-        ) where {NA, S, N, D, T, nD, B}
-        return update_cell_halo!(x...)
-    end
-
     # Conversions
     function JustPIC._2D.Particles(
             coords,
@@ -742,18 +730,6 @@ module _3D
 
     include(joinpath(@__DIR__, "../src/common.jl"))
     include(joinpath(@__DIR__, "../src/CUDAExt/CellArrays.jl"))
-
-    # halo update
-    function JustPIC._3D.update_cell_halo!(
-            x::Vararg{CellArray{S, N, D, CuArray{T, nD}}, NA}
-        ) where {NA, S, N, D, T, nD}
-        return update_cell_halo!(x...)
-    end
-    function JustPIC._3D.update_cell_halo!(
-            x::Vararg{CellArray{S, N, D, CuArray{T, nD, B}}, NA}
-        ) where {NA, S, N, D, T, nD, B}
-        return update_cell_halo!(x...)
-    end
 
     # Conversions
     function JustPIC._3D.Particles(
