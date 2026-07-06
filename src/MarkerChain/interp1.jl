@@ -4,10 +4,8 @@ function interp1D_extremas(xq, x, y)
     last_I = 1
     for i in length(x):-1:2
         if !isnan(x[i])
-        if !isnan(x[i])
             last_I = i
             break
-        end
         end
     end
     x_lo, x_hi = x[1], x[last_I]
@@ -46,7 +44,7 @@ function interp1D_inner(xq, x, y, coords, I::Integer)
         end
     end
     x_lo, x_hi = x[1], x[last_I]
-    @inbounds for j in 1:last_I
+    @inbounds for j in 1:(last_I - 1)
         x0, x1 = x[j], x[j + 1]
 
         # interpolate using the last particle of left-neighbouring cell
@@ -80,8 +78,8 @@ end
     px = coords[1]
     # px = @cell coords[1][I - 1]
     ip = 1
-    for i in length(px):-1:2
-        if !isnan(px[i])
+    for i in cellnum(px):-1:2
+        if !isnan(@index px[i, I - 1])
             ip = i
             break
         end

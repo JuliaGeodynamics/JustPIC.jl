@@ -60,3 +60,114 @@ end
     end
     return nothing
 end
+
+## fill chain with given topo
+
+"""
+    fill_chain_from_chain!(chain::MarkerChain, topo_x, topo_y)
+
+Replace the marker positions in `chain` with coordinates sampled from an existing
+topographic polyline.
+
+After the markers are reassigned, the vertex-based topography stored on the chain
+is recomputed and synchronized with `h_vertices0`.
+
+`topo_x` and `topo_y` should describe an open polyline that spans the chain's
+horizontal extent.
+"""
+function fill_chain_from_chain!(chain::MarkerChain, topo_x, topo_y)
+    (; coords, index, cell_vertices) = chain
+    @parallel (1:length(index)) _fill_chain!(coords, index, cell_vertices, topo_x, topo_y)
+
+    # update topography at the vertices of the grid
+    compute_topography_vertex!(chain)
+    copyto!(chain.h_vertices0, chain.h_vertices)
+
+    return nothing
+end
+
+@parallel_indices (icell) function _fill_chain!(
+        coords, index, cell_vertices, topo_x, topo_y
+    )
+    _fill_chain_kernel!(coords, index, cell_vertices, topo_x, topo_y, icell)
+    return nothing
+end
+
+function _fill_chain_kernel!(coords, index, cell_vertices, topo_x, topo_y, icell)
+    itopo, ilast = first_last_particle_incell(topo_x, cell_vertices, icell)
+
+    for ip in cellaxes(index)
+        if itopo ≤ ilast
+            @index index[ip, icell] = true
+            @index coords[1][ip, icell] = topo_x[itopo]
+            @index coords[2][ip, icell] = topo_y[itopo]
+            itopo += 1
+        else
+            @index index[ip, icell] = false
+            @index coords[1][ip, icell] = NaN
+            @index coords[2][ip, icell] = NaN
+        end
+    end
+
+    return nothing
+end
+
+function first_last_particle_incell(topo_x, cell_vertices, icell)
+    xlims = cell_vertices[icell], cell_vertices[icell + 1]
+
+    ifirst = 1
+    ilast = length(topo_x)
+    x1 = topo_x[1]
+    previous_incell = xlims[1] < x1 < xlims[2]
+
+    first_found = false
+    last_found = false
+
+    x = topo_x[2]
+    for i in 2:(ilast - 1)
+        incell = xlims[1] < x < xlims[2]
+
+        if !previous_incell && incell
+            ifirst = i
+            first_found = true
+        end
+
+        xnext = topo_x[i + 1]
+        next_incell = xlims[1] < xnext < xlims[2]
+        if incell && !next_incell
+            ilast = i
+            last_found = true
+        end
+
+        first_found * last_found && break
+
+        x, previous_incell = xnext, incell
+    end
+
+    return ifirst, ilast
+end
+
+"""
+    fill_chain_from_vertices!(chain::MarkerChain, topo_y)
+
+Reconstruct a marker chain from topography values given at grid vertices.
+
+`topo_y` is copied into both the current and previous vertex topography fields
+before the marker coordinates are rebuilt.
+
+This is useful when the interface is naturally represented on the vertex grid and
+you want to refresh the marker representation from that discretization.
+"""
+function fill_chain_from_vertices!(chain::MarkerChain, topo_y)
+    copyto!(chain.h_vertices, topo_y)
+    copyto!(chain.h_vertices0, topo_y)
+
+    # reconstruct marker chain
+    reconstruct_chain_from_vertices!(chain)
+
+    # fill also the marker chain from the previous time step
+    copyto!(chain.coords0[1].data, chain.coords[1].data)
+    copyto!(chain.coords0[2].data, chain.coords[2].data)
+
+    return nothing
+end
