@@ -1,26 +1,43 @@
-# Main Runge-Kutta advection function for 2D staggered grids
 """
-    advection!(particles::Particles, method::AbstractAdvectionIntegrator, V, grid_vi::NTuple{N,NTuple{N,T}}, dt)
+    advection_MQS!(particles, method, V, dt)
 
-Advects the particles using the advection scheme defined by `method`.
+Advect particles using the monotonic quadratic spline (`MQS`) velocity
+interpolation scheme.
 
-# Arguments
-- `particles`: Particles object to be advected.
-- `method`: Time integration method (`Euler` or `RungeKutta2`).
-- `V`: Tuple containing `Vx`, `Vy`; and `Vz` in 3D.
-- `grid_vi`: Tuple containing the grids corresponding to `Vx`, `Vy`; and `Vz` in 3D.
-- `dt`: Time step.
+Compared with `advection!`, this method reconstructs staggered velocities with
+`MQS` where enough stencil support is available.
+
+Near boundaries or when the required stencil is unavailable, the implementation
+falls back to linear interpolation.
+
+The public entry point reads the staggered velocity coordinates and spacing from
+`particles.xi_vel` and `particles.di.velocity`.
 """
-function advection_MQS!(
+advection_MQS!(
     particles::Particles,
     method::AbstractAdvectionIntegrator,
     V,
-    grid_vi::NTuple{N,NTuple{N}},
     dt,
-) where {N}
+) = advection_MQS!(
+    particles,
+    method,
+    V,
+    particles.xi_vel,
+    dt,
+    particles.di.velocity
+)
+
+function advection_MQS!(
+        particles::Particles,
+        method::AbstractAdvectionIntegrator,
+        V,
+        grid_vi::NTuple{N, NTuple{N}},
+        dt,
+        dxi
+    ) where {N}
     interpolation_fn = interp_velocity2particle_MQS
 
-    dxi = compute_dx(first(grid_vi))
+    # dxi = compute_dx(first(grid_vi))
     (; coords, index) = particles
     # compute some basic stuff
     ni = size(index)
@@ -38,16 +55,16 @@ end
 # DIMENSION AGNOSTIC KERNELS
 
 @parallel_indices (I...) function advection_kernel_MQS!(
-    p,
-    method::AbstractAdvectionIntegrator,
-    V::NTuple{N},
-    index,
-    grid,
-    local_limits,
-    dxi,
-    dt,
-    interpolation_fn::F,
-) where {N,F}
+        p,
+        method::AbstractAdvectionIntegrator,
+        V::NTuple{N},
+        index,
+        grid,
+        local_limits,
+        dxi,
+        dt,
+        interpolation_fn::F,
+    ) where {N, F}
 
     # iterate over particles in the I-th cell
     for ipart in cellaxes(index)
@@ -69,13 +86,13 @@ end
 end
 
 @inline function interp_velocity2particle_MQS(
-    particle_coords::NTuple{N}, grid_vi, local_limits, dxi, V::NTuple{N}, idx::NTuple{N}
-) where {N}
+        particle_coords::NTuple{N}, grid_vi, local_limits, dxi, V::NTuple{N}, idx::NTuple{N}
+    ) where {N}
     return ntuple(Val(N)) do i
         Base.@_inline_meta
         local_lims = local_limits[i]
         v = if check_local_limits(local_lims, particle_coords)
-            interp_velocity2particle_MQS(particle_coords, grid_vi[i], dxi, V[i], Val(i), idx)
+            interp_velocity2particle_MQS(particle_coords, grid_vi[i], dxi[i], V[i], Val(i), idx)
         else
             Inf
         end
@@ -83,12 +100,15 @@ end
 end
 
 @inline function interp_velocity2particle_MQS(
-    p_i::Union{SVector,NTuple}, xi_vx::NTuple, dxi::NTuple, F::AbstractArray, ::Val{N}, idx
-) where {N}
+        p_i::Union{SVector, NTuple}, xi_vx::NTuple, dxi::NTuple, F::AbstractArray, ::Val{N}, idx
+    ) where {N}
     # F and coordinates of the cell corners
-    Fi, xci, indices = corner_field_nodes_LinP(F, p_i, xi_vx, dxi, idx)
+    Fi, xci, indices = corner_field_nodes_LinP(F, p_i, xi_vx, idx)
+    # Recompute the local spacing from the corrected parent cell. On nonuniform
+    # grids the seed cell `idx` may differ from the actual interpolation cell.
+    di = @dxi(dxi, indices...)
     # normalize particle coordinates
-    t = normalize_coordinates(p_i, xci, dxi)
+    t = normalize_coordinates(p_i, xci, di)
     # Interpolate field F from pressure node onto particle
     V = if all(x -> 1 < x[1] < x[2] - 1, zip(indices, size(F)))
         MQS(F, Fi, t, indices..., Val(N))

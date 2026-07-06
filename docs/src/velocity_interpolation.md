@@ -1,4 +1,10 @@
-# LinP
+# Velocity interpolation
+
+## Linear 
+
+The default interpolation scheme is a bi-linear (2D) or tri-linear (3D) interpolant.
+
+## LinP
 
 Velocity interpolation from [Pusok et al. 2017](https://link.springer.com/article/10.1007/s00024-016-1431-8). The velocity at the m-th particle is given by
 
@@ -8,7 +14,7 @@ where $u_L$ is the bi or tri-linear interpolation from the velocity nodes to the
 
 <img src="assets/LinP.png" width="700"  />
 
-# Modified Quadratic Spline MQS
+## Modified Quadratic Spline MQS
 
 Velocity interpolation from [Gerya et al. 2021](https://meetingorganizer.copernicus.org/EGU21/EGU21-15308.html). The scheme guarantee bi-linear interpolation of $\partial u_i/\partial x_i$ from pressure nodes where they are defined by solving (in)compressible continuity equation.
 
@@ -16,12 +22,11 @@ Example for the $u_x$ component in 2D:
 
 <img src="assets/MQs.png" width="700"  />
 
-
 *Step 1* Compute the normalized distances between particle and left-bottom corner of the cell:
 
 $t_{x} = \frac{x_m - xc_j}{\Delta x}$
 
-$t_{y} = \frac{y_m - yc_j}{\Delta y} $
+$t_{y} = \frac{y_m - yc_j}{\Delta y}$
 
 *Step 2* Compute $u_x$ velocity with bi-linear scheme for the bottom and top
 

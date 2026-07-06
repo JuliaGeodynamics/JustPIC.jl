@@ -1,9 +1,18 @@
+"""
+    resample!(chain::MarkerChain)
+
+Resample the markers within each chain cell when the chain becomes too sparse or
+too distorted.
+
+This keeps the marker spacing reasonably regular, which improves interpolation
+quality and the stability of subsequent marker-chain operations.
+"""
 function resample!(chain::MarkerChain)
 
     # resampling launch kernel
     @parallel_indices (i) function resample!(
-        coords, cell_vertices, index, min_xcell, max_xcell, dx_cells
-    )
+            coords, cell_vertices, index, min_xcell, max_xcell, dx_cells
+        )
         resample_cell!(coords, cell_vertices, index, min_xcell, max_xcell, dx_cells, i)
         return nothing
     end
@@ -12,14 +21,18 @@ function resample!(chain::MarkerChain)
     nx = length(index)
     dx_cells = cell_length(chain)
 
+    # sort marker chain - can't be done at the cell level because
+    # SA can't be sorted inside a GPU kernel
+    sort_chain!(chain)
+
     # call kernel
     @parallel (1:nx) resample!(coords, cell_vertices, index, min_xcell, max_xcell, dx_cells)
     return nothing
 end
 
 function resample_cell!(
-    coords::NTuple{2,T}, cell_vertices, index, min_xcell, max_xcell, dx_cells, I
-) where {T}
+        coords::NTuple{2, T}, cell_vertices, index, min_xcell, max_xcell, dx_cells, I
+    ) where {T}
 
     # cell particles coordinates
     index_I = @cell index[I]
@@ -27,19 +40,9 @@ function resample_cell!(
     x_cell = @cell px[I]
     y_cell = @cell py[I]
 
-    # sort particles in the cell
-    perms = sortperm(x_cell)
-    x_cell = x_cell[perms]
-    y_cell = y_cell[perms]
-    index_I = index_I[perms]
-
-    @cell index[I] = index_I
-    @cell px[I] = x_cell
-    @cell py[I] = y_cell
-
     # lower-left corner of the cell
     cell_vertex = cell_vertices[I]
-    # number of particles in the cell
+    # number of p`articles in the cell
     np = count(index_I)
     # dx of the new chain
     dx_chain = dx_cells / (np + 1)
@@ -50,14 +53,14 @@ function resample_cell!(
     np_new = max(min_xcell, np)
     dx_chain = dx_cells / (np_new + 1)
     if do_resampling
-        # @show I
         # fill index array
         for ip in 1:np_new
             # x query point
-            @index px[ip, I] = xq = cell_vertex + dx_chain * ip
+            xq = cell_vertex + dx_chain * ip
             # interpolated y coordinated
             yq = if 1 < I < length(index)
                 # inner cells; this is true (ncells-2) consecutive times
+                interp1D_inner(xq, x_cell, y_cell, coords, I)
                 interp1D_inner(xq, x_cell, y_cell, coords, I)
             else
                 # first and last cells
@@ -100,4 +103,16 @@ function isdistorded(x_cell, dx_ideal)
         end
     end
     return false
+end
+
+# sort marker chain cells
+function sort_chain!(chain::MarkerChain{T}) where {T}
+    (; coords, index) = chain
+    # sort permutations of each cell
+    perms = sortperm(coords[1].data; dims = 2)
+    coords[1].data .= @views coords[1].data[perms]
+    coords[2].data .= @views coords[2].data[perms]
+    index.data .= @views index.data[perms]
+
+    return nothing
 end

@@ -1,4 +1,19 @@
-function init_markerchain(::Type{JustPIC.CPUBackend}, nxcell, min_xcell, max_xcell, xv, initial_elevation)
+"""
+    init_markerchain(backend, nxcell, min_xcell, max_xcell, xv, initial_elevation)
+
+Create a 2D `MarkerChain` sampled along the horizontal grid `xv`.
+
+`nxcell` controls the initial number of markers per cell, while
+`initial_elevation` can be either a scalar or a vector specifying the initial
+surface height.
+
+# Returns
+- A `MarkerChain` whose marker positions, vertex topography, and occupancy masks
+  are initialized consistently.
+"""
+function init_markerchain(
+        ::Type{backend}, nxcell, min_xcell, max_xcell, xv, initial_elevation
+    ) where {backend}
     nx = length(xv) - 1
     dx = xv[2] - xv[1]
     dx_chain = dx / (nxcell + 1)
@@ -8,8 +23,14 @@ function init_markerchain(::Type{JustPIC.CPUBackend}, nxcell, min_xcell, max_xce
     @parallel (1:nx) fill_markerchain_coords_index!(
         px, py, index, xv, initial_elevation, dx_chain, nxcell, max_xcell
     )
+    coords = px, py
+    coords0 = px, py
+    h_vertices = @fill(initial_elevation, nx + 1)
+    h_vertices0 = @fill(initial_elevation, nx + 1)
 
-    return MarkerChain(JustPIC.CPUBackend, (px, py), index, xv, min_xcell, max_xcell)
+    return MarkerChain(
+        backend, coords, coords0, h_vertices, h_vertices0, xv, index, min_xcell, max_xcell
+    )
 end
 
 @parallel_indices (i) function fill_markerchain_coords_index!(

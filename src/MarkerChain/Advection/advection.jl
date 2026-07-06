@@ -1,26 +1,60 @@
+using Statistics
+
+"""
+    advect_markerchain!(chain, method, V, grid_vxi, dt)
+
+Advect a marker chain for one time step and rebuild its derived topography data.
+
+This convenience wrapper runs marker advection, reassigns markers to cells,
+resamples the chain, updates vertex elevations, and enforces mean-height
+conservation.
+
+Use this when evolving a free surface or interface represented by a
+`MarkerChain`.
+"""
 function advect_markerchain!(
-    chain::MarkerChain, method::AbstractAdvectionIntegrator, V, grid_vxi, dt
-)
+        chain::MarkerChain, method::AbstractAdvectionIntegrator, V, grid_vxi, dt
+    )
     advection!(chain, method, V, grid_vxi, dt)
     move_particles!(chain)
     resample!(chain)
+
+    # interpolate from markers to grid
+    compute_topography_vertex!(chain)
+    # average h_vertices0 and h_vertices and store in h_vertices
+    # @. chain.h_vertices = (chain.h_vertices0 + chain.h_vertices) / 2
+    # correct topo to conserve mass
+    chain.h_vertices .+= mean(chain.h_vertices) - mean(chain.h_vertices0)
+    # reconstruct chain from vertices
+    reconstruct_chain_from_vertices!(chain)
+    # update old nodal topography
+    copyto!(chain.h_vertices0, chain.h_vertices)
+
     return nothing
 end
 
 # Two-step Runge-Kutta advection scheme for marker chains
+"""
+    advection!(chain::MarkerChain, method, V, grid_vi, dt)
+
+Advect the marker coordinates in `chain` through the staggered velocity field `V`
+without performing resampling or topography reconstruction.
+
+This lower-level method is useful if you want to customize the post-advection
+marker-chain processing yourself.
+"""
 function advection!(
-    chain::MarkerChain,
-    method::AbstractAdvectionIntegrator,
-    V,
-    grid_vi::NTuple{N,NTuple{N,T}},
-    dt,
-) where {N,T}
+        chain::MarkerChain,
+        method::AbstractAdvectionIntegrator,
+        V,
+        grid_vi::NTuple{N, NTuple{N, T}},
+        dt,
+    ) where {N, T}
     (; coords, index) = chain
 
     # compute some basic stuff
     ni = size(index, 1)
     dxi = compute_dx(first(grid_vi))
-    # Need to transpose grid_vy and Vy to reuse interpolation kernels
 
     local_limits = inner_limits(grid_vi)
 
@@ -35,18 +69,16 @@ end
 
 # ParallelStencil function Runge-Kuttaadvection function for 3D staggered grids
 @parallel_indices (i) function advection_markerchain_kernel!(
-    p,
-    method::AbstractAdvectionIntegrator,
-    V::NTuple{N,T},
-    index,
-    grid,
-    local_limits,
-    dxi,
-    dt,
-) where {N,T}
+        p,
+        method::AbstractAdvectionIntegrator,
+        V::NTuple{N, T},
+        index,
+        grid,
+        local_limits,
+        dxi,
+        dt,
+    ) where {N, T}
     for ipart in cellaxes(index)
-        doskip(index, ipart, i) && continue
-
         # skip if particle does not exist in this memory location
         doskip(index, ipart, i) && continue
         # extract particle coordinates
@@ -63,8 +95,8 @@ end
 end
 
 @inline function interp_velocity2particle_markerchain(
-    particle_coords::NTuple{N,Any}, grid_vi, local_limits, dxi, V::NTuple{N,Any}
-) where {N}
+        particle_coords::NTuple{N, Any}, grid_vi, local_limits, dxi, V::NTuple{N, Any}
+    ) where {N}
     return ntuple(Val(N)) do i
         Base.@_inline_meta
         local_lims = local_limits[i]
@@ -76,12 +108,21 @@ end
     end
 end
 
+@inline function interp_velocity2particle_markerchain(
+        particle_coords::NTuple{N, Any}, grid_vi, dxi, V::NTuple{N, Any}
+    ) where {N}
+    return ntuple(Val(N)) do i
+        Base.@_inline_meta
+        interp_velocity_grid2particle(particle_coords, grid_vi[i], dxi, V[i])
+    end
+end
+
 # Interpolate velocity from staggered grid to particle
 @inline function interp_velocity_grid2particle(
-    pᵢ::Union{SVector,NTuple}, xi_vx::NTuple, dxi::NTuple, F::AbstractArray
-)
+        pᵢ::Union{SVector, NTuple}, xi_vx::NTuple, dxi::NTuple, F::AbstractArray
+    )
     # F and coordinates at/of the cell corners
-    Fi, x_vertex_cell = corner_field_nodes(F, pᵢ, xi_vx, dxi)
+    Fi, x_vertex_cell = corner_field_nodes_MC(F, pᵢ, xi_vx, dxi)
     # normalize particle coordinates
     ti = normalize_coordinates(pᵢ, x_vertex_cell, dxi)
     # Interpolate field F onto particle
@@ -90,10 +131,10 @@ end
 end
 
 # Get field F and nodal indices of the cell corners where the particle is located
-@inline function corner_field_nodes(F::AbstractArray{T,N}, pᵢ, xi_vx, dxi) where {T,N}
+@inline function corner_field_nodes_MC(F::AbstractArray{T, N}, pᵢ, xi_vx, dxi) where {T, N}
     I = ntuple(Val(N)) do i
         Base.@_inline_meta
-        cell_index(pᵢ[i], xi_vx[i], dxi[1])
+        cell_index(pᵢ[i], xi_vx[i], dxi[i])
     end
 
     # coordinates of lower-left corner of the cell

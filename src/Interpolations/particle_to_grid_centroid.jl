@@ -1,22 +1,30 @@
 ## LAUNCHERS
+"""
+    particle2centroid!(F, Fp, xci::NTuple, particles::Particles)
 
-function particle2centroid!(F, Fp, xci::NTuple, particles::Particles)
+Interpolate particle-centered values `Fp` to cell centers `F`.
+
+`xci` contains the 1D coordinate arrays of the cell centers. This is the
+cell-centered counterpart to `particle2grid!` and mutates `F` in place.
+"""
+particle2centroid!(F, Fp, particles::Particles) = particle2centroid!(F, Fp, particles.xci, particles, particles.di.vertex)
+
+function particle2centroid!(F, Fp, xci::NTuple, particles::Particles, di)
     (; coords) = particles
-    dxi = grid_size(xci)
-    @parallel (@idx size(coords[1])) _particle2centroid!(F, Fp, xci, coords, dxi)
+    @parallel (@idx size(coords[1])) _particle2centroid!(F, Fp, xci, coords, di)
     return nothing
 end
 
 @parallel_indices (I...) function _particle2centroid!(F, Fp, xci, coords, di)
-    _particle2centroid!(F, Fp, I..., xci, coords, di)
+    _particle2centroid!(F, Fp, I..., xci, coords, @dxi(di, I...))
     return nothing
 end
 
 ## INTERPOLATION KERNEL 2D
 
 @inbounds function _particle2centroid!(
-    F, Fp, inode, jnode, xci::NTuple{2,T}, p, di
-) where {T}
+        F, Fp, inode, jnode, xci::NTuple{2, T}, p, di
+    ) where {T}
     px, py = p # particle coordinates
     xcenter = xci[1][inode], xci[2][jnode] # centroid coordinates
     ω, ωxF = 0.0, 0.0 # init weights
@@ -37,8 +45,8 @@ end
 end
 
 @inbounds function _particle2centroid!(
-    F::NTuple{N,T1}, Fp::NTuple{N,T2}, inode, jnode, xci::NTuple{2,T3}, p, di
-) where {N,T1,T2,T3}
+        F::NTuple{N, T1}, Fp::NTuple{N, T2}, inode, jnode, xci::NTuple{2, T3}, p, di
+    ) where {N, T1, T2, T3}
     px, py = p # particle coordinates
     xcenter = xci[1][inode], xci[2][jnode] # centroid coordinates
     ω, ωxF = 0.0, 0.0 # init weights
@@ -49,7 +57,7 @@ end
         # ignore lines below for unused allocations
         any(isnan, p_i) && continue
         # ω_i = bilinear_weight(xcenter, p_i, di)
-        ω_i = distance_weight(xcenter, p_i; order=1)
+        ω_i = distance_weight(xcenter, p_i; order = 2)
 
         ω += ω_i
         ωxF = ntuple(Val(N)) do j
@@ -68,8 +76,8 @@ end
 ## INTERPOLATION KERNEL 3D
 
 @inbounds function _particle2centroid!(
-    F, Fp, inode, jnode, knode, xci::NTuple{3,T}, p, di
-) where {T}
+        F, Fp, inode, jnode, knode, xci::NTuple{3, T}, p, di
+    ) where {T}
     px, py, pz = p # particle coordinates
     xcenter = xci[1][inode], xci[2][jnode], xci[3][knode] # centroid coordinates
     ω, ωF = 0.0, 0.0 # init weights
@@ -91,8 +99,8 @@ end
 end
 
 @inbounds function _particle2centroid!(
-    F::NTuple{N,T1}, Fp::NTuple{N,T2}, inode, jnode, knode, xci::NTuple{3,T3}, p, di
-) where {N,T1,T2,T3}
+        F::NTuple{N, T1}, Fp::NTuple{N, T2}, inode, jnode, knode, xci::NTuple{3, T3}, p, di
+    ) where {N, T1, T2, T3}
     px, py, pz = p # particle coordinates
     xcenter = xci[1][inode], xci[2][jnode], xci[3][knode] # centroid coordinates
     ω = 0.0 # init weights
