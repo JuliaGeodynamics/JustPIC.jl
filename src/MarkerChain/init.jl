@@ -17,7 +17,9 @@ function init_markerchain(
     nx = length(xv) - 1
     dx = xv[2] - xv[1]
     dx_chain = dx / (nxcell + 1)
-    px, py = ntuple(_ -> cell_array(backend, NaN, (max_xcell,), (nx,)), Val(2))
+    T = initial_elevation isa AbstractArray ? promote_type(eltype(xv), eltype(initial_elevation)) : promote_type(eltype(xv), typeof(initial_elevation))
+    initial_elevation = initial_elevation isa AbstractArray ? convert.(T, initial_elevation) : convert(T, initial_elevation)
+    px, py = ntuple(_ -> cell_array(backend, convert(T, NaN), (max_xcell,), (nx,)), Val(2))
     index = cell_array(backend, false, (max_xcell,), (nx,))
 
     launch!(

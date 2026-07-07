@@ -48,6 +48,7 @@ function runtests()
             include(joinpath(testdir, "test_2D.jl"))
             include(joinpath(testdir, "test_integrators.jl"))
             include(joinpath(testdir, "test_CellArrays.jl"))
+            include(joinpath(testdir, "test_markerchain_2D.jl"))
             include(joinpath(testdir, "test_save_load.jl"))
         catch
             nfail += 1
@@ -64,6 +65,7 @@ function runtests()
             "test_3D.jl",
             "test_CellArrays.jl",
             "test_interpolation_kernels.jl",
+            "test_markerchain_2D.jl",
             "test_save_load.jl",
         )
         for f in gpu_testfiles

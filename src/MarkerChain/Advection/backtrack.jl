@@ -20,7 +20,7 @@ function semilagrangian_advection_markerchain!(
     smooth_slopes!(chain, deg2rad(max_slope_angle))
 
     # Mass conservation
-    chain.h_vertices .+= mean(chain.h_vertices) - mean(chain.h_vertices0)
+    chain.h_vertices .-= mean(chain.h_vertices) - mean(chain.h_vertices0)
 
     # Reconstruct particles from the updated vertices
     reconstruct_chain_from_vertices!(chain)
@@ -40,6 +40,15 @@ function semilagrangian_advection!(
         dt,
     ) where {N, T}
     (; h_vertices) = chain
+
+    # recast integrator/timestep/grids to the topography precision so Float32 backends
+    # (e.g. Metal) are not silently promoted; `recast_grid` also rebuilds the grid ranges
+    # so they are GPU-safe when indexed directly inside the kernel (see advection!)
+    Tc = eltype(h_vertices)
+    method = set_precision(method, Tc)
+    dt = convert(Tc, dt)
+    grid_vxi = recast_grid(grid_vxi, Tc)
+    grid = recast_grid(grid, Tc)
 
     # compute some basic stuff
     ni = length(h_vertices)

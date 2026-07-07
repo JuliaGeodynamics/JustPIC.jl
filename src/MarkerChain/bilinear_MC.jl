@@ -91,11 +91,11 @@ function _reconstruct_h_from_vertex_kernel!(
     ycorner_right = h_vertices[ivertex + 1]
     ly = ycorner_right - ycorner_left
 
-    # count active particles
+    # count active particles; slots need not be contiguous (move_particles! can leave
+    # interior holes), so skip inactive slots instead of stopping at the first one
     np = 0
     for ip in cellaxes(index)
-        CAI.@index(index[ip, ivertex]) || break
-        np += 1
+        CAI.@index(index[ip, ivertex]) && (np += 1)
     end
 
     Δx = lx / (np + 1)
@@ -105,7 +105,7 @@ function _reconstruct_h_from_vertex_kernel!(
 
     # fill cell arrays with new particle coordinates
     for ip in cellaxes(index)
-        CAI.@index(index[ip, ivertex]) || break
+        CAI.@index(index[ip, ivertex]) || continue
 
         xp_new += Δx
         yp_new += Δy
@@ -123,7 +123,7 @@ function smooth_slopes!(chain::MarkerChain, max_angle::Real)
 
     n < 3 && return nothing  # Need at least 3 vertices for smoothing
 
-    tan_max_angle = tan(max_angle)
+    tan_max_angle = convert(eltype(h_vertices), tan(max_angle))
 
     h_smoothed = similar(h_vertices)
     copyto!(h_smoothed, h_vertices)  # Initialize with original values
@@ -155,8 +155,8 @@ end
 
     # If either adjacent slope is too steep, apply smoothing
     if slope_left > tan_max_angle || slope_right > tan_max_angle
-        # Simple 3-point averaging
-        h_smoothed[i] = 0.25 * (h_vertices[i - 1] + 2 * h_vertices[i] + h_vertices[i + 1])
+        # Simple 3-point averaging (integer literals keep the array's precision)
+        h_smoothed[i] = (h_vertices[i - 1] + 2 * h_vertices[i] + h_vertices[i + 1]) / 4
     else
         # Keep original value
         h_smoothed[i] = h_vertices[i]
