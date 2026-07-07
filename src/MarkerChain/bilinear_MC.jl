@@ -60,6 +60,18 @@ end
 
 ######################################
 
+"""
+    reconstruct_chain_from_vertices!(chain::MarkerChain)
+
+Rebuild the markers of each column by evenly distributing them along the straight segment
+joining the two bounding `h_vertices`.
+
+The number of markers per column is preserved (empty slots are skipped, so the column need
+not be contiguously packed). This is the inverse of [`compute_topography_vertex!`](@ref) and
+is used after the vertex topography has been modified (e.g. by the mass-conservation step of
+[`advect_markerchain!`](@ref) or the slope limiting of
+[`semilagrangian_advection_markerchain!`](@ref)).
+"""
 function reconstruct_chain_from_vertices!(chain::MarkerChain)
     (; coords, index, cell_vertices, h_vertices) = chain
     chain_x, chain_y = coords
@@ -116,7 +128,17 @@ function _reconstruct_h_from_vertex_kernel!(
     return nothing
 end
 
-# LaMEM-style slope limiting for numerical stability
+"""
+    smooth_slopes!(chain::MarkerChain, max_angle::Real)
+
+Limit the local slope of the vertex topography to `max_angle` (in radians).
+
+Interior vertices whose left or right slope steeper than `tan(max_angle)` are replaced by a
+3-point average of themselves and their neighbours (LaMEM-style limiting). This suppresses
+the spurious spikes that semi-Lagrangian backtracking can introduce on a steep interface;
+it is applied automatically inside [`semilagrangian_advection_markerchain!`](@ref). Chains
+with fewer than three vertices are left untouched.
+"""
 function smooth_slopes!(chain::MarkerChain, max_angle::Real)
     (; h_vertices, cell_vertices) = chain
     n = length(h_vertices)

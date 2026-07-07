@@ -6,8 +6,16 @@ using Statistics
 Backtrack a marker chain through `V` and update the chain geometry with a
 semi-Lagrangian step.
 
-The optional `max_slope_angle` limiter is used while reconstructing the interface
-to avoid excessively steep local segments.
+Unlike [`advect_markerchain!`](@ref), which moves the Lagrangian markers, this scheme
+updates the vertex topography directly by backtracking each vertex (via the lower-level
+`semilagrangian_advection!`), then limits the local slope to `max_slope_angle` degrees
+(via `smooth_slopes!`), restores the mean height for mass conservation, and finally rebuilds
+the markers from the updated vertices. It is well suited to steep or strongly sheared
+surfaces where marker advection would tangle.
+
+`method` must support backtracking (`RungeKutta2` or `RungeKutta4`; `Euler` is not
+supported). `grid_vxi` holds the staggered velocity grids and `grid` the chain's vertex
+grid.
 """
 function semilagrangian_advection_markerchain!(
         chain::MarkerChain, method::AbstractAdvectionIntegrator, V, grid_vxi, grid, dt;
@@ -30,7 +38,17 @@ function semilagrangian_advection_markerchain!(
     return nothing
 end
 
-# Two-step Runge-Kutta advection scheme for marker chains
+"""
+    semilagrangian_advection!(chain::MarkerChain, method, V, grid_vxi, grid, dt)
+
+Advance only the vertex topography `chain.h_vertices` by one semi-Lagrangian step.
+
+Each vertex height is updated by backtracking its position through the velocity field `V`
+(so `method` must support backtracking, i.e. `RungeKutta2`/`RungeKutta4`, not `Euler`). This
+is the raw update used by [`semilagrangian_advection_markerchain!`](@ref); it does *not*
+apply slope limiting, mass conservation, or marker reconstruction — call the wrapper unless
+you need to compose those steps yourself.
+"""
 function semilagrangian_advection!(
         chain::MarkerChain,
         method::AbstractAdvectionIntegrator,
