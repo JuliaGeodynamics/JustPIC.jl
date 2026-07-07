@@ -141,9 +141,12 @@ end
 
 # Get field F and nodal indices of the cell corners where the particle is located
 @inline function corner_field_nodes_MC(F::AbstractArray{T, N}, pᵢ, xi_vx, dxi) where {T, N}
+    # a marker-chain vertex can sit exactly on the right/top boundary (x == xi_vx[i][end]),
+    # where cell_index returns the last vertex; clamp to the last cell so the corner lookup
+    # (I and I+1) stays in bounds and interpolates from the edge cell
     I = ntuple(Val(N)) do i
         Base.@_inline_meta
-        cell_index(pᵢ[i], xi_vx[i], dxi[i])
+        clamp(cell_index(pᵢ[i], xi_vx[i], dxi[i]), 1, size(F, i) - 1)
     end
 
     # coordinates of lower-left corner of the cell
