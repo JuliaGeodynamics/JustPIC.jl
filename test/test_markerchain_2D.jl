@@ -11,8 +11,10 @@ import KernelAbstractions: CPU
 
 const backend = @static if BACKEND_NAME == "AMDGPU"
     AMDGPU.ROCBackend
+    AMDGPU.@allowscalar(true)
 elseif BACKEND_NAME == "CUDA"
     CUDA.CUDABackend
+    CUDA.@allowscalar(true)
 else
     CPU
 end
