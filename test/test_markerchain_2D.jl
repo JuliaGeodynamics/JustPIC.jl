@@ -2,19 +2,20 @@ const BACKEND_NAME = get(ENV, "JULIA_JUSTPIC_BACKEND", "CPU")
 
 @static if BACKEND_NAME == "AMDGPU"
     using AMDGPU
+    AMDGPU.allowscalar(true)
 elseif BACKEND_NAME == "CUDA"
     using CUDA
+    CUDA.allowscalar(true)
 end
 
 using JustPIC, Test, Statistics
+using CellArrays: field
 import KernelAbstractions: CPU
 
 const backend = @static if BACKEND_NAME == "AMDGPU"
     AMDGPU.ROCBackend
-    AMDGPU.@allowscalar(true)
 elseif BACKEND_NAME == "CUDA"
     CUDA.CUDABackend
-    CUDA.@allowscalar(true)
 else
     CPU
 end
@@ -31,6 +32,15 @@ function host_chain(chain)
 end
 
 chain_tol(chain) = eltype(Array(chain.h_vertices)) <: Float32 ? 1.0f-5 : 1.0e-10
+
+# set slot `ip` of cell `cell` without assuming the backend's CellArray data layout
+function set_cell_slot!(A, ip, cell, val)
+    f = field(A, ip)
+    h = Array(f)
+    h[cell] = val
+    copyto!(f, h)
+    return nothing
+end
 active_counts(index) = [count(@view index[:, i]) for i in axes(index, 2)]
 
 function markerchain_expand_range(x)
