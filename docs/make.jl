@@ -8,6 +8,7 @@ makedocs(;
     modules = [JustPIC],
     format = Documenter.HTML(; prettyurls = get(ENV, "CI", nothing) == "true"), # easier local build
     warnonly = Documenter.except(:footnote),
+    checkdocs = :exports,
     pages = [
         "Home" => "index.md",
         "Particles" => "particles.md",

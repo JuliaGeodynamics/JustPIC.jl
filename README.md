@@ -1,4 +1,6 @@
+[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://juliageodynamics.github.io/JustPIC.jl/stable/)
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://juliageodynamics.github.io/JustPIC.jl/dev/)
+[![version](https://juliahub.com/docs/General/JustPIC/stable/version.svg)](https://juliahub.com/ui/Packages/General/JustPIC)
 [![DOI](https://zenodo.org/badge/507905159.svg)](https://zenodo.org/doi/10.5281/zenodo.10212675)
 [![CPU UnitTests](https://github.com/JuliaGeodynamics/JustPIC.jl/actions/workflows/UnitTests.yml/badge.svg)](https://github.com/JuliaGeodynamics/JustPIC.jl/actions/workflows/UnitTests.yml)
 [![GPU UnitTests](https://badge.buildkite.com/bb05ed7ef3b43f843a5ba4a976c27a724064d67955193accea.svg?branch=main)](https://buildkite.com/julialang/justpic-dot-jl)
@@ -59,7 +61,7 @@ nxcell    = 24 # initial number of particles per cell
 max_xcell = 48 # maximum number of particles per cell
 min_xcell = 12 # minimum number of particles per cell
 particles = init_particles(
-    backend, nxcell, max_xcell, min_xcell, xvi, dxi, (nx, ny)
+    backend, nxcell, max_xcell, min_xcell, grid_vx, grid_vy
 )
 ```
 
@@ -98,9 +100,9 @@ particle_args = ()
 niter = 750
 for iter in 1:niter
     # advect particles
-    advection!(particles, advection_scheme, V, (grid_vx, grid_vy), dt)
+    advection!(particles, advection_scheme, V, dt)
     # shuffle particles in the memory to keep the spatial locality tight
-    move_particles!(particles, xvi, particle_args)
+    move_particles!(particles, particle_args)
     # save particle position
     pxv = particles.coords[1].data;
     pyv = particles.coords[2].data;
