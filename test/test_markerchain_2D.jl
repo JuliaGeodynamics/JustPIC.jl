@@ -167,15 +167,10 @@ end
     xv = TA(backend)(xv_cpu)
     chain = init_markerchain(backend, 4, 2, 8, xv, 0.3)
 
-    idx = Array(chain.index.data)
-    px = Array(chain.coords[1].data)
-    py = Array(chain.coords[2].data)
-    idx[1, 2, 2] = false        # punch a hole at slot 2 of cell 2 -> [T, F, T, T, ...]
-    px[1, 2, 2] = NaN
-    py[1, 2, 2] = NaN
-    copyto!(chain.index.data, idx)
-    copyto!(chain.coords[1].data, px)
-    copyto!(chain.coords[2].data, py)
+    # punch a hole at slot 2 of cell 2 -> [T, F, T, T, ...]
+    set_cell_slot!(chain.index, 2, 2, false)
+    set_cell_slot!(chain.coords[1], 2, 2, NaN)
+    set_cell_slot!(chain.coords[2], 2, 2, NaN)
 
     JustPIC.reconstruct_chain_from_vertices!(chain)
 
