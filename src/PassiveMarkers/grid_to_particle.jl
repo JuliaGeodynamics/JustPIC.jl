@@ -1,4 +1,18 @@
 # LAUNCHERS
+"""
+    grid2particle!(Fp, xvi, F, particles::PassiveMarkers)
+
+Interpolate a nodal field `F` to passive-marker values `Fp`, updated in place.
+
+The vertex grid `xvi` must be supplied explicitly, since `PassiveMarkers` stores
+only marker coordinates and no grid metadata.
+
+# Arguments
+- `Fp`: destination marker field, or tuple of marker fields.
+- `xvi`: vertex coordinates of the grid on which `F` is defined.
+- `F`: source nodal field, or tuple of nodal fields matching `Fp`.
+- `particles`: `PassiveMarkers` container supplying marker coordinates.
+"""
 function grid2particle!(Fp, xvi, F, particles::PassiveMarkers)
     (; coords, np) = particles
     # recast the grid to the marker precision so the ranges are GPU-safe on Float32

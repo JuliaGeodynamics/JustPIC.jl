@@ -1,3 +1,13 @@
+"""
+    move_particles!(chain::MarkerChain)
+
+Reassign markers to the correct columns of `chain` after their coordinates have
+been updated.
+
+Markers that crossed a column boundary are moved into the neighbouring column's
+slots, keeping the coordinate arrays consistent with the per-column occupancy
+mask. The horizontal grid and spacing are taken from `chain.cell_vertices`.
+"""
 function move_particles!(chain::MarkerChain)
     (; coords, index, cell_vertices) = chain
     dxi = compute_dx(cell_vertices)

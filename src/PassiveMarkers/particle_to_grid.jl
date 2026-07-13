@@ -1,5 +1,23 @@
 ## LAUNCHERS
 
+"""
+    particle2grid!(F, Fp, buffer, xi, particles::PassiveMarkers)
+
+Interpolate passive-marker values `Fp` onto the grid nodes `F`, overwriting `F`
+in place.
+
+Because passive markers scatter to arbitrary nodes, weights are accumulated with
+atomic updates into `F` and `buffer` and normalized in a final pass; `buffer`
+must be a scratch array with the same size as `F`. The vertex grid `xi` is
+supplied explicitly.
+
+# Arguments
+- `F`: destination nodal array.
+- `Fp`: marker field stored with the same layout as `particles.coords`.
+- `buffer`: scratch nodal array (same size as `F`) used to accumulate weights.
+- `xi`: vertex coordinates of the target grid.
+- `particles`: `PassiveMarkers` container supplying marker coordinates.
+"""
 function particle2grid!(F, Fp, buffer, xi, particles::PassiveMarkers)
     (; coords, np) = particles
     # recast the grid to the marker precision so the ranges are GPU-safe on Float32

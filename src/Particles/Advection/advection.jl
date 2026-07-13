@@ -1,17 +1,22 @@
 """
-    advection!(particles::Particles, method::AbstractAdvectionIntegrator, V, grid_vi::NTuple{N,NTuple{N,T}}, dt)
+    advection!(particles::Particles, method::AbstractAdvectionIntegrator, V, dt)
+    advection!(particles::Particles, method::AbstractAdvectionIntegrator, V, grid_vi, dt, dxi)
 
 Advect `particles` through the staggered velocity field `V` over a time step `dt`.
+The particle coordinates are updated in place.
 
-`grid_vi` contains the coordinate tuples associated with each staggered velocity
-component. The particle coordinates are updated in place.
+The public form reads the staggered velocity coordinate grids and spacing from
+`particles` (`particles.xi_vel` and `particles.di.velocity`), so only `V` and
+`dt` are supplied. The lower-level form takes those grids explicitly.
 
 # Arguments
 - `particles`: `Particles` container to advect.
 - `method`: time integrator such as `Euler()`, `RungeKutta2()`, or `RungeKutta4()`.
 - `V`: tuple of staggered velocity component arrays.
-- `grid_vi`: tuple of coordinate tuples matching the staggering of `V`.
 - `dt`: timestep.
+- `grid_vi`: tuple of coordinate tuples matching the staggering of `V`
+  (lower-level form only).
+- `dxi`: grid spacing associated with `grid_vi` (lower-level form only).
 """
 advection!(
     particles::Particles,
