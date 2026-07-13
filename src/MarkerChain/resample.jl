@@ -12,8 +12,7 @@ function resample!(chain::MarkerChain)
     nx = length(index)
     dx_cells = cell_length(chain)
 
-    # sort marker chain - can't be done at the cell level because
-    # SA can't be sorted inside a GPU kernel
+    # sort marker chain
     sort_chain!(chain)
 
     # call kernel
@@ -104,13 +103,35 @@ function isdistorded(x_cell, dx_ideal)
 end
 
 # sort marker chain cells
-function sort_chain!(chain::MarkerChain{T}) where {T}
-    (; coords, index) = chain
-    # sort permutations of each cell
-    perms = sortperm(coords[1].data; dims = 2)
-    coords[1].data .= @views coords[1].data[perms]
-    coords[2].data .= @views coords[2].data[perms]
-    index.data .= @views index.data[perms]
-
+function sort_chain!(chain::MarkerChain)
+    (; coords, index, max_xcell) = chain
+    nx = length(index)
+    launch!(ka_backend(index), sort_chain_kernel!, nx, coords, index, max_xcell)
     return nothing
+end
+
+# per-cell insertion sort of the slots by x; `isless` keeps NaN (empty) slots last,
+# matching the previous host-side `sortperm(...; dims = 2)` ordering
+@kernel function sort_chain_kernel!(coords, index, max_xcell)
+    I = @index(Global)
+    px, py = coords
+    for j in 2:max_xcell
+        xj = CAI.@index px[j, I]
+        yj = CAI.@index py[j, I]
+        idxj = CAI.@index index[j, I]
+        k = j - 1
+        while k ≥ 1
+            xk = CAI.@index px[k, I]
+            isless(xj, xk) || break
+            yk = CAI.@index py[k, I]
+            idxk = CAI.@index index[k, I]
+            CAI.@index px[k + 1, I] = xk
+            CAI.@index py[k + 1, I] = yk
+            CAI.@index index[k + 1, I] = idxk
+            k -= 1
+        end
+        CAI.@index px[k + 1, I] = xj
+        CAI.@index py[k + 1, I] = yj
+        CAI.@index index[k + 1, I] = idxj
+    end
 end
