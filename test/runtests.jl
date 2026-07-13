@@ -87,19 +87,14 @@ end
 
 _, backend_name = parse_flags!(ARGS, "--backend"; default = "CPU", type = String)
 
-# GPU deps normally come from [extras]/[targets]; the guarded add exists only for
-# cluster CI where the Pkg.test sandbox lacks the GPU stack. An unconditional
-# Pkg.add here writes through to the repo's Project.toml (breaks Aqua stale-deps).
-ensure_dep(pkg) = Base.find_package(pkg) === nothing && Pkg.add(pkg)
-
 @static if backend_name == "AMDGPU"
-    ensure_dep("AMDGPU")
+    Pkg.add("AMDGPU")
     ENV["JULIA_JUSTPIC_BACKEND"] = "AMDGPU"
 elseif backend_name == "CUDA"
-    ensure_dep("CUDA")
+    Pkg.add("CUDA")
     ENV["JULIA_JUSTPIC_BACKEND"] = "CUDA"
 elseif backend_name == "Metal"
-    ensure_dep("Metal")
+    Pkg.add("Metal")
     ENV["JULIA_JUSTPIC_BACKEND"] = "Metal"
 elseif backend_name == "CPU"
     ENV["JULIA_JUSTPIC_BACKEND"] = "CPU"
