@@ -53,5 +53,35 @@ steps:
       - exit_status: 3
     env:
       JULIA_NUM_THREADS: 4
+
+  - label: "Metal Julia {{matrix.version}}"
+    matrix:
+      setup:
+        version:
+          - "1.11"
+          - "1.12"
+    plugins:
+      - JuliaCI/julia#v1:
+          version: "{{matrix.version}}"
+      - JuliaCI/julia-coverage#v1:
+          codecov: true
+    command: |
+      julia -e 'println("--- :julia: Developing Metal")
+                using Pkg
+                Pkg.add(url="https://github.com/JuliaGPU/Metal.jl", rev="kaintr")'
+      julia -e 'println("--- :julia: Instantiating project")
+                using Pkg
+                Pkg.develop(; path=pwd())' || exit 3
+
+      julia -e 'println("+++ :julia: Running tests")
+                using Pkg
+                Pkg.test("Metal"; coverage=true, test_args=["kernelabstractions"])'
+    agents:
+      queue: "metal"
+    timeout_in_minutes: 120
+    soft_fail:
+      - exit_status: 3
+    env:
+      JULIA_PROJECT: "@metal"
 env:
   SECRET_CODECOV_TOKEN: "yiehGQL2F9mR5iMEHZoExVcEq48DRegmiTYcGFPlFUrHoYLzWO+M1CwgVWdg6JNAk3mxUq+bX/lTeV/d5CvgYU6tGkfAZJXyO/u3AZeMnYSrBZFTdLftC7JGmsqIbMzbCpgNNwBs2OyoI0gzvsJ+hvqy1OKLYy+ycPC/WdY5ihMLk6Lb2GAZBEMOftE6twlV0G+dQvwTXUlxM87z+x4807jLXGBWvo/hISSt+7EJy6xPNZkkswdTvoGEh0FcAWW6XpmbgBtTIukJ2NLKXduJcszVP28WdYCNpDi2hx/so+o3txRFMPK2mLQcjnxLxe4cltLT4y5QEDaOD7uf6lCW7A==;U2FsdGVkX1+/Ozl2kXs4hTs2hFIaIUPx7mPw411N+q8="
