@@ -2,6 +2,9 @@
 
 function particle2grid!(F, Fp, buffer, xi, particles::PassiveMarkers)
     (; coords, np) = particles
+    # recast the grid to the marker precision so the ranges are GPU-safe on Float32
+    # backends (they are indexed directly inside the kernel; see advection!)
+    xi = recast_grid(xi, eltype(coords[1]))
     ni = size(F)
     dxi = grid_size(xi)
 
@@ -59,5 +62,5 @@ end
 
 @kernel function reset_arrays!(A, B)
     I = @index(Global, NTuple)
-    @inbounds A[I...] = B[I...] = 0.0
+    @inbounds A[I...] = B[I...] = zero(eltype(A))
 end

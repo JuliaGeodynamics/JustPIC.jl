@@ -123,11 +123,15 @@ between the two updates.
 - `α`: PIC fraction in the PIC/FLIP blend.
 """
 function grid2particle_flip!(Fp, xvi, F, F0, particles; α = 0.0)
-    di = grid_size(xvi)
     (; coords, index) = particles
+    # recast the grid to the particle precision so the ranges are GPU-safe on Float32
+    # backends (they are indexed directly inside the kernel; see advection!)
+    Tc = eltype(eltype(coords[1]))
+    xvi = recast_grid(xvi, Tc)
+    di = grid_size(xvi)
     ni = size(index)
     # blend factor must match the field precision (Float64 breaks Metal)
-    αT = convert(eltype(F isa NTuple ? F[1] : F), α)
+    αT = convert(Tc, α)
     launch!(ka_backend(particles), grid2particle_full!, ni, Fp, F, F0, xvi, di, coords, index, αT)
 
     return nothing

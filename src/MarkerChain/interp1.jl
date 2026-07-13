@@ -31,8 +31,9 @@ function interp1D_extremas(xq, x, y)
             return _interp1D(xq, x0, x1, y0, y1)
         end
     end
-    # return error("xq outside domain")
-    return NaN
+    # A typed NaN keeps the return type equal to the marker eltype; a bare `NaN`
+    # widens it to Float64, which Metal cannot store back into a Float32 chain.
+    return convert(eltype(y), NaN)
 end
 
 function interp1D_inner(xq, x, y, coords, I::Integer)
@@ -67,8 +68,8 @@ function interp1D_inner(xq, x, y, coords, I::Integer)
             return _interp1D(xq, x0, x1, y0, y1)
         end
     end
-    # return error("xq outside domain")
-    return NaN
+    # See interp1D_extremas: return a typed NaN so Metal can store it into Float32.
+    return convert(eltype(y), NaN)
 end
 
 @inline right_cell_left_particle(coords, I::Int) =

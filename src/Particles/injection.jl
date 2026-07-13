@@ -75,7 +75,8 @@ function _inject_particles!(
     # coordinates of the lower-left corner of the cell quadrants
     xvi_quadrants = quadrant_corners(xvi, di_quadrant)
 
-    min_xQuadrant = ceil(Int, min_xcell / length(xvi_quadrants))
+    # integer ceiling division: `a / b` is a Float64 divide, which Metal cannot do
+    min_xQuadrant = cld(min_xcell, length(xvi_quadrants))
 
     for vertex in xvi_quadrants
 
@@ -254,7 +255,8 @@ function _inject_particles_phase!(
 
     # coordinates of the lower-left corner of the cell quadrants
     xvi_quadrants = quadrant_corners(xvi, di_quadrant)
-    min_xQuadrant = ceil(Int, min_xcell / length(xvi_quadrants))
+    # integer ceiling division: `a / b` is a Float64 divide, which Metal cannot do
+    min_xQuadrant = cld(min_xcell, length(xvi_quadrants))
     xci = xvi_quadrants[1] .+ di_quadrant # center of the cell
 
     for (ic, vertex) in enumerate(xvi_quadrants)
@@ -327,7 +329,9 @@ end
 # find index of the closest particle w.r.t the new particle
 function index_min_distance(coords, pn, index, current_cell, icell, jcell)
     particle_idx_min = i_min = j_min = 0
-    dist_min = Inf
+    # typed sentinel: a bare `Inf` is Float64 and would widen the running minimum,
+    # carrying a Float64 into the kernel (fatal on Metal)
+    dist_min = convert(eltype(pn), Inf)
     px, py = coords
     nx, ny = size(px)
 
@@ -358,7 +362,8 @@ end
 
 function index_min_distance(coords, pn, index, current_cell, icell, jcell, kcell)
     particle_idx_min = i_min = j_min = k_min = 0
-    dist_min = Inf
+    # see the 2D method: typed sentinel keeps the running minimum Float32 on Metal
+    dist_min = convert(eltype(pn), Inf)
     px, py, pz = coords
     nx, ny, nz = size(px)
 

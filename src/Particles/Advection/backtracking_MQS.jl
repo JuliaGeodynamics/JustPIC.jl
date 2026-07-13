@@ -16,14 +16,23 @@ function semilagrangian_advection_MQS!(
         grid::NTuple{N, T},
         dt,
     ) where {N, T}
+    Fref = F isa Tuple ? first(F) : F
+    # recast integrator/timestep/grids to the field precision so Float32 backends
+    # (e.g. Metal) don't carry a Float64 value into the kernel; `recast_grid` also
+    # makes the ranges GPU-safe, as they are indexed directly inside the kernel
+    Tc = eltype(Fref)
+    method = set_precision(method, Tc)
+    dt = convert(Tc, dt)
+    grid_vi = recast_grid(grid_vi, Tc)
+    grid = recast_grid(grid, Tc)
 
     dxi_velocity = compute_dx.(grid_vi)
     dxi_vertex = compute_dx(grid)
     # compute some basic stuff
-    ni = size(F isa Tuple ? first(F) : F)
+    ni = size(Fref)
     # launch parallel backtrack kernel
     launch!(
-        ka_backend(F isa Tuple ? first(F) : F), backtrack_kernel_MQS!, ni .- 2,
+        ka_backend(Fref), backtrack_kernel_MQS!, ni .- 2,
         F, F0, method, V, grid_vi, grid, dxi_velocity, dxi_vertex, dt
     )
 

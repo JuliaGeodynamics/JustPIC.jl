@@ -80,7 +80,10 @@ function _Array(::Type{T}, x::NTuple{N, TA}) where {T <: Number, N, TA}
     return ntuple(i -> _Array(T, x[i]), Val(N))
 end
 
-# recursively copy the data from `AbstractParticles` to CPU arrays
+# recursively deep-copy an `AbstractParticles`, keeping every field on its current
+# device. The `Backend` type parameter (always first) is passed back to the
+# constructor so the copy stays on the same backend; a GPU container has no
+# backend-free constructor to fall back on.
 function copy(x::T) where {T <: AbstractParticles}
     nfields = fieldcount(T)
     copied_fields = ntuple(Val(nfields)) do i
@@ -88,7 +91,7 @@ function copy(x::T) where {T <: AbstractParticles}
         _copy(getfield(x, i))
     end
     T_clean = remove_parameters(x)
-    return T_clean(copied_fields...)
+    return T_clean(T.parameters[1], copied_fields...)
 end
 
 _copy(::Nothing) = nothing

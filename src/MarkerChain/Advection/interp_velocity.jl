@@ -15,6 +15,11 @@ function interpolate_velocity_to_markerchain!(
     ) where {N, T}
     (; coords, index) = chain
 
+    # recast the grid to the marker precision so the ranges are GPU-safe on Float32
+    # backends (they are indexed directly inside the kernel; see advection!)
+    Tc = eltype(eltype(coords[1]))
+    grid_vi = recast_grid(grid_vi, Tc)
+
     # compute some basic stuff
     ni = size(index, 1)
     dxi = compute_dx(first(grid_vi))

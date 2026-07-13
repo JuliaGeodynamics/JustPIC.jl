@@ -112,7 +112,9 @@ end
         v = if check_local_limits(local_lims, particle_coords)
             interp_velocity_grid2particle(particle_coords, grid_vi[i], dxi, V[i])
         else
-            Inf
+            # Typed sentinel: a bare `Inf` is Float64 and widens the tuple eltype,
+            # which forces heap allocation inside the kernel (fatal on Metal).
+            convert(eltype(V[i]), Inf)
         end
     end
 end
