@@ -43,9 +43,10 @@ function _move_particles!(coords, grid, dxi, index, idx)
             if !(any(<(1), new_cell) || any(new_cell .≥ length(grid)))
                 ## THE PARTICLE DID NOT ESCAPE THE DOMAIN
                 # remove particle from child cell
+                nan = convert(eltype(eltype(coords[1])), NaN)
                 @inbounds CAI.@index index[ip, idx] = false
-                @inbounds CAI.@index coords[1][ip, idx] = NaN
-                @inbounds CAI.@index coords[2][ip, idx] = NaN
+                @inbounds CAI.@index coords[1][ip, idx] = nan
+                @inbounds CAI.@index coords[2][ip, idx] = nan
                 # check whether there's empty space in parent cell
                 free_idx = find_free_memory(index, new_cell...)
                 iszero(free_idx) && continue

@@ -1,7 +1,11 @@
-@static if ENV["JULIA_JUSTPIC_BACKEND"] === "AMDGPU"
+const BACKEND_NAME = get(ENV, "JULIA_JUSTPIC_BACKEND", "CPU")
+
+@static if BACKEND_NAME == "AMDGPU"
     using AMDGPU
-elseif ENV["JULIA_JUSTPIC_BACKEND"] === "CUDA"
+elseif BACKEND_NAME == "CUDA"
     using CUDA
+elseif BACKEND_NAME == "Metal"
+    using Metal
 end
 
 using JLD2, JustPIC, Test
@@ -183,6 +187,30 @@ end
         @test eltype(eltype(T(Float64, particles).index.data)) === Bool
     end
 
+    # Metal has no Float64: only the eltype-typed Float32 conversions apply
+    if isdefined(Main, :Metal)
+        particles_gpu = MtlArray(Float32, particles)
+        phase_ratios_gpu = MtlArray(Float32, phase_ratios)
+        phases_gpu = MtlArray(Float32, phases)
+        chain_gpu = MtlArray(Float32, chain)
+        particles_gpu2 = MtlArray(Float32, particles3)
+        phases_gpu2 = MtlArray(Float32, phases3)
+
+        @test particles_gpu isa JustPIC.Particles{Metal.MetalBackend}
+        @test phase_ratios_gpu isa JustPIC.PhaseRatios{Metal.MetalBackend}
+        @test chain_gpu isa JustPIC.MarkerChain{Metal.MetalBackend}
+        @test particles_gpu2 isa JustPIC.Particles{Metal.MetalBackend}
+        @test eltype(eltype(phases_gpu)) === Float32
+        @test eltype(eltype(phases_gpu2)) === Float32
+        @test eltype(eltype(particles_gpu.coords[1].data)) === Float32
+        @test eltype(eltype(particles_gpu.index.data)) === Bool
+        @test eltype(eltype(phase_ratios_gpu.vertex.data)) === Float32
+        @test size(particles_gpu.coords[1].data) == size(permutedims(particles.coords[1].data, (3, 2, 1)))
+        @test size(particles_gpu.index.data) == size(permutedims(particles.index.data, (3, 2, 1)))
+        @test size(phase_ratios_gpu.vertex.data) == size(permutedims(phase_ratios.vertex.data, (3, 2, 1)))
+        @test size(phases_gpu.data) == size(permutedims(phases.data, (3, 2, 1)))
+    end
+
     rm("particles_checkpoint.jld2") # cleanup
     rm("particles.jld2") # cleanup
 end
@@ -341,6 +369,28 @@ end
         @test eltype(eltype(T(particles).index.data)) === Bool
         @test eltype(eltype(T(Float32, particles).index.data)) === Bool
         @test eltype(eltype(T(Float64, particles).index.data)) === Bool
+    end
+
+    # Metal has no Float64: only the eltype-typed Float32 conversions apply
+    if isdefined(Main, :Metal)
+        particles_gpu = MtlArray(Float32, particles)
+        phase_ratios_gpu = MtlArray(Float32, phase_ratios)
+        phases_gpu = MtlArray(Float32, phases)
+        particles_gpu2 = MtlArray(Float32, particles3)
+        phases_gpu2 = MtlArray(Float32, phases3)
+
+        @test particles_gpu isa JustPIC.Particles{Metal.MetalBackend}
+        @test phase_ratios_gpu isa JustPIC.PhaseRatios{Metal.MetalBackend}
+        @test particles_gpu2 isa JustPIC.Particles{Metal.MetalBackend}
+        @test eltype(eltype(phases_gpu)) === Float32
+        @test eltype(eltype(phases_gpu2)) === Float32
+        @test eltype(eltype(particles_gpu.coords[1].data)) === Float32
+        @test eltype(eltype(particles_gpu.index.data)) === Bool
+        @test eltype(eltype(phase_ratios_gpu.vertex.data)) === Float32
+        @test size(particles_gpu.coords[1].data) == size(permutedims(particles.coords[1].data, (3, 2, 1)))
+        @test size(particles_gpu.index.data) == size(permutedims(particles.index.data, (3, 2, 1)))
+        @test size(phase_ratios_gpu.vertex.data) == size(permutedims(phase_ratios.vertex.data, (3, 2, 1)))
+        @test size(phases_gpu.data) == size(permutedims(phases.data, (3, 2, 1)))
     end
 
     rm("particles.jld2") # cleanup

@@ -245,14 +245,16 @@ end
     ) where {N1, N2, T}
     return quote
         Base.@_inline_meta
-        Base.Cartesian.@nexprs $N1 i -> CAI.@index p[i][ip, I...] = NaN
+        Base.Cartesian.@nexprs $N1 i ->
+        CAI.@index p[i][ip, I...] = convert(eltype(eltype(p[i])), NaN)
     end
 end
 
 @generated function empty_particle!(p::NTuple{N}, ip, I::Integer) where {N}
     return quote
         Base.@_inline_meta
-        Base.Cartesian.@nexprs $N i -> CAI.@index p[i][ip, I] = NaN
+        Base.Cartesian.@nexprs $N i ->
+        CAI.@index p[i][ip, I] = convert(eltype(eltype(p[i])), NaN)
     end
 end
 
@@ -342,14 +344,13 @@ function empty_kernel!(
 
     # count number of active particles inside I-th cell
     number_of_particles = count_particles(index, I...)
-    # if the number of particles is less than 80%
-    # of the cell length then we do nothing
-    max_particles_allowed = cell_length * 0.75
+    # if the number of particles is less than 75% of the cell length then we do
+    # nothing; integer arithmetic (Float64 in kernels breaks Metal)
+    max_particles_allowed = (3 * cell_length) ÷ 4
     number_of_particles < max_particles_allowed && return nothing
 
-    # else we randomly remove particles until we are below 80% capacity
-    number_of_particles_to_remove =
-        number_of_particles - round(Int, max_particles_allowed, RoundDown)
+    # else we randomly remove particles until we are below 75% capacity
+    number_of_particles_to_remove = number_of_particles - max_particles_allowed
     counter = 0
     while counter < number_of_particles_to_remove
         # randomly select a particle to remove

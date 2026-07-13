@@ -402,31 +402,34 @@ end
         field[i + 1, j + 1, k + 1]
 end
 
+# keep all arithmetic in the grid eltype: Float64 literals/rand() break Metal
 @inline function new_particle(xvi::NTuple{N}, di::NTuple{N}) where {N}
+    T = typeof(first(di))
     p_new = ntuple(Val(N)) do i
-        xvi[i] + di[i] * (0.95 * rand() + 0.05)
-        # xvi[i] + di[i] * rand()
+        xvi[i] + di[i] * muladd(convert(T, 0.95), rand(T), convert(T, 0.05))
     end
     return p_new
 end
 
 @inline function new_particle(xvi::NTuple{2}, di::NTuple{2}, ctr, np)
-    th = (2 * pi) / np * (ctr - 1)
-    r = min(di...) * 0.25
+    T = typeof(first(di))
+    th = 2 * convert(T, pi) * (ctr - 1) / np
+    r = min(di...) / 4
     p_new = (
-        muladd(di[1], 0.5, muladd(r, cos(th), xvi[1])),
-        muladd(di[2], 0.5, muladd(r, sin(th), xvi[2])),
+        muladd(di[1], convert(T, 0.5), muladd(r, cos(th), xvi[1])),
+        muladd(di[2], convert(T, 0.5), muladd(r, sin(th), xvi[2])),
     )
     return p_new
 end
 
 @inline function new_particle(xvi::NTuple{3}, di::NTuple{3}, ctr, np)
-    th = (2 * pi) / np * (ctr - 1)
-    r = min(di...) * 0.25
+    T = typeof(first(di))
+    th = 2 * convert(T, pi) * (ctr - 1) / np
+    r = min(di...) / 4
     p_new = (
-        muladd(di[1], 0.5, muladd(r, cos(th), xvi[1])),
-        muladd(di[2], 0.5, xvi[2]),
-        muladd(di[3], 0.5, muladd(r, cos(th), xvi[3])),
+        muladd(di[1], convert(T, 0.5), muladd(r, cos(th), xvi[1])),
+        muladd(di[2], convert(T, 0.5), xvi[2]),
+        muladd(di[3], convert(T, 0.5), muladd(r, cos(th), xvi[3])),
     )
     return p_new
 end

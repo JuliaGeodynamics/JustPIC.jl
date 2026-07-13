@@ -116,7 +116,7 @@ end
     px, py, pz = p # particle coordinates
     nx, ny, nz = size(F)
     xvertex = xi[1][inode], xi[2][jnode], xi[3][knode] # cell lower-left coordinates
-    ω, ωF = 0.0, 0.0 # init weights
+    ω, ωF = zero(eltype(F)), zero(eltype(F)) # init weights
 
     # iterate over cells around i-th node
     for koffset in -1:0
@@ -156,8 +156,8 @@ end
     px, py, pz = p # particle coordinates
     nx, ny, nz = size(F[1])
     xvertex = xi[1][inode], xi[2][jnode], xi[3][knode] # cell lower-left coordinates
-    ω = 0.0 # init weights
-    ωxF = ntuple(i -> 0.0, Val(N)) # init weights
+    ω = zero(eltype(F[1])) # init weights
+    ωxF = ntuple(i -> zero(eltype(F[1])), Val(N)) # init weights
 
     # iterate over cells around i-th node
     for koffset in -1:0

@@ -6,6 +6,9 @@ const BACKEND_NAME = get(ENV, "JULIA_JUSTPIC_BACKEND", "CPU")
 elseif BACKEND_NAME == "CUDA"
     using CUDA
     CUDA.allowscalar(true)
+elseif BACKEND_NAME == "Metal"
+    using Metal
+    Metal.allowscalar(true)
 end
 
 using JustPIC, Test, StaticArrays
@@ -16,8 +19,17 @@ const backend = @static if BACKEND_NAME == "AMDGPU"
     AMDGPU.ROCBackend
 elseif BACKEND_NAME == "CUDA"
     CUDA.CUDABackend
+elseif BACKEND_NAME == "Metal"
+    Metal.MetalBackend
 else
     CPU
+end
+
+# Metal has no Float64; JULIA_JUSTPIC_PRECISION=Float32 runs the same paths on CPU
+const FT = if BACKEND_NAME == "Metal" || get(ENV, "JULIA_JUSTPIC_PRECISION", "") == "Float32"
+    Float32
+else
+    Float64
 end
 
 function expand_range(x::AbstractRange)
@@ -38,7 +50,7 @@ function expand_range(x::AbstractVector)
     return vcat(xI, x, xF)
 end
 @testset "CellArrays - 2D" begin
-    x = 1.0e0
+    x = FT(1)
     ni = (2, 2)
 
     ## Test a 2x2 grid with 2x1 CellArrays per grid cell
@@ -50,7 +62,7 @@ end
     # create empty cell
     @test JustPIC.new_empty_cell(CA) == @SArray zeros(2)
     # mutate and read 2nd element in grid cell [1, 1]
-    CAI.@index CA[2, 1, 1] = 2.0
+    CAI.@index CA[2, 1, 1] = FT(2)
     @test CAI.@index(CA[2, 1, 1]) == 2.0
 
     ## Test a 2x2 grid with 2x2 CellArrays per grid cell
@@ -62,7 +74,7 @@ end
     # create empty cell
     @test JustPIC.new_empty_cell(CA) == @SArray zeros(2, 2)
     # mutate and read [2,2] element in grid cell [1, 1]
-    CAI.@index CA[2, 2, 1, 1] = 2.0
+    CAI.@index CA[2, 2, 1, 1] = FT(2)
     @test CAI.@index(CA[2, 2, 1, 1]) == 2.0
 end
 
@@ -71,7 +83,7 @@ end
     n = 256
     nx = ny = n - 1
     ni = nx, ny
-    Lx = Ly = 1.0
+    Lx = Ly = FT(1)
     # nodal vertices
     xvi = xv, yv = LinRange(0, Lx, n), LinRange(0, Ly, n)
     dxi = dx, dy = xv[2] - xv[1], yv[2] - yv[1]
@@ -90,7 +102,7 @@ end
     T = typeof(phases.data)
     phases.data .= T(rand(1:nphases, size(phases.data)))
 
-    phase_ratios = JustPIC.PhaseRatios(backend, nphases, ni)
+    phase_ratios = JustPIC.PhaseRatios(FT, backend, nphases, ni)
 
     JustPIC.update_phase_ratios!(phase_ratios, particles, phases)
 
@@ -101,7 +113,7 @@ end
 end
 
 @testset "CellArrays - 3D" begin
-    x = 1.0e0
+    x = FT(1)
     ni = (2, 2, 2)
 
     ## Test a 2x2x2 grid with 2x1 CellArrays per grid cell
@@ -113,7 +125,7 @@ end
     # create empty cell
     @test JustPIC.new_empty_cell(CA) == @SArray zeros(2)
     # mutate and read 2nd element in grid cell [1, 1, 1]
-    CAI.@index CA[2, 1, 1, 1] = 2.0
+    CAI.@index CA[2, 1, 1, 1] = FT(2)
     @test CAI.@index(CA[2, 1, 1, 1]) == 2.0
 
     ## Test a 2x2x2 grid with 2x2 CellArrays per grid cell
@@ -125,14 +137,14 @@ end
     # create empty cell
     @test JustPIC.new_empty_cell(CA) == @SArray zeros(2, 2)
     # mutate and read [2,2] element in grid cell [1, 1, 1]
-    CAI.@index CA[2, 2, 1, 1, 1] = 2.0
+    CAI.@index CA[2, 2, 1, 1, 1] = FT(2)
     @test CAI.@index(CA[2, 2, 1, 1, 1]) == 2.0
 end
 
 @testset "Phase ratios - 3D" begin
     n = 32
     nx = ny = nz = n - 1
-    Lx = Ly = Lz = 1.0
+    Lx = Ly = Lz = FT(1)
     ni = nx, ny, nz
     Li = Lx, Ly, Lz
     # nodal vertices
@@ -157,7 +169,7 @@ end
     T = typeof(phases.data)
     phases.data .= T(rand(1:nphases, size(phases.data)))
 
-    phase_ratios = JustPIC.PhaseRatios(backend, nphases, ni)
+    phase_ratios = JustPIC.PhaseRatios(FT, backend, nphases, ni)
 
     JustPIC.update_phase_ratios!(phase_ratios, particles, phases)
 

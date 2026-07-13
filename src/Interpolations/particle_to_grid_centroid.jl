@@ -27,7 +27,7 @@ end
     ) where {T}
     px, py = p # particle coordinates
     xcenter = xci[1][inode], xci[2][jnode] # centroid coordinates
-    ω, ωxF = 0.0, 0.0 # init weights
+    ω, ωxF = zero(eltype(F)), zero(eltype(F)) # init weights
 
     # iterate over cell
     for i in cellaxes(px)
@@ -49,7 +49,7 @@ end
     ) where {N, T1, T2, T3}
     px, py = p # particle coordinates
     xcenter = xci[1][inode], xci[2][jnode] # centroid coordinates
-    ω, ωxF = 0.0, 0.0 # init weights
+    ω, ωxF = zero(eltype(F[1])), zero(eltype(F[1])) # init weights
 
     # iterate over cell
     for i in cellaxes(px)
@@ -80,7 +80,7 @@ end
     ) where {T}
     px, py, pz = p # particle coordinates
     xcenter = xci[1][inode], xci[2][jnode], xci[3][knode] # centroid coordinates
-    ω, ωF = 0.0, 0.0 # init weights
+    ω, ωF = zero(eltype(F)), zero(eltype(F)) # init weights
 
     # iterate over cell
     @inbounds for ip in cellaxes(px)
@@ -103,8 +103,8 @@ end
     ) where {N, T1, T2, T3}
     px, py, pz = p # particle coordinates
     xcenter = xci[1][inode], xci[2][jnode], xci[3][knode] # centroid coordinates
-    ω = 0.0 # init weights
-    ωxF = ntuple(i -> 0.0, Val(N)) # init weights
+    ω = zero(eltype(F[1])) # init weights
+    ωxF = ntuple(i -> zero(eltype(F[1])), Val(N)) # init weights
 
     # iterate over cell
     @inbounds for ip in cellaxes(px)

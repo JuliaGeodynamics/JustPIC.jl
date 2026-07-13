@@ -92,7 +92,9 @@ function init_particles(
     nxcell = np_quadrant * NQ
     max_xcell = max(nxcell, max_xcell)
     np = max_xcell * prod(nᵢ)
-    pxᵢ = ntuple(_ -> cell_array(backend, NaN, (max_xcell,), nᵢ), Val(N))
+    # particle storage inherits the grid precision (a bare NaN would force Float64)
+    T = eltype(first(xvi))
+    pxᵢ = ntuple(_ -> cell_array(backend, convert(T, NaN), (max_xcell,), nᵢ), Val(N))
     index = cell_array(backend, false, (max_xcell,), nᵢ)
 
     launch!(
@@ -127,7 +129,8 @@ function init_particles(
         return xci
     end
 
-    xi_vel = ntuple(i -> xi_vel_cpu[i], Val(N))
+    T = eltype(first(first(xi_vel_cpu)))
+    xi_vel = recast_grid(xi_vel_cpu, T)
     xci = center_coordinates(xi_vel)
     xvi = ntuple(i -> xi_vel[i][i], Val(N))
 
@@ -150,7 +153,8 @@ function init_particles(
     nxcell = np_quadrant * NQ
     max_xcell = max(nxcell, max_xcell)
     np = max_xcell * prod(nᵢ)
-    pxᵢ = ntuple(_ -> cell_array(backend, NaN, (max_xcell,), nᵢ), Val(N))
+    # particle storage inherits the grid precision (a bare NaN would force Float64)
+    pxᵢ = ntuple(_ -> cell_array(backend, convert(T, NaN), (max_xcell,), nᵢ), Val(N))
     index = cell_array(backend, false, (max_xcell,), nᵢ)
 
     launch!(
@@ -172,15 +176,17 @@ end
         coords[ndim][I[ndim]]
     end
     dxᵢ = @dxi di I...
+    # coordinate scalar type: bare 0.5/rand() literals would promote to Float64
+    Tp = typeof(first(x0ᵢ))
     masks = quadrant_masks(Val(N))
     # fill index array
     l = 0 # particle counter
     for iq in eachindex(masks)
-        xcᵢ = x0ᵢ .+ dxᵢ .* 0.5 .* masks[iq] # quadrant lower-left coordinates
+        xcᵢ = x0ᵢ .+ dxᵢ .* masks[iq] ./ 2 # quadrant lower-left coordinates
         for _ in 1:np_quadrant
             l += 1
             for ndim in 1:N
-                CAI.@index pxᵢ[ndim][l, I...] = xcᵢ[ndim] + dxᵢ[ndim] / 2 * rand()
+                CAI.@index pxᵢ[ndim][l, I...] = xcᵢ[ndim] + dxᵢ[ndim] / 2 * rand(Tp)
             end
             CAI.@index index[l, I...] = true
         end
@@ -200,7 +206,9 @@ function _init_particles(
     nxcell = prod(nxdim)
     ncells = prod(nᵢ)
     np = max_xcell * ncells
-    pxᵢ = ntuple(_ -> cell_array(backend, NaN, (max_xcell,), nᵢ), Val(N))
+    # particle storage inherits the grid precision (a bare NaN would force Float64)
+    T = eltype(first(coords))
+    pxᵢ = ntuple(_ -> cell_array(backend, convert(T, NaN), (max_xcell,), nᵢ), Val(N))
     index = cell_array(backend, false, (max_xcell,), nᵢ)
 
     di = compute_dx(coords)
@@ -284,8 +292,10 @@ quantities such as interpolated fields or time-integration work arrays.
   `particles.coords`.
 """
 @inline function init_cell_arrays(particles::Particles{Backend}, ::Val{N}) where {Backend, N}
+    # scratch arrays inherit the particle precision (Metal has no Float64)
+    T = eltype(eltype(particles.coords[1]))
     return ntuple(
-        _ -> cell_array(Backend, 0.0, cellsize(particles.index), size(particles.coords[1])),
+        _ -> cell_array(Backend, zero(T), cellsize(particles.index), size(particles.coords[1])),
         Val(N),
     )
 end

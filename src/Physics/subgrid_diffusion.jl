@@ -23,7 +23,7 @@ struct SubgridDiffusionCellArrays{CA, T}
         elseif loc === :center
             size(pΔT)
         end
-        ΔT = TA(Backend)(zeros(ni...))
+        ΔT = TA(Backend)(zeros(eltype(eltype(pΔT)), ni...))
         CA = typeof(pΔT)
         T = typeof(ΔT)
         return new{CA, T}(pT0, pΔT, dt₀, ΔT)
@@ -58,6 +58,8 @@ function subgrid_diffusion!(
     # d = dimensionless numerical diffusion coefficient (0 ≤ d ≤ 1)
     (; pT0, pΔT, dt₀) = subgrid_arrays
     ni = size(pT)
+    # scalars must match the particle-field precision (Float64 breaks Metal)
+    d, dt = convert.(eltype(eltype(pT)), (d, dt))
 
     launch!(ka_backend(pT), memcopy_cellarray_kernel!, ni, pT0, pT)
     grid2particle!(pT, T_grid, particles)
@@ -87,6 +89,8 @@ function subgrid_diffusion_centroid!(
     # d = dimensionless numerical diffusion coefficient (0 ≤ d ≤ 1)
     (; pT0, pΔT, dt₀) = subgrid_arrays
     ni = size(pT)
+    # scalars must match the particle-field precision (Float64 breaks Metal)
+    d, dt = convert.(eltype(eltype(pT)), (d, dt))
 
     launch!(ka_backend(pT), memcopy_cellarray_kernel!, ni, pT0, pT)
     centroid2particle!(pT, T_grid, particles)
@@ -119,7 +123,8 @@ end
         pTᵢ = CAI.@index pT[ip, I...]
 
         # subgrid diffusion of the i-th particle
-        pΔTᵢ = (pTᵢ - pT0ᵢ) * (1 - exp(-d * dt / max(CAI.@index(dt₀[ip, I...]), 1.0e-9)))
+        dt_floor = convert(typeof(dt), 1.0e-9)
+        pΔTᵢ = (pTᵢ - pT0ᵢ) * (1 - exp(-d * dt / max(CAI.@index(dt₀[ip, I...]), dt_floor)))
         CAI.@index pT0[ip, I...] = pT0ᵢ + pΔTᵢ
         CAI.@index pΔT[ip, I...] = pΔTᵢ
     end

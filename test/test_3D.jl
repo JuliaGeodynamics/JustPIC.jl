@@ -1,20 +1,34 @@
-@static if ENV["JULIA_JUSTPIC_BACKEND"] === "AMDGPU"
+const BACKEND_NAME = get(ENV, "JULIA_JUSTPIC_BACKEND", "CPU")
+
+@static if BACKEND_NAME == "AMDGPU"
     using AMDGPU
     AMDGPU.allowscalar(true)
-elseif ENV["JULIA_JUSTPIC_BACKEND"] === "CUDA"
+elseif BACKEND_NAME == "CUDA"
     using CUDA
     CUDA.allowscalar(true)
+elseif BACKEND_NAME == "Metal"
+    using Metal
+    Metal.allowscalar(true)
 end
 
 using JustPIC, CellArrays, Test, LinearAlgebra
 import KernelAbstractions: CPU
 
-const backend = @static if ENV["JULIA_JUSTPIC_BACKEND"] === "AMDGPU"
+const backend = @static if BACKEND_NAME == "AMDGPU"
     AMDGPU.ROCBackend
-elseif ENV["JULIA_JUSTPIC_BACKEND"] === "CUDA"
+elseif BACKEND_NAME == "CUDA"
     CUDA.CUDABackend
+elseif BACKEND_NAME == "Metal"
+    Metal.MetalBackend
 else
     CPU
+end
+
+# Metal has no Float64; JULIA_JUSTPIC_PRECISION=Float32 runs the same paths on CPU
+const FT = if BACKEND_NAME == "Metal" || get(ENV, "JULIA_JUSTPIC_PRECISION", "") == "Float32"
+    Float32
+else
+    Float64
 end
 
 function expand_range(x::LinRange)
@@ -37,7 +51,7 @@ end
 
 # Analytical flow solution
 vx_stream(x, z) = 250 * sin(π * x) * cos(π * z)
-vy_stream(x, z) = 0.0
+vy_stream(x, z) = zero(x)
 vz_stream(x, z) = -250 * cos(π * x) * sin(π * z)
 
 struct ForceInjectionPoint3D{T}
@@ -52,7 +66,7 @@ Base.getindex(p::ForceInjectionPoint3D, i::Int) = p.coords[i]
     n = 5 # number of vertices
     nx = ny = nz = n - 1
     ni = nx, ny, nz
-    Lx = Ly = Lz = 1.0
+    Lx = Ly = Lz = FT(1)
     Li = Lx, Ly, Lz
     # nodal vertices
     xvi = xv, yv, zv = ntuple(i -> LinRange(0, Li[i], n), Val(3))
@@ -96,7 +110,7 @@ end
     n = 5 # number of vertices
     nx = ny = nz = n - 1
     ni = nx, ny, nz
-    Lx = Ly = Lz = 1.0
+    Lx = Ly = Lz = FT(1)
     Li = Lx, Ly, Lz
     # nodal vertices
     xvi = xv, yv, zv = ntuple(i -> LinRange(0, Li[i], n), Val(3))
@@ -127,7 +141,7 @@ end
     n = 5 # number of vertices
     nx = ny = nz = n - 1
     ni = nx, ny, nz
-    Lx = Ly = Lz = 1.0
+    Lx = Ly = Lz = FT(1)
     Li = Lx, Ly, Lz
     # nodal vertices
     xvi = xv, yv, zv = ntuple(i -> LinRange(0, Li[i], n), Val(3))
@@ -180,9 +194,9 @@ end
 end
 
 @testset "Refined grid particle initialization 3D" begin
-    xv = [0.0, 0.1, 0.25, 0.55, 1.0]
-    yv = [0.0, 0.2, 0.45, 0.8, 1.0]
-    zv = [0.0, 0.15, 0.35, 0.65, 1.0]
+    xv = FT[0.0, 0.1, 0.25, 0.55, 1.0]
+    yv = FT[0.0, 0.2, 0.45, 0.8, 1.0]
+    zv = FT[0.0, 0.15, 0.35, 0.65, 1.0]
     xvi = (xv, yv, zv)
     xci = ntuple(i -> [(xvi[i][j] + xvi[i][j + 1]) / 2 for j in 1:(length(xvi[i]) - 1)], Val(3))
     grid_vi = (
@@ -206,7 +220,7 @@ end
 @testset "Passive markers 3D" begin
     n = 32
     nx = ny = nz = n - 1
-    Lx = Ly = Lz = 1.0
+    Lx = Ly = Lz = FT(1)
     ni = nx, ny, nz
     Li = Lx, Ly, Lz
     # nodal vertices
@@ -240,12 +254,12 @@ end
     np = 256 # number of passive markers
 
     passive_coords = ntuple(Val(3)) do i
-        TA(backend)((rand(np) .+ 1) .* Lx / 4)
+        TA(backend)((rand(FT, np) .+ 1) .* Lx / 4)
     end
 
     passive_markers = JustPIC.init_passive_markers(backend, passive_coords)
-    T_marker = TA(backend)(zeros(np))
-    P_marker = TA(backend)(zeros(np))
+    T_marker = TA(backend)(zeros(FT, np))
+    P_marker = TA(backend)(zeros(FT, np))
 
     for _ in 1:75
         JustPIC.advection!(passive_markers, JustPIC.RungeKutta2(2 / 3), V, (grid_vx, grid_vy, grid_vz), dt)
@@ -268,7 +282,7 @@ end
     n = 3
     nx = ny = nz = n - 1
     ni = nx, ny, nz
-    Lx = Ly = Lz = 1.0
+    Lx = Ly = Lz = FT(1)
     Li = Lx, Ly, Lz
     # nodal vertices
     xvi = xv, yv, zv = ntuple(i -> LinRange(0, Li[i], n), Val(3))
@@ -287,13 +301,13 @@ end
 
     ni = size(particles.index)
     nslots = JustPIC.cellnum(particles.index)
-    p_invalid = ForceInjectionPoint3D((0.0, 0.0, 0.0), false)
+    p_invalid = ForceInjectionPoint3D((FT(0), FT(0), FT(0)), false)
     p_new = TA(backend)(fill(p_invalid, ni..., nslots))
     for i in 1:ni[1], j in 1:ni[2], k in 1:ni[3], c in 1:nslots
-        p_new[i, j, k, c] = ForceInjectionPoint3D((0.1 * c + 0.01 * i, 0.1 * c + 0.01 * j, 0.1 * c + 0.01 * k), true)
+        p_new[i, j, k, c] = ForceInjectionPoint3D((FT(0.1) * c + FT(0.01) * i, FT(0.1) * c + FT(0.01) * j, FT(0.1) * c + FT(0.01) * k), true)
     end
 
-    JustPIC.force_injection!(particles, p_new, (pphase,), (5.0,))
+    JustPIC.force_injection!(particles, p_new, (pphase,), (FT(5),))
 
     x_data = vec(Array(particles.coords[1].data))
     y_data = vec(Array(particles.coords[2].data))
@@ -322,7 +336,7 @@ function test_advection_3D()
 
     n = 64
     nx = ny = nz = n - 1
-    Lx = Ly = Lz = 1.0
+    Lx = Ly = Lz = FT(1)
     ni = nx, ny, nz
     Li = Lx, Ly, Lz
     # nodal vertices
@@ -379,9 +393,9 @@ function test_advection_3D()
 end
 
 function test_advection_3D_refined()
-    xv = [0.0, 0.04, 0.09, 0.16, 0.25, 0.37, 0.52, 0.68, 0.84, 1.0]
-    yv = [0.0, 0.05, 0.11, 0.2, 0.31, 0.44, 0.58, 0.73, 0.87, 1.0]
-    zv = [0.0, 0.03, 0.08, 0.15, 0.26, 0.4, 0.56, 0.72, 0.88, 1.0]
+    xv = FT[0.0, 0.04, 0.09, 0.16, 0.25, 0.37, 0.52, 0.68, 0.84, 1.0]
+    yv = FT[0.0, 0.05, 0.11, 0.2, 0.31, 0.44, 0.58, 0.73, 0.87, 1.0]
+    zv = FT[0.0, 0.03, 0.08, 0.15, 0.26, 0.4, 0.56, 0.72, 0.88, 1.0]
     xvi = (xv, yv, zv)
     xc = [(xv[i] + xv[i + 1]) / 2 for i in 1:(length(xv) - 1)]
     yc = [(yv[i] + yv[i + 1]) / 2 for i in 1:(length(yv) - 1)]

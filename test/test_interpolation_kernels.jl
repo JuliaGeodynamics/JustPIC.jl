@@ -6,6 +6,9 @@ const BACKEND_NAME = get(ENV, "JULIA_JUSTPIC_BACKEND", "CPU")
 elseif BACKEND_NAME == "CUDA"
     using CUDA
     CUDA.allowscalar(true)
+elseif BACKEND_NAME == "Metal"
+    using Metal
+    Metal.allowscalar(true)
 end
 
 using Test
@@ -18,8 +21,17 @@ const backend = @static if BACKEND_NAME == "AMDGPU"
     AMDGPU.ROCBackend
 elseif BACKEND_NAME == "CUDA"
     CUDA.CUDABackend
+elseif BACKEND_NAME == "Metal"
+    Metal.MetalBackend
 else
     CPU
+end
+
+# Metal has no Float64; JULIA_JUSTPIC_PRECISION=Float32 runs the same paths on CPU
+const FT = if BACKEND_NAME == "Metal" || get(ENV, "JULIA_JUSTPIC_PRECISION", "") == "Float32"
+    Float32
+else
+    Float64
 end
 
 function expand_range(x::AbstractRange)
@@ -52,7 +64,7 @@ end
     nxcell, max_xcell, min_xcell = 5, 5, 1
     n = 5 # number of vertices
     nx = ny = n - 1
-    Lx = Ly = 1.0
+    Lx = Ly = FT(1)
     # nodal vertices
     xvi = xv, yv = LinRange(0, Lx, n), LinRange(0, Ly, n)
     dxi = dx, dy = xv[2] - xv[1], yv[2] - yv[1]
@@ -79,12 +91,12 @@ end
     # Grid to particle test
     JustPIC.grid2particle!(pT, T, particles)
 
-    @test pT == particles.coords[2]
+    @test pT ≈ particles.coords[2]
 
     # Grid to particle test
     JustPIC.grid2particle_flip!(pT, xvi_device, T, T0, particles)
 
-    @test pT == particles.coords[2]
+    @test pT ≈ particles.coords[2]
 
     # Particle to grid test
     T2 = similar(T)
@@ -117,7 +129,7 @@ end
     n = 5 # number of vertices
     nx = ny = nz = n - 1
     ni = nx, ny, nz
-    Lx = Ly = Lz = 1.0
+    Lx = Ly = Lz = FT(1)
     Li = Lx, Ly, Lz
     # nodal vertices
     xvi = xv, yv, zv = ntuple(i -> LinRange(0, Li[i], n), Val(3))

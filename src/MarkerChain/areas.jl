@@ -39,14 +39,14 @@ end
     p2 = GridGeometryUtils.Point(xv[i + 1], topo_y[i + 1])
     s = Segment(p1, p2)
 
-    r = Rectangle((ox, oy), dxi...)
+    r = Rectangle((ox, oy), dxi...; θ = zero(ox))
     ratio[i, j] = cell_rock_area(s, r)
 end
 
 function compute_area_below_chain_vx!(ratio_velocity, chain, xvi, dxi)
     topo_y = chain.h_vertices
     nx, ny = size(ratio_velocity)
-    mask_x = (-0.5, 0.0) .* dxi[1]
+    mask_x = (-1, 0) .* dxi[1] ./ 2
 
     launch!(
         ka_backend(ratio_velocity), _compute_area_below_chain_vx!, (nx, ny),
@@ -102,7 +102,7 @@ end
         s = Segment(p1, p2)
 
         ## create a rectangle for the new cell
-        r = Rectangle(origin, half_dx, half_dy)
+        r = Rectangle(origin, half_dx, half_dy; θ = zero(half_dx))
         tmp += cell_rock_area(s, r)
     end
     ratios[i, j] = tmp / ω
@@ -111,7 +111,7 @@ end
 function compute_area_below_chain_vy!(ratio_velocity, chain, xvi, dxi)
     topo_y = chain.h_vertices
     nx, ny = size(ratio_velocity)
-    mask_y = (-0.5, 0.0) .* dxi[2]
+    mask_y = (-1, 0) .* dxi[2] ./ 2
 
     launch!(
         ka_backend(ratio_velocity), _compute_area_below_chain_vy!, (nx, ny),
@@ -161,7 +161,7 @@ end
         s = Segment(p1, p2)
 
         ## create a rectangle for the new cell
-        r = Rectangle(origin, half_dx, half_dy)
+        r = Rectangle(origin, half_dx, half_dy; θ = zero(half_dx))
         tmp += cell_rock_area(s, r)
     end
     ratios[i, j] = tmp / ω
@@ -170,8 +170,8 @@ end
 function compute_area_below_chain_vertex!(ratio_vertex, chain, xvi, dxi)
     topo_y = chain.h_vertices
     ni = size(ratio_vertex)
-    masks_x = (-0.5, 0.0, -0.5, 0.0) .* dxi[1]
-    masks_y = (-0.5, -0.5, 0.0, 0.0) .* dxi[2]
+    masks_x = (-1, 0, -1, 0) .* dxi[1] ./ 2
+    masks_y = (-1, -1, 0, 0) .* dxi[2] ./ 2
 
     launch!(
         ka_backend(ratio_vertex), _compute_area_below_chain_vertex!, ni,
@@ -230,7 +230,7 @@ end
             s = Segment(p1, p2)
 
             ## create a rectangle for the new cell
-            r = Rectangle(origin, half_dx, half_dy)
+            r = Rectangle(origin, half_dx, half_dy; θ = zero(half_dx))
             tmp += cell_rock_area(s, r)
         end
     end

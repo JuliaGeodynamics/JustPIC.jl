@@ -14,10 +14,11 @@ surface height.
 function init_markerchain(
         ::Type{backend}, nxcell, min_xcell, max_xcell, xv, initial_elevation
     ) where {backend}
+    T = initial_elevation isa AbstractArray ? promote_type(eltype(xv), eltype(initial_elevation)) : promote_type(eltype(xv), typeof(initial_elevation))
+    xv = recast_grid(xv, T)
     nx = length(xv) - 1
     dx = xv[2] - xv[1]
     dx_chain = dx / (nxcell + 1)
-    T = initial_elevation isa AbstractArray ? promote_type(eltype(xv), eltype(initial_elevation)) : promote_type(eltype(xv), typeof(initial_elevation))
     initial_elevation = initial_elevation isa AbstractArray ? convert.(T, initial_elevation) : convert(T, initial_elevation)
     px, py = ntuple(_ -> cell_array(backend, convert(T, NaN), (max_xcell,), (nx,)), Val(2))
     index = cell_array(backend, false, (max_xcell,), (nx,))
@@ -101,6 +102,8 @@ end
 
 function _fill_chain_kernel!(coords, index, cell_vertices, topo_x, topo_y, icell)
     itopo, ilast = first_last_particle_incell(topo_x, cell_vertices, icell)
+    # NaN in the marker precision (a bare NaN literal is Float64 and breaks Metal)
+    nan = convert(eltype(eltype(coords[1])), NaN)
 
     for ip in cellaxes(index)
         if itopo ≤ ilast
@@ -110,8 +113,8 @@ function _fill_chain_kernel!(coords, index, cell_vertices, topo_x, topo_y, icell
             itopo += 1
         else
             CAI.@index index[ip, icell] = false
-            CAI.@index coords[1][ip, icell] = NaN
-            CAI.@index coords[2][ip, icell] = NaN
+            CAI.@index coords[1][ip, icell] = nan
+            CAI.@index coords[2][ip, icell] = nan
         end
     end
 

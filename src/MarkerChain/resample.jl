@@ -67,9 +67,10 @@ function resample_cell!(
             CAI.@index index[ip, I] = true
         end
         # fill empty memory locations
+        nan = convert(eltype(eltype(px)), NaN)
         for ip in (np_new + 1):max_xcell
-            CAI.@index px[ip, I] = NaN
-            CAI.@index py[ip, I] = NaN
+            CAI.@index px[ip, I] = nan
+            CAI.@index py[ip, I] = nan
             CAI.@index index[ip, I] = false
         end
     end

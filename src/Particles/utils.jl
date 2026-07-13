@@ -62,7 +62,7 @@ end
     clamped_limits = ntuple(Val(N)) do i
         @inline
         min_L, max_L = grid_lims[i]
-        (min_L + dxi[i] * 0.01, max_L - dxi[i] * 0.01)
+        (min_L + dxi[i] / 100, max_L - dxi[i] / 100)
     end
     return clamped_limits
 end

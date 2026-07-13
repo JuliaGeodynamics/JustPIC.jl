@@ -126,7 +126,9 @@ function grid2particle_flip!(Fp, xvi, F, F0, particles; α = 0.0)
     di = grid_size(xvi)
     (; coords, index) = particles
     ni = size(index)
-    launch!(ka_backend(particles), grid2particle_full!, ni, Fp, F, F0, xvi, di, coords, index, α)
+    # blend factor must match the field precision (Float64 breaks Metal)
+    αT = convert(eltype(F isa NTuple ? F[1] : F), α)
+    launch!(ka_backend(particles), grid2particle_full!, ni, Fp, F, F0, xvi, di, coords, index, αT)
 
     return nothing
 end
@@ -162,7 +164,7 @@ end
         ΔF = F_pic - F0_pic
         F_flip = Fᵢ + ΔF
         # Interpolate field F onto particle
-        CAI.@index Fp[ip, idx...] = muladd(F_pic, α, F_flip * (1.0 - α))
+        CAI.@index Fp[ip, idx...] = muladd(F_pic, α, F_flip * (one(α) - α))
     end
 end
 
@@ -195,7 +197,7 @@ end
             ΔF = F_pic - F0_pic
             F_flip = Fᵢ + ΔF
             # Interpolate field F onto particle
-            CAI.@index Fp[i][ip, idx...] = muladd(F_pic, α, F_flip * (1.0 - α))
+            CAI.@index Fp[i][ip, idx...] = muladd(F_pic, α, F_flip * (one(α) - α))
         end
     end
 end
