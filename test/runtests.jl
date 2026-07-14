@@ -73,6 +73,7 @@ function runtests()
             "test_interpolation_kernels.jl",
             "test_markerchain_2D.jl",
             "test_save_load.jl",
+            "test_marker_surface.jl"
         )
         for f in gpu_testfiles
             println("\n Running tests from $f")

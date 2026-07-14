@@ -45,7 +45,6 @@ compute_rock_fraction!(ratios, surf, xvi, dxi)
 
 ```julia
 using JustPIC
-using JustPIC._3D
 using GLMakie
 
 const backend = JustPIC.CPUBackend
@@ -102,7 +101,6 @@ Under periodic boundaries the ghost cells used by the advection stencil wrap to 
 
 ```julia
 using JustPIC
-using JustPIC._3D
 using GLMakie
 
 const backend = JustPIC.CPUBackend
