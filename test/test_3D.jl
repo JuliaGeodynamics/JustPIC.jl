@@ -31,22 +31,24 @@ else
     Float64
 end
 
-function expand_range(x::LinRange)
-    dx = x[2] - x[1]
-    n = length(x)
-    x1, x2 = extrema(x)
-    xI = x1 - dx
-    xF = x2 + dx
-    return LinRange(xI, xF, n + 2)
-end
+if !@isdefined(expand_range)
+    function expand_range(x::LinRange)
+        dx = x[2] - x[1]
+        n = length(x)
+        x1, x2 = extrema(x)
+        xI = x1 - dx
+        xF = x2 + dx
+        return LinRange(xI, xF, n + 2)
+    end
 
-function expand_range(x::AbstractVector)
-    dx_left = x[2] - x[1]
-    dx_right = x[end] - x[end - 1]
-    x1, x2 = extrema(x)
-    xI = x1 - dx_left
-    xF = x2 + dx_right
-    return vcat(xI, x, xF)
+    function expand_range(x::AbstractVector)
+        dx_left = x[2] - x[1]
+        dx_right = x[end] - x[end - 1]
+        x1, x2 = extrema(x)
+        xI = x1 - dx_left
+        xF = x2 + dx_right
+        return vcat(xI, x, xF)
+    end
 end
 
 # Analytical flow solution
@@ -353,9 +355,9 @@ function test_advection_3D()
     grid_vel = grid_vx, grid_vy, grid_vz
 
     # Cell fields -------------------------------
-    Vx = TA(backend)([vx_stream(x, z) for x in grid_vx[1], y in grid_vx[2], z in grid_vx[3]])
-    Vy = TA(backend)([vy_stream(x, z) for x in grid_vy[1], y in grid_vy[2], z in grid_vy[3]])
-    Vz = TA(backend)([vz_stream(x, z) for x in grid_vz[1], y in grid_vz[2], z in grid_vz[3]])
+    Vx = TA(backend)([vx_stream_3D(x, z) for x in grid_vx[1], y in grid_vx[2], z in grid_vx[3]])
+    Vy = TA(backend)([vy_stream_3D(x, z) for x in grid_vy[1], y in grid_vy[2], z in grid_vy[3]])
+    Vz = TA(backend)([vz_stream_3D(x, z) for x in grid_vz[1], y in grid_vz[2], z in grid_vz[3]])
     T = TA(backend)([z for x in xv, y in yv, z in zv])
     T0 = deepcopy(T)
     V = Vx, Vy, Vz
@@ -405,9 +407,9 @@ function test_advection_3D_refined()
     grid_vy = expand_range(xc), yv, expand_range(zc)
     grid_vz = expand_range(xc), expand_range(yc), zv
 
-    Vx = TA(backend)([vx_stream(x, z) for x in grid_vx[1], y in grid_vx[2], z in grid_vx[3]])
-    Vy = TA(backend)([vy_stream(x, z) for x in grid_vy[1], y in grid_vy[2], z in grid_vy[3]])
-    Vz = TA(backend)([vz_stream(x, z) for x in grid_vz[1], y in grid_vz[2], z in grid_vz[3]])
+    Vx = TA(backend)([vx_stream_3D(x, z) for x in grid_vx[1], y in grid_vx[2], z in grid_vx[3]])
+    Vy = TA(backend)([vy_stream_3D(x, z) for x in grid_vy[1], y in grid_vy[2], z in grid_vy[3]])
+    Vz = TA(backend)([vz_stream_3D(x, z) for x in grid_vz[1], y in grid_vz[2], z in grid_vz[3]])
     T = TA(backend)([z for x in xv, y in yv, z in zv])
     T0 = deepcopy(T)
     V = Vx, Vy, Vz

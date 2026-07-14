@@ -59,6 +59,12 @@ function runtests()
         catch
             nfail += 1
         end
+        try
+            printstyled("Running MarkerSurface tests\n"; bold = true, color = :white)
+            run(`$(Base.julia_cmd()) --startup-file=no --project=. $(joinpath(testdir, "test_marker_surface.jl"))`)
+        catch
+            nfail += 1
+        end
     else
         gpu_testfiles = (
             "test_2D.jl",
@@ -67,6 +73,7 @@ function runtests()
             "test_interpolation_kernels.jl",
             "test_markerchain_2D.jl",
             "test_save_load.jl",
+            "test_marker_surface.jl"
         )
         for f in gpu_testfiles
             println("\n Running tests from $f")

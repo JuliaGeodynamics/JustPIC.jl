@@ -33,7 +33,7 @@ function init_markerchain(
     h_vertices0 = copy(h_vertices)
 
     return MarkerChain(
-        backend, coords, coords0, h_vertices, h_vertices0, xv, index, min_xcell, max_xcell
+        backend, coords, coords0, h_vertices, h_vertices0, xv, index, max_xcell, min_xcell
     )
 end
 

@@ -43,7 +43,7 @@ the GPU backends by the package extensions.
 CA(::Type{CPU}, dims; eltype = Float64) = CPUCellArray{eltype}(undef, dims)
 
 include("particles.jl")
-export AbstractParticles, Particles, MarkerChain, PassiveMarkers, cell_index, cell_length
+export AbstractParticles, Particles, MarkerChain, MarkerSurface, PassiveMarkers, cell_index, cell_length
 
 include("PhaseRatios/PhaseRatios.jl")
 export nphases, numphases
