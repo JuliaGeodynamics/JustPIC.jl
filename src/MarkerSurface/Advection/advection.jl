@@ -1,7 +1,6 @@
 """
     advect_marker_surface!(surf::MarkerSurface, V, xvi, dt;
-                           max_slope_angle=0.0,
-                           Exx=0.0, Eyy=0.0, bg_ref_x=0.0, bg_ref_y=0.0)
+                           max_slope_angle=45.0, Exx=0.0, Eyy=0.0)
 
 Main driver to advect the free surface:
 1. Interpolate velocities from the 3D grid to surface nodes
@@ -13,9 +12,8 @@ Main driver to advect the free surface:
 - `V`    : tuple `(Vx, Vy, Vz)` of 3D velocity arrays
 - `xvi`  : tuple `(xv, yv, zv)` of 1D vertex coordinate arrays
 - `dt`   : time step
-- `max_slope_angle` : maximum slope angle in **degrees** (default `0.0` = no smoothing)
+- `max_slope_angle` : maximum slope angle in **degrees** (default `45.0`; `≤ 0` disables smoothing)
 - `Exx, Eyy` : background strain rates (default `0.0`)
-- `bg_ref_x, bg_ref_y` : rotation reference points (default `0.0`)
 """
 function advect_marker_surface!(
         surf::MarkerSurface, V::NTuple{3, Any},
@@ -78,9 +76,12 @@ function semilagrangian_advect_surface!(
     # Smooth
     smooth_surface_max_angle!(surf, max_slope_angle)
 
-    # Mass conservation: preserve mean height
+    # Mass conservation: preserve mean height (rank-local mean under MPI)
     avg_new = compute_avg_topo(surf)
     surf.topo .+= (avg_old - avg_new)
+
+    # MPI: the shift is rank-local, so re-sync boundary nodes after it
+    update_surface_halo!(surf)
 
     # Keep redundant boundary nodes in sync
     _enforce_periodic_seam!(surf.topo, surf.periodic_1, surf.periodic_2)

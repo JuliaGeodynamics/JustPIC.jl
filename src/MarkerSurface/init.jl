@@ -1,6 +1,6 @@
 """
     init_marker_surface(::Type{backend}, xv, yv, initial_elevation;
-                        air_phase=0)
+                        air_phase=0, periodic_1=false, periodic_2=false)
 
 Create a `MarkerSurface` that tracks a 3D free surface on the grid defined by
 vertex coordinates `xv` and `yv`.
@@ -15,6 +15,7 @@ staggered-grid corner nodes.
 - `yv`      : 1D array/range of y-coordinates of grid vertices (length `ny+1`)
 - `initial_elevation` : scalar or 2D array `(nx+1)×(ny+1)` of initial z-elevations
 - `air_phase`   : phase ID for the sticky-air layer (default `0`)
+- `periodic_1`, `periodic_2` : periodic boundary conditions in x and y (default `false`)
 
 # Returns
 A `MarkerSurface` instance with topography initialised to `initial_elevation`.
@@ -60,11 +61,18 @@ end
 """
     compute_avg_topo(surf::MarkerSurface)
 
-Compute and return the average topography over all surface vertices.
+Compute and return the average topography over all surface vertices. Duplicated
+periodic seam nodes are counted once. Under MPI the average is **rank-local**
+(the rank-local array, including halo vertices); JustPIC does no global
+reductions.
 Note: forces a device→host scalar transfer on GPU; call only outside hot loops.
 """
 function compute_avg_topo(surf::MarkerSurface)
-    return sum(surf.topo) / length(surf.topo)
+    nx1, ny1 = size(surf.topo)
+    i_end = surf.periodic_1 ? nx1 - 1 : nx1
+    j_end = surf.periodic_2 ? ny1 - 1 : ny1
+    t = @view surf.topo[1:i_end, 1:j_end]
+    return sum(t) / length(t)
 end
 
 """

@@ -101,6 +101,9 @@ export interpolate_velocity_to_markerchain!
 include("MarkerSurface/init.jl")
 export init_marker_surface, compute_avg_topo, set_topo_from_array!
 
+include("MarkerSurface/halo.jl")
+export update_surface_halo!
+
 include("MarkerSurface/interp_velocity.jl")
 export interpolate_velocity_to_surface_vertices!
 

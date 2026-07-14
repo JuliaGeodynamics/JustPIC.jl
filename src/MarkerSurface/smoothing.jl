@@ -5,11 +5,10 @@ Smooth the topography where the slope angle exceeds `max_slope_angle` (in **degr
 matching the MarkerChain `smooth_slopes!` convention).
 
 This mirrors LaMEM's `FreeSurfSmoothMaxAngle`:
-1. Scan all cells, compute the max slope (tan) from the 4 corner nodes.
-2. If any cell exceeds `tan(max_angle)`, mark it and store the average cell height
-   with a negative sign.
-3. For each affected node, replace its topography with the average of surrounding
-   cell-center heights (only cells that were marked).
+1. Scan all cells, compute the max slope (tan) from the 4 corner nodes and
+   the average cell height; mark cells exceeding `tan(max_angle)`.
+2. For each node touching at least one marked cell, replace its topography
+   with the average of the (up to 4) surrounding cell-center heights.
 
 # Arguments
 - `surf`            : the `MarkerSurface`
@@ -27,24 +26,28 @@ function smooth_surface_max_angle!(surf::MarkerSurface, max_slope_angle::Real)
 
     tan_max = tan(deg2rad(max_slope_angle))
 
-    # Step 1: mark cells exceeding max slope; affected cells stored with negative sign in cell_topo
+    # Step 1: cell-average heights + mask of cells exceeding max slope.
+    # A separate Bool mask (not a sign-encoded height) so topographies ≤ 0 work.
     cell_topo = similar(topo, nx, ny)
-    fill!(cell_topo, 0.0)
+    steep = similar(topo, Bool, nx, ny)
 
     @parallel (1:nx, 1:ny) _smooth_step1_kernel!(
-        cell_topo, topo, xv, yv, tan_max
+        cell_topo, steep, topo, xv, yv, tan_max
     )
 
     # Step 2: smooth nodal topography (no-op per node when no neighbours are marked)
     @parallel (1:nx1, 1:ny1) _smooth_step2_kernel!(
-        topo, cell_topo, nx, ny, surf.periodic_1, surf.periodic_2
+        topo, cell_topo, steep, nx, ny, surf.periodic_1, surf.periodic_2
     )
+
+    # MPI: sync boundary nodes smoothed with clamped (one-sided) cell stencils
+    update_surface_halo!(surf)
 
     return nothing
 end
 
 @parallel_indices (ic, jc) function _smooth_step1_kernel!(
-        cell_topo, topo, xv, yv, tan_max
+        cell_topo, steep, topo, xv, yv, tan_max
     )
     # Cell sizes
     dx = xv[ic + 1] - xv[ic]
@@ -62,15 +65,15 @@ end
     t = abs(z01 - z00) / dy; tmax = max(tmax, t)
     t = abs(z11 - z10) / dy; tmax = max(tmax, t)
 
-    # Average cell height; negative sign encodes "affected" for step 2
-    h = (z00 + z10 + z01 + z11) / 4
-    @inbounds cell_topo[ic, jc] = tmax > tan_max ? -h : h
+    # Average cell height; steepness recorded in a separate mask
+    @inbounds cell_topo[ic, jc] = (z00 + z10 + z01 + z11) / 4
+    @inbounds steep[ic, jc] = tmax > tan_max
 
     return nothing
 end
 
 @parallel_indices (iv, jv) function _smooth_step2_kernel!(
-        topo, cell_topo, nx, ny, periodic_1, periodic_2
+        topo, cell_topo, steep, nx, ny, periodic_1, periodic_2
     )
     # Get the up-to-4 neighboring cell indices
     # When periodic: wrap with mod1 (LaMEM style: only clamp when NOT periodic)
@@ -79,37 +82,9 @@ end
     j1 = periodic_2 ? mod1(jv, ny) : min(jv, ny)
     j2 = periodic_2 ? mod1(jv - 1, ny) : max(jv - 1, 1)
 
-    cz1 = cell_topo[i1, j1]
-    cz2 = cell_topo[i1, j2]
-    cz3 = cell_topo[i2, j1]
-    cz4 = cell_topo[i2, j2]
-
-    # Check if any neighbor is affected and get absolute values
-    cnt = 0
-    czabs1 = cz1
-    czabs2 = cz2
-    czabs3 = cz3
-    czabs4 = cz4
-
-    if cz1 < 0
-        cnt += 1
-        czabs1 = -cz1
-    end
-    if cz2 < 0
-        cnt += 1
-        czabs2 = -cz2
-    end
-    if cz3 < 0
-        cnt += 1
-        czabs3 = -cz3
-    end
-    if cz4 < 0
-        cnt += 1
-        czabs4 = -cz4
-    end
-
-    if cnt > 0
-        topo[iv, jv] = (czabs1 + czabs2 + czabs3 + czabs4) / 4
+    if steep[i1, j1] || steep[i1, j2] || steep[i2, j1] || steep[i2, j2]
+        topo[iv, jv] =
+            (cell_topo[i1, j1] + cell_topo[i1, j2] + cell_topo[i2, j1] + cell_topo[i2, j2]) / 4
     end
 
     return nothing
@@ -136,6 +111,8 @@ function smooth_surface_diffusive!(surf::MarkerSurface, niter::Int = 1; weight::
         @parallel (2:(nx1 - 1), 2:(ny1 - 1)) _smooth_diffusive_kernel!(
             topo, buf, weight
         )
+        # MPI: boundary nodes are interior on the neighbouring rank
+        update_surface_halo!(surf)
     end
 
     return nothing

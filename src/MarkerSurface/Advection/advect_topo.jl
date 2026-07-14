@@ -112,6 +112,9 @@ function advect_surface_topo!(
         topo, topo0, xv, yv, vx, vy, vz, dt, Exx, Eyy, nx1, ny1, periodic_1, periodic_2
     )
 
+    # MPI: replace ghost-extrapolated boundary nodes with neighbour values
+    update_surface_halo!(surf)
+
     # Keep the two redundant boundary nodes in sync (periodic seam)
     _enforce_periodic_seam!(topo, periodic_1, periodic_2)
 
@@ -221,7 +224,7 @@ end
     Yt = Y + dt * Eyy * Y
 
     # Search through the 16 triangles
-    Z = zero(Float64)
+    Z = zero(eltype(topo))
     found = false
 
     for tri in tria

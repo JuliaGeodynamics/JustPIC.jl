@@ -5,6 +5,7 @@ elseif ENV["JULIA_JUSTPIC_BACKEND"] === "CUDA"
 end
 
 using JustPIC, JustPIC._3D, CellArrays, ParallelStencil, Test, LinearAlgebra
+using ImplicitGlobalGrid
 
 const backend = @static if ENV["JULIA_JUSTPIC_BACKEND"] === "AMDGPU"
     JustPIC.AMDGPUBackend
@@ -496,4 +497,52 @@ using Statistics
             @test val ≈ 0.0 atol = 1.0e-10
         end
     end
+end
+
+@testset "MarkerSurface — ImplicitGlobalGrid (single-rank periodic)" begin
+    nx, ny, nz = 8, 8, 8
+    init_global_grid(nx, ny, nz; periodx = 1, periody = 1, quiet = true)
+
+    xv, yv, zv = make_grid(; nx = nx, ny = ny, nz = nz)
+    nx1, ny1 = nx + 1, ny + 1
+    AT = TA(backend)
+
+    # vertex arrays share `ol` lines between periodic neighbours
+    # (default overlap of 2 cells -> 3 vertex lines)
+    ol = 3
+
+    @testset "Halo exchange (periodic self-copy)" begin
+        surf = init_marker_surface(backend, xv, yv, 0.0)
+        A = rand(nx1, ny1)  # seams deliberately inconsistent
+        set_topo_from_array!(surf, AT(A))
+
+        update_surface_halo!(surf)
+        T = Array(surf.topo)
+
+        # periodic identification: line i ≡ line i + (nx1 - ol)
+        @test T[1, :] ≈ T[nx1 - ol + 1, :]
+        @test T[nx1, :] ≈ T[ol, :]
+        @test T[:, 1] ≈ T[:, ny1 - ol + 1]
+        @test T[:, ny1] ≈ T[:, ol]
+    end
+
+    @testset "Advection drivers run under an active global grid" begin
+        surf = init_marker_surface(backend, xv, yv, 0.5)
+        nxg, nyg, nzg = length(xv), length(yv), length(zv)
+        V = (
+            AT(zeros(nxg, nyg, nzg)),
+            AT(zeros(nxg, nyg, nzg)),
+            AT(fill(0.1, nxg, nyg, nzg)),
+        )
+        xvi = (AT(collect(Float64, xv)), AT(collect(Float64, yv)), AT(collect(Float64, zv)))
+
+        dt = 0.1
+        advect_marker_surface!(surf, V, xvi, dt)
+        @test all(abs.(Array(surf.topo) .- 0.51) .< 1.0e-8)
+
+        semilagrangian_advect_surface!(surf, V, xvi, dt)
+        @test all(isfinite, Array(surf.topo))
+    end
+
+    finalize_global_grid(; finalize_MPI = false)
 end

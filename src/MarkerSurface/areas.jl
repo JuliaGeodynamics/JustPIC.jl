@@ -258,16 +258,16 @@ Compute the rock fraction via the 4-triangle prism intersection algorithm. Uses 
     # corners: 1=(left,front), 2=(right,front), 3=(left,back), 4=(right,back), 5=center
     tria = ((1, 2, 5), (2, 4, 5), (4, 3, 5), (3, 1, 5))
 
-    air_ratio = 1.0
+    rock_ratio = 0.0
     for tri in tria
-        air_ratio -= _intersect_triangular_prism(cx, cy, cz, tri, vcell, zbot, ztop)
+        rock_ratio += _intersect_triangular_prism(cx, cy, cz, tri, vcell, zbot, ztop)
     end
 
-    return 1.0 - air_ratio
+    return rock_ratio
 end
 
 """
-    _intersect_triangular_prism(cx, cy, cz, tri, vcell, bot, top; tol=1e-12)
+    _intersect_triangular_prism(cx, cy, cz, tri, vcell, bot, top)
 
 Compute the volume of a triangular prism (with a slanted top surface defined
 by the topography) that is inside the cell bounded by `[bot, top]` in z,
@@ -279,15 +279,12 @@ Rock fraction contributed by this triangle (in [0, 0.25] for a 4-triangle cell).
 @inline function _intersect_triangular_prism(
         cx::NTuple, cy::NTuple, cz::NTuple,
         tri::NTuple{3, Int}, vcell,
-        bot, top;
-        tol = 1.0e-12,
+        bot, top,
     )
     ia, ib, ic = tri
     xa, ya, za = cx[ia], cy[ia], cz[ia]
     xb, yb, zb = cx[ib], cy[ib], cz[ib]
     xc, yc, zc = cx[ic], cy[ic], cz[ic]
-
-    dh = (top - bot) * tol
 
     # z-range of the surface
     zmin = min(za, zb, zc)
@@ -300,12 +297,12 @@ Rock fraction contributed by this triangle (in [0, 0.25] for a 4-triangle cell).
     zmin ≥ top && return 0.25  # quarter because 4 triangles per cell
 
     # Volume above bottom plane
-    vbot = _prism_volume_above_level(xa, ya, za, xb, yb, zb, xc, yc, zc, bot, dh)
+    vbot = _prism_volume_above_level(xa, ya, za, xb, yb, zb, xc, yc, zc, bot)
 
     # Volume above top plane
     vtop = 0.0
     if zmax > top
-        vtop = _prism_volume_above_level(xa, ya, za, xb, yb, zb, xc, yc, zc, top, dh)
+        vtop = _prism_volume_above_level(xa, ya, za, xb, yb, zb, xc, yc, zc, top)
     end
 
     # Volume inside cell = volume above bottom - volume above top
@@ -313,12 +310,12 @@ Rock fraction contributed by this triangle (in [0, 0.25] for a 4-triangle cell).
 end
 
 """
-    _prism_volume_above_level(xa,ya,za, xb,yb,zb, xc,yc,zc, level, dh)
+    _prism_volume_above_level(xa,ya,za, xb,yb,zb, xc,yc,zc, level)
 
 Compute double the volume of the triangular prism above a horizontal `level` plane.
 """
 @inline function _prism_volume_above_level(
-        xa, ya, za, xb, yb, zb, xc, yc, zc, level, dh
+        xa, ya, za, xb, yb, zb, xc, yc, zc, level
     )
     # Intersect edges with level
     xab, yab, zab = _intersect_edge(xa, ya, za, xb, yb, zb, level)

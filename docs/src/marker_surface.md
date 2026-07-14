@@ -140,3 +140,51 @@ display(f)
 ```
 <img src="assets/initial_condition_surface_periodic.png" width="250"  />
 <img src="assets/uplifted_surface_periodic.png" width="250"  />
+
+## Multi-GPU / MPI (ImplicitGlobalGrid)
+
+The marker surface works with [ImplicitGlobalGrid.jl](https://github.com/eth-cscs/ImplicitGlobalGrid.jl)
+domain decomposition, including full 3D (x, y and z) decomposition. Build the
+surface from the **local** (rank) vertex coordinates; when a global grid is
+active, `advect_marker_surface!`, `semilagrangian_advect_surface!` and the
+smoothing routines automatically exchange the topography's x/y halo between
+neighbouring ranks (`ImplicitGlobalGrid.update_halo!`). When the grid is
+decomposed in z, the surface velocity is additionally combined across each
+z-column so every node is interpolated from the rank whose slab contains the
+surface elevation — no user action required.
+
+```julia
+me, dims, nprocs = init_global_grid(nx, ny, nz; periodx = 1, periody = 1)
+
+# local vertex coordinates of this rank
+xv = [x_g(i, dx, Vx) for i in 1:(nx + 1)]
+yv = [y_g(j, dy, Vy) for j in 1:(ny + 1)]
+
+surf = init_marker_surface(backend, xv, yv, initial_elevation)
+
+for _ in 1:nt
+    advect_marker_surface!(surf, V, xvi, dt)   # halo exchange included
+end
+```
+
+Notes:
+
+- Under MPI, set periodicity through `init_global_grid` (`periodx`/`periody`)
+  and leave `periodic_1`/`periodic_2` of the surface as `false` — the local
+  flags wrap within the rank-local array and are only meant for single-device
+  runs.
+- If you modify `surf.topo` manually, call `update_surface_halo!(surf)`
+  afterwards to synchronize the ranks.
+- `compute_avg_topo` is **rank-local** under MPI (JustPIC performs no global
+  reductions); the `semilagrangian_advect_surface!` mass-conservation step
+  therefore preserves each rank's mean, not the global mean.
+
+## Limitations
+
+- Topography and surface velocities are stored in `Float64`.
+- Under z-decomposition, `interpolate_velocity_to_surface_vertices!` performs a
+  few small `Allreduce`s per call over each z-column, directly on the device
+  velocity arrays (no host staging). On GPU this requires GPU-aware MPI —
+  the same `IGG_CUDAAWARE_MPI=1` / `IGG_ROCMAWARE_MPI=1` setup
+  `ImplicitGlobalGrid` already uses for its halo exchange. Grids decomposed only
+  in x/y have no such requirement.

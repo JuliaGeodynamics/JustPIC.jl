@@ -29,6 +29,10 @@ function interpolate_velocity_to_surface_vertices!(
         svx, svy, svz, topo, sxv, syv, Vx, Vy, Vz, xvi...
     )
 
+    # MPI: under z-decomposition each rank only interpolated velocities for
+    # surface nodes within its own z-slab; combine them across the z-column.
+    reduce_surface_velocity_z!(surf, xvi[3])
+
     return nothing
 end
 
@@ -88,12 +92,18 @@ Returns 0 if `val < coords[1]`, or `length(coords)` if `val >= coords[end]`.
     n < 2 && return 1
     val < coords[1] && return 0
     val >= coords[end] && return n
-    for k in 1:(n - 1)
-        if coords[k] <= val < coords[k + 1]
-            return k
+    # binary search: largest k with coords[k] <= val
+    lo = 1
+    hi = n - 1
+    while lo < hi
+        mid = (lo + hi + 1) >> 1
+        if coords[mid] <= val
+            lo = mid
+        else
+            hi = mid - 1
         end
     end
-    return n - 1
+    return lo
 end
 
 """
