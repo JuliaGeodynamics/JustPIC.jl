@@ -33,11 +33,11 @@ function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args, dx
     nxi = size(index)
     domain_limits = extrema.(grid)
     n_color = ntuple(i -> ceil(Int, nxi[i] / 3), Val(N))
-    periodicity = periodic_1, periodic_2, periodic_3 
+    periodicity = periodic_1, periodic_2, periodic_3
     isperiodic = any(periodicity)
-    
+
     # first of all, we need to empty ghost nodes to make sure that no particles are moved into them
-    # if !isperiodic    
+    # if !isperiodic
     #     empty_ghost_nodes!(particles, args)
     # end
 
@@ -394,31 +394,30 @@ function count_particles(index, I::Vararg{Int, N}) where {N}
 end
 
 
-###### 
+######
 
-empty_ghost_nodes!(particles, others::NTuple{N, Any}) where N = empty_ghost_nodes!(particles, others...)
+empty_ghost_nodes!(particles, others::NTuple{N, Any}) where {N} = empty_ghost_nodes!(particles, others...)
 
 function empty_ghost_nodes!(particles, others...)
 
     (; index, coords) = particles
     ni = size(index)
-    @parallel (@idx ni) empty_ghost_nodes!(index, (coords..., others...))
-    
+    launch!(ka_backend(index), empty_ghost_nodes_kernel!, ni, index, (coords..., others...))
+
     return nothing
 end
 
-@parallel_indices (I...) function empty_ghost_nodes!(index, others)
+@kernel function empty_ghost_nodes_kernel!(index, others)
+    I = @index(Global, NTuple)
 
     if isghost(size(index), I)
-        @inbounds for ip in cellaxes(index)
-            @inbounds @index index[ip, I...] = false
+        for ip in cellaxes(index)
+            CAI.@index index[ip, I...] = false
             for other in others
-                @index other[ip, I...] = NaN
+                CAI.@index other[ip, I...] = NaN
             end
         end
     end
-
-    return nothing
 end
 
 @generated function isghost(sz::NTuple{N, Int}, I::NTuple{N}) where {N}
@@ -429,38 +428,34 @@ end
 end
 
 
-###### 
+######
 
-wrap_fields!(particles, periodicity, others::NTuple{N, Any}) where N = wrap_fields!(particles, periodicity, others...)
+wrap_fields!(particles, periodicity, others::NTuple{N, Any}) where {N} = wrap_fields!(particles, periodicity, others...)
 
 function wrap_fields!(particles, periodicity, others...)
 
     (; index, coords, xvi) = particles
     ni = size(index)
 
-    @parallel (@idx ni) wrap_fields!(index, coords, (others...,), xvi, periodicity)
+    launch!(ka_backend(index), wrap_fields_kernel!, ni, index, coords, (others...,), xvi, periodicity)
 
     return nothing
 end
 
-@parallel_indices (I...) function wrap_fields!(index, coords, others, xvi, periodicity)
+@kernel function wrap_fields_kernel!(index, coords, others, xvi, periodicity)
+    I = @index(Global, NTuple)
 
     if isghost(size(index), I)
-     
         I_wrapped = wrap_index(periodicity, size(index), I)
 
-        @inbounds for ip in cellaxes(index)
-            # @index index[ip, I_wrapped...] = @index(index[ip, I...])
-            @index index[ip, I...] = @index(index[ip, I_wrapped...])
-            wrap_coordinates!(periodicity, coords, xvi, ip, I_wrapped, I) 
+        for ip in cellaxes(index)
+            CAI.@index index[ip, I...] = CAI.@index(index[ip, I_wrapped...])
+            wrap_coordinates!(periodicity, coords, xvi, ip, I_wrapped, I)
             for other in others
-                # @index other[ip, I_wrapped...] = @index(other[ip, I...])
-                @index other[ip, I...] = @index(other[ip, I_wrapped...])
+                CAI.@index other[ip, I...] = CAI.@index(other[ip, I_wrapped...])
             end
         end
     end
-
-    return nothing
 end
 
 @generated function wrap_coordinates!(periodicity, coords::NTuple{N}, xvi, ip, I_wrapped, I::NTuple{N}) where {N}
@@ -468,21 +463,21 @@ end
         @inline
         Base.@nexprs $N i -> begin
             coordsᵢ = coords[i]
-            px      = @index coordsᵢ[ip, I_wrapped...]
-            xmax    = xvi[i][end-1]
-            xmin    = xvi[i][2]
+            px = CAI.@index coordsᵢ[ip, I_wrapped...]
+            xmax = xvi[i][end - 1]
+            xmin = xvi[i][2]
             if periodicity[i]
                 if px > (xmax + xmin) / 2
                     Δx = xmax - px
                     px_new = xmin - Δx
-                    @index coordsᵢ[ip, I...] = px_new
+                    CAI.@index coordsᵢ[ip, I...] = px_new
                 else
                     Δx = px - xmin
                     px_new = xmax + Δx
-                    @index coordsᵢ[ip, I...] = px_new
+                    CAI.@index coordsᵢ[ip, I...] = px_new
                 end
             else
-                @index coordsᵢ[ip, I...] = px
+                CAI.@index coordsᵢ[ip, I...] = px
             end
         end
     end
@@ -502,7 +497,7 @@ end
 end
 
 @inline function wrap_index(i::Integer, idx_max::Integer)
-    i == 1 && return idx_max-1
+    i == 1 && return idx_max - 1
     i == idx_max && return 1
     return i
 end

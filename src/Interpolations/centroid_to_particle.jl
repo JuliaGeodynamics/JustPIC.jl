@@ -14,14 +14,14 @@ centroid2particle!(Fp, F, particles) = centroid2particle!(Fp, particles.xci, F, 
 
 function centroid2particle!(Fp, xci, F, particles, di)
     (; coords) = particles
-    ni = size(Fp)
+    ni = inner_size(Fp)
     launch!(ka_backend(particles), centroid2particle_classic!, ni, Fp, F, xci, di, coords)
     return nothing
 end
 
 @kernel function centroid2particle_classic!(Fp, F, xci, di, coords)
     I = @index(Global, NTuple)
-    _centroid2particle_classic!(Fp, coords, xci, di, F, I.+1)
+    _centroid2particle_classic!(Fp, coords, xci, di, F, I .+ 1)
 end
 
 # INNERMOST INTERPOLATION KERNEL

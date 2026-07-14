@@ -152,11 +152,11 @@ end
     grid_vx = xv, expand_range(yc)
     grid_vy = expand_range(xc), yv
 
-    particles = _2D.init_particles(
+    particles = JustPIC.init_particles(
         backend, nxcell, max_xcell, min_xcell, grid_vx, grid_vy,
     )
-    pT, = _2D.init_cell_arrays(particles, Val(1))
-    _2D.inject_particles!(particles, (pT,))
+    pT, = JustPIC.init_cell_arrays(particles, Val(1))
+    JustPIC.inject_particles!(particles, (pT,))
 
     index_cpu = Array(particles.index)
     ghost_empty = all(
@@ -195,19 +195,19 @@ end
 
 @testset "Periodic ghost nodes 2D" begin
     xv_uniform = LinRange(0.0, 1.0, 5)
-    xv_uniform_periodic = JustPIC._2D.add_periodic_ghost_nodes(xv_uniform)
+    xv_uniform_periodic = JustPIC.add_periodic_ghost_nodes(xv_uniform)
     @test xv_uniform_periodic isa LinRange
     @test Array(xv_uniform_periodic) ≈ [-0.25, 0.0, 0.25, 0.5, 0.75, 1.0, 1.25]
 
     xv_refined = [0.0, 0.1, 0.3, 0.6, 1.0]
-    xv_refined_periodic = JustPIC._2D.add_periodic_ghost_nodes(xv_refined)
+    xv_refined_periodic = JustPIC.add_periodic_ghost_nodes(xv_refined)
     @test xv_refined_periodic isa Vector
     @test xv_refined_periodic == [-0.4, 0.0, 0.1, 0.3, 0.6, 1.0, 1.1]
 
-    @test JustPIC._2D.wrap_index((true, false), (6, 7), (1, 3)) == (5, 3)
-    @test JustPIC._2D.wrap_index((true, false), (6, 7), (6, 3)) == (1, 3)
-    @test JustPIC._2D.wrap_index((false, true), (6, 7), (2, 1)) == (2, 6)
-    @test JustPIC._2D.wrap_index((false, true), (6, 7), (2, 7)) == (2, 1)
+    @test JustPIC.wrap_index((true, false), (6, 7), (1, 3)) == (5, 3)
+    @test JustPIC.wrap_index((true, false), (6, 7), (6, 3)) == (1, 3)
+    @test JustPIC.wrap_index((false, true), (6, 7), (2, 1)) == (2, 6)
+    @test JustPIC.wrap_index((false, true), (6, 7), (2, 7)) == (2, 1)
 end
 
 @testset "Refined grid advection helpers 2D" begin
@@ -287,8 +287,8 @@ end
         backend, nxcell, max_xcell, min_xcell, grid_vi...,
     )
 
-    @test Array.(particles.xvi) == JustPIC._2D.add_periodic_ghost_nodes.(xvi)
-    @test Array.(particles.xci) == JustPIC._2D.add_periodic_ghost_nodes.(xci)
+    @test Array.(particles.xvi) == JustPIC.add_periodic_ghost_nodes.(xvi)
+    @test Array.(particles.xci) == JustPIC.add_periodic_ghost_nodes.(xci)
     @test Array.(particles.xi_vel[1]) == grid_vi[1]
     @test Array.(particles.xi_vel[2]) == grid_vi[2]
 end
@@ -544,7 +544,7 @@ function advection_test_2D()
     # Cell fields -------------------------------
     Vx = TA(backend)([vx_stream(x, y) for x in grid_vx[1], y in grid_vx[2]])
     Vy = TA(backend)([vy_stream(x, y) for x in grid_vy[1], y in grid_vy[2]])
-    xvi_p = JustPIC._2D.add_periodic_ghost_nodes.(xvi)
+    xvi_p = JustPIC.add_periodic_ghost_nodes.(xvi)
     T = TA(backend)([y for x in xvi_p[1], y in xvi_p[2]])
     T0 = deepcopy(T)
     V = Vx, Vy
@@ -658,7 +658,7 @@ function test_rotating_circle()
     Vy = TA(backend)([ vi_stream(x) for x in grid_vy[1], y in grid_vy[2]])
     xc0 = yc0 = FT(0.25)
     R = 6 * dx
-    xvi_p = JustPIC._2D.add_periodic_ghost_nodes.(xvi)
+    xvi_p = JustPIC.add_periodic_ghost_nodes.(xvi)
     T = TA(backend)([((x - xc0)^2 + (y - yc0)^2 ≤ R^2) * FT(1) for x in xvi_p[1], y in xvi_p[2]])
     T0 = deepcopy(T)
     V = Vx, Vy

@@ -104,7 +104,7 @@ function init_particles(
     index = cell_array(backend, false, (max_xcell,), nᵢ)
 
     launch!(
-        ka_backend(index), fill_coords_index!, nᵢ,
+        ka_backend(index), fill_coords_index!, nᵢ .- 2,
         pxᵢ, index, xvi, di.vertex, np_quadrant
     )
 
@@ -166,7 +166,7 @@ function init_particles(
     index = cell_array(backend, false, (max_xcell,), nᵢ)
 
     launch!(
-        ka_backend(index), fill_coords_index!, nᵢ,
+        ka_backend(index), fill_coords_index!, nᵢ .- 2,
         pxᵢ, index, xvi, di.vertex, np_quadrant
     )
 
@@ -176,9 +176,8 @@ end
 @kernel function fill_coords_index!(
         pxᵢ::NTuple{N, T}, index, coords, di::NTuple{N}, np_quadrant
     ) where {N, T}
-    I = @index(Global, NTuple)
-
-    I = I0 .+ 1 # shift to because of ghost nodes
+    I0 = @index(Global, NTuple)
+    I = I0 .+ 1 # shift by one to skip the periodic ghost node
     # lower-left corner of the cell
     x0ᵢ = ntuple(Val(N)) do ndim
         @inline

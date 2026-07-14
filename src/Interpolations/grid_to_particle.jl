@@ -28,7 +28,7 @@ grid2particle!(Fp, F, particles; ghost_1 = true, ghost_2 = true, ghost_3 = true)
 function grid2particle!(Fp, xvi, F, particles, di; ghost_1 = true, ghost_2 = true, ghost_3 = true)
     (; coords, index) = particles
     ni = inner_size(index)
-    
+
     # mask shift in case `F` has ghost nodes only in some dimensions, or non at all
     mask = inner_mask(particles, ghost_1, ghost_2, ghost_3)
 
@@ -41,9 +41,8 @@ end
 @kernel function grid2particle_classic!(
         Fp, F, xvi, index, di, particle_coords, mask
     )
-    I_inner = I .+ 1
-
     I = @index(Global, NTuple)
+    I_inner = I .+ 1
     _grid2particle_classic!(
         Fp, particle_coords, xvi, @dxi(di, I_inner...), F, index, I_inner, Val(cellnum(index)), mask
     )

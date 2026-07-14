@@ -84,7 +84,7 @@ Base.getindex(p::ForceInjectionPoint3D, i::Int) = p.coords[i]
         backend, nxcell, max_xcell, min_xcell, grid_vel...
     )
     pT, = JustPIC.init_cell_arrays(particles, Val(1))
-    xvi_p = JustPIC._3D.add_periodic_ghost_nodes.(xvi)
+    xvi_p = JustPIC.add_periodic_ghost_nodes.(xvi)
     # Linear field at the vertices
     T = TA(backend)([z for x in xvi_p[1], y in xvi_p[2], z in xvi_p[3]])
     T0 = TA(backend)([z for x in xvi_p[1], y in xvi_p[2], z in xvi_p[3]])
@@ -153,11 +153,11 @@ end
     grid_vy = expand_range(xc), yv, expand_range(zc)
     grid_vz = expand_range(xc), expand_range(yc), zv
 
-    particles = _3D.init_particles(
+    particles = JustPIC.init_particles(
         backend, nxcell, max_xcell, min_xcell, grid_vx, grid_vy, grid_vz,
     )
-    pT, = _3D.init_cell_arrays(particles, Val(1))
-    _3D.inject_particles!(particles, (pT,))
+    pT, = JustPIC.init_cell_arrays(particles, Val(1))
+    JustPIC.inject_particles!(particles, (pT,))
 
     index_cpu = Array(particles.index)
     ghost_empty = all(
@@ -227,12 +227,12 @@ end
 
 @testset "Periodic ghost nodes 3D" begin
     zv_uniform = LinRange(-1.0, 1.0, 5)
-    zv_uniform_periodic = JustPIC._3D.add_periodic_ghost_nodes(zv_uniform)
+    zv_uniform_periodic = JustPIC.add_periodic_ghost_nodes(zv_uniform)
     @test zv_uniform_periodic isa LinRange
     @test Array(zv_uniform_periodic) ≈ [-1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5]
 
     zv_refined = [-1.0, -0.7, -0.2, 0.4, 1.0]
-    zv_refined_periodic = JustPIC._3D.add_periodic_ghost_nodes(zv_refined)
+    zv_refined_periodic = JustPIC.add_periodic_ghost_nodes(zv_refined)
     @test zv_refined_periodic isa Vector
     @test zv_refined_periodic == [-1.6, -1.0, -0.7, -0.2, 0.4, 1.0, 1.3]
 end
@@ -254,8 +254,8 @@ end
         backend, nxcell, max_xcell, min_xcell, grid_vi...,
     )
 
-    @test Array.(particles.xvi) == JustPIC._3D.add_periodic_ghost_nodes.(xvi)
-    @test Array.(particles.xci) == JustPIC._3D.add_periodic_ghost_nodes.(xci)
+    @test Array.(particles.xvi) == JustPIC.add_periodic_ghost_nodes.(xvi)
+    @test Array.(particles.xci) == JustPIC.add_periodic_ghost_nodes.(xci)
     @test Array.(particles.xi_vel[1]) == grid_vi[1]
     @test Array.(particles.xi_vel[2]) == grid_vi[2]
     @test Array.(particles.xi_vel[3]) == grid_vi[3]
@@ -400,7 +400,7 @@ function test_advection_3D()
     Vx = TA(backend)([vx_stream(x, z) for x in grid_vx[1], y in grid_vx[2], z in grid_vx[3]])
     Vy = TA(backend)([vy_stream(x, z) for x in grid_vy[1], y in grid_vy[2], z in grid_vy[3]])
     Vz = TA(backend)([vz_stream(x, z) for x in grid_vz[1], y in grid_vz[2], z in grid_vz[3]])
-    xvi_p = JustPIC._3D.add_periodic_ghost_nodes.(xvi)
+    xvi_p = JustPIC.add_periodic_ghost_nodes.(xvi)
     T = TA(backend)([z for x in xvi_p[1], y in xvi_p[2], z in xvi_p[3]])
     T0 = deepcopy(T)
     V = Vx, Vy, Vz
@@ -453,7 +453,7 @@ function test_advection_3D_refined()
     Vx = TA(backend)([vx_stream(x, z) for x in grid_vx[1], y in grid_vx[2], z in grid_vx[3]])
     Vy = TA(backend)([vy_stream(x, z) for x in grid_vy[1], y in grid_vy[2], z in grid_vy[3]])
     Vz = TA(backend)([vz_stream(x, z) for x in grid_vz[1], y in grid_vz[2], z in grid_vz[3]])
-    xvi_p = JustPIC._3D.add_periodic_ghost_nodes.(xvi)
+    xvi_p = JustPIC.add_periodic_ghost_nodes.(xvi)
     T = TA(backend)([z for x in xvi_p[1], y in xvi_p[2], z in xvi_p[3]])
     T0 = deepcopy(T)
     V = Vx, Vy, Vz

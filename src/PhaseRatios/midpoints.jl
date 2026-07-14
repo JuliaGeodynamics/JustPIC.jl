@@ -3,8 +3,11 @@
 function phase_ratios_face!(
         phase_face, particles::Particles{B, N}, phases, dimension
     ) where {B, N}
-    ni = inner_size(phases)
     offsets = face_offset(Val(N), dimension)
+    # `phase_ratios_face_kernel!` writes at `I_inner + offsets - 1`: offset-active
+    # dimensions need `size - 2` threads to span the interior, offset-0 dimensions
+    # need `size - 1` (the write has no `-1` correction to compensate for there).
+    ni = size(phase_face) .- 1 .- offsets
     idx_di = if dimension === :x
         1
     elseif dimension === :y
@@ -62,7 +65,7 @@ end
         CAI.@index ratio_faces[ip, face_index...] = w[ip] * !isnan(w[ip]) # make it zero if there are NaNs (means no particles within velocity half cell)
     end
 
-    if isboundary(offsets, I_inner)
+    if isboundary(offsets, I)
         # Fill the first boundary face, which is not covered by the forward offset write above.
         cell_face = @. cell_center - di * offsets / 2
         w = ntuple(_ -> zero(eltype(eltype(ratio_faces))), NC)
@@ -109,7 +112,7 @@ end
 function phase_ratios_midpoint!(
         phase_midpoint, particles::Particles{B, N}, phases, dimension
     ) where {B, N}
-    ni = inner_size(phases)
+    ni = inner_size(phase_midpoint)
     offsets = midpoint_offset(Val(N), dimension)
     dxi_midpoints = midpoint_grid_spacing(particles.di, dimension::Symbol)
     launch!(
@@ -123,7 +126,7 @@ end
         ratio_midpoints, pxi::NTuple, xci::NTuple, dxi_vertex, dxi_midpoints, phases, offsets
     )
     I = @index(Global, NTuple)
-    _phase_ratios_midpoint_kernel!(ratio_midpoints, pxi, xci, dxi_vertex, dxi_midpoints, phases, offsets, I.+1...)
+    _phase_ratios_midpoint_kernel!(ratio_midpoints, pxi, xci, dxi_vertex, dxi_midpoints, phases, offsets, I .+ 1...)
 end
 
 function _phase_ratios_midpoint_kernel!(
@@ -172,8 +175,8 @@ function _phase_ratios_midpoint_kernel!(
         CAI.@index ratio_midpoints[ip, (I .+ offsets)...] = w[ip] * !isnan(w[ip]) # make it zero if there are NaNs (means no particles within half cells)
     end
 
-    if isboundary(offsets, I)
-        offset_boundary = lastboundary_offset(offsets, I, ni)
+    if isboundary(offsets, I .- 1)
+        offset_boundary = lastboundary_offset(offsets, I, ni .- 1)
         for offset_boundaryᵢ in ((0, 0, 0), offset_boundary)
             all(x -> x === false, offset_boundaryᵢ) && continue # skip if not last boundary
 
