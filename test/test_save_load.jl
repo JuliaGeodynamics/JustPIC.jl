@@ -31,6 +31,8 @@ function expand_range(x::AbstractVector)
     return vcat(xI, x, xF)
 end
 
+same_values(a, b) = size(a) == size(b) && all(isequal.(a, b))
+
 @testset "Save and load 2D" begin
     # Initialize particles -------------------------------
     nxcell, max_xcell, min_xcell = 6, 6, 6
@@ -87,8 +89,8 @@ end
     phases2 = data["phases"]
     phase_ratios2 = data["phase_ratios"]
 
-    @test Array(particles).coords[1].data == particles2.coords[1].data
-    @test Array(particles).coords[2].data == particles2.coords[2].data
+    @test same_values(Array(particles).coords[1].data, particles2.coords[1].data)
+    @test same_values(Array(particles).coords[2].data, particles2.coords[2].data)
     @test Array(particles).index.data == particles2.index.data
     @test Array(phase_ratios).center.data == phase_ratios2.center.data
     @test Array(phase_ratios).vertex.data == phase_ratios2.vertex.data
@@ -113,8 +115,8 @@ end
     @test particle_args3 isa Tuple
     @test particle_args_reduced3 isa Tuple
     @test particle_args_kwarg3 isa Tuple
-    @test Array(particles).coords[1].data == particles3.coords[1].data
-    @test Array(particles).coords[2].data == particles3.coords[2].data
+    @test same_values(Array(particles).coords[1].data, particles3.coords[1].data)
+    @test same_values(Array(particles).coords[2].data, particles3.coords[2].data)
     @test Array(particles).index.data == particles3.index.data
     @test Array(phase_ratios).center.data == phase_ratios3.center.data
     @test Array(phase_ratios).vertex.data == phase_ratios3.vertex.data
@@ -288,8 +290,8 @@ end
     @test particle_args3 isa Tuple
     @test particle_args_reduced3 isa Tuple
     @test particle_args_kwarg3 isa Tuple
-    @test Array(particles).coords[1].data == particles2.coords[1].data
-    @test Array(particles).coords[2].data == particles2.coords[2].data
+    @test same_values(Array(particles).coords[1].data, particles2.coords[1].data)
+    @test same_values(Array(particles).coords[2].data, particles2.coords[2].data)
     @test Array(particles).index.data == particles2.index.data
     @test Array(phase_ratios).center.data == phase_ratios2.center.data
     @test Array(phase_ratios).vertex.data == phase_ratios2.vertex.data
@@ -301,8 +303,8 @@ end
     @test size(Array(phase_ratios).vertex.data) == size(phase_ratios2.vertex.data)
     @test size(Array(phases).data) == size(phases2.data)
 
-    @test Array(particles).coords[1].data == particles3.coords[1].data
-    @test Array(particles).coords[2].data == particles3.coords[2].data
+    @test same_values(Array(particles).coords[1].data, particles3.coords[1].data)
+    @test same_values(Array(particles).coords[2].data, particles3.coords[2].data)
     @test Array(particles).index.data == particles3.index.data
     @test Array(phase_ratios).center.data == phase_ratios3.center.data
     @test Array(phase_ratios).vertex.data == phase_ratios3.vertex.data

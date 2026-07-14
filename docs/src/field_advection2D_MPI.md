@@ -1,5 +1,10 @@
 # Field advection in 2D using MPI
 
+This example uses periodic boundaries in both coordinate directions. The local
+particle grids therefore include periodic ghost nodes, and MPI halo exchanges
+must happen at the right points of the advection loop so that particles and
+their fields remain consistent across rank boundaries.
+
 As usual, we start loading JustPIC.jl modules and specifying the backend
 
 ```julia
@@ -13,14 +18,14 @@ and we define the usual analytical flow solution
 vx_stream(x, y) =  250 * sin(π*x) * cos(π*y)
 vy_stream(x, y) = -250 * cos(π*x) * sin(π*y)
 ```
-This time, we also need to load MPI.jl and ImplicitGlobalGrid.jl to handle the MPI communication between the different CPU's
+This time, we also need to load MPI.jl and ImplicitGlobalGrid.jl to handle MPI communication between CPU ranks.
 
 ```julia
 using ImplicitGlobalGrid
 using MPI: MPI
 ```
 
-Then we define the model domain
+Then we define the model domain:
 
 ```julia
 n  = 256        # number of nodes
@@ -28,7 +33,7 @@ nx = ny = n-1   # number of cells in x and y
 Lx = Ly = 1.0   # domain size
 ```
 
-, initialize the global grid
+Initialize the global grid:
 ```julia
 me, dims, = init_global_grid(n-1, n-1, 1; init_MPI=MPI.Initialized() ? false : true)
 dxi = dx, dy = Lx /(nx_g()-1), Ly / (ny_g()-1)
@@ -100,14 +105,54 @@ niter = 250
 for it in 1:niter
     # advect particles
     advection!(particles, RungeKutta2(), V, dt)
-    # move particles in the memory
-    move_particles!(particles, particle_args) 
+    # exchange MPI halos before shuffling particles between parent cells
+    update_cell_halo!(particles.coords..., particle_args..., particles.index)
+    # move particles in memory
+    move_particles!(particles, particle_args)
     # inject particles if needed
-    inject_particles!(particles, (pT, ))      
+    inject_particles!(particles, (pT, ))
+    # refresh halos again so reinjected particles are visible across ranks
+    update_cell_halo!(particles.coords..., particle_args..., particles.index)
     # interpolate particles to the grid
-    particle2grid!(T, pT, particles)           
+    particle2grid!(T, pT, particles)
 end
 ```
+
+## Periodic Boundary Conditions
+
+For periodic MPI runs, there are two separate mechanisms working together:
+
+- `init_particles` extends the particle vertex and center grids with periodic
+  ghost nodes.
+- `update_cell_halo!` exchanges the overlapping `CellArray` halos between MPI
+  ranks, including across periodic rank boundaries configured by
+  `init_global_grid`. You can pass all coordinate, index, and per-particle
+  field `CellArray`s in one call.
+
+The usual pattern is:
+
+1. advect particles locally
+2. exchange halos with `update_cell_halo!`
+3. call `move_particles!` so particles that crossed a rank boundary are
+   reassigned on the neighboring rank
+4. reinject particles if needed
+5. exchange halos again before `particle2grid!`
+
+In code:
+
+```julia
+advection!(particles, RungeKutta2(), V, dt)
+update_cell_halo!(particles.coords..., particle_args..., particles.index)
+move_particles!(particles, particle_args)
+inject_particles!(particles, (pT,))
+update_cell_halo!(particles.coords..., particle_args..., particles.index)
+particle2grid!(T, pT, particles)
+```
+
+If the second halo refresh is skipped after reinjection, `particle2grid!` can
+reconstruct grid nodes from incomplete cross-rank neighborhoods. If the first
+halo refresh is skipped before `move_particles!`, particles that leave a rank
+can fail to appear on the neighboring rank.
 
 ## Visualization
 To visualize the results, we need to allocate a global array `T_v` and buffer arrays `T_nohalo` without the overlapping halo (here with `width = 1`)

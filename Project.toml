@@ -25,6 +25,16 @@ JustPICAMDGPUExt = "AMDGPU"
 JustPICCUDAExt = "CUDA"
 JustPICMetalExt = "Metal"
 
+[extras]
+Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
+CellArrays = "d35fcfd7-7af4-4c67-b1aa-d78070614af4"
+JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+ParallelStencil = "94395366-693c-11ea-3b26-d9b7aac5d958"
+Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
 [compat]
 AMDGPU = "1, 2"
 CUDA = "5"

@@ -11,13 +11,17 @@ particle2centroid!(F, Fp, particles::Particles) = particle2centroid!(F, Fp, part
 
 function particle2centroid!(F, Fp, xci::NTuple, particles::Particles, di)
     (; coords) = particles
-    launch!(ka_backend(particles), particle2centroid_kernel!, size(coords[1]), F, Fp, xci, coords, di)
+    ndrange = length.(inner_range(coords[1]))
+    launch!(ka_backend(particles), particle2centroid_kernel!, ndrange, F, Fp, xci, coords, di)
     return nothing
 end
 
+inner_range(A::AbstractArray{T, N}) where {T, N} = ntuple(i -> 2:(size(A, i) - 1), Val(N))
+
 @kernel function particle2centroid_kernel!(F, Fp, xci, coords, di)
     I = @index(Global, NTuple)
-    _particle2centroid!(F, Fp, I..., xci, coords, @dxi(di, I...))
+    I_inner = I .+ 1
+    _particle2centroid!(F, Fp, I_inner..., xci, coords, @dxi(di, I_inner...))
 end
 
 ## INTERPOLATION KERNEL 2D

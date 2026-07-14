@@ -48,7 +48,8 @@ function main()
     # Cell fields -------------------------------
     Vx = TA(backend)([vx_stream(x, y) for x in grid_vx[1], y in grid_vx[2]])
     Vy = TA(backend)([vy_stream(x, y) for x in grid_vy[1], y in grid_vy[2]])
-    T = TA(backend)([y for x in xc, y in yc])
+    xci_p = Array.(particles.xci)
+    T = TA(backend)([y for x in xci_p[1], y in xci_p[2]])
     V = Vx, Vy
 
     dt = min(dx / maximum(abs.(Array(Vx))), dy / maximum(abs.(Array(Vy))))
@@ -56,7 +57,7 @@ function main()
 
     # Advection test
     particle_args = pT, = init_cell_arrays(particles, Val(1))
-    centroid2particle!(pT, xci, T, particles)
+    centroid2particle!(pT, T, particles)
 
     Tmin, Tmax = 0, 1
     @assert all(x -> Tmin ≤ x ≤ Tmax, Array(pT.data[particles.index.data]))
@@ -70,11 +71,11 @@ function main()
         move_particles!(particles, particle_args)
         inject_particles!(particles, (pT,))
         @assert all(x -> Tmin ≤ x ≤ Tmax, Array(pT.data[particles.index.data]))
-        particle2centroid!(T, pT, xci, particles)
-        @assert all(x -> Tmin ≤ x ≤ Tmax, Array(T))
+        particle2centroid!(T, pT, particles)
+        @assert all(x -> Tmin ≤ x ≤ Tmax, Array(T)[2:(end - 1), 2:(end - 1)])
 
         if rem(it, 10) == 0
-            f, ax, = heatmap(xci..., Array(T), colormap = :batlow)
+            f, ax, = heatmap(xci..., Array(T)[2:(end - 1), 2:(end - 1)], colormap = :batlow)
             streamplot!(ax, g, xvi...)
             save("figs/test_$(it).png", f)
             f

@@ -14,14 +14,14 @@ centroid2particle!(Fp, F, particles) = centroid2particle!(Fp, particles.xci, F, 
 
 function centroid2particle!(Fp, xci, F, particles, di)
     (; coords) = particles
-    ni = size(Fp)
+    ni = inner_size(Fp)
     launch!(ka_backend(particles), centroid2particle_classic!, ni, Fp, F, xci, di, coords)
     return nothing
 end
 
 @kernel function centroid2particle_classic!(Fp, F, xci, di, coords)
     I = @index(Global, NTuple)
-    _centroid2particle_classic!(Fp, coords, xci, di, F, I)
+    _centroid2particle_classic!(Fp, coords, xci, di, F, I .+ 1)
 end
 
 # INNERMOST INTERPOLATION KERNEL
@@ -58,7 +58,7 @@ end
         # continue the kernel
         xc = ntuple(i -> xci[i][I[i]], Val(N))
         cell_index = shifted_index(pᵢ, xc, I)
-        cell_index = clamp.(cell_index, 1, ni)
+        # cell_index = clamp.(cell_index, 1, ni) # no need with ghost nodes
         # Interpolate field F onto particle
         for n in 1:NF # should be unrolled
             CAI.@index Fp[n][ip, I...] = _grid2particle(pᵢ, xci, @dxi(di, cell_index...), F[n], cell_index)

@@ -2,7 +2,7 @@
 
 
 function phase_ratios_vertex!(phase_ratios::JustPIC.PhaseRatios, particles, phases)
-    ni = size(phases) .+ 1
+    ni = inner_size(phase_ratios.vertex)
 
     launch!(
         ka_backend(phase_ratios), phase_ratios_vertex_kernel!, ni,
@@ -15,19 +15,20 @@ end
         ratio_vertices, pxi::NTuple{3}, xvi::NTuple{3, T}, dᵢ, phases
     ) where {T}
     I = @index(Global, NTuple)
+    I_inner = I .+ 1
 
     # index corresponding to the cell center
-    cell_vertex = xvi[1][I[1]], xvi[2][I[2]], xvi[3][I[3]]
+    cell_vertex = xvi[1][I_inner[1]], xvi[2][I_inner[2]], xvi[3][I_inner[3]]
     ni = size(phases)
     NC = nphases(ratio_vertices)
     w = ntuple(_ -> zero(eltype(eltype(ratio_vertices))), NC)
 
     for offsetᵢ in -1:0, offsetⱼ in -1:0, offsetₖ in -1:0
-        i_cell = I[1] + offsetᵢ
+        i_cell = I_inner[1] + offsetᵢ
         0 < i_cell < ni[1] + 1 || continue
-        j_cell = I[2] + offsetⱼ
+        j_cell = I_inner[2] + offsetⱼ
         0 < j_cell < ni[2] + 1 || continue
-        k_cell = I[3] + offsetₖ
+        k_cell = I_inner[3] + offsetₖ
         0 < k_cell < ni[3] + 1 || continue
 
         cell_index = i_cell, j_cell, k_cell
@@ -56,7 +57,7 @@ end
 
     w = w .* inv(sum(w))
     for ip in cellaxes(ratio_vertices)
-        CAI.@index ratio_vertices[ip, I...] = w[ip]
+        CAI.@index ratio_vertices[ip, I_inner...] = w[ip]
     end
 end
 
@@ -64,17 +65,18 @@ end
         ratio_vertices, pxi::NTuple{2}, xvi::NTuple{2}, dᵢ, phases
     )
     I = @index(Global, NTuple)
+    I_inner = I .+ 1
 
     # index corresponding to the cell center
-    cell_vertex = xvi[1][I[1]], xvi[2][I[2]]
+    cell_vertex = xvi[1][I_inner[1]], xvi[2][I_inner[2]]
     ni = size(phases)
     NC = nphases(ratio_vertices)
     w = ntuple(_ -> zero(eltype(eltype(ratio_vertices))), NC)
 
     for offsetᵢ in -1:0, offsetⱼ in -1:0
-        i_cell = I[1] + offsetᵢ
+        i_cell = I_inner[1] + offsetᵢ
         !(0 < i_cell < ni[1] + 1) && continue
-        j_cell = I[2] + offsetⱼ
+        j_cell = I_inner[2] + offsetⱼ
         !(0 < j_cell < ni[2] + 1) && continue
 
         cell_index = i_cell, j_cell
@@ -102,6 +104,6 @@ end
 
     w = w .* inv(sum(w))
     for ip in cellaxes(ratio_vertices)
-        CAI.@index ratio_vertices[ip, I...] = w[ip]
+        CAI.@index ratio_vertices[ip, I_inner...] = w[ip]
     end
 end

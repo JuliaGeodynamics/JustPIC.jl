@@ -1,5 +1,7 @@
 # Working with CellArrays
 
+`CellArray`s are the storage primitive behind JustPIC particle containers. They represent a grid where every logical grid cell stores a small fixed-size payload, for example the particle slots belonging to that cell.
+
 ## Instantiating a `CellArray`
 
 JustPIC can create a `CellArray` object directly. The `CellArray` object is a container that holds the data of a grid. The data is stored in small nD-arrays, and the grid is divided into cells. Each cell contains a number of elements. The `CellArray` object is used to store the data of the particles in the simulation.
@@ -27,7 +29,8 @@ julia> CA = cell_array(JustPIC.CPU, Float64(x), ncells, ni)
 
 ## Indexing a `CellArray`
 
-We can access to the data of one `CellArray` by indexing a given grid cell. This will however instantiate a `StaticArray` object with the data of the cell. 
+Indexing by grid cell returns the whole payload stored in that cell. This is
+convenient for inspection, but it materializes a `StaticArray` value:
 
 ```julia-repl 
 julia> CA[1,1]
@@ -45,7 +48,8 @@ julia> CAI.@index CA[2, 1, 1]
 20.0
 ```
 
-where, in this case, the first index corresponds to the 2nd element of the data within $cell_{11}$ cell. We can mutate the `CellArray` in a similar way:
+Here the first index selects the payload entry and the remaining indices select
+the grid cell. Mutation uses the same syntax:
 
 ```julia-repl
 julia> CAI.@index CA[2, 1, 1] = 0.0
@@ -57,7 +61,7 @@ julia> CA
  [20.0, 20.0]  [20.0, 20.0]
 ```
 
-`JustPIC` also provides the macro `@cell` operatig at the cell level:
+`@cell` is the companion macro for reading or writing an entire cell payload:
 
 ```julia-repl 
 julia> @cell CA[1,1]

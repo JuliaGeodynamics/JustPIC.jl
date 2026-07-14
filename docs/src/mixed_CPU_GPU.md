@@ -26,7 +26,8 @@ V_CPU = (
     z = zeros(nx+2, ny+2, nz+1),
 )
 ```
-where `zeros()` allocates on the CPU memory.
+
+## 3. Copy particle-derived fields to the GPU
 
 3. *At each time step*. The particles are stored in CPU memory. It is hence necessary to transfer some information from the CPU to the GPU memory. For example, here's a transfer of phase proportions:
 
@@ -41,8 +42,12 @@ V_CPU.x .= TA(backend)(V.x)
 V_CPU.y .= TA(backend)(V.y)
 V_CPU.z .= TA(backend)(V.z)
 ```
-Advection can then be applied by calling the `advection()` function:
+
+Advection can then be applied with the usual JustPIC API:
 
 ```julia
 advection!(particles, RungeKutta2(), values(V), Δt)
 ```
+
+Because `backend == CPUBackend`, `TA(backend)` converts the velocity fields to
+plain CPU arrays before particle advection.

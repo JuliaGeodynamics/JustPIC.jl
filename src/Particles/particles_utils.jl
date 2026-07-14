@@ -9,6 +9,10 @@ If `nxcell` is a number, particles are distributed randomly within cell
 quadrants. If it is an `NTuple`, it is interpreted as the number of particles to
 place regularly along each coordinate direction within every cell.
 
+The particle vertex and center grids stored in the returned container are
+extended with periodic ghost nodes. The staggered velocity grids are stored as
+provided.
+
 # Arguments
 - `backend`: KernelAbstractions backend type such as `CPU`.
 - `nxcell`: either the target number of particles per cell, or an `NTuple`
@@ -19,7 +23,8 @@ place regularly along each coordinate direction within every cell.
 
 # Returns
 - A `Particles` object whose coordinates and occupancy arrays are ready for
-  advection/interpolation routines.
+  advection/interpolation routines, with `particles.xvi` and `particles.xci`
+  including one periodic ghost node on each side.
 
 # Example
 ```julia
@@ -72,12 +77,13 @@ function init_particles(
     xi_vel = ntuple(i -> TA(backend).(xi_vel_cpu[i]), Val(N))
     xci = center_coordinates(xi_vel)
     xvi = ntuple(i -> xi_vel[i][i], Val(N))
+    # add ghost nodes to the center and vertex grids
+    xci, xvi = add_periodic_ghost_nodes.(xci), add_periodic_ghost_nodes.(xvi)
 
     di_vertex = diff.(xvi)
     di_center = diff.(xci)
     di_vel = ntuple(i -> (diff.(xi_vel[i])), Val(N))
     di = (; center = TA(backend).(di_center), vertex = TA(backend).(di_vertex), velocity = di_vel)
-
     _di = (;
         center = map(x -> inv.(x), di.center),
         vertex = map(x -> inv.(x), di.vertex),
@@ -98,7 +104,7 @@ function init_particles(
     index = cell_array(backend, false, (max_xcell,), nᵢ)
 
     launch!(
-        ka_backend(index), fill_coords_index!, nᵢ,
+        ka_backend(index), fill_coords_index!, nᵢ .- 2,
         pxᵢ, index, xvi, di.vertex, np_quadrant
     )
 
@@ -133,6 +139,8 @@ function init_particles(
     xi_vel = recast_grid(xi_vel_cpu, T)
     xci = center_coordinates(xi_vel)
     xvi = ntuple(i -> xi_vel[i][i], Val(N))
+    # add ghost nodes to the center and vertex grids
+    xci, xvi = add_periodic_ghost_nodes.(xci), add_periodic_ghost_nodes.(xvi)
 
     di_vertex = getindex.(xvi, 2) .- first.(xvi)
     di_center = getindex.(xci, 2) .- first.(xci)
@@ -158,7 +166,7 @@ function init_particles(
     index = cell_array(backend, false, (max_xcell,), nᵢ)
 
     launch!(
-        ka_backend(index), fill_coords_index!, nᵢ,
+        ka_backend(index), fill_coords_index!, nᵢ .- 2,
         pxᵢ, index, xvi, di.vertex, np_quadrant
     )
 
@@ -168,8 +176,8 @@ end
 @kernel function fill_coords_index!(
         pxᵢ::NTuple{N, T}, index, coords, di::NTuple{N}, np_quadrant
     ) where {N, T}
-    I = @index(Global, NTuple)
-
+    I0 = @index(Global, NTuple)
+    I = I0 .+ 1 # shift by one to skip the periodic ghost node
     # lower-left corner of the cell
     x0ᵢ = ntuple(Val(N)) do ndim
         @inline

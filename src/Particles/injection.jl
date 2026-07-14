@@ -22,7 +22,7 @@ function inject_particles!(particles::Particles, args, grid::NTuple{N}, di) wher
     # function implementation goes here
     # unpack
     (; coords, index, min_xcell) = particles
-    ni = size(index)
+    ni = inner_size(index)
     n_color = ntuple(i -> ceil(Int, ni[i] * 0.5), Val(N))
 
     # We need a color-coded parallel approach for shared memory devices because
@@ -31,7 +31,7 @@ function inject_particles!(particles::Particles, args, grid::NTuple{N}, di) wher
         for offsetᵢ in 1:2, offsetⱼ in 1:2
             launch!(
                 ka_backend(index), inject_particles_kernel!, n_color,
-                args, coords, index, grid, di, min_xcell, (offsetᵢ, offsetⱼ)
+                args, coords, index, grid, di, min_xcell, ni, (offsetᵢ, offsetⱼ)
             )
         end
     elseif N == 3
@@ -44,6 +44,7 @@ function inject_particles!(particles::Particles, args, grid::NTuple{N}, di) wher
                 grid,
                 di,
                 min_xcell,
+                ni,
                 (offsetᵢ, offsetⱼ, offsetₖ),
             )
         end
@@ -53,14 +54,15 @@ function inject_particles!(particles::Particles, args, grid::NTuple{N}, di) wher
 end
 
 @kernel function inject_particles_kernel!(
-        args, coords, index, grid, di, min_xcell, offsets::NTuple{N}
+        args, coords, index, grid, di, min_xcell, ni, offsets::NTuple{N}
     ) where {N}
     I = @index(Global, NTuple)
-    indices = ntuple(Val(N)) do i
+    physical_indices = ntuple(Val(N)) do i
         2 * (I[i] - 1) + offsets[i]
     end
 
-    if all(indices .≤ size(index))
+    if all(physical_indices .≤ ni)
+        indices = physical_indices .+ 1
         _inject_particles!(args, coords, index, grid, @dxi(di, indices...) ./ 2, min_xcell, indices)
     end
 end
@@ -154,7 +156,7 @@ function inject_particles_phase!(
     ) where {N}
     # unpack
     (; coords, index, min_xcell) = particles
-    ni = size(index)
+    ni = inner_size(index)
     n_color = ntuple(i -> ceil(Int, ni[i] * 0.5), Val(N))
 
     return if N == 2
@@ -171,6 +173,7 @@ function inject_particles_phase!(
                 di,
                 di_center,
                 min_xcell,
+                ni,
                 (offsetᵢ, offsetⱼ),
             )
         end
@@ -188,6 +191,7 @@ function inject_particles_phase!(
                 di,
                 di_center,
                 min_xcell,
+                ni,
                 (offsetᵢ, offsetⱼ, offsetₖ),
             )
         end
@@ -207,17 +211,18 @@ end
         dxi,
         dxi_center,
         min_xcell,
+        ni,
         offsets::NTuple{N},
     ) where {N}
     I = @index(Global, NTuple)
-    indices = ntuple(Val(N)) do i
+    physical_indices = ntuple(Val(N)) do i
         2 * (I[i] - 1) + offsets[i]
     end
 
-    di = @dxi(dxi, indices...)
-    di_quadrant = di ./ 2
-
-    if all(indices .≤ size(index))
+    if all(physical_indices .≤ ni)
+        indices = physical_indices .+ 1
+        di = @dxi(dxi, indices...)
+        di_quadrant = di ./ 2
         _inject_particles_phase!(
             particles_phases,
             args,

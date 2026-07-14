@@ -62,6 +62,7 @@ end
 
 """
     checkpointing_particles(dst, particles; phases=nothing, phase_ratios=nothing, chain=nothing, t=nothing, dt=nothing, particle_args=nothing)
+    checkpointing_particles(dst, particles, me; phases=nothing, phase_ratios=nothing, chain=nothing, t=nothing, dt=nothing, particle_args=nothing)
 
 Write particle state and optional companion data to a JLD2 checkpoint.
 
@@ -80,6 +81,8 @@ plain Julia arrays where needed.
 # Notes
 - Arrays are converted to plain Julia arrays before serialization so the
   checkpoint can be reloaded independently of the active backend.
+- Passing `me` writes rank-local files named
+  `particles_checkpoint0001.jld2`, `particles_checkpoint0002.jld2`, and so on.
 """
 function checkpointing_particles(
         dst,

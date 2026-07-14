@@ -23,24 +23,28 @@ Interpolate a nodal field `F` to particle values `Fp`.
   reads the vertex grid and spacing from `particles`.
 """
 
-grid2particle!(Fp, F, particles) = grid2particle!(Fp, particles.xvi, F, particles, particles.di.vertex)
+grid2particle!(Fp, F, particles; ghost_1 = true, ghost_2 = true, ghost_3 = true) = grid2particle!(Fp, particles.xvi, F, particles, particles.di.vertex; ghost_1 = ghost_1, ghost_2 = ghost_2, ghost_3 = ghost_3)
 
-function grid2particle!(Fp, xvi, F, particles, di)
+function grid2particle!(Fp, xvi, F, particles, di; ghost_1 = true, ghost_2 = true, ghost_3 = true)
     (; coords, index) = particles
-    ni = size(index)
+    ni = inner_size(index)
 
-    launch!(ka_backend(particles), grid2particle_classic!, ni, Fp, F, xvi, index, di, coords)
+    # mask shift in case `F` has ghost nodes only in some dimensions, or non at all
+    mask = inner_mask(particles, ghost_1, ghost_2, ghost_3)
+
+    launch!(ka_backend(particles), grid2particle_classic!, ni, Fp, F, xvi, index, di, coords, mask)
 
     return nothing
 end
 
 
 @kernel function grid2particle_classic!(
-        Fp, F, xvi, index, di, particle_coords
+        Fp, F, xvi, index, di, particle_coords, mask
     )
     I = @index(Global, NTuple)
+    I_inner = I .+ 1
     _grid2particle_classic!(
-        Fp, particle_coords, xvi, @dxi(di, I...), F, index, I, Val(cellnum(index))
+        Fp, particle_coords, xvi, @dxi(di, I_inner...), F, index, I_inner, Val(cellnum(index)), mask
     )
 end
 
@@ -53,6 +57,7 @@ end
     # iterate over all the particles within the cells of index `idx`
     # skip lines below if there is no particle in this piece of memory
     return if !doskip(index, ip, i, j)
+
         Fi = field_corners(F, (i, j))
         # cache particle coordinates
         pᵢ = get_particle_coords(p, ip, i, j)
@@ -62,11 +67,11 @@ end
 end
 
 @generated function _grid2particle_classic!(
-        Fp, p, xvi, di, F, index, idx, ::Val{N}
+        Fp, p, xvi, di, F, index, idx, ::Val{N}, mask
     ) where {N}
     return quote
         Base.@_inline_meta
-        Fi = field_corners(F, idx)
+        Fi = field_corners(F, idx .+ mask)
         xi_corner = corner_coordinate(xvi, idx)
         # iterate over all the particles within the cells of index `idx`
         Base.@nexprs $N ip -> begin
@@ -129,7 +134,7 @@ function grid2particle_flip!(Fp, xvi, F, F0, particles; α = 0.0)
     Tc = eltype(eltype(coords[1]))
     xvi = recast_grid(xvi, Tc)
     di = grid_size(xvi)
-    ni = size(index)
+    ni = inner_size(index)
     # blend factor must match the field precision (Float64 breaks Metal)
     αT = convert(Tc, α)
     launch!(ka_backend(particles), grid2particle_full!, ni, Fp, F, F0, xvi, di, coords, index, αT)
@@ -141,7 +146,8 @@ end
         Fp, F, F0, xvi, di, particle_coords, index, α
     )
     I = @index(Global, NTuple)
-    _grid2particle_full!(Fp, particle_coords, xvi, @dxi(di, I...), F, F0, index, I, α)
+    I_inner = I .+ 1
+    _grid2particle_full!(Fp, particle_coords, xvi, @dxi(di, I_inner...), F, F0, index, I_inner, α)
 end
 
 # INNERMOST INTERPOLATION KERNEL

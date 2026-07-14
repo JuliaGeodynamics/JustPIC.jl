@@ -85,7 +85,7 @@ function main()
 
         # advect particles
         advection!(particles, RungeKutta2(), V, dt)
-
+        
         # update halos
         timer += @elapsed begin
             update_cell_halo!(particles.coords..., particle_args..., particles.index)

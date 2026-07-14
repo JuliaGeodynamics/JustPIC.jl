@@ -33,9 +33,28 @@ inject_particles!(particles, particle_args)
 particle2grid!(T, pT, particles)
 ```
 """
-function update_cell_halo!(x::Vararg{CellArray, N}) where {N}
+function update_cell_halo!(
+        x::Vararg{CellArray{S, N, D, A}, NA}
+    ) where {NA, S, N, D, A <: AbstractArray}
+    ni = size(x[1])
+    backend = ka_backend(x[1])
+    tmp = KernelAbstractions.zeros(backend, eltype(x[1].data), ni...)
     for xᵢ in x
-        update_halo!(xᵢ)
+        for ip in cellaxes(xᵢ)
+            launch!(backend, move_CellArray_to_Array_kernel!, ni, tmp, xᵢ, ip)
+            update_halo!(tmp)
+            launch!(backend, move_Array_to_CellArray_kernel!, ni, xᵢ, tmp, ip)
+        end
     end
-    return
+    return nothing
+end
+
+@kernel function move_Array_to_CellArray_kernel!(A::CellArray, B::AbstractArray, ip)
+    I = @index(Global, NTuple)
+    CAI.@index A[ip, I...] = B[I...]
+end
+
+@kernel function move_CellArray_to_Array_kernel!(B::AbstractArray, A::CellArray, ip)
+    I = @index(Global, NTuple)
+    B[I...] = CAI.@index A[ip, I...]
 end
