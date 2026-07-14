@@ -1,12 +1,11 @@
-using JustPIC, JustPIC._2D
+using JustPIC
 
 # Threads is the default backend,
 # to run on a CUDA GPU load CUDA.jl (i.e. "using CUDA"),
 # and to run on an AMD GPU load AMDGPU.jl (i.e. "using AMDGPU")
-const backend = JustPIC.CPUBackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
+const backend = JustPIC.CPU # Options: JustPIC.CPU, CUDA.CUDABackend, AMDGPU.ROCBackend
 
 # using GLMakie
-using TimerOutputs
 
 function expand_range(x::AbstractRange)
     dx = x[2] - x[1]
@@ -18,17 +17,19 @@ function expand_range(x::AbstractRange)
 end
 
 # Analytical flow solution
-vx_stream(x, y) = 250 * sin(π * x) * cos(π * y)
-vy_stream(x, y) = -250 * cos(π * x) * sin(π * y)
-g(x) = Point2f(
-    vx_stream(x[1], x[2]),
-    vy_stream(x[1], x[2])
-)
+vx_stream(x, y) = 250 * sin(pi * x) * cos(pi * y)
+vy_stream(x, y) = -250 * cos(pi * x) * sin(pi * y)
+
+function timed!(label, f)
+    t = @elapsed f()
+    println(label, ": ", round(t; digits = 6), " s")
+    return t
+end
 
 function main()
     # Initialize particles -------------------------------
     nxcell, max_xcell, min_xcell = 24, 48, 28
-    n = 256
+    n = parse(Int, get(ENV, "JUSTPIC_TIMER_N", "256"))
     nx = ny = n - 1
     Lx = Ly = 1.0
     # nodal vertices
@@ -57,66 +58,17 @@ function main()
     particle_args = pT, = init_cell_arrays(particles, Val(1))
     grid2particle!(pT, T, particles)
 
-    !isdir("figs") && mkdir("figs")
-
-    niter = 5
+    niter = parse(Int, get(ENV, "JUSTPIC_TIMER_NITER", "5"))
     for it in 1:niter
-        to = TimerOutput()
-        @timeit to "advect" advection!(particles, RungeKutta2(2 / 3), V, dt)
-        @timeit to "move" move_particles!(particles, particle_args)
-        @timeit to "injection" inject_particles!(particles, (pT,))
-        @timeit to "p2g" particle2grid!(T, pT, particles)
-        @timeit to "g2p" grid2particle!(pT, T, particles)
-        @show to
-
-        if rem(it, 10) == 0
-            f, ax, = heatmap(xvi..., Array(T), colormap = :batlow)
-            streamplot!(ax, g, xvi...)
-            save("figs/test_$(it).png", f)
-            f
-        end
+        println("iteration ", it)
+        timed!("advect", () -> advection!(particles, RungeKutta2(2 / 3), V, dt))
+        timed!("move", () -> move_particles!(particles, particle_args))
+        timed!("injection", () -> inject_particles!(particles, (pT,)))
+        timed!("p2g", () -> particle2grid!(T, pT, particles))
+        timed!("g2p", () -> grid2particle!(pT, T, particles))
     end
 
     return println("Finished")
 end
 
 main()
-
-import JustPIC._2D.corner_field_nodes
-
-p_i = particles.coords[1][10, 10][1], particles.coords[2][10, 10][1]
-idx = 10, 10
-xi_vx = grid_vx
-
-@b corner_field_nodes($(T, p_i, xi_vx, dxi, idx)...)
-corner_field_nodes(T, p_i, xi_vx, dxi, idx)
-
-@generated function foo(
-        particle,
-        xi_vx,
-        dxi,
-        idx::Union{SVector{N, Integer}, NTuple{N, Integer}},
-    ) where {N}
-    return quote
-        Base.@_inline_meta
-        Base.@nexprs $N i -> begin
-            # unpack
-            corrected_idx_i = idx[i]
-            # compute offsets and corrections
-            corrected_idx_i += @inline JustPIC._2D.vertex_offset(
-                xi_vx[i][corrected_idx_i], particle[i], dxi[1]
-            )
-            cell_i = xi_vx[i][corrected_idx_i]
-        end
-
-        cells = Base.@ncall $N tuple cell
-
-        return cells
-    end
-end
-@b foo($(p_i, xi_vx, dxi, idx)...)
-
-foo(p_i, xi_vx, dxi, idx)
-@code_warntype foo(p_i, xi_vx, dxi, idx)
-
-@b cell_index($(p_i[1], dxi[1])...)

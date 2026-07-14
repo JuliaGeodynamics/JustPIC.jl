@@ -54,7 +54,7 @@ function Array(::Type{T}, x::P) where {T <: Number, P <: AbstractParticles}
         end
     end
     T_clean = remove_parameters(x)
-    return T_clean(CPUBackend, cpu_fields...)
+    return T_clean(CPU, cpu_fields...)
 end
 
 function Array(x::P) where {P <: AbstractParticles}
@@ -65,7 +65,7 @@ function Array(x::P) where {P <: AbstractParticles}
         _Array(A)
     end
     T_clean = remove_parameters(x)
-    return T_clean(CPUBackend, cpu_fields...)
+    return T_clean(CPU, cpu_fields...)
 end
 # Array(x::T) where {T<:AbstractParticles} = Array(Float64, x)
 
@@ -80,7 +80,10 @@ function _Array(::Type{T}, x::NTuple{N, TA}) where {T <: Number, N, TA}
     return ntuple(i -> _Array(T, x[i]), Val(N))
 end
 
-# recursively copy the data from `AbstractParticles` to CPU arrays
+# recursively deep-copy an `AbstractParticles`, keeping every field on its current
+# device. The `Backend` type parameter (always first) is passed back to the
+# constructor so the copy stays on the same backend; a GPU container has no
+# backend-free constructor to fall back on.
 function copy(x::T) where {T <: AbstractParticles}
     nfields = fieldcount(T)
     copied_fields = ntuple(Val(nfields)) do i
@@ -88,7 +91,7 @@ function copy(x::T) where {T <: AbstractParticles}
         _copy(getfield(x, i))
     end
     T_clean = remove_parameters(x)
-    return T_clean(copied_fields...)
+    return T_clean(T.parameters[1], copied_fields...)
 end
 
 _copy(::Nothing) = nothing

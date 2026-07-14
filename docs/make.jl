@@ -1,13 +1,14 @@
+pushfirst!(LOAD_PATH, joinpath(@__DIR__, ".."))
 using Documenter, JustPIC
-push!(LOAD_PATH, "../src/")
 
 @info "Making documentation..."
 makedocs(;
     sitename = "JustPIC.jl",
     authors = "Albert de Montserrat and contributors",
-    modules = [JustPIC, JustPIC._2D, JustPIC._3D],
+    modules = [JustPIC],
     format = Documenter.HTML(; prettyurls = get(ENV, "CI", nothing) == "true"), # easier local build
     warnonly = Documenter.except(:footnote),
+    checkdocs = :exports,
     pages = [
         "Home" => "index.md",
         "Particles" => "particles.md",

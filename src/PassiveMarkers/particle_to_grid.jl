@@ -1,22 +1,43 @@
 ## LAUNCHERS
 
+"""
+    particle2grid!(F, Fp, buffer, xi, particles::PassiveMarkers)
+
+Interpolate passive-marker values `Fp` onto the grid nodes `F`, overwriting `F`
+in place.
+
+Because passive markers scatter to arbitrary nodes, weights are accumulated with
+atomic updates into `F` and `buffer` and normalized in a final pass; `buffer`
+must be a scratch array with the same size as `F`. The vertex grid `xi` is
+supplied explicitly.
+
+# Arguments
+- `F`: destination nodal array.
+- `Fp`: marker field stored with the same layout as `particles.coords`.
+- `buffer`: scratch nodal array (same size as `F`) used to accumulate weights.
+- `xi`: vertex coordinates of the target grid.
+- `particles`: `PassiveMarkers` container supplying marker coordinates.
+"""
 function particle2grid!(F, Fp, buffer, xi, particles::PassiveMarkers)
     (; coords, np) = particles
+    # recast the grid to the marker precision so the ranges are GPU-safe on Float32
+    # backends (they are indexed directly inside the kernel; see advection!)
+    xi = recast_grid(xi, eltype(coords[1]))
     ni = size(F)
     dxi = grid_size(xi)
 
-    @parallel (@idx ni) reset_arrays!(F, buffer)
+    launch!(ka_backend(F), reset_arrays!, ni, F, buffer)
     # accumulate weights on F and buffer arrays
-    @parallel (@idx np) passivemarker2grid!(F, Fp, buffer, xi, coords, dxi)
+    launch!(ka_backend(F), passivemarker2grid!, np, F, Fp, buffer, xi, coords, dxi)
     # finish interpolation process
-    @parallel (@idx ni) resolve_particle2grid!(F, buffer)
+    launch!(ka_backend(F), resolve_particle2grid!, ni, F, buffer)
 
     return nothing
 end
 
-@parallel_indices (ipart) function passivemarker2grid!(F, Fp, buffer, xi, coords, dxi)
+@kernel function passivemarker2grid!(F, Fp, buffer, xi, coords, dxi)
+    ipart = @index(Global)
     _passivemarker2grid!(F, Fp, buffer, ipart, xi, coords, dxi)
-    return nothing
 end
 
 ## INTERPOLATION KERNEL 2D
@@ -44,20 +65,20 @@ end
             # F acting as buffer here
             # ω_i = distance_weight(xvertex, pᵢ; order=4)
             ω_i = bilinear_weight(xvertex, pᵢ, dxi)
-            @myatomic F[ivertex, jvertex] += ω_i
-            @myatomic buffer[ivertex, jvertex] += Fp_ipart * ω_i
+            KernelAbstractions.@atomic F[ivertex, jvertex] += ω_i
+            KernelAbstractions.@atomic buffer[ivertex, jvertex] += Fp_ipart * ω_i
         end
     end
 
     return nothing
 end
 
-@parallel_indices (I...) function resolve_particle2grid!(F, buffer)
+@kernel function resolve_particle2grid!(F, buffer)
+    I = @index(Global, NTuple)
     @inbounds F[I...] = buffer[I...] * inv(F[I...])
-    return nothing
 end
 
-@parallel_indices (I...) function reset_arrays!(A, B)
-    @inbounds A[I...] = B[I...] = 0.0
-    return nothing
+@kernel function reset_arrays!(A, B)
+    I = @index(Global, NTuple)
+    @inbounds A[I...] = B[I...] = zero(eltype(A))
 end

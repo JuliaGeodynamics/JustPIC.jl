@@ -86,7 +86,7 @@ end
 
 @inline function center_coordinate(x_i, offset_i, idx_i, dx_i)
     if idx_i == 1
-        return @inbounds x_i[1] - dx_i * 0.5
+        return @inbounds x_i[1] - dx_i / 2
     elseif offset_i == 0
         return @inbounds x_i[idx_i]
     else

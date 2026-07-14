@@ -12,16 +12,29 @@ The public API is organized by workflow rather than as a single flat reference p
 
 ## Core Names
 
-The most commonly used exported names are:
+The most commonly used public names are:
 
 - Particle containers: `Particles`, `PassiveMarkers`, `MarkerChain`
 - Particle initialization and management: `init_particles`, `init_passive_markers`, `move_particles!`, `inject_particles!`, `inject_particles_phase!`, `clean_particles!`, `force_injection!`
 - Interpolation: `grid2particle!`, `grid2particle_flip!`, `particle2grid!`, `centroid2particle!`, `particle2centroid!`
 - Advection: `advection!`, `advection_LinP!`, `advection_MQS!`, `semilagrangian_advection!`, `semilagrangian_advection_LinP!`, `semilagrangian_advection_MQS!`
-- Marker-chain utilities: `init_markerchain`, `fill_chain_from_chain!`, `fill_chain_from_vertices!`, `advect_markerchain!`, `semilagrangian_advection_markerchain!`, `interpolate_velocity_to_markerchain!`, `compute_topography_vertex!`, `resample!`
+- Marker-chain utilities: `init_markerchain`, `fill_chain_from_chain!`, `fill_chain_from_vertices!`, `advect_markerchain!`, `semilagrangian_advection_markerchain!`, `interpolate_velocity_to_markerchain!`, `compute_topography_vertex!`, `compute_rock_fraction!`, `resample!`
 - Phase ratios and diffusion: `PhaseRatios`, `update_phase_ratios!`, `SubgridDiffusionCellArrays`, `subgrid_diffusion!`, `subgrid_diffusion_centroid!`
+- Backends and allocation helpers: KernelAbstractions' `CPU` (and the vendor backends `CUDA.CUDABackend`, `AMDGPU.ROCBackend`, `Metal.MetalBackend`), plus `TA`, `cell_array`
 - Integrators: `Euler`, `RungeKutta2`, `RungeKutta4`
 - Checkpointing: `checkpointing_particles`
+
+## Backend Helpers
+
+JustPIC dispatches on KernelAbstractions backend types directly — `CPU` for the CPU
+path and the vendor backends `CUDA.CUDABackend`, `AMDGPU.ROCBackend`,
+`Metal.MetalBackend` (introduced by the respective package extensions). It no longer
+defines its own backend tags.
+
+```@docs
+JustPIC.TA
+JustPIC.cell_array
+```
 
 ## Finding Method Docs
 

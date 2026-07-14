@@ -1,17 +1,22 @@
 """
-    advection!(particles::Particles, method::AbstractAdvectionIntegrator, V, grid_vi::NTuple{N,NTuple{N,T}}, dt)
+    advection!(particles::Particles, method::AbstractAdvectionIntegrator, V, dt)
+    advection!(particles::Particles, method::AbstractAdvectionIntegrator, V, grid_vi, dt, dxi)
 
 Advect `particles` through the staggered velocity field `V` over a time step `dt`.
+The particle coordinates are updated in place.
 
-`grid_vi` contains the coordinate tuples associated with each staggered velocity
-component. The particle coordinates are updated in place.
+The public form reads the staggered velocity coordinate grids and spacing from
+`particles` (`particles.xi_vel` and `particles.di.velocity`), so only `V` and
+`dt` are supplied. The lower-level form takes those grids explicitly.
 
 # Arguments
 - `particles`: `Particles` container to advect.
 - `method`: time integrator such as `Euler()`, `RungeKutta2()`, or `RungeKutta4()`.
 - `V`: tuple of staggered velocity component arrays.
-- `grid_vi`: tuple of coordinate tuples matching the staggering of `V`.
 - `dt`: timestep.
+- `grid_vi`: tuple of coordinate tuples matching the staggering of `V`
+  (lower-level form only).
+- `dxi`: grid spacing associated with `grid_vi` (lower-level form only).
 """
 advection!(
     particles::Particles,
@@ -41,8 +46,15 @@ function advection!(
     # compute local limits (i.e. domain or MPI rank limits)
     local_limits = inner_limits(grid_vi)
 
+    # recast the integrator/timestep to the particle precision so Float32 backends
+    # (e.g. Metal) don't carry a Float64 value into the kernel
+    Tc = eltype(eltype(coords[1]))
+    method = set_precision(method, Tc)
+    dt = convert(Tc, dt)
+
     # launch parallel advection kernel
-    @parallel (@idx ni) advection_kernel!(
+    launch!(
+        ka_backend(particles), advection_kernel!, ni,
         coords, method, V, index, grid_vi, local_limits, dxi, dt
     )
 
@@ -51,7 +63,7 @@ end
 
 # DIMENSION AGNOSTIC KERNELS
 
-@parallel_indices (I...) function advection_kernel!(
+@kernel function advection_kernel!(
         p,
         method::AbstractAdvectionIntegrator,
         V::NTuple{N, T},
@@ -61,6 +73,7 @@ end
         dxi,
         dt,
     ) where {N, T}
+    I = @index(Global, NTuple)
 
     # iterate over particles in the I-th cell
     for ipart in cellaxes(index)
@@ -72,11 +85,9 @@ end
         pᵢ_new = advect_particle(method, pᵢ, V, grid_vi, local_limits, dxi, dt, I)
         # update particle coordinates
         for k in 1:N
-            @index p[k][ipart, I...] = pᵢ_new[k]
+            CAI.@index p[k][ipart, I...] = pᵢ_new[k]
         end
     end
-
-    return nothing
 end
 
 @inline function interp_velocity2particle(
@@ -93,7 +104,7 @@ end
         v = if check_local_limits(local_lims, particle_coords)
             interp_velocity2particle(particle_coords, grid_vi[i], dxi[i], V[i], idx)
         else
-            Inf
+            convert(eltype(V[i]), Inf)
         end
     end
 end

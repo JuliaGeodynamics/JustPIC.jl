@@ -25,7 +25,7 @@ N-linear interpolation is implemented in a recursive way to exploit compiler opt
 We can interpolate an arbitrary field $F$ onto the particles with the `grid2particle` function:
 
 ```julia
-using JustPIC, JustPIC._2D
+using JustPIC
 # define model domain
 nxcell, max_xcell, min_xcell = 24, 30, 12
 nx  = ny = 128

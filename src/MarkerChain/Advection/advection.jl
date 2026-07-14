@@ -24,7 +24,7 @@ function advect_markerchain!(
     # average h_vertices0 and h_vertices and store in h_vertices
     # @. chain.h_vertices = (chain.h_vertices0 + chain.h_vertices) / 2
     # correct topo to conserve mass
-    chain.h_vertices .+= mean(chain.h_vertices) - mean(chain.h_vertices0)
+    chain.h_vertices .-= mean(chain.h_vertices) - mean(chain.h_vertices0)
     # reconstruct chain from vertices
     reconstruct_chain_from_vertices!(chain)
     # update old nodal topography
@@ -52,6 +52,14 @@ function advection!(
     ) where {N, T}
     (; coords, index) = chain
 
+    # recast integrator/timestep/grid to the marker precision (see particle
+    # advection!); `recast_grid` also makes the grid ranges GPU-safe on Float32
+    # backends (they are indexed directly inside the kernel)
+    Tc = eltype(eltype(coords[1]))
+    method = set_precision(method, Tc)
+    dt = convert(Tc, dt)
+    grid_vi = recast_grid(grid_vi, Tc)
+
     # compute some basic stuff
     ni = size(index, 1)
     dxi = compute_dx(first(grid_vi))
@@ -59,7 +67,8 @@ function advection!(
     local_limits = inner_limits(grid_vi)
 
     # launch parallel advection kernel
-    @parallel (@idx ni) advection_markerchain_kernel!(
+    launch!(
+        ka_backend(chain), advection_markerchain_kernel!, ni,
         coords, method, V, index, grid_vi, local_limits, dxi, dt
     )
     return nothing
@@ -67,8 +76,8 @@ end
 
 # DIMENSION AGNOSTIC KERNELS
 
-# ParallelStencil function Runge-Kuttaadvection function for 3D staggered grids
-@parallel_indices (i) function advection_markerchain_kernel!(
+# Runge-Kutta advection kernel for staggered grids.
+@kernel function advection_markerchain_kernel!(
         p,
         method::AbstractAdvectionIntegrator,
         V::NTuple{N, T},
@@ -78,6 +87,8 @@ end
         dxi,
         dt,
     ) where {N, T}
+    i = @index(Global)
+
     for ipart in cellaxes(index)
         # skip if particle does not exist in this memory location
         doskip(index, ipart, i) && continue
@@ -87,11 +98,9 @@ end
         pᵢ_new = advect_particle_markerchain(method, pᵢ, V, grid, local_limits, dxi, dt)
         # update particle coordinates
         for k in 1:N
-            @inbounds @index p[k][ipart, i] = pᵢ_new[k]
+            @inbounds CAI.@index p[k][ipart, i] = pᵢ_new[k]
         end
     end
-
-    return nothing
 end
 
 @inline function interp_velocity2particle_markerchain(
@@ -103,7 +112,9 @@ end
         v = if check_local_limits(local_lims, particle_coords)
             interp_velocity_grid2particle(particle_coords, grid_vi[i], dxi, V[i])
         else
-            Inf
+            # Typed sentinel: a bare `Inf` is Float64 and widens the tuple eltype,
+            # which forces heap allocation inside the kernel (fatal on Metal).
+            convert(eltype(V[i]), Inf)
         end
     end
 end
@@ -132,9 +143,12 @@ end
 
 # Get field F and nodal indices of the cell corners where the particle is located
 @inline function corner_field_nodes_MC(F::AbstractArray{T, N}, pᵢ, xi_vx, dxi) where {T, N}
+    # a marker-chain vertex can sit exactly on the right/top boundary (x == xi_vx[i][end]),
+    # where cell_index returns the last vertex; clamp to the last cell so the corner lookup
+    # (I and I+1) stays in bounds and interpolates from the edge cell
     I = ntuple(Val(N)) do i
         Base.@_inline_meta
-        cell_index(pᵢ[i], xi_vx[i], dxi[i])
+        clamp(cell_index(pᵢ[i], xi_vx[i], dxi[i]), 1, size(F, i) - 1)
     end
 
     # coordinates of lower-left corner of the cell

@@ -14,52 +14,58 @@ surface height.
 function init_markerchain(
         ::Type{backend}, nxcell, min_xcell, max_xcell, xv, initial_elevation
     ) where {backend}
+    T = initial_elevation isa AbstractArray ? promote_type(eltype(xv), eltype(initial_elevation)) : promote_type(eltype(xv), typeof(initial_elevation))
+    xv = recast_grid(xv, T)
     nx = length(xv) - 1
     dx = xv[2] - xv[1]
     dx_chain = dx / (nxcell + 1)
-    px, py = ntuple(_ -> @fill(NaN, (nx,), celldims = (max_xcell,)), Val(2))
-    index = @fill(false, (nx,), celldims = (max_xcell,), eltype = Bool)
+    initial_elevation = initial_elevation isa AbstractArray ? convert.(T, initial_elevation) : convert(T, initial_elevation)
+    px, py = ntuple(_ -> cell_array(backend, convert(T, NaN), (max_xcell,), (nx,)), Val(2))
+    index = cell_array(backend, false, (max_xcell,), (nx,))
 
-    @parallel (1:nx) fill_markerchain_coords_index!(
+    launch!(
+        ka_backend(index), fill_markerchain_coords_index!, nx,
         px, py, index, xv, initial_elevation, dx_chain, nxcell, max_xcell
     )
     coords = px, py
     coords0 = px, py
-    h_vertices = @fill(initial_elevation, nx + 1)
-    h_vertices0 = @fill(initial_elevation, nx + 1)
+    h_vertices = TA(backend)(initial_elevation isa AbstractArray ? initial_elevation : fill(initial_elevation, nx + 1))
+    h_vertices0 = copy(h_vertices)
 
     return MarkerChain(
         backend, coords, coords0, h_vertices, h_vertices0, xv, index, min_xcell, max_xcell
     )
 end
 
-@parallel_indices (i) function fill_markerchain_coords_index!(
+@kernel function fill_markerchain_coords_index!(
         px, py, index, x, initial_elevation, dx_chain, nxcell, max_xcell
     )
+    i = @index(Global)
+
     # lower-left corner of the cell
     x0 = x[i]
     # fill index array
     for ip in 1:nxcell
-        @index px[ip, i] = x0 + dx_chain * ip
-        @index py[ip, i] = initial_elevation
-        @index index[ip, i] = true
+        CAI.@index px[ip, i] = x0 + dx_chain * ip
+        CAI.@index py[ip, i] = initial_elevation
+        CAI.@index index[ip, i] = true
     end
-    return nothing
 end
 
-@parallel_indices (i) function fill_markerchain_coords_index!(
+@kernel function fill_markerchain_coords_index!(
         px, py, index, x, initial_elevation::AbstractArray{T, 1}, dx_chain, nxcell, max_xcell
     ) where {T}
+    i = @index(Global)
+
     # lower-left corner of the cell
     x0 = x[i]
     initial_elevation0 = initial_elevation[i]
     # fill index array
     for ip in 1:nxcell
-        @index px[ip, i] = x0 + dx_chain * ip
-        @index py[ip, i] = initial_elevation0
-        @index index[ip, i] = true
+        CAI.@index px[ip, i] = x0 + dx_chain * ip
+        CAI.@index py[ip, i] = initial_elevation0
+        CAI.@index index[ip, i] = true
     end
-    return nothing
 end
 
 ## fill chain with given topo
@@ -78,7 +84,7 @@ horizontal extent.
 """
 function fill_chain_from_chain!(chain::MarkerChain, topo_x, topo_y)
     (; coords, index, cell_vertices) = chain
-    @parallel (1:length(index)) _fill_chain!(coords, index, cell_vertices, topo_x, topo_y)
+    launch!(ka_backend(index), _fill_chain!, length(index), coords, index, cell_vertices, topo_x, topo_y)
 
     # update topography at the vertices of the grid
     compute_topography_vertex!(chain)
@@ -87,26 +93,28 @@ function fill_chain_from_chain!(chain::MarkerChain, topo_x, topo_y)
     return nothing
 end
 
-@parallel_indices (icell) function _fill_chain!(
+@kernel function _fill_chain!(
         coords, index, cell_vertices, topo_x, topo_y
     )
+    icell = @index(Global)
     _fill_chain_kernel!(coords, index, cell_vertices, topo_x, topo_y, icell)
-    return nothing
 end
 
 function _fill_chain_kernel!(coords, index, cell_vertices, topo_x, topo_y, icell)
     itopo, ilast = first_last_particle_incell(topo_x, cell_vertices, icell)
+    # NaN in the marker precision (a bare NaN literal is Float64 and breaks Metal)
+    nan = convert(eltype(eltype(coords[1])), NaN)
 
     for ip in cellaxes(index)
         if itopo ≤ ilast
-            @index index[ip, icell] = true
-            @index coords[1][ip, icell] = topo_x[itopo]
-            @index coords[2][ip, icell] = topo_y[itopo]
+            CAI.@index index[ip, icell] = true
+            CAI.@index coords[1][ip, icell] = topo_x[itopo]
+            CAI.@index coords[2][ip, icell] = topo_y[itopo]
             itopo += 1
         else
-            @index index[ip, icell] = false
-            @index coords[1][ip, icell] = NaN
-            @index coords[2][ip, icell] = NaN
+            CAI.@index index[ip, icell] = false
+            CAI.@index coords[1][ip, icell] = nan
+            CAI.@index coords[2][ip, icell] = nan
         end
     end
 

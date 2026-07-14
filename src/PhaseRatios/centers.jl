@@ -3,15 +3,17 @@
 function phase_ratios_center!(phase_ratios::JustPIC.PhaseRatios, particles, phases)
     ni = size(phases)
 
-    @parallel (@idx ni) phase_ratios_center_kernel!(
+    launch!(
+        ka_backend(phase_ratios), phase_ratios_center_kernel!, ni,
         phase_ratios.center, particles.coords, particles.xci, particles.di.vertex, phases
     )
     return nothing
 end
 
-@parallel_indices (I...) function phase_ratios_center_kernel!(
+@kernel function phase_ratios_center_kernel!(
         ratio_centers, pxi::NTuple{N}, xci::NTuple{N}, dᵢ::NTuple{N}, phases
     ) where {N}
+    I = @index(Global, NTuple)
 
     # compute dxi
     di = @dxi dᵢ I...
@@ -23,8 +25,6 @@ end
     )
     # update phase ratios array
     for k in 1:numphases(ratio_centers)
-        @index ratio_centers[k, I...] = w[k]
+        CAI.@index ratio_centers[k, I...] = w[k]
     end
-
-    return nothing
 end

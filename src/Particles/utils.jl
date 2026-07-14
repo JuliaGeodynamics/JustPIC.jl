@@ -20,27 +20,27 @@ end
     # first min_xcell particles
     val = 0
     for i in 1:min_xcell
-        val += @inbounds @index(index[i, cell_indices...])
+        val += @inbounds CAI.@index(index[i, cell_indices...])
     end
     # early escape
     val ≥ min_xcell && return false
     # tail
     n = cellnum(index)
     for i in (min_xcell + 1):n
-        val += @inbounds @index(index[i, cell_indices...])
+        val += @inbounds CAI.@index(index[i, cell_indices...])
     end
     return !(val ≥ min_xcell)
 end
 
-@parallel_indices (i) function copy_vectors!(
+@kernel function copy_vectors!(
         dest::NTuple{N, T}, src::NTuple{N, T}
     ) where {N, T <: AbstractArray}
+    i = @index(Global)
     for n in 1:N
         if i ≤ length(dest[n])
             @inbounds dest[n][i] = src[n][i]
         end
     end
-    return nothing
 end
 
 @inline compute_dx(::Tuple{}) = ()
@@ -62,7 +62,7 @@ end
     clamped_limits = ntuple(Val(N)) do i
         @inline
         min_L, max_L = grid_lims[i]
-        (min_L + dxi[i] * 0.01, max_L - dxi[i] * 0.01)
+        (min_L + dxi[i] / 100, max_L - dxi[i] / 100)
     end
     return clamped_limits
 end

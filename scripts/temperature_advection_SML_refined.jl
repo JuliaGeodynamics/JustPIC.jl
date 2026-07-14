@@ -1,11 +1,11 @@
 using CUDA
-using JustPIC, JustPIC._2D
+using JustPIC
 
 # Threads is the default backend,
 # to run on a CUDA GPU load CUDA.jl (i.e. "using CUDA"),
 # and to run on an AMD GPU load AMDGPU.jl (i.e. "using AMDGPU")
-# const backend = JustPIC.CPUBackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
-const backend = CUDABackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
+# const backend = JustPIC.CPU # Options: JustPIC.CPU, CUDA.CUDABackend, AMDGPU.ROCBackend
+const backend = CUDABackend # Options: JustPIC.CPU, CUDA.CUDABackend, AMDGPU.ROCBackend
 
 using GLMakie
 
@@ -124,8 +124,8 @@ function main()
         TA(backend).(grid_vi[1]),
         TA(backend).(grid_vi[2]),
     )
-    dx_velocity = JustPIC._2D.compute_dx.(grid_vi_device)
-    dx_xvi = JustPIC._2D.compute_dx(xvi_device)
+    dx_velocity = JustPIC.compute_dx.(grid_vi_device)
+    dx_xvi = JustPIC.compute_dx(xvi_device)
 
     # Cell fields -------------------------------
     Vx = TA(backend)([vx_stream(x, y) for x in grid_vx[1], y in grid_vx[2]])

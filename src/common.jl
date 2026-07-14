@@ -4,6 +4,9 @@ export @cell, cellnum, cellaxes
 include("Utils.jl")
 export cell_array, add_ghost_nodes, add_global_ghost_nodes, doskip, @dxi, @dx, @dy, @dz
 
+include("launch.jl")
+export launch!, ka_backend
+
 include("CellArrays/ImplicitGlobalGrid.jl")
 export update_cell_halo!
 
