@@ -1,10 +1,7 @@
 using JustPIC
-using JustPIC._2D
-using ParallelStencil
-@init_parallel_stencil(Threads, Float64, 2)
 using GLMakie
 
-const backend = JustPIC.CPUBackend
+const backend = JustPIC.CPU
 
 function expand_range(x::AbstractRange)
     dx = x[2] - x[1]

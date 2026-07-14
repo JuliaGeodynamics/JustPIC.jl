@@ -34,7 +34,7 @@ vertex, and staggered velocity grids needed by the higher-level APIs.
 ### Randomly distributed particles
 
 ```julia
-backend   = JustPIC.CPUBackend # device backend
+backend   = JustPIC.CPU # device backend
 nxcell    = 24  # initial number of randomly distributed particles
 max_xcell = 48  # maximum number of particles per cell
 min_xcell = 12  # minimum number of particles per cell
@@ -54,7 +54,7 @@ particles = init_particles(
 ### Regularly spaced particles
 
 ```julia
-backend   = JustPIC.CPUBackend # device backend
+backend   = JustPIC.CPU # device backend
 nxcell    = (5, 5)  # number of evenly spaced particles in the x- and y- dimensions
 max_xcell = 48      # maximum number of particles per cell
 min_xcell = 12      # minimum number of particles per cell

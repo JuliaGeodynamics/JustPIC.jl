@@ -1,18 +1,14 @@
-using Documenter
 pushfirst!(LOAD_PATH, joinpath(@__DIR__, ".."))
-using JustPIC
+using Documenter, JustPIC
 
 @info "Making documentation..."
 makedocs(;
     sitename = "JustPIC.jl",
     authors = "Albert de Montserrat and contributors",
-    modules = [JustPIC, JustPIC._2D, JustPIC._3D],
-    format = Documenter.HTML(;
-        prettyurls = get(ENV, "CI", nothing) == "true",
-        edit_link = nothing,
-    ), # easier local build
-    checkdocs = :none,
+    modules = [JustPIC],
+    format = Documenter.HTML(; prettyurls = get(ENV, "CI", nothing) == "true"), # easier local build
     warnonly = Documenter.except(:footnote),
+    checkdocs = :exports,
     pages = [
         "Home" => "index.md",
         "Particles" => "particles.md",

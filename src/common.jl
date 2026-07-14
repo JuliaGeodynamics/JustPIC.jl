@@ -13,6 +13,9 @@ export cell_array,
     @dy,
     @dz
 
+include("launch.jl")
+export launch!, ka_backend
+
 include("CellArrays/ImplicitGlobalGrid.jl")
 export update_cell_halo!
 

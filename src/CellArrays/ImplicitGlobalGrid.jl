@@ -3,41 +3,39 @@
 
 Synchronize the overlapping MPI halo of one or more `CellArray`s in place.
 
-This is the `CellArray` companion to `ImplicitGlobalGrid.update_halo!`. Each
-payload entry is copied to a temporary array, exchanged with `update_halo!`, and
-copied back into the original `CellArray`.
+This is the `CellArray` companion to `ImplicitGlobalGrid.update_halo!` and is
+typically used after particle coordinates or per-particle fields have changed on
+each rank.
 
 # Arguments
-- `x`: one or more `CellArray`s with the same logical grid layout and backend.
+- `x`: one or more `CellArray`s with the same logical grid layout.
 
 # Notes
-- All provided `CellArray`s are updated. This is useful for exchanging
+- Every provided `CellArray` is updated; this is convenient for
   `particles.coords`, `particles.index`, and particle field arrays returned by
-  `init_cell_arrays` in a single call.
+  `init_cell_arrays`.
 - For MPI particle advection, halo exchange is usually required before
-  `move_particles!` so particles that crossed a rank boundary are visible to the
-  neighboring rank.
-- Periodic halos follow the domain topology configured by
-  `ImplicitGlobalGrid.init_global_grid`.
-- If particles are reinjected with `inject_particles!`, refresh halos again
+  `move_particles!` so that particles that crossed a rank boundary are visible
+  to the neighboring rank.
+- With periodic boundary conditions, `update_cell_halo!` exchanges the overlap
+  across the periodic domain boundaries as configured in `init_global_grid`.
+- If particles are reinjected with `inject_particles!`, refresh the halos again
   before reconstructing grid fields with `particle2grid!`.
 
 # Example
 ```julia
 advection!(particles, RungeKutta2(), V, dt)
-update_cell_halo!(particles.coords..., particle_args..., particles.index)
+update_cell_halo!(particles.coords...)
+update_cell_halo!(particle_args...)
+update_cell_halo!(particles.index)
 move_particles!(particles, particle_args)
 inject_particles!(particles, particle_args)
-update_cell_halo!(particles.coords..., particle_args..., particles.index)
 particle2grid!(T, pT, particles)
 ```
 """
-function update_cell_halo!(
-        x::Vararg{CellArray{S, N, D, A}, NA}
-    ) where {NA, S, N, D, A <: AbstractArray}
-    ni = size(x[1])
-    tmp = @fill(0.0e0, ni..., eltype = eltype(x[1].data))
+function update_cell_halo!(x::Vararg{CellArray, N}) where {N}
     for xᵢ in x
+        update_halo!(xᵢ)
         for ip in cellaxes(xᵢ)
             @parallel (@idx ni) move_CellArray_to_Array!(tmp, xᵢ, ip)
             update_halo!(tmp)

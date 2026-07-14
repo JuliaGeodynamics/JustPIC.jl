@@ -4,14 +4,11 @@
 
 ## Instantiating a `CellArray`
 
-With `ParallelStencil.jl`, `CellArray`s can be created with the familiar
-allocation macros. The `celldims` keyword controls the payload size inside each
-grid cell.
+JustPIC can create a `CellArray` object directly. The `CellArray` object is a container that holds the data of a grid. The data is stored in small nD-arrays, and the grid is divided into cells. Each cell contains a number of elements. The `CellArray` object is used to store the data of the particles in the simulation.
 
 ```julia
-using JustPIC, JustPIC._2D
-using ParallelStencil
-@init_parallel_stencil(Threads, Float64, 2)
+using JustPIC
+import CellArraysIndexing as CAI
 ```
 
 ```julia-repl
@@ -24,7 +21,7 @@ julia> ncells = (2,)
 julia> x = 20
 20
 
-julia> CA = @fill(x, ni..., celldims = ncells, eltype = Float64) 
+julia> CA = cell_array(JustPIC.CPU, Float64(x), ncells, ni)
 2×2 CellArrays.CPUCellArray{StaticArraysCore.SVector{2, Float64}, 2, 1, Float64}:
  [20.0, 20.0]  [20.0, 20.0]
  [20.0, 20.0]  [20.0, 20.0]
@@ -42,13 +39,12 @@ julia> CA[1,1]
  20.0
 ```
 
-Performance-sensitive kernels usually read or mutate individual payload entries
-directly. For this purpose, JustPIC exports `@index`.
+It is however useful to read and mutate the data of the `CellArray` object directly, without instantiating a `StaticArray`. For this purpose, `CellArraysIndexing` provides `@index` to directly read and mutate the individual elements of the cell.
 
 For example, to read a single element of `CA`:
 
 ```julia-repl
-julia> @index CA[2, 1, 1]
+julia> CAI.@index CA[2, 1, 1]
 20.0
 ```
 
@@ -56,7 +52,7 @@ Here the first index selects the payload entry and the remaining indices select
 the grid cell. Mutation uses the same syntax:
 
 ```julia-repl
-julia> @index CA[2, 1, 1] = 0.0
+julia> CAI.@index CA[2, 1, 1] = 0.0
 0.0
 
 julia> CA
@@ -84,22 +80,4 @@ julia> @cell CA[1,1] = @cell(CA[1,1]) .+ 1
 2×2 CellArrays.CPUCellArray{StaticArraysCore.SVector{2, Float64}, 2, 1, Float64}:
  [21.0, 21.0]  [20.0, 20.0]
  [20.0, 20.0]  [20.0, 20.0]
-```
-
-## Helper Functions
-
-The most common low-level helpers are:
-
-- `cellnum(A)`: number of payload entries stored in each logical cell.
-- `cellaxes(A)`: one-based axes for iterating over payload entries.
-- `cell_array(x, ncells, ni)`: allocate a cell array filled with `x`.
-- `update_cell_halo!(arrays...)`: exchange overlapping MPI halos for one or
-  more `CellArray`s after particle coordinates or per-particle fields change on
-  each rank.
-
-Most users interact with these indirectly through `init_particles`,
-`init_cell_arrays`, and the interpolation/advection kernels.
-
-```@docs
-JustPIC._2D.update_cell_halo!
 ```

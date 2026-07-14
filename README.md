@@ -1,7 +1,10 @@
+[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://juliageodynamics.github.io/JustPIC.jl/stable/)
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://juliageodynamics.github.io/JustPIC.jl/dev/)
+[![version](https://juliahub.com/docs/General/JustPIC/stable/version.svg)](https://juliahub.com/ui/Packages/General/JustPIC)
 [![DOI](https://zenodo.org/badge/507905159.svg)](https://zenodo.org/doi/10.5281/zenodo.10212675)
 [![CPU UnitTests](https://github.com/JuliaGeodynamics/JustPIC.jl/actions/workflows/UnitTests.yml/badge.svg)](https://github.com/JuliaGeodynamics/JustPIC.jl/actions/workflows/UnitTests.yml)
-[![GPU UnitTests](https://badge.buildkite.com/bb05ed7ef3b43f843a5ba4a976c27a724064d67955193accea.svg)](https://buildkite.com/julialang/justpic-dot-jl)
+[![GPU UnitTests](https://badge.buildkite.com/bb05ed7ef3b43f843a5ba4a976c27a724064d67955193accea.svg?branch=main)](https://buildkite.com/julialang/justpic-dot-jl)
+[![CSCS UnitTests](https://gitlab.com/cscs-ci/ci-testing/webhook-ci/mirrors/6264856887055800/8444213376739374/badges/main/pipeline.svg?ignore_skipped=true)](https://gitlab.com/cscs-ci/ci-testing/webhook-ci/mirrors/6264856887055800/8444213376739374/-/pipelines)
 [![codecov](https://codecov.io/gh/JuliaGeodynamics/JustPIC.jl/graph/badge.svg?token=PN0AJZXK13)](https://codecov.io/gh/JuliaGeodynamics/JustPIC.jl)
 [![Aqua QA](https://raw.githubusercontent.com/JuliaTesting/Aqua.jl/master/badge.svg)](https://github.com/JuliaTesting/Aqua.jl)
 
@@ -9,18 +12,16 @@
 
 Particle-in-Cell advection ready to rock the GPU  :rocket:
 
-# Example:
-The first step is to chose whether we want to run our simulation on the CPU or Nvidia or AMD GPUs. This is done by setting the `backend` variable to either `CUDABackend`, `AMDGPUBackend` or `CPUBackend`. In the following we will assume that we are running on a Nvidia GPU.
+# Example
+Load JustPIC and choose where particle arrays are allocated. Backend tags live
+in KernelAbstractions; use `JustPIC.CPU` by default, or load CUDA.jl /
+AMDGPU.jl and switch to `CUDA.CUDABackend` / `AMDGPU.ROCBackend`.
 
 ```julia
-const backend = CUDABackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
-```
-
-and load the required packages:
-
-```julia
-using JustPIC, JustPIC._2D
+using JustPIC
 using GLMakie
+
+const backend = JustPIC.CPU
 ```
 
 Define domain and grids of the domain:
@@ -59,9 +60,9 @@ Now we can initialize the particles object
 nxcell    = 24 # initial number of particles per cell
 max_xcell = 48 # maximum number of particles per cell
 min_xcell = 12 # minimum number of particles per cell
-    particles = init_particles(
-        backend, nxcell, max_xcell, min_xcell, xvi, dxi, (nx, ny)
-    )
+particles = init_particles(
+    backend, nxcell, max_xcell, min_xcell, grid_vx, grid_vy
+)
 ```
 
 The velocity field is defined by the stream function $\psi=\frac{250}{\pi}\sin(\pi x)\cos(\pi y)$, so that the analytical velocity field at the particle $p=p(x,y)$ is given by
@@ -76,7 +77,8 @@ Vy = TA(backend)([vy_stream(x, y) for x in grid_vy[1], y in grid_vy[2]]);
 V  = Vx, Vy
 dt = min(dx / maximum(abs.(Vx)),  dy / maximum(abs.(Vy))) # time step
 ```
-where `TA(backend)` is a type alias for either `Array`, `CuArray` or `ROCArray`.
+where `TA(backend)` is `Array` on `JustPIC.CPU`, `CuArray` on
+`CUDA.CUDABackend`, and `ROCArray` on `AMDGPU.ROCBackend`.
 
 We save the initial particle positions:
 ```julia
@@ -98,9 +100,9 @@ particle_args = ()
 niter = 750
 for iter in 1:niter
     # advect particles
-    advection!(particles, advection_scheme, V, (grid_vx, grid_vy), dt)
+    advection!(particles, advection_scheme, V, dt)
     # shuffle particles in the memory to keep the spatial locality tight
-    move_particles!(particles, xvi, particle_args)
+    move_particles!(particles, particle_args)
     # save particle position
     pxv = particles.coords[1].data;
     pyv = particles.coords[2].data;

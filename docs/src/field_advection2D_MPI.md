@@ -8,8 +8,8 @@ their fields remain consistent across rank boundaries.
 As usual, we start loading JustPIC.jl modules and specifying the backend
 
 ```julia
-using JustPIC, JustPIC._2D
-const backend = JustPIC.CPUBackend
+using JustPIC
+const backend = JustPIC.CPU
 ```
 
 and we define the usual analytical flow solution
@@ -51,8 +51,7 @@ end
 # nodal centers
 xci = xc, yc = let
     dummy = zeros(nx, ny) 
-    xc  = @zeros(nx) 
-    xc .= TA(backend)([x_g(i, dx, dummy) for i in axes(dummy, 1)])
+    xc  = TA(backend)([x_g(i, dx, dummy) for i in axes(dummy, 1)])
     yc  = TA(backend)([y_g(i, dx, dummy) for i in axes(dummy, 2)])
     xc, yc
 end
@@ -161,7 +160,7 @@ To visualize the results, we need to allocate a global array `T_v` and buffer ar
 nx_v     = (size(T, 1) - 2) * dims[1] # global size of `T` without halos
 ny_v     = (size(T, 2) - 2) * dims[2] # global size of `T` without halos
 T_v      = zeros(nx_v, ny_v)          # initialize global `T`
-T_nohalo = @zeros(size(T).-2)         # local `T` without overlapping halo
+T_nohalo = TA(backend)(zeros(size(T) .- 2)) # local `T` without overlapping halo
 ```
 
 Visualization with GLMakie.jl

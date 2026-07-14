@@ -1,19 +1,34 @@
-@static if ENV["JULIA_JUSTPIC_BACKEND"] === "AMDGPU"
+const BACKEND_NAME = get(ENV, "JULIA_JUSTPIC_BACKEND", "CPU")
+
+@static if BACKEND_NAME == "AMDGPU"
     using AMDGPU
     AMDGPU.allowscalar(true)
-elseif ENV["JULIA_JUSTPIC_BACKEND"] === "CUDA"
+elseif BACKEND_NAME == "CUDA"
     using CUDA
     CUDA.allowscalar(true)
+elseif BACKEND_NAME == "Metal"
+    using Metal
+    Metal.allowscalar(true)
 end
 
-using JustPIC, JustPIC._3D, CellArrays, ParallelStencil, Test, LinearAlgebra
+using JustPIC, CellArrays, Test, LinearAlgebra
+import KernelAbstractions: CPU
 
-const backend = @static if ENV["JULIA_JUSTPIC_BACKEND"] === "AMDGPU"
-    JustPIC.AMDGPUBackend
-elseif ENV["JULIA_JUSTPIC_BACKEND"] === "CUDA"
-    CUDABackend
+const backend = @static if BACKEND_NAME == "AMDGPU"
+    AMDGPU.ROCBackend
+elseif BACKEND_NAME == "CUDA"
+    CUDA.CUDABackend
+elseif BACKEND_NAME == "Metal"
+    Metal.MetalBackend
 else
-    JustPIC.CPUBackend
+    CPU
+end
+
+# Metal has no Float64; JULIA_JUSTPIC_PRECISION=Float32 runs the same paths on CPU
+const FT = if BACKEND_NAME == "Metal" || get(ENV, "JULIA_JUSTPIC_PRECISION", "") == "Float32"
+    Float32
+else
+    Float64
 end
 
 function expand_range(x::LinRange)
@@ -36,7 +51,7 @@ end
 
 # Analytical flow solution
 vx_stream(x, z) = 250 * sin(π * x) * cos(π * z)
-vy_stream(x, z) = 0.0
+vy_stream(x, z) = zero(x)
 vz_stream(x, z) = -250 * cos(π * x) * sin(π * z)
 
 struct ForceInjectionPoint3D{T}
@@ -51,7 +66,7 @@ Base.getindex(p::ForceInjectionPoint3D, i::Int) = p.coords[i]
     n = 5 # number of vertices
     nx = ny = nz = n - 1
     ni = nx, ny, nz
-    Lx = Ly = Lz = 1.0
+    Lx = Ly = Lz = FT(1)
     Li = Lx, Ly, Lz
     # nodal vertices
     xvi = xv, yv, zv = ntuple(i -> LinRange(0, Li[i], n), Val(3))
@@ -65,25 +80,25 @@ Base.getindex(p::ForceInjectionPoint3D, i::Int) = p.coords[i]
     grid_vz = expand_range(xc), expand_range(yc), zv
     grid_vel = grid_vx, grid_vy, grid_vz
     # Initialize particles -------------------------------
-    particles = _3D.init_particles(
+    particles = JustPIC.init_particles(
         backend, nxcell, max_xcell, min_xcell, grid_vel...
     )
-    pT, = _3D.init_cell_arrays(particles, Val(1))
+    pT, = JustPIC.init_cell_arrays(particles, Val(1))
     xvi_p = JustPIC._3D.add_periodic_ghost_nodes.(xvi)
     # Linear field at the vertices
     T = TA(backend)([z for x in xvi_p[1], y in xvi_p[2], z in xvi_p[3]])
     T0 = TA(backend)([z for x in xvi_p[1], y in xvi_p[2], z in xvi_p[3]])
     # Grid to particle test
-    _3D.grid2particle!(pT, xvi_p, T, particles, diff.(xvi_p))
+    JustPIC.grid2particle!(pT, xvi_p, T, particles, diff.(xvi_p))
     active = Array(particles.index.data)
     @test Array(pT.data)[active] ≈ Array(particles.coords[3].data)[active]
     # Grid to particle test
-    _3D.grid2particle_flip!(pT, xvi_p, T, T0, particles)
+    JustPIC.grid2particle_flip!(pT, xvi_p, T, T0, particles)
     @test Array(pT.data)[active] ≈ Array(particles.coords[3].data)[active]
     # Particle to grid test
     T2 = similar(T)
     fill!(T2, NaN)
-    _3D.particle2grid!(T2, pT, particles)
+    JustPIC.particle2grid!(T2, pT, particles)
     finite_mask = isfinite.(T2)
     @test norm(T2[finite_mask] .- T[finite_mask]) / count(finite_mask) < 1.0e-1
     # test copy function
@@ -99,7 +114,7 @@ end
     n = 5 # number of vertices
     nx = ny = nz = n - 1
     ni = nx, ny, nz
-    Lx = Ly = Lz = 1.0
+    Lx = Ly = Lz = FT(1)
     Li = Lx, Ly, Lz
     # nodal vertices
     xvi = xv, yv, zv = ntuple(i -> LinRange(0, Li[i], n), Val(3))
@@ -113,10 +128,10 @@ end
     grid_vz = expand_range(xc), expand_range(yc), zv
     grid_vel = grid_vx, grid_vy, grid_vz
     # Initialize particles -------------------------------
-    particles1 = _3D.init_particles(
+    particles1 = JustPIC.init_particles(
         backend, nxcell, max_xcell, min_xcell, grid_vel...
     )
-    particles2 = _3D.init_particles(
+    particles2 = JustPIC.init_particles(
         backend, nxcell, max_xcell, min_xcell, grid_vel...
     )
     @test particles1.min_xcell == particles2.min_xcell
@@ -158,7 +173,7 @@ end
     n = 5 # number of vertices
     nx = ny = nz = n - 1
     ni = nx, ny, nz
-    Lx = Ly = Lz = 1.0
+    Lx = Ly = Lz = FT(1)
     Li = Lx, Ly, Lz
     # nodal vertices
     xvi = xv, yv, zv = ntuple(i -> LinRange(0, Li[i], n), Val(3))
@@ -172,10 +187,10 @@ end
     grid_vz = expand_range(xc), expand_range(yc), zv
     grid_vel = grid_vx, grid_vy, grid_vz
     # Initialize particles -------------------------------
-    particles = _3D.init_particles(
+    particles = JustPIC.init_particles(
         backend, nxcell, max_xcell, min_xcell, grid_vel...
     )
-    arrays = _3D.SubgridDiffusionCellArrays(particles)
+    arrays = JustPIC.SubgridDiffusionCellArrays(particles)
     # Test they are allocated in the right backend
     @test arrays.ΔT_subgrid isa TA(backend)
     @test arrays.pT0.data isa TA(backend)
@@ -192,7 +207,7 @@ end
     x = range(start, stop = finish, length = n)
     xv = x, x, x
     p = px, py, pz = tuple((rand(3) .* L .+ start)...)
-    i, j, k = _3D.cell_index(p, xv)
+    i, j, k = JustPIC.cell_index(p, xv)
     @test x[i] ≤ px < x[i + 1]
     @test x[j] ≤ py < x[j + 1]
     @test x[k] ≤ pz < x[k + 1]
@@ -203,7 +218,7 @@ end
     Lz = z[end] - z[1]
     pz = rand() * Lz - start
     p = px, py, pz
-    i, j, k = _3D.cell_index(p, xv)
+    i, j, k = JustPIC.cell_index(p, xv)
     @test x[i] ≤ px < x[i + 1]
     @test y[j] ≤ py < y[j + 1]
     @test z[k] ≤ pz < z[k + 1]
@@ -223,9 +238,9 @@ end
 end
 
 @testset "Refined grid particle initialization 3D" begin
-    xv = [0.0, 0.1, 0.25, 0.55, 1.0]
-    yv = [0.0, 0.2, 0.45, 0.8, 1.0]
-    zv = [0.0, 0.15, 0.35, 0.65, 1.0]
+    xv = FT[0.0, 0.1, 0.25, 0.55, 1.0]
+    yv = FT[0.0, 0.2, 0.45, 0.8, 1.0]
+    zv = FT[0.0, 0.15, 0.35, 0.65, 1.0]
     xvi = (xv, yv, zv)
     xci = ntuple(i -> [(xvi[i][j] + xvi[i][j + 1]) / 2 for j in 1:(length(xvi[i]) - 1)], Val(3))
     grid_vi = (
@@ -235,7 +250,7 @@ end
     )
 
     nxcell, max_xcell, min_xcell = 8, 12, 4
-    particles = _3D.init_particles(
+    particles = JustPIC.init_particles(
         backend, nxcell, max_xcell, min_xcell, grid_vi...,
     )
 
@@ -249,7 +264,7 @@ end
 @testset "Passive markers 3D" begin
     n = 32
     nx = ny = nz = n - 1
-    Lx = Ly = Lz = 1.0
+    Lx = Ly = Lz = FT(1)
     ni = nx, ny, nz
     Li = Lx, Ly, Lz
     # nodal vertices
@@ -267,7 +282,7 @@ end
 
     # Initialize particles -------------------------------
     nxcell, max_xcell, min_xcell = 24, 24, 3
-    particles = _3D.init_particles(
+    particles = JustPIC.init_particles(
         backend, nxcell, max_xcell, min_xcell, grid_vel...
     )
 
@@ -283,19 +298,19 @@ end
     np = 256 # number of passive markers
 
     passive_coords = ntuple(Val(3)) do i
-        TA(backend)((rand(np) .+ 1) .* Lx / 4)
+        TA(backend)((rand(FT, np) .+ 1) .* Lx / 4)
     end
 
-    passive_markers = _3D.init_passive_markers(backend, passive_coords)
-    T_marker = TA(backend)(zeros(np))
-    P_marker = TA(backend)(zeros(np))
+    passive_markers = JustPIC.init_passive_markers(backend, passive_coords)
+    T_marker = TA(backend)(zeros(FT, np))
+    P_marker = TA(backend)(zeros(FT, np))
 
     for _ in 1:75
-        _3D.advection!(passive_markers, _3D.RungeKutta2(2 / 3), V, (grid_vx, grid_vy, grid_vz), dt)
+        JustPIC.advection!(passive_markers, JustPIC.RungeKutta2(2 / 3), V, (grid_vx, grid_vy, grid_vz), dt)
     end
 
     # interpolate grid fields T and P onto the marker locations
-    _3D.grid2particle!((T_marker, P_marker), xvi, (T, P), passive_markers)
+    JustPIC.grid2particle!((T_marker, P_marker), xvi, (T, P), passive_markers)
     x_marker = passive_markers.coords[1]
     z_marker = passive_markers.coords[3]
 
@@ -311,7 +326,7 @@ end
     n = 3
     nx = ny = nz = n - 1
     ni = nx, ny, nz
-    Lx = Ly = Lz = 1.0
+    Lx = Ly = Lz = FT(1)
     Li = Lx, Ly, Lz
     # nodal vertices
     xvi = xv, yv, zv = ntuple(i -> LinRange(0, Li[i], n), Val(3))
@@ -325,18 +340,18 @@ end
     grid_vz = expand_range(xc), expand_range(yc), zv
     grid_vel = grid_vx, grid_vy, grid_vz
 
-    particles = _3D.init_particles(backend, nxcell, max_xcell, min_xcell, grid_vel...)
-    pphase, = _3D.init_cell_arrays(particles, Val(1))
+    particles = JustPIC.init_particles(backend, nxcell, max_xcell, min_xcell, grid_vel...)
+    pphase, = JustPIC.init_cell_arrays(particles, Val(1))
 
     ni = size(particles.index)
-    nslots = _3D.cellnum(particles.index)
-    p_invalid = ForceInjectionPoint3D((0.0, 0.0, 0.0), false)
+    nslots = JustPIC.cellnum(particles.index)
+    p_invalid = ForceInjectionPoint3D((FT(0), FT(0), FT(0)), false)
     p_new = TA(backend)(fill(p_invalid, ni..., nslots))
     for i in 1:ni[1], j in 1:ni[2], k in 1:ni[3], c in 1:nslots
-        p_new[i, j, k, c] = ForceInjectionPoint3D((0.1 * c + 0.01 * i, 0.1 * c + 0.01 * j, 0.1 * c + 0.01 * k), true)
+        p_new[i, j, k, c] = ForceInjectionPoint3D((FT(0.1) * c + FT(0.01) * i, FT(0.1) * c + FT(0.01) * j, FT(0.1) * c + FT(0.01) * k), true)
     end
 
-    _3D.force_injection!(particles, p_new, (pphase,), (5.0,))
+    JustPIC.force_injection!(particles, p_new, (pphase,), (FT(5),))
 
     x_data = vec(Array(particles.coords[1].data))
     y_data = vec(Array(particles.coords[2].data))
@@ -351,13 +366,13 @@ end
     @test sort(y_data) ≈ sort(y_expected)
     @test sort(z_data) ≈ sort(z_expected)
 
-    particles_no_fields = _3D.init_particles(backend, nxcell, max_xcell, min_xcell, grid_vel...)
-    _3D.force_injection!(particles_no_fields, p_new)
+    particles_no_fields = JustPIC.init_particles(backend, nxcell, max_xcell, min_xcell, grid_vel...)
+    JustPIC.force_injection!(particles_no_fields, p_new)
     @test all(Array(particles_no_fields.index.data))
 
-    particles_skip = _3D.init_particles(backend, nxcell, max_xcell, min_xcell, grid_vel...)
+    particles_skip = JustPIC.init_particles(backend, nxcell, max_xcell, min_xcell, grid_vel...)
     p_empty = TA(backend)(fill(p_invalid, ni..., nslots))
-    _3D.force_injection!(particles_skip, p_empty)
+    JustPIC.force_injection!(particles_skip, p_empty)
     @test !any(Array(particles_skip.index.data))
 end
 
@@ -365,7 +380,7 @@ function test_advection_3D()
 
     n = 64
     nx = ny = nz = n - 1
-    Lx = Ly = Lz = 1.0
+    Lx = Ly = Lz = FT(1)
     ni = nx, ny, nz
     Li = Lx, Ly, Lz
     # nodal vertices
@@ -397,24 +412,24 @@ function test_advection_3D()
 
     # Initialize particles -------------------------------
     nxcell, max_xcell, min_xcell = 125, 150, 100
-    particles = _3D.init_particles(
+    particles = JustPIC.init_particles(
         backend, nxcell, max_xcell, min_xcell, grid_vel...
     )
 
     # Advection test
-    particle_args = pT, = _3D.init_cell_arrays(particles, Val(1))
-    _3D.grid2particle!(pT, xvi_p, T, particles, diff.(xvi_p))
+    particle_args = pT, = JustPIC.init_cell_arrays(particles, Val(1))
+    JustPIC.grid2particle!(pT, xvi_p, T, particles, diff.(xvi_p))
     sumT = sum(T)
 
     niter = 5
     for _ in 1:niter
-        _3D.particle2grid!(T, pT, particles)
+        JustPIC.particle2grid!(T, pT, particles)
         copyto!(T0, T)
-        _3D.advection!(particles, _3D.RungeKutta2(), V, dt)
-        _3D.move_particles!(particles, particle_args)
+        JustPIC.advection!(particles, JustPIC.RungeKutta2(), V, dt)
+        JustPIC.move_particles!(particles, particle_args)
         # reseed
-        _3D.inject_particles!(particles, (pT,))
-        _3D.grid2particle!(pT, xvi_p, T, particles, diff.(xvi_p))
+        JustPIC.inject_particles!(particles, (pT,))
+        JustPIC.grid2particle!(pT, xvi_p, T, particles, diff.(xvi_p))
     end
     sumT_final = sum(T)
     err = abs(sumT - sumT_final) / sumT
@@ -423,9 +438,9 @@ function test_advection_3D()
 end
 
 function test_advection_3D_refined()
-    xv = [0.0, 0.04, 0.09, 0.16, 0.25, 0.37, 0.52, 0.68, 0.84, 1.0]
-    yv = [0.0, 0.05, 0.11, 0.2, 0.31, 0.44, 0.58, 0.73, 0.87, 1.0]
-    zv = [0.0, 0.03, 0.08, 0.15, 0.26, 0.4, 0.56, 0.72, 0.88, 1.0]
+    xv = FT[0.0, 0.04, 0.09, 0.16, 0.25, 0.37, 0.52, 0.68, 0.84, 1.0]
+    yv = FT[0.0, 0.05, 0.11, 0.2, 0.31, 0.44, 0.58, 0.73, 0.87, 1.0]
+    zv = FT[0.0, 0.03, 0.08, 0.15, 0.26, 0.4, 0.56, 0.72, 0.88, 1.0]
     xvi = (xv, yv, zv)
     xc = [(xv[i] + xv[i + 1]) / 2 for i in 1:(length(xv) - 1)]
     yc = [(yv[i] + yv[i + 1]) / 2 for i in 1:(length(yv) - 1)]
@@ -453,22 +468,22 @@ function test_advection_3D_refined()
     ) / 4
 
     nxcell, max_xcell, min_xcell = 125, 150, 100
-    particles = _3D.init_particles(
+    particles = JustPIC.init_particles(
         backend, nxcell, max_xcell, min_xcell, grid_vx, grid_vy, grid_vz,
     )
 
-    particle_args = pT, = _3D.init_cell_arrays(particles, Val(1))
-    _3D.grid2particle!(pT, xvi_p, T, particles, diff.(xvi_p))
+    particle_args = pT, = JustPIC.init_cell_arrays(particles, Val(1))
+    JustPIC.grid2particle!(pT, xvi_p, T, particles, diff.(xvi_p))
     sumT = sum(T)
 
     niter = 5
     for _ in 1:niter
-        _3D.particle2grid!(T, pT, particles)
+        JustPIC.particle2grid!(T, pT, particles)
         copyto!(T0, T)
-        _3D.advection!(particles, _3D.RungeKutta2(), V, dt)
-        _3D.move_particles!(particles, particle_args)
-        _3D.inject_particles!(particles, (pT,))
-        _3D.grid2particle!(pT, xvi_p, T, particles, diff.(xvi_p))
+        JustPIC.advection!(particles, JustPIC.RungeKutta2(), V, dt)
+        JustPIC.move_particles!(particles, particle_args)
+        JustPIC.inject_particles!(particles, (pT,))
+        JustPIC.grid2particle!(pT, xvi_p, T, particles, diff.(xvi_p))
     end
 
     sumT_final = sum(T)

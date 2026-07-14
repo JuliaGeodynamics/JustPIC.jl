@@ -1,54 +1,68 @@
 # JustPIC.jl
 
-JustPIC.jl provides Particle-in-Cell data structures and advection kernels for
-2D and 3D geodynamic workflows on CPUs and accelerator backends.
+Particle-in-Cell (PIC) advection for large-scale, multi-XPU simulations. JustPIC
+runs the same code on CPU, CUDA, AMDGPU, and Metal through
+[KernelAbstractions](https://github.com/JuliaGPU/KernelAbstractions.jl): the
+compute backend is chosen by the array type, not by rewriting the algorithm.
 
-## What the package covers
+## Installation
 
-- Cell-sorted particle containers for efficient particle management.
-- Particle, passive-marker, and marker-chain advection.
-- Grid/particle transfer operators for nodal, staggered, and centroid-based data.
-- Phase-ratio reconstruction and subgrid diffusion helpers.
-- JLD2 checkpointing utilities for restart workflows.
+JustPIC is registered in the General registry:
+
+```julia
+using Pkg
+Pkg.add("JustPIC")
+```
+
+To run on a GPU, additionally install the matching backend package (`CUDA`,
+`AMDGPU`, or `Metal`) and select its backend — see [Mixed CPU/GPU](mixed_CPU_GPU.md).
 
 ## Getting started
 
-The most common workflow is:
+Choose a backend, build a staggered grid, and initialize a particle container:
 
-1. Pick a backend such as `CPUBackend`, `CUDABackend`, or `AMDGPUBackend`.
-2. Build staggered velocity grids.
-3. Initialize a particle container with `init_particles`.
-4. Advect particles with `advection!`.
-5. Restore cell locality with `move_particles!`.
-6. Transfer data between grid and particles with `grid2particle!` or `particle2grid!`.
+```jldoctest
+julia> using JustPIC
 
-```julia
-using JustPIC, JustPIC._2D
+julia> backend = JustPIC.CPU;
 
-const backend = CPUBackend
+julia> nxcell, max_xcell, min_xcell = 6, 12, 3;
 
-xv = LinRange(0.0, 1.0, 33)
-yv = LinRange(0.0, 1.0, 33)
-xc = LinRange(step(xv) / 2, 1.0 - step(xv) / 2, 32)
-yc = LinRange(step(yv) / 2, 1.0 - step(yv) / 2, 32)
+julia> n = 8;  # vertices per dimension
 
-grid_vx = xv, LinRange(first(yc) - step(yv), last(yc) + step(yv), length(yc) + 2)
-grid_vy = LinRange(first(xc) - step(xv), last(xc) + step(xv), length(xc) + 2), yv
+julia> xv = yv = LinRange(0.0, 1.0, n);
 
-particles = init_particles(backend, 24, 48, 12, grid_vx, grid_vy)
-method = RungeKutta2()
+julia> dx = dy = xv[2] - xv[1];
 
-Vx = zeros(length.(grid_vx)...)
-Vy = zeros(length.(grid_vy)...)
+julia> xc = yc = LinRange(dx / 2, 1 - dx / 2, n - 1);
 
-advection!(particles, method, (Vx, Vy), 1.0)
-move_particles!(particles, ())
+julia> grid_vx = xv, LinRange(first(yc) - dy, last(yc) + dy, length(yc) + 2);
+
+julia> grid_vy = LinRange(first(xc) - dx, last(xc) + dx, length(xc) + 2), yv;
+
+julia> particles = init_particles(backend, nxcell, max_xcell, min_xcell, grid_vx, grid_vy);
+
+julia> sum(particles.index.data)  # number of active markers across the grid
+392
 ```
 
-## Where to go next
+`particles` can then be advected through a velocity field and used for
+grid-to-particle and particle-to-grid interpolation. See [Particles](particles.md)
+and [Interpolations](interpolations.md) for the full workflow, or the runnable
+[2D field advection example](field_advection2D.md).
 
-- [Particles](particles.md): particle containers, initialization, and maintenance.
-- [Interpolations](interpolations.md): grid/particle transfers and centroid helpers.
-- [Marker chain](marker_chain.md): interface tracking with `MarkerChain`.
-- [I/O](IO.md): checkpointing and restart.
-- [Public API](API.md): compact reference of exported entry points.
+## Manual
+
+- [Particles](particles.md) — the `Particles` container and its lifecycle
+- [CellArrays](CellArrays.md) — the cell-local storage layout
+- [Interpolations](interpolations.md) and [Velocity interpolation](velocity_interpolation.md)
+- [Marker chain](marker_chain.md) — free-surface / topography tracking
+- [I/O](IO.md) — checkpointing and restart
+- [Mixed CPU/GPU](mixed_CPU_GPU.md)
+- [Public API](API.md)
+
+## Funding
+
+The development of this package is supported by the
+[GPU4GEO](https://ptsolvers.github.io/GPU4GEO/) [PASC](https://www.pasc-ch.org)
+project.

@@ -31,10 +31,10 @@ function particle2grid!(F, Fp, particles; ghost_1 = true, ghost_2 = true, ghost_
     return nothing
 end
 
-@parallel_indices (I...) function particle2grid!(F, Fp, xi, particle_coords, index, mask)
+@kernel function particle2grid_kernel!(F, Fp, xi, particle_coords, index, mask)
     I_inner = I .+ 1
+    I = @index(Global, NTuple)
     _particle2grid!(F, Fp, I_inner..., xi, particle_coords, index, mask)
-    return nothing
 end
 
 ## INTERPOLATION KERNEL 2D
@@ -42,7 +42,7 @@ end
 function _particle2grid!(F, Fp, inode, jnode, xi::NTuple{2, T}, p, index, mask) where {T}
     px, py = p # particle coordinates
     xvertex = xi[1][inode], xi[2][jnode] # cell lower-left coordinates
-    ω, ωxF = 0.0, 0.0 # init weights
+    ω, ωxF = zero(eltype(F)), zero(eltype(F)) # init weights
 
     # iterate over cells around i-th node
      for joffset in -1:0
@@ -60,12 +60,12 @@ function _particle2grid!(F, Fp, inode, jnode, xi::NTuple{2, T}, p, index, mask) 
                 # early exit if particle is not in the cell
                 doskip(index, ip, ivertex, jvertex) && continue
 
-                p_i = @index(px[ip, ivertex, jvertex]), @index(py[ip, ivertex, jvertex])
+                p_i = CAI.@index(px[ip, ivertex, jvertex]), CAI.@index(py[ip, ivertex, jvertex])
                 ω_i = distance_weight(xvertex, p_i; order = 2)
 
                 # ω_i = bilinear_weight(xvertex, p_i, di)
                 ω += ω_i
-                ωxF = fma(ω_i, @index(Fp[ip, ivertex, jvertex]), ωxF)
+                ωxF = fma(ω_i, CAI.@index(Fp[ip, ivertex, jvertex]), ωxF)
             end
         end
     end
@@ -80,7 +80,7 @@ end
     px, py = p # particle coordinates
     nx, ny = size(F[1])
     xvertex = xi[1][inode], xi[2][jnode] # cell lower-left coordinates
-    ω, ωxF = 0.0, 0.0 # init weights
+    ω, ωxF = zero(eltype(F[1])), zero(eltype(F[1])) # init weights
 
     # iterate over cells around i-th node
     for joffset in -1:0
@@ -95,13 +95,13 @@ end
                     # ignore lines below for unused allocations
                     doskip(index, i, ivertex, jvertex) && continue
 
-                    p_i = @index(px[i, ivertex, jvertex]), @index(py[i, ivertex, jvertex])
+                    p_i = CAI.@index(px[i, ivertex, jvertex]), CAI.@index(py[i, ivertex, jvertex])
                     ω_i = distance_weight(xvertex, p_i; order = 2)
                     # ω_i = bilinear_weight(xvertex, p_i, di)
                     ω += ω_i
                     ωxF = ntuple(Val(N)) do j
                         Base.@_inline_meta
-                        muladd(ω_i, @index(Fp[j][i, ivertex, jvertex]), ωxF[j])
+                        muladd(ω_i, CAI.@index(Fp[j][i, ivertex, jvertex]), ωxF[j])
                     end
                 end
             # end
@@ -123,7 +123,7 @@ end
     px, py, pz = p # particle coordinates
     nx, ny, nz = size(F)
     xvertex = xi[1][inode], xi[2][jnode], xi[3][knode] # cell lower-left coordinates
-    ω, ωF = 0.0, 0.0 # init weights
+    ω, ωF = zero(eltype(F)), zero(eltype(F)) # init weights
 
     # iterate over cells around i-th node
     for koffset in -1:0
@@ -140,14 +140,14 @@ end
                         doskip(index, ip, ivertex, jvertex, kvertex) && continue
 
                         p_i = (
-                            @index(px[ip, ivertex, jvertex, kvertex]),
-                            @index(py[ip, ivertex, jvertex, kvertex]),
-                            @index(pz[ip, ivertex, jvertex, kvertex]),
+                            CAI.@index(px[ip, ivertex, jvertex, kvertex]),
+                            CAI.@index(py[ip, ivertex, jvertex, kvertex]),
+                            CAI.@index(pz[ip, ivertex, jvertex, kvertex]),
                         )
                         ω_i = distance_weight(xvertex, p_i; order = 2)
                         # ω_i = bilinear_weight(xvertex, p_i, di)
                         ω += ω_i
-                        ωF = muladd(ω_i, @index(Fp[ip, ivertex, jvertex, kvertex]), ωF)
+                        ωF = muladd(ω_i, CAI.@index(Fp[ip, ivertex, jvertex, kvertex]), ωF)
                     end
                 # end
             end
@@ -163,8 +163,8 @@ end
     px, py, pz = p # particle coordinates
     nx, ny, nz = size(F[1])
     xvertex = xi[1][inode], xi[2][jnode], xi[3][knode] # cell lower-left coordinates
-    ω = 0.0 # init weights
-    ωxF = ntuple(i -> 0.0, Val(N)) # init weights
+    ω = zero(eltype(F[1])) # init weights
+    ωxF = ntuple(i -> zero(eltype(F[1])), Val(N)) # init weights
 
     # iterate over cells around i-th node
     for koffset in -1:0
@@ -181,16 +181,16 @@ end
                         doskip(index, ip, ivertex, jvertex, kvertex) && continue
 
                         p_i = (
-                            @index(px[ip, ivertex, jvertex, kvertex]),
-                            @index(py[ip, ivertex, jvertex, kvertex]),
-                            @index(pz[ip, ivertex, jvertex, kvertex]),
+                            CAI.@index(px[ip, ivertex, jvertex, kvertex]),
+                            CAI.@index(py[ip, ivertex, jvertex, kvertex]),
+                            CAI.@index(pz[ip, ivertex, jvertex, kvertex]),
                         )
                         ω_i = distance_weight(xvertex, p_i; order = 2)
                         # ω_i = bilinear_weight(xvertex, p_i, di)
                         ω += ω_i
                         ωxF = ntuple(Val(N)) do j
                             Base.@_inline_meta
-                            muladd(ω_i, @index(Fp[j][i, ivertex, jvertex, kvertex]), ωxF[j])
+                            muladd(ω_i, CAI.@index(Fp[j][i, ivertex, jvertex, kvertex]), ωxF[j])
                         end
                     end
                 # end

@@ -6,18 +6,10 @@ First, load JustPIC:
 using JustPIC
 ```
 
-Then load the 3D module:
+We need to specify what backend are we running our simulation on. For convenience we define the backend as a constant. In this case we use the CPU backend, but we could also use the CUDA (`CUDA.CUDABackend`) or AMDGPU (`AMDGPU.ROCBackend`) backends.
 
 ```julia
-using JustPIC._3D
-```
-
-Choose the backend used for particle storage and kernels. This example uses the
-CPU backend, but CUDA and AMDGPU backends can be used when the corresponding
-extension packages are loaded.
-
-```julia
-const backend = JustPIC.CPUBackend
+const backend = JustPIC.CPU
 ```
 
 Define an analytical flow used to advect the particles:

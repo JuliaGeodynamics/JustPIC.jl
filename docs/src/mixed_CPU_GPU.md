@@ -1,36 +1,24 @@
 # Mixed CPU and GPU computations
 
-If GPU memory is a limiting factor, it can be useful to keep particle storage and
-particle operations on the CPU while solving mesh-based equations on the GPU.
-This workflow has two important consequences:
+If GPU memory is a limiting factor for your computation, it may be preferable to carry out particle operations on the CPU rather than on the GPU.
+This involves basically four steps:
 
-- JustPIC particle containers should be allocated with `CPUBackend`.
-- Mesh fields that are consumed by the GPU solver must be copied explicitly
-  between CPU and GPU memory.
-
-## 1. Choose the particle backend
-
-At the top of the script, keep JustPIC particles on the CPU even if other
-packages use a GPU backend:
-
+1. *At the top of the script*. The JustPIC backend must be set to CPU, while other packages may still run their own GPU work:
 ```julia
-const backend = JustPIC.CPUBackend 
+const backend = JustPIC.CPU 
 ```
 
-## 2. Allocate matching CPU and GPU buffers
-
-At allocation time, create GPU buffers for the mesh quantities needed by the
-solver. For example, phase ratios on mesh vertices can be mirrored on the GPU:
-
+2. *At memory allocation stage*. A copy of relevant CPU arrays must be allocated on the GPU memory. For example, phase ratios on mesh vertices:
 ```julia
-phv_GPU = @zeros(nx+1, ny+1, nz+1, celldims=(N_phases))
+using JustPIC
+using CUDA
+
+phv_GPU = cell_array(CUDA.CUDABackend, 0.0, (N_phases,), (nx + 1, ny + 1, nz + 1))
 ```
+where `N_phases` is the number of different material phases and
+`cell_array(CUDA.CUDABackend, ...)` allocates a GPU-backed `CellArray`.
 
-Here `N_phases` is the number of material phases and `@zeros` allocates on the
-active `ParallelStencil` backend.
-
-You also need CPU-side velocity buffers for particle advection:
-
+Similarly, GPU arrays must be copied to CPU memory:
 ```julia
 V_CPU = (
     x = zeros(nx+1, ny+2, nz+2),
@@ -41,20 +29,13 @@ V_CPU = (
 
 ## 3. Copy particle-derived fields to the GPU
 
-At each time step, particle-derived fields that feed the GPU solver must be
-copied from CPU storage to GPU storage. For example:
+3. *At each time step*. The particles are stored in CPU memory. It is hence necessary to transfer some information from the CPU to the GPU memory. For example, here's a transfer of phase proportions:
 
 ```julia
 phv_GPU.data .= CuArray(phase_ratios.vertex).data
 ```
 
-Use the array constructor that matches your active accelerator backend, such as
-`CuArray` for CUDA or `ROCArray` for AMDGPU.
-
-## 4. Copy solver velocities back to the CPU
-
-After the GPU velocity solve, transfer the staggered velocity components back to
-CPU arrays:
+4. *At each time step*. Once velocity computations are finalized on the GPU, they need to be transferred to the CPU:
 
 ```julia
 V_CPU.x .= TA(backend)(V.x)
