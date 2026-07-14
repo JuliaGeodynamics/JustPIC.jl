@@ -245,9 +245,9 @@ end
     )
 
     # Cell fields -------------------------------
-    Vx = TA(backend)([vx_stream_3D(x, z) for x in grid_vx[1], y in grid_vx[2], z in grid_vx[3]])
-    Vy = TA(backend)([vy_stream_3D(x, z) for x in grid_vy[1], y in grid_vy[2], z in grid_vy[3]])
-    Vz = TA(backend)([vz_stream_3D(x, z) for x in grid_vz[1], y in grid_vz[2], z in grid_vz[3]])
+    Vx = TA(backend)([vx_stream(x, z) for x in grid_vx[1], y in grid_vx[2], z in grid_vx[3]])
+    Vy = TA(backend)([vy_stream(x, z) for x in grid_vy[1], y in grid_vy[2], z in grid_vy[3]])
+    Vz = TA(backend)([vz_stream(x, z) for x in grid_vz[1], y in grid_vz[2], z in grid_vz[3]])
     T = TA(backend)([z for x in xv, y in yv, z in zv])
     P = TA(backend)([x for x in xv, y in yv, z in zv])
     V = Vx, Vy, Vz
