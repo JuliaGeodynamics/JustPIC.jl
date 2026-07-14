@@ -12,20 +12,21 @@ function compute_topography_vertex!(chain::MarkerChain)
 
     _dx = inv(cell_vertices[2] - cell_vertices[1])
 
-    @parallel (1:length(cell_vertices)) _compute_h_vertex!(
+    launch!(
+        ka_backend(h_vertices), _compute_h_vertex!, length(cell_vertices),
         h_vertices, chain_x, chain_y, cell_vertices, index, _dx
     )
 
     return nothing
 end
 
-@parallel_indices (ivertex) function _compute_h_vertex!(
+@kernel function _compute_h_vertex!(
         h_vertices, chain_x, chain_y, cell_vertices, index, _dx
     )
+    ivertex = @index(Global)
     _compute_h_vertex_kernel!(
         h_vertices, chain_x, chain_y, cell_vertices, index, _dx, ivertex
     )
-    return nothing
 end
 
 function _compute_h_vertex_kernel!(
@@ -40,10 +41,10 @@ function _compute_h_vertex_kernel!(
     for j in (ivertex - 1):ivertex
         if 0 < j < length(cell_vertices)
             for ip in cellaxes(index)
-                @index(index[ip, j]) || continue
+                CAI.@index(index[ip, j]) || continue
 
-                x_m = @index chain_x[ip, j]
-                y_m = @index chain_y[ip, j]
+                x_m = CAI.@index chain_x[ip, j]
+                y_m = CAI.@index chain_y[ip, j]
                 dx_m = multiplier * (x_m - xcorner)
                 ωᵢ = @muladd one(T) - dx_m * _dx
                 h += y_m * ωᵢ
@@ -59,24 +60,37 @@ end
 
 ######################################
 
+"""
+    reconstruct_chain_from_vertices!(chain::MarkerChain)
+
+Rebuild the markers of each column by evenly distributing them along the straight segment
+joining the two bounding `h_vertices`.
+
+The number of markers per column is preserved (empty slots are skipped, so the column need
+not be contiguously packed). This is the inverse of [`compute_topography_vertex!`](@ref) and
+is used after the vertex topography has been modified (e.g. by the mass-conservation step of
+[`advect_markerchain!`](@ref) or the slope limiting of
+[`semilagrangian_advection_markerchain!`](@ref)).
+"""
 function reconstruct_chain_from_vertices!(chain::MarkerChain)
     (; coords, index, cell_vertices, h_vertices) = chain
     chain_x, chain_y = coords
 
-    @parallel (1:length(index)) _reconstruct_h_from_vertex!(
+    launch!(
+        ka_backend(index), _reconstruct_h_from_vertex!, length(index),
         h_vertices, chain_x, chain_y, cell_vertices, index
     )
 
     return nothing
 end
 
-@parallel_indices (ivertex) function _reconstruct_h_from_vertex!(
+@kernel function _reconstruct_h_from_vertex!(
         h_vertices, chain_x, chain_y, cell_vertices, index
     )
+    ivertex = @index(Global)
     _reconstruct_h_from_vertex_kernel!(
         h_vertices, chain_x, chain_y, cell_vertices, index, ivertex
     )
-    return nothing
 end
 
 function _reconstruct_h_from_vertex_kernel!(
@@ -89,11 +103,11 @@ function _reconstruct_h_from_vertex_kernel!(
     ycorner_right = h_vertices[ivertex + 1]
     ly = ycorner_right - ycorner_left
 
-    # count active particles
+    # count active particles; slots need not be contiguous (move_particles! can leave
+    # interior holes), so skip inactive slots instead of stopping at the first one
     np = 0
     for ip in cellaxes(index)
-        @index(index[ip, ivertex]) || break
-        np += 1
+        CAI.@index(index[ip, ivertex]) && (np += 1)
     end
 
     Δx = lx / (np + 1)
@@ -103,30 +117,41 @@ function _reconstruct_h_from_vertex_kernel!(
 
     # fill cell arrays with new particle coordinates
     for ip in cellaxes(index)
-        @index(index[ip, ivertex]) || break
+        CAI.@index(index[ip, ivertex]) || continue
 
         xp_new += Δx
         yp_new += Δy
-        @index chain_x[ip, ivertex] = xp_new
-        @index chain_y[ip, ivertex] = yp_new
+        CAI.@index chain_x[ip, ivertex] = xp_new
+        CAI.@index chain_y[ip, ivertex] = yp_new
     end
 
     return nothing
 end
 
-# LaMEM-style slope limiting for numerical stability
+"""
+    smooth_slopes!(chain::MarkerChain, max_angle::Real)
+
+Limit the local slope of the vertex topography to `max_angle` (in radians).
+
+Interior vertices whose left or right slope steeper than `tan(max_angle)` are replaced by a
+3-point average of themselves and their neighbours (LaMEM-style limiting). This suppresses
+the spurious spikes that semi-Lagrangian backtracking can introduce on a steep interface;
+it is applied automatically inside [`semilagrangian_advection_markerchain!`](@ref). Chains
+with fewer than three vertices are left untouched.
+"""
 function smooth_slopes!(chain::MarkerChain, max_angle::Real)
     (; h_vertices, cell_vertices) = chain
     n = length(h_vertices)
 
     n < 3 && return nothing  # Need at least 3 vertices for smoothing
 
-    tan_max_angle = tan(max_angle)
+    tan_max_angle = convert(eltype(h_vertices), tan(max_angle))
 
     h_smoothed = similar(h_vertices)
     copyto!(h_smoothed, h_vertices)  # Initialize with original values
 
-    @parallel (2:(n - 1)) smooth_slopes_kernel!(
+    launch!(
+        ka_backend(h_vertices), smooth_slopes_kernel!, n - 2,
         h_smoothed, h_vertices, cell_vertices, tan_max_angle
     )
 
@@ -135,9 +160,12 @@ function smooth_slopes!(chain::MarkerChain, max_angle::Real)
     return nothing
 end
 
-@parallel_indices (i) function smooth_slopes_kernel!(
+@kernel function smooth_slopes_kernel!(
         h_smoothed, h_vertices, cell_vertices, tan_max_angle
     )
+    i0 = @index(Global)
+    i = i0 + 1
+
     # Each thread handles one vertex independently
     dx_left = cell_vertices[i] - cell_vertices[i - 1]
     dx_right = cell_vertices[i + 1] - cell_vertices[i]
@@ -149,12 +177,10 @@ end
 
     # If either adjacent slope is too steep, apply smoothing
     if slope_left > tan_max_angle || slope_right > tan_max_angle
-        # Simple 3-point averaging
-        h_smoothed[i] = 0.25 * (h_vertices[i - 1] + 2 * h_vertices[i] + h_vertices[i + 1])
+        # Simple 3-point averaging (integer literals keep the array's precision)
+        h_smoothed[i] = (h_vertices[i - 1] + 2 * h_vertices[i] + h_vertices[i + 1]) / 4
     else
         # Keep original value
         h_smoothed[i] = h_vertices[i]
     end
-
-    return nothing
 end

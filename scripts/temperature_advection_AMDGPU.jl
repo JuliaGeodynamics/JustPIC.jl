@@ -1,8 +1,7 @@
 using AMDGPU
 using JustPIC
-using JustPIC._2D
 
-const backend = JustPIC.AMDGPUBackend
+const backend = AMDGPU.ROCBackend
 using CairoMakie
 
 function expand_range(x::AbstractRange)

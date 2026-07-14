@@ -47,3 +47,16 @@ Classical fourth-order Runge-Kutta advection integrator.
 struct RungeKutta4 <: AbstractAdvectionIntegrator
     RungeKutta4(::Vararg{Any, N}) where {N} = new()
 end
+
+"""
+    set_precision(integrator, T)
+
+Recast an integrator's stored parameters to the scalar precision `T`.
+
+This is applied at the advection launch sites so that a `Float32` backend (such
+as Metal, which has no `Float64`) never carries a `Float64` field into a GPU
+kernel. It is the identity for parameter-free integrators and, on the `Float64`
+CPU/CUDA/AMDGPU path, a no-op (the value is preserved).
+"""
+@inline set_precision(integrator::AbstractAdvectionIntegrator, ::Type{T}) where {T} = integrator
+@inline set_precision(integrator::RungeKutta2, ::Type{T}) where {T} = RungeKutta2(convert(T, integrator.α))

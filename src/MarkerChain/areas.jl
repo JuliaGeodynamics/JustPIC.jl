@@ -18,15 +18,18 @@ end
 function compute_area_below_chain_centers!(ratio_center, chain, xvi, dxi)
     topo_y = chain.h_vertices
     nx, ny = size(ratio_center)
-    @parallel (1:nx, 1:ny) _compute_area_below_chain_center!(
+    launch!(
+        ka_backend(ratio_center), _compute_area_below_chain_center!, (nx, ny),
         ratio_center, topo_y, xvi..., dxi
     )
     return nothing
 end
 
-@parallel_indices (i, j) function _compute_area_below_chain_center!(
+@kernel function _compute_area_below_chain_center!(
         ratio::AbstractArray, topo_y, xv, yv, dxi
     )
+    I = @index(Global, NTuple)
+    i, j = I
 
     # cell origin
     ox = xv[i]
@@ -36,26 +39,28 @@ end
     p2 = GridGeometryUtils.Point(xv[i + 1], topo_y[i + 1])
     s = Segment(p1, p2)
 
-    r = Rectangle((ox, oy), dxi...)
+    r = Rectangle((ox, oy), dxi...; θ = zero(ox))
     ratio[i, j] = cell_rock_area(s, r)
-
-    return nothing
 end
 
 function compute_area_below_chain_vx!(ratio_velocity, chain, xvi, dxi)
     topo_y = chain.h_vertices
     nx, ny = size(ratio_velocity)
-    mask_x = (-0.5, 0.0) .* dxi[1]
+    mask_x = (-1, 0) .* dxi[1] ./ 2
 
-    @parallel (1:nx, 1:ny) _compute_area_below_chain_vx!(
+    launch!(
+        ka_backend(ratio_velocity), _compute_area_below_chain_vx!, (nx, ny),
         ratio_velocity, topo_y, mask_x, xvi..., nx, dxi
     )
     return nothing
 end
 
-@parallel_indices (i, j) function _compute_area_below_chain_vx!(
+@kernel function _compute_area_below_chain_vx!(
         ratios::AbstractArray{T}, topo_y, mask_x, xv, yv, nx, dxi
     ) where {T}
+    I = @index(Global, NTuple)
+    i, j = I
+
     dx, dy = dxi
     half_dx = dx / 2
     half_dy = dy / 2
@@ -97,27 +102,30 @@ end
         s = Segment(p1, p2)
 
         ## create a rectangle for the new cell
-        r = Rectangle(origin, half_dx, half_dy)
+        r = Rectangle(origin, half_dx, half_dy; θ = zero(half_dx))
         tmp += cell_rock_area(s, r)
     end
     ratios[i, j] = tmp / ω
-    return nothing
 end
 
 function compute_area_below_chain_vy!(ratio_velocity, chain, xvi, dxi)
     topo_y = chain.h_vertices
     nx, ny = size(ratio_velocity)
-    mask_y = (-0.5, 0.0) .* dxi[2]
+    mask_y = (-1, 0) .* dxi[2] ./ 2
 
-    @parallel (1:nx, 1:ny) _compute_area_below_chain_vy!(
+    launch!(
+        ka_backend(ratio_velocity), _compute_area_below_chain_vy!, (nx, ny),
         ratio_velocity, topo_y, mask_y, xvi..., ny, dxi
     )
     return nothing
 end
 
-@parallel_indices (i, j) function _compute_area_below_chain_vy!(
+@kernel function _compute_area_below_chain_vy!(
         ratios::AbstractArray{T}, topo_y, mask_y, xv, yv, ny, dxi
     ) where {T}
+    I = @index(Global, NTuple)
+    i, j = I
+
     dx, dy = dxi
     half_dx = dx / 2
     half_dy = dy / 2
@@ -153,29 +161,31 @@ end
         s = Segment(p1, p2)
 
         ## create a rectangle for the new cell
-        r = Rectangle(origin, half_dx, half_dy)
+        r = Rectangle(origin, half_dx, half_dy; θ = zero(half_dx))
         tmp += cell_rock_area(s, r)
     end
     ratios[i, j] = tmp / ω
-
-    return nothing
 end
 
 function compute_area_below_chain_vertex!(ratio_vertex, chain, xvi, dxi)
     topo_y = chain.h_vertices
     ni = size(ratio_vertex)
-    masks_x = (-0.5, 0.0, -0.5, 0.0) .* dxi[1]
-    masks_y = (-0.5, -0.5, 0.0, 0.0) .* dxi[2]
+    masks_x = (-1, 0, -1, 0) .* dxi[1] ./ 2
+    masks_y = (-1, -1, 0, 0) .* dxi[2] ./ 2
 
-    @parallel (@idx ni) _compute_area_below_chain_vertex!(
+    launch!(
+        ka_backend(ratio_vertex), _compute_area_below_chain_vertex!, ni,
         ratio_vertex, topo_y, masks_x, masks_y, xvi..., ni..., dxi
     )
     return nothing
 end
 
-@parallel_indices (i, j) function _compute_area_below_chain_vertex!(
+@kernel function _compute_area_below_chain_vertex!(
         ratios::AbstractArray{T}, topo_y, masks_x, masks_y, xv, yv, nx, ny, dxi
     ) where {T}
+    I = @index(Global, NTuple)
+    i, j = I
+
     dx, dy = dxi
     half_dx = dx / 2
     half_dy = dy / 2
@@ -220,13 +230,11 @@ end
             s = Segment(p1, p2)
 
             ## create a rectangle for the new cell
-            r = Rectangle(origin, half_dx, half_dy)
+            r = Rectangle(origin, half_dx, half_dy; θ = zero(half_dx))
             tmp += cell_rock_area(s, r)
         end
     end
     ratios[i, j] = tmp / ω
-
-    return nothing
 end
 
 #############################

@@ -1,23 +1,16 @@
+"""
+    init_passive_markers(backend, coords::NTuple{N,AbstractArray})
+
+Construct a [`PassiveMarkers`](@ref) container on `backend` from marker
+coordinate arrays.
+
+`coords` is an `N`-tuple of vectors, one per spatial dimension, holding the
+initial marker positions: marker `k` sits at `(coords[1][k], …, coords[N][k])`.
+
+# Arguments
+- `backend`: KernelAbstractions backend type such as `CPU`.
+- `coords`: tuple of coordinate vectors, one per dimension.
+"""
 function init_passive_markers(backend, coords::NTuple{N, AbstractArray}) where {N}
     return PassiveMarkers(backend, coords)
 end
-
-# function init_passive_markers(backend, coords::NTuple{N, AbstractArray}) where {N}
-#     @parallel_indices (i) function fill_coords_index!(
-#             pxᵢ::NTuple{N, AbstractArray}, coords::NTuple{N, AbstractArray}
-#         ) where {N}
-#         # fill index array
-#         ntuple(Val(N)) do dim
-#             pxᵢ[dim][i] = coords[dim][i]
-#         end
-#         return nothing
-#     end
-
-#     # np = length(coords[1])
-#     # pxᵢ = ntuple(_ -> CA(backend, (np,)), Val(N))
-
-#     # @parallel (1:np) fill_coords_index!(pxᵢ, coords)
-
-#     return PassiveMarkers(backend, coords)
-#     # return PassiveMarkers(backend, pxᵢ)
-# end

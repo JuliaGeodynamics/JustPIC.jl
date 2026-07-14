@@ -8,26 +8,23 @@ This keeps the marker spacing reasonably regular, which improves interpolation
 quality and the stability of subsequent marker-chain operations.
 """
 function resample!(chain::MarkerChain)
-
-    # resampling launch kernel
-    @parallel_indices (i) function resample!(
-            coords, cell_vertices, index, min_xcell, max_xcell, dx_cells
-        )
-        resample_cell!(coords, cell_vertices, index, min_xcell, max_xcell, dx_cells, i)
-        return nothing
-    end
-
     (; coords, index, cell_vertices, min_xcell, max_xcell) = chain
     nx = length(index)
     dx_cells = cell_length(chain)
 
-    # sort marker chain - can't be done at the cell level because
-    # SA can't be sorted inside a GPU kernel
+    # sort marker chain
     sort_chain!(chain)
 
     # call kernel
-    @parallel (1:nx) resample!(coords, cell_vertices, index, min_xcell, max_xcell, dx_cells)
+    launch!(ka_backend(index), resample_kernel!, nx, coords, cell_vertices, index, min_xcell, max_xcell, dx_cells)
     return nothing
+end
+
+@kernel function resample_kernel!(
+        coords, cell_vertices, index, min_xcell, max_xcell, dx_cells
+    )
+    i = @index(Global)
+    resample_cell!(coords, cell_vertices, index, min_xcell, max_xcell, dx_cells, i)
 end
 
 function resample_cell!(
@@ -65,15 +62,16 @@ function resample_cell!(
                 # first and last cells
                 interp1D_extremas(xq, x_cell, y_cell)
             end
-            @index px[ip, I] = xq
-            @index py[ip, I] = yq
-            @index index[ip, I] = true
+            CAI.@index px[ip, I] = xq
+            CAI.@index py[ip, I] = yq
+            CAI.@index index[ip, I] = true
         end
         # fill empty memory locations
+        nan = convert(eltype(eltype(px)), NaN)
         for ip in (np_new + 1):max_xcell
-            @index px[ip, I] = NaN
-            @index py[ip, I] = NaN
-            @index index[ip, I] = false
+            CAI.@index px[ip, I] = nan
+            CAI.@index py[ip, I] = nan
+            CAI.@index index[ip, I] = false
         end
     end
     return nothing
@@ -106,13 +104,35 @@ function isdistorded(x_cell, dx_ideal)
 end
 
 # sort marker chain cells
-function sort_chain!(chain::MarkerChain{T}) where {T}
-    (; coords, index) = chain
-    # sort permutations of each cell
-    perms = sortperm(coords[1].data; dims = 2)
-    coords[1].data .= @views coords[1].data[perms]
-    coords[2].data .= @views coords[2].data[perms]
-    index.data .= @views index.data[perms]
-
+function sort_chain!(chain::MarkerChain)
+    (; coords, index, max_xcell) = chain
+    nx = length(index)
+    launch!(ka_backend(index), sort_chain_kernel!, nx, coords, index, max_xcell)
     return nothing
+end
+
+# per-cell insertion sort of the slots by x; `isless` keeps NaN (empty) slots last,
+# matching the previous host-side `sortperm(...; dims = 2)` ordering
+@kernel function sort_chain_kernel!(coords, index, max_xcell)
+    I = @index(Global)
+    px, py = coords
+    for j in 2:max_xcell
+        xj = CAI.@index px[j, I]
+        yj = CAI.@index py[j, I]
+        idxj = CAI.@index index[j, I]
+        k = j - 1
+        while k ≥ 1
+            xk = CAI.@index px[k, I]
+            isless(xj, xk) || break
+            yk = CAI.@index py[k, I]
+            idxk = CAI.@index index[k, I]
+            CAI.@index px[k + 1, I] = xk
+            CAI.@index py[k + 1, I] = yk
+            CAI.@index index[k + 1, I] = idxk
+            k -= 1
+        end
+        CAI.@index px[k + 1, I] = xj
+        CAI.@index py[k + 1, I] = yj
+        CAI.@index index[k + 1, I] = idxj
+    end
 end

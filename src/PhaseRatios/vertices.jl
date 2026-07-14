@@ -4,21 +4,23 @@
 function phase_ratios_vertex!(phase_ratios::JustPIC.PhaseRatios, particles, phases)
     ni = size(phases) .+ 1
 
-    @parallel (@idx ni) phase_ratios_vertex_kernel!(
+    launch!(
+        ka_backend(phase_ratios), phase_ratios_vertex_kernel!, ni,
         phase_ratios.vertex, particles.coords, particles.xvi, particles.di.vertex, phases
     )
     return nothing
 end
 
-@parallel_indices (I...) function phase_ratios_vertex_kernel!(
+@kernel function phase_ratios_vertex_kernel!(
         ratio_vertices, pxi::NTuple{3}, xvi::NTuple{3, T}, dᵢ, phases
     ) where {T}
+    I = @index(Global, NTuple)
 
     # index corresponding to the cell center
     cell_vertex = xvi[1][I[1]], xvi[2][I[2]], xvi[3][I[3]]
     ni = size(phases)
     NC = nphases(ratio_vertices)
-    w = ntuple(_ -> 0.0e0, NC)
+    w = ntuple(_ -> zero(eltype(eltype(ratio_vertices))), NC)
 
     for offsetᵢ in -1:0, offsetⱼ in -1:0, offsetₖ in -1:0
         i_cell = I[1] + offsetᵢ
@@ -32,9 +34,9 @@ end
         di = @dxi dᵢ cell_index...
 
         for ip in cellaxes(phases)
-            p = @index(pxi[1][ip, cell_index...]),
-                @index(pxi[2][ip, cell_index...]),
-                @index(pxi[3][ip, cell_index...])
+            p = CAI.@index(pxi[1][ip, cell_index...]),
+                CAI.@index(pxi[2][ip, cell_index...]),
+                CAI.@index(pxi[3][ip, cell_index...])
             any(isnan, p) && continue
             # check if it's within half cell
             tmp = false
@@ -46,7 +48,7 @@ end
             end
             tmp && continue
             x = @inline bilinear_weight(cell_vertex, p, di)
-            ph_local = @index phases[ip, cell_index...]
+            ph_local = CAI.@index phases[ip, cell_index...]
             # this is doing sum(w * δij(i, phase)), where δij is the Kronecker delta
             w = w .+ x .* ntuple(j -> (ph_local == j), NC)
         end
@@ -54,21 +56,20 @@ end
 
     w = w .* inv(sum(w))
     for ip in cellaxes(ratio_vertices)
-        @index ratio_vertices[ip, I...] = w[ip]
+        CAI.@index ratio_vertices[ip, I...] = w[ip]
     end
-
-    return nothing
 end
 
-@parallel_indices (I...) function phase_ratios_vertex_kernel!(
+@kernel function phase_ratios_vertex_kernel!(
         ratio_vertices, pxi::NTuple{2}, xvi::NTuple{2}, dᵢ, phases
     )
+    I = @index(Global, NTuple)
 
     # index corresponding to the cell center
     cell_vertex = xvi[1][I[1]], xvi[2][I[2]]
     ni = size(phases)
     NC = nphases(ratio_vertices)
-    w = ntuple(_ -> 0.0e0, NC)
+    w = ntuple(_ -> zero(eltype(eltype(ratio_vertices))), NC)
 
     for offsetᵢ in -1:0, offsetⱼ in -1:0
         i_cell = I[1] + offsetᵢ
@@ -80,7 +81,7 @@ end
         di = @dxi dᵢ cell_index...
 
         for ip in cellaxes(phases)
-            p = @index(pxi[1][ip, cell_index...]), @index(pxi[2][ip, cell_index...])
+            p = CAI.@index(pxi[1][ip, cell_index...]), CAI.@index(pxi[2][ip, cell_index...])
             any(isnan, p) && continue
             # check if it's within half cell
             tmp = false
@@ -93,7 +94,7 @@ end
             tmp && continue
 
             x = @inline bilinear_weight(cell_vertex, p, di)
-            ph_local = @index phases[ip, cell_index...]
+            ph_local = CAI.@index phases[ip, cell_index...]
             # this is doing sum(w * δij(i, phase)), where δij is the Kronecker delta
             w = w .+ x .* ntuple(j -> (ph_local == j), NC)
         end
@@ -101,8 +102,6 @@ end
 
     w = w .* inv(sum(w))
     for ip in cellaxes(ratio_vertices)
-        @index ratio_vertices[ip, I...] = w[ip]
+        CAI.@index ratio_vertices[ip, I...] = w[ip]
     end
-
-    return nothing
 end

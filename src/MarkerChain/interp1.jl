@@ -31,8 +31,9 @@ function interp1D_extremas(xq, x, y)
             return _interp1D(xq, x0, x1, y0, y1)
         end
     end
-    # return error("xq outside domain")
-    return NaN
+    # A typed NaN keeps the return type equal to the marker eltype; a bare `NaN`
+    # widens it to Float64, which Metal cannot store back into a Float32 chain.
+    return convert(eltype(y), NaN)
 end
 
 function interp1D_inner(xq, x, y, coords, I::Integer)
@@ -67,25 +68,25 @@ function interp1D_inner(xq, x, y, coords, I::Integer)
             return _interp1D(xq, x0, x1, y0, y1)
         end
     end
-    # return error("xq outside domain")
-    return NaN
+    # See interp1D_extremas: return a typed NaN so Metal can store it into Float32.
+    return convert(eltype(y), NaN)
 end
 
 @inline right_cell_left_particle(coords, I::Int) =
-    @index(coords[1][1, I + 1]), @index(coords[2][1, I + 1])
+    CAI.@index(coords[1][1, I + 1]), CAI.@index(coords[2][1, I + 1])
 
 @inline function left_cell_right_particle(coords, I)
     px = coords[1]
     # px = @cell coords[1][I - 1]
     ip = 1
     for i in cellnum(px):-1:2
-        if !isnan(@index px[i, I - 1])
+        if !isnan(CAI.@index px[i, I - 1])
             ip = i
             break
         end
     end
 
-    return @index(px[ip, I - 1]), @index(coords[2][ip, I - 1])
+    return CAI.@index(px[ip, I - 1]), CAI.@index(coords[2][ip, I - 1])
 end
 
 @inline function is_above_surface(xq, yq, coords, cell_vertices)

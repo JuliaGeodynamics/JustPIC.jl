@@ -1,14 +1,17 @@
-@static if ENV["JULIA_JUSTPIC_BACKEND"] === "AMDGPU"
+const BACKEND_NAME = get(ENV, "JULIA_JUSTPIC_BACKEND", "CPU")
+
+@static if BACKEND_NAME == "AMDGPU"
     using AMDGPU
-elseif ENV["JULIA_JUSTPIC_BACKEND"] === "CUDA"
+elseif BACKEND_NAME == "CUDA"
     using CUDA
+elseif BACKEND_NAME == "Metal"
+    using Metal
 end
 
 using JLD2, JustPIC, Test
-import JustPIC._2D as JP2
-import JustPIC._3D as JP3
+import KernelAbstractions: CPU
 
-const backend = JustPIC.CPUBackend
+const backend = CPU
 
 function expand_range(x::AbstractRange)
     dx = x[2] - x[1]
@@ -45,18 +48,18 @@ end
     grid_vy = expand_range(xc), yv
     grid_vel = grid_vx, grid_vx
 
-    particles = JP2.init_particles(backend, nxcell, max_xcell, min_xcell, grid_vel...)
-    phases, pT = JP2.init_cell_arrays(particles, Val(2))
+    particles = JustPIC.init_particles(backend, nxcell, max_xcell, min_xcell, grid_vel...)
+    phases, pT = JustPIC.init_cell_arrays(particles, Val(2))
     particle_args = (phases, pT)
     particle_args_reduced = (phases,)
     particle_args_kwarg = (phases,)
-    phase_ratios = JP2.PhaseRatios(backend, 2, ni)
+    phase_ratios = JustPIC.PhaseRatios(backend, 2, ni)
     initial_elevation = Ly / 2
-    chain = JP2.init_markerchain(backend, nxcell, min_xcell, max_xcell, xv, initial_elevation)
+    chain = JustPIC.init_markerchain(backend, nxcell, min_xcell, max_xcell, xv, initial_elevation)
     @views particles.index.data[:, 1:3, 1] .= 1.0
     @views particles.index.data[:, 4:6, 1] .= 0.0
 
-    JP2.checkpointing_particles(pwd(), particles; phases = phases, phase_ratios = phase_ratios, chain = chain, particle_args = particle_args, particle_args_reduced = particle_args_reduced, particle_args_kwarg = particle_args_kwarg)
+    JustPIC.checkpointing_particles(pwd(), particles; phases = phases, phase_ratios = phase_ratios, chain = chain, particle_args = particle_args, particle_args_reduced = particle_args_reduced, particle_args_kwarg = particle_args_kwarg)
 
     # test type conversion
     @test eltype(eltype(Array(phases))) === Float64
@@ -106,7 +109,7 @@ end
     particle_args_reduced3 = data1["particle_args_reduced"]
     particle_args_kwarg3 = data1["particle_args_kwarg"]
 
-    @test chain3 isa JustPIC.MarkerChain{JustPIC.CPUBackend}
+    @test chain3 isa JustPIC.MarkerChain{CPU}
     @test particle_args3 isa Tuple
     @test particle_args_reduced3 isa Tuple
     @test particle_args_kwarg3 isa Tuple
@@ -129,7 +132,7 @@ end
 
     if isCUDA || isAMDGPU
         T = isCUDA ? CuArray : ROCArray
-        Backend = isCUDA ? CUDABackend : JustPIC.AMDGPUBackend
+        Backend = isCUDA ? CUDA.CUDABackend : AMDGPU.ROCBackend
 
         particles2 = Array(particles)
         phases2 = Array(phases)
@@ -184,6 +187,30 @@ end
         @test eltype(eltype(T(Float64, particles).index.data)) === Bool
     end
 
+    # Metal has no Float64: only the eltype-typed Float32 conversions apply
+    if isdefined(Main, :Metal)
+        particles_gpu = MtlArray(Float32, particles)
+        phase_ratios_gpu = MtlArray(Float32, phase_ratios)
+        phases_gpu = MtlArray(Float32, phases)
+        chain_gpu = MtlArray(Float32, chain)
+        particles_gpu2 = MtlArray(Float32, particles3)
+        phases_gpu2 = MtlArray(Float32, phases3)
+
+        @test particles_gpu isa JustPIC.Particles{Metal.MetalBackend}
+        @test phase_ratios_gpu isa JustPIC.PhaseRatios{Metal.MetalBackend}
+        @test chain_gpu isa JustPIC.MarkerChain{Metal.MetalBackend}
+        @test particles_gpu2 isa JustPIC.Particles{Metal.MetalBackend}
+        @test eltype(eltype(phases_gpu)) === Float32
+        @test eltype(eltype(phases_gpu2)) === Float32
+        @test eltype(eltype(particles_gpu.coords[1].data)) === Float32
+        @test eltype(eltype(particles_gpu.index.data)) === Bool
+        @test eltype(eltype(phase_ratios_gpu.vertex.data)) === Float32
+        @test size(particles_gpu.coords[1].data) == size(permutedims(particles.coords[1].data, (3, 2, 1)))
+        @test size(particles_gpu.index.data) == size(permutedims(particles.index.data, (3, 2, 1)))
+        @test size(phase_ratios_gpu.vertex.data) == size(permutedims(phase_ratios.vertex.data, (3, 2, 1)))
+        @test size(phases_gpu.data) == size(permutedims(phases.data, (3, 2, 1)))
+    end
+
     rm("particles_checkpoint.jld2") # cleanup
     rm("particles.jld2") # cleanup
 end
@@ -207,19 +234,19 @@ end
     grid_vz = expand_range(xc), expand_range(yc), zv
     grid_vel = grid_vx, grid_vy, grid_vz
 
-    particles = JP3.init_particles(backend, nxcell, max_xcell, min_xcell, grid_vel...)
-    phases, pT = JP3.init_cell_arrays(particles, Val(2))
-    phase_ratios = JP3.PhaseRatios(backend, 2, ni)
+    particles = JustPIC.init_particles(backend, nxcell, max_xcell, min_xcell, grid_vel...)
+    phases, pT = JustPIC.init_cell_arrays(particles, Val(2))
+    phase_ratios = JustPIC.PhaseRatios(backend, 2, ni)
     particle_args = (phases, pT)
     particle_args_reduced = (phases,)
     particle_args_kwarg = (phases,)
     initial_elevation = Ly / 2
-    chain = JP2.init_markerchain(backend, nxcell, min_xcell, max_xcell, xv, initial_elevation)
+    chain = JustPIC.init_markerchain(backend, nxcell, min_xcell, max_xcell, xv, initial_elevation)
     it = 500
     @views particles.index.data[:, 1:3, 1] .= 1.0
     @views particles.index.data[:, 4:6, 1] .= 0.0
 
-    JP3.checkpointing_particles(pwd(), particles; phases = phases, phase_ratios = phase_ratios, particle_args = particle_args, particle_args_reduced = particle_args_reduced, particle_args_kwarg = particle_args_kwarg, it = it)
+    JustPIC.checkpointing_particles(pwd(), particles; phases = phases, phase_ratios = phase_ratios, particle_args = particle_args, particle_args_reduced = particle_args_reduced, particle_args_kwarg = particle_args_kwarg, it = it)
 
     # test type conversion
     @test eltype(eltype(Array(phases))) === Float64
@@ -293,7 +320,7 @@ end
 
     if isCUDA || isAMDGPU
         T = isCUDA ? CuArray : ROCArray
-        Backend = isCUDA ? CUDABackend : JustPIC.AMDGPUBackend
+        Backend = isCUDA ? CUDA.CUDABackend : AMDGPU.ROCBackend
 
         particles2 = Array(particles)
         phases2 = Array(phases)
@@ -342,6 +369,28 @@ end
         @test eltype(eltype(T(particles).index.data)) === Bool
         @test eltype(eltype(T(Float32, particles).index.data)) === Bool
         @test eltype(eltype(T(Float64, particles).index.data)) === Bool
+    end
+
+    # Metal has no Float64: only the eltype-typed Float32 conversions apply
+    if isdefined(Main, :Metal)
+        particles_gpu = MtlArray(Float32, particles)
+        phase_ratios_gpu = MtlArray(Float32, phase_ratios)
+        phases_gpu = MtlArray(Float32, phases)
+        particles_gpu2 = MtlArray(Float32, particles3)
+        phases_gpu2 = MtlArray(Float32, phases3)
+
+        @test particles_gpu isa JustPIC.Particles{Metal.MetalBackend}
+        @test phase_ratios_gpu isa JustPIC.PhaseRatios{Metal.MetalBackend}
+        @test particles_gpu2 isa JustPIC.Particles{Metal.MetalBackend}
+        @test eltype(eltype(phases_gpu)) === Float32
+        @test eltype(eltype(phases_gpu2)) === Float32
+        @test eltype(eltype(particles_gpu.coords[1].data)) === Float32
+        @test eltype(eltype(particles_gpu.index.data)) === Bool
+        @test eltype(eltype(phase_ratios_gpu.vertex.data)) === Float32
+        @test size(particles_gpu.coords[1].data) == size(permutedims(particles.coords[1].data, (3, 2, 1)))
+        @test size(particles_gpu.index.data) == size(permutedims(particles.index.data, (3, 2, 1)))
+        @test size(phase_ratios_gpu.vertex.data) == size(permutedims(phase_ratios.vertex.data, (3, 2, 1)))
+        @test size(phases_gpu.data) == size(permutedims(phases.data, (3, 2, 1)))
     end
 
     rm("particles.jld2") # cleanup

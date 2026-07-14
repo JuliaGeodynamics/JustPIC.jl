@@ -29,19 +29,19 @@ function grid2particle!(Fp, xvi, F, particles, di)
     (; coords, index) = particles
     ni = size(index)
 
-    @parallel (@idx ni) grid2particle_classic!(Fp, F, xvi, index, di, coords)
+    launch!(ka_backend(particles), grid2particle_classic!, ni, Fp, F, xvi, index, di, coords)
 
     return nothing
 end
 
 
-@parallel_indices (I...) function grid2particle_classic!(
+@kernel function grid2particle_classic!(
         Fp, F, xvi, index, di, particle_coords
     )
+    I = @index(Global, NTuple)
     _grid2particle_classic!(
-        Fp, particle_coords, xvi, @dxi(di, I...), F, index, tuple(I...), Val(cellnum(index))
+        Fp, particle_coords, xvi, @dxi(di, I...), F, index, I, Val(cellnum(index))
     )
-    return nothing
 end
 
 # INNERMOST INTERPOLATION KERNEL
@@ -57,7 +57,7 @@ end
         # cache particle coordinates
         pᵢ = get_particle_coords(p, ip, i, j)
         # Interpolate field F onto particle
-        @index Fp[ip, i, j] = _grid2particle(pᵢ, xvi, di, Fi, (i, j))
+        CAI.@index Fp[ip, i, j] = _grid2particle(pᵢ, xvi, di, Fi, (i, j))
     end
 end
 
@@ -75,7 +75,7 @@ end
                 # cache particle coordinates
                 pᵢ = get_particle_coords(p, ip, idx...)
                 # Interpolate field F onto particle
-                @index Fp[ip, idx...] = _grid2particle(pᵢ, xi_corner, di, Fi)
+                CAI.@index Fp[ip, idx...] = _grid2particle(pᵢ, xi_corner, di, Fi)
             end
         end
     end
@@ -98,7 +98,7 @@ end
         # Interpolate field F onto particle
         ntuple(Val(N1)) do i
             Base.@_inline_meta
-            @index Fp[i][ip, idx...] = _grid2particle(pᵢ, xvi, di, F[i], idx)
+            CAI.@index Fp[i][ip, idx...] = _grid2particle(pᵢ, xvi, di, F[i], idx)
         end
     end
 end
@@ -123,19 +123,25 @@ between the two updates.
 - `α`: PIC fraction in the PIC/FLIP blend.
 """
 function grid2particle_flip!(Fp, xvi, F, F0, particles; α = 0.0)
-    di = grid_size(xvi)
     (; coords, index) = particles
+    # recast the grid to the particle precision so the ranges are GPU-safe on Float32
+    # backends (they are indexed directly inside the kernel; see advection!)
+    Tc = eltype(eltype(coords[1]))
+    xvi = recast_grid(xvi, Tc)
+    di = grid_size(xvi)
     ni = size(index)
-    @parallel (@idx ni) grid2particle_full!(Fp, F, F0, xvi, di, coords, index, α)
+    # blend factor must match the field precision (Float64 breaks Metal)
+    αT = convert(Tc, α)
+    launch!(ka_backend(particles), grid2particle_full!, ni, Fp, F, F0, xvi, di, coords, index, αT)
 
     return nothing
 end
 
-@parallel_indices (I...) function grid2particle_full!(
+@kernel function grid2particle_full!(
         Fp, F, F0, xvi, di, particle_coords, index, α
     )
+    I = @index(Global, NTuple)
     _grid2particle_full!(Fp, particle_coords, xvi, @dxi(di, I...), F, F0, index, I, α)
-    return nothing
 end
 
 # INNERMOST INTERPOLATION KERNEL
@@ -157,12 +163,12 @@ end
         # # skip lines below if there is no particle in this piece of memory
         # any(isnan, pᵢ) && continue
 
-        Fᵢ = @index Fp[ip, idx...]
+        Fᵢ = CAI.@index Fp[ip, idx...]
         F_pic, F0_pic = _grid2particle(pᵢ, xvi, di, (Fi, F0i), idx)
         ΔF = F_pic - F0_pic
         F_flip = Fᵢ + ΔF
         # Interpolate field F onto particle
-        @index Fp[ip, idx...] = muladd(F_pic, α, F_flip * (1.0 - α))
+        CAI.@index Fp[ip, idx...] = muladd(F_pic, α, F_flip * (one(α) - α))
     end
 end
 
@@ -183,19 +189,19 @@ end
         doskip(index, ip, idx...) && continue
 
         # cache particle coordinates
-        pᵢ = ntuple(i -> (@index p[i][ip, idx...]), Val(N2))
+        pᵢ = ntuple(i -> (CAI.@index p[i][ip, idx...]), Val(N2))
 
         # skip lines below if there is no particle in this piece of memory
         # any(isnan, pᵢ) && continue
 
         ntuple(Val(N1)) do i
             Base.@_inline_meta
-            Fᵢ = @index Fp[i][ip, idx...]
+            Fᵢ = CAI.@index Fp[i][ip, idx...]
             F_pic, F0_pic = _grid2particle(pᵢ, xvi, di, (F[i], F0[i]), idx)
             ΔF = F_pic - F0_pic
             F_flip = Fᵢ + ΔF
             # Interpolate field F onto particle
-            @index Fp[i][ip, idx...] = muladd(F_pic, α, F_flip * (1.0 - α))
+            CAI.@index Fp[i][ip, idx...] = muladd(F_pic, α, F_flip * (one(α) - α))
         end
     end
 end

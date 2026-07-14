@@ -46,21 +46,41 @@ struct Particles{Backend, N, I, T1, T2, D, V} <: AbstractParticles
 end
 
 function Particles(coords, index::CPUCellArray, nxcell, max_xcell, min_xcell, np, di, _di, xci, xvi, xi_vel)
-    return Particles(CPUBackend, coords, index, nxcell, max_xcell, min_xcell, np, di, _di, xci, xvi, xi_vel)
+    return Particles(CPU, coords, index, nxcell, max_xcell, min_xcell, np, di, _di, xci, xvi, xi_vel)
 end
 
 """
     MarkerChain{Backend,N,I,T1,T2,T3,TV} <: AbstractParticles
 
 Container for a 2D marker chain used to represent a free surface or topographic
-interface.
+interface as a single-valued height field `y = h(x)`.
 
-The chain stores current and previous marker coordinates, the topography sampled
-at grid vertices, and a per-cell activity mask.
+Markers are bucketed into the columns of a 1D grid (`cell_vertices`) using the same
+`CellArray` layout as `Particles`: each column holds up to `max_xcell` marker slots,
+and a boolean occupancy mask marks which are live.
 
-Use `init_markerchain` to create a chain, `fill_chain_from_chain!` or
-`fill_chain_from_vertices!` to overwrite its geometry, and
-`advect_markerchain!` to evolve it in time.
+# Fields
+- `coords::NTuple{N,T1}`: marker coordinates, one `CellArray` per dimension. In 2D
+  `coords[1]` is `x` and `coords[2]` is `y`. Empty slots hold `NaN`.
+- `coords0::NTuple{N,T1}`: marker coordinates from the previous time step.
+- `h_vertices::T2`: topography sampled at the grid vertices (current step).
+- `h_vertices0::T2`: topography at the vertices from the previous step; used by
+  `advect_markerchain!`/`semilagrangian_advection_markerchain!` to conserve the mean height.
+- `cell_vertices::TV`: the horizontal grid `xv` that defines the columns.
+- `index::T3`: per-slot occupancy mask (`true` ⟺ the matching `coords` slot is live).
+- `min_xcell`, `max_xcell::I`: the minimum and maximum number of markers allowed per
+  column; `resample!` refills depleted columns back up to `min_xcell`.
+
+# Invariants
+- A slot is live iff its mask entry is `true`; live slots have finite coordinates and
+  empty slots are `NaN`.
+- Marker precision follows `eltype(cell_vertices)`/the initial elevation, so a `Float32`
+  grid yields `Float32` markers (needed on Metal, which has no `Float64`).
+
+Use [`init_markerchain`](@ref) to create a chain, [`fill_chain_from_chain!`](@ref) or
+[`fill_chain_from_vertices!`](@ref) to overwrite its geometry, and
+[`advect_markerchain!`](@ref) or [`semilagrangian_advection_markerchain!`](@ref) to evolve
+it in time.
 """
 struct MarkerChain{Backend, N, I, T1, T2, T3, TV} <: AbstractParticles
     coords::NTuple{N, T1}    # current x-coord in 2D, (x,y)
@@ -98,7 +118,7 @@ end
 
 function MarkerChain(coords, index::CPUCellArray, cell_vertices, min_xcell, max_xcell)
     return MarkerChain(
-        CPUBackend,
+        CPU,
         coords,
         coords0,
         h_vertices,
@@ -137,7 +157,7 @@ struct PassiveMarkers{Backend, T} <: AbstractParticles
 end
 
 function PassiveMarkers(coords::Union{AbstractArray, NTuple{N, T}}) where {N, T}
-    return PassiveMarkers(CPUBackend, coords)
+    return PassiveMarkers(CPU, coords)
 end
 
 # useful functions
@@ -178,7 +198,11 @@ For tuple-valued coordinates, the tuple overload returns one cell index per
 dimension.
 """
 # @inline cell_index(xᵢ::T, dxᵢ::T) where {T} = abs(Int(xᵢ ÷ dxᵢ)) + 1
-@inline cell_index(xᵢ::T, dxᵢ::T) where {T} = abs(Int(trunc(xᵢ / dxᵢ))) + 1
+# `unsafe_trunc` avoids the throwing `Int(::AbstractFloat)` conversion: the throw
+# path boxes the float argument into an `InexactError`, which GPUs without
+# `Float64`/exception support (Metal) cannot compile. For in-grid particles the
+# quotient is a small finite value, so the result is identical to `Int(trunc(·))`.
+@inline cell_index(xᵢ::T, dxᵢ::T) where {T} = abs(unsafe_trunc(Int, trunc(xᵢ / dxᵢ))) + 1
 @inline cell_index(xᵢ::T, xvᵢ::AbstractVector{T}) where {T} =
     cell_index(xᵢ, xvᵢ, abs(xvᵢ[2] - xvᵢ[1]))
 

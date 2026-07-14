@@ -1,16 +1,16 @@
-using JustPIC, JustPIC._2D
+using JustPIC
 
 # Backend is selected via the JULIA_JUSTPIC_BACKEND environment variable.
 # Options: "CPU" (default), "CUDA", "AMDGPU"
 const backend_name = get(ENV, "JULIA_JUSTPIC_BACKEND", "CPU")
 const backend = if backend_name == "CUDA"
     using CUDA
-    CUDABackend
+    CUDA.CUDABackend
 elseif backend_name == "AMDGPU"
     using AMDGPU
-    AMDGPUBackend
+    AMDGPU.ROCBackend
 elseif backend_name == "CPU"
-    JustPIC.CPUBackend
+    JustPIC.CPU
 else
     error("Unknown backend: $backend_name. Options: \"CPU\", \"CUDA\", \"AMDGPU\"")
 end
@@ -39,7 +39,7 @@ end
 function main()
     # Initialize particles -------------------------------
     nxcell, max_xcell, min_xcell = 24, 40, 1
-    n = 64
+    n = parse(Int, get(ENV, "JUSTPIC_MPI_CI_N", "64"))
     nx = ny = n - 1
     me, dims, = init_global_grid(
         n - 1, n - 1, 1;
@@ -89,7 +89,7 @@ function main()
     particle_args = pT, = init_cell_arrays(particles, Val(1))
     grid2particle!(pT, T, particles)
 
-    niter = 250
+    niter = parse(Int, get(ENV, "JUSTPIC_MPI_CI_NITER", "250"))
     for iter in 1:niter
         me == 0 && @show iter
 
