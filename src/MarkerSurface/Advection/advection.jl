@@ -33,11 +33,11 @@ function advect_marker_surface!(
     return nothing
 end
 
-@parallel_indices (i, j) function _semilagrangian_update_kernel!(
+@kernel function _semilagrangian_update_kernel!(
         topo, vz, dt
     )
+    i, j = @index(Global, NTuple)
     topo[i, j] += vz[i, j] * dt
-    return nothing
 end
 
 """
@@ -69,7 +69,8 @@ function semilagrangian_advect_surface!(
     # Update each vertex: z += vz*dt
     nx1, ny1 = size(surf.topo)
 
-    @parallel (1:nx1, 1:ny1) _semilagrangian_update_kernel!(
+    launch!(
+        ka_backend(surf.topo), _semilagrangian_update_kernel!, (nx1, ny1),
         surf.topo, surf.vz, dt
     )
 

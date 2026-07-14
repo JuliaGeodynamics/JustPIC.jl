@@ -31,12 +31,14 @@ function smooth_surface_max_angle!(surf::MarkerSurface, max_slope_angle::Real)
     cell_topo = similar(topo, nx, ny)
     steep = similar(topo, Bool, nx, ny)
 
-    @parallel (1:nx, 1:ny) _smooth_step1_kernel!(
+    launch!(
+        ka_backend(topo), _smooth_step1_kernel!, (nx, ny),
         cell_topo, steep, topo, xv, yv, tan_max
     )
 
     # Step 2: smooth nodal topography (no-op per node when no neighbours are marked)
-    @parallel (1:nx1, 1:ny1) _smooth_step2_kernel!(
+    launch!(
+        ka_backend(topo), _smooth_step2_kernel!, (nx1, ny1),
         topo, cell_topo, steep, nx, ny, surf.periodic_1, surf.periodic_2
     )
 
@@ -46,9 +48,10 @@ function smooth_surface_max_angle!(surf::MarkerSurface, max_slope_angle::Real)
     return nothing
 end
 
-@parallel_indices (ic, jc) function _smooth_step1_kernel!(
+@kernel function _smooth_step1_kernel!(
         cell_topo, steep, topo, xv, yv, tan_max
     )
+    ic, jc = @index(Global, NTuple)
     # Cell sizes
     dx = xv[ic + 1] - xv[ic]
     dy = yv[jc + 1] - yv[jc]
@@ -66,15 +69,14 @@ end
     t = abs(z11 - z10) / dy; tmax = max(tmax, t)
 
     # Average cell height; steepness recorded in a separate mask
-    @inbounds cell_topo[ic, jc] = (z00 + z10 + z01 + z11) / 4
-    @inbounds steep[ic, jc] = tmax > tan_max
-
-    return nothing
+    cell_topo[ic, jc] = (z00 + z10 + z01 + z11) / 4
+    steep[ic, jc] = tmax > tan_max
 end
 
-@parallel_indices (iv, jv) function _smooth_step2_kernel!(
+@kernel function _smooth_step2_kernel!(
         topo, cell_topo, steep, nx, ny, periodic_1, periodic_2
     )
+    iv, jv = @index(Global, NTuple)
     # Get the up-to-4 neighboring cell indices
     # When periodic: wrap with mod1 (LaMEM style: only clamp when NOT periodic)
     i1 = periodic_1 ? mod1(iv, nx) : min(iv, nx)
@@ -86,8 +88,6 @@ end
         topo[iv, jv] =
             (cell_topo[i1, j1] + cell_topo[i1, j2] + cell_topo[i2, j1] + cell_topo[i2, j2]) / 4
     end
-
-    return nothing
 end
 
 """
@@ -108,8 +108,9 @@ function smooth_surface_diffusive!(surf::MarkerSurface, niter::Int = 1; weight::
 
     for _ in 1:niter
         copyto!(buf, topo)
-        @parallel (2:(nx1 - 1), 2:(ny1 - 1)) _smooth_diffusive_kernel!(
-            topo, buf, weight
+        launch!(
+            ka_backend(topo), _smooth_diffusive_kernel!, (nx1, ny1),
+            topo, buf, weight, nx1, ny1
         )
         # MPI: boundary nodes are interior on the neighbouring rank
         update_surface_halo!(surf)
@@ -118,11 +119,15 @@ function smooth_surface_diffusive!(surf::MarkerSurface, niter::Int = 1; weight::
     return nothing
 end
 
-@parallel_indices (i, j) function _smooth_diffusive_kernel!(
-        topo, buf, weight
+# Boundary nodes (i or j at the domain edge) are left untouched — they stay at
+# their pre-iteration `buf` value, synced from the neighbouring rank by the
+# halo exchange that follows each iteration.
+@kernel function _smooth_diffusive_kernel!(
+        topo, buf, weight, nx1, ny1
     )
-    avg = (buf[i - 1, j] + buf[i + 1, j] + buf[i, j - 1] + buf[i, j + 1]) / 4
-    topo[i, j] = (1 - weight) * buf[i, j] + weight * avg
-
-    return nothing
+    i, j = @index(Global, NTuple)
+    if 1 < i < nx1 && 1 < j < ny1
+        avg = (buf[i - 1, j] + buf[i + 1, j] + buf[i, j - 1] + buf[i, j + 1]) / 4
+        topo[i, j] = (1 - weight) * buf[i, j] + weight * avg
+    end
 end

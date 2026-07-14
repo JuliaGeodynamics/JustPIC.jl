@@ -108,7 +108,8 @@ function advect_surface_topo!(
     # in-kernel by `_ghost_coord`/`_ghost_field`, avoiding any padded-array allocation.
     copyto!(topo0, topo)
 
-    @parallel (1:nx1, 1:ny1) _advect_surface_topo_kernel!(
+    launch!(
+        ka_backend(topo), _advect_surface_topo_kernel!, (nx1, ny1),
         topo, topo0, xv, yv, vx, vy, vz, dt, Exx, Eyy, nx1, ny1, periodic_1, periodic_2
     )
 
@@ -131,9 +132,10 @@ function _enforce_periodic_seam!(topo::AbstractMatrix, periodic_1::Bool, periodi
     return nothing
 end
 
-@parallel_indices (i, j) function _advect_surface_topo_kernel!(
+@kernel function _advect_surface_topo_kernel!(
         topo, topo0, xv, yv, vx, vy, vz, dt, Exx, Eyy, nx1, ny1, periodic_1, periodic_2
     )
+    i, j = @index(Global, NTuple)
     # The 16-triangle subdivision topology
     # Vertices 1-9 are the 3x3 grid nodes, 10-13 are cell-center midpoints
     tria = (
@@ -198,21 +200,21 @@ end
     )
 
     # 4 midpoints (averages of cell-center quartets)
-    cx10 = (cx[1] + cx[2] + cx[4] + cx[5]) * 0.25
-    cy10 = (cy[1] + cy[2] + cy[4] + cy[5]) * 0.25
-    cz10 = (cz[1] + cz[2] + cz[4] + cz[5]) * 0.25
+    cx10 = (cx[1] + cx[2] + cx[4] + cx[5]) / 4
+    cy10 = (cy[1] + cy[2] + cy[4] + cy[5]) / 4
+    cz10 = (cz[1] + cz[2] + cz[4] + cz[5]) / 4
 
-    cx11 = (cx[2] + cx[3] + cx[5] + cx[6]) * 0.25
-    cy11 = (cy[2] + cy[3] + cy[5] + cy[6]) * 0.25
-    cz11 = (cz[2] + cz[3] + cz[5] + cz[6]) * 0.25
+    cx11 = (cx[2] + cx[3] + cx[5] + cx[6]) / 4
+    cy11 = (cy[2] + cy[3] + cy[5] + cy[6]) / 4
+    cz11 = (cz[2] + cz[3] + cz[5] + cz[6]) / 4
 
-    cx12 = (cx[4] + cx[5] + cx[7] + cx[8]) * 0.25
-    cy12 = (cy[4] + cy[5] + cy[7] + cy[8]) * 0.25
-    cz12 = (cz[4] + cz[5] + cz[7] + cz[8]) * 0.25
+    cx12 = (cx[4] + cx[5] + cx[7] + cx[8]) / 4
+    cy12 = (cy[4] + cy[5] + cy[7] + cy[8]) / 4
+    cz12 = (cz[4] + cz[5] + cz[7] + cz[8]) / 4
 
-    cx13 = (cx[5] + cx[6] + cx[8] + cx[9]) * 0.25
-    cy13 = (cy[5] + cy[6] + cy[8] + cy[9]) * 0.25
-    cz13 = (cz[5] + cz[6] + cz[8] + cz[9]) * 0.25
+    cx13 = (cx[5] + cx[6] + cx[8] + cx[9]) / 4
+    cy13 = (cy[5] + cy[6] + cy[8] + cy[9]) / 4
+    cz13 = (cz[5] + cz[6] + cz[8] + cz[9]) / 4
 
     # Extended coordinate arrays (13 points)
     all_cx = (cx..., cx10, cx11, cx12, cx13)
@@ -244,8 +246,6 @@ end
     end
 
     topo[i, j] = Z
-
-    return nothing
 end
 
 """
@@ -257,13 +257,13 @@ interpolation of the z-coordinate.
 
 # Returns
 - `(true, z_interpolated)` if the point is inside the triangle
-- `(false, 0.0)` otherwise
+- `(false, zero(T))` otherwise
 """
 @inline function _interpolate_triangle(
         cx::NTuple, cy::NTuple, cz::NTuple,
-        tri::NTuple{3, Int}, xp, yp;
-        tol = 1.0e-10,
-    )
+        tri::NTuple{3, Int}, xp::T, yp::T;
+        tol = convert(T, 1.0e-10),
+    ) where {T}
     ia, ib, ic = tri
 
     xa, ya = cx[ia], cy[ia]
@@ -281,17 +281,17 @@ interpolation of the z-coordinate.
     S = la + lb + lc
 
     # Point test
-    if S > A * (1.0 + tol)
-        return false, 0.0
+    if S > A * (one(T) + tol)
+        return false, zero(T)
     end
 
     # Normalize barycentric coordinates
-    if S > 0
+    if S > zero(T)
         la /= S
         lb /= S
         lc /= S
     else
-        la = lb = lc = inv(3.0)
+        la = lb = lc = one(T) / 3
     end
 
     # Interpolate z

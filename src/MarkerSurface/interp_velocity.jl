@@ -25,7 +25,8 @@ function interpolate_velocity_to_surface_vertices!(
     syv = surf.yv
     Vx, Vy, Vz = V
 
-    @parallel (1:nx1, 1:ny1) _interpolate_velocity_kernel!(
+    launch!(
+        ka_backend(topo), _interpolate_velocity_kernel!, (nx1, ny1),
         svx, svy, svz, topo, sxv, syv, Vx, Vy, Vz, xvi...
     )
 
@@ -36,9 +37,10 @@ function interpolate_velocity_to_surface_vertices!(
     return nothing
 end
 
-@parallel_indices (i, j) function _interpolate_velocity_kernel!(
+@kernel function _interpolate_velocity_kernel!(
         svx, svy, svz, topo, sxv, syv, Vx, Vy, Vz, xg, yg, zg
     )
+    i, j = @index(Global, NTuple)
     z_surf = topo[i, j]
     x_s = sxv[i]
     y_s = syv[j]
@@ -47,8 +49,6 @@ end
     svx[i, j] = _interp_vel_component(Vx, xg, yg, zg, x_s, y_s, z_surf)
     svy[i, j] = _interp_vel_component(Vy, xg, yg, zg, x_s, y_s, z_surf)
     svz[i, j] = _interp_vel_component(Vz, xg, yg, zg, x_s, y_s, z_surf)
-
-    return nothing
 end
 
 """

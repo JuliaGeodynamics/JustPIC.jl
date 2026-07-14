@@ -19,20 +19,20 @@ function compute_rock_fraction!(ratios, surf::MarkerSurface, xvi, dxi)
     # 1. Cell-center rock fractions (exact prism intersection, cf. cell_rock_area in 2D)
     compute_volume_below_surface_centers!(ratios.center, surf, xvi)
 
+    be = ka_backend(ratios.center)
+
     # 2. Vertex values — average of up to 8 neighbouring centers
-    @parallel (@idx size(ratios.vertex)) _avg_center_to_vertex_3D!(
-        ratios.vertex, ratios.center
-    )
+    launch!(be, _avg_center_to_vertex_3D!, size(ratios.vertex), ratios.vertex, ratios.center)
 
     # 3. Velocity nodes — average of 2 neighbours along the staggered direction
-    @parallel (@idx size(ratios.Vx)) _avg_center_to_face_x!(ratios.Vx, ratios.center)
-    @parallel (@idx size(ratios.Vy)) _avg_center_to_face_y!(ratios.Vy, ratios.center)
-    @parallel (@idx size(ratios.Vz)) _avg_center_to_face_z!(ratios.Vz, ratios.center)
+    launch!(be, _avg_center_to_face_x!, size(ratios.Vx), ratios.Vx, ratios.center)
+    launch!(be, _avg_center_to_face_y!, size(ratios.Vy), ratios.Vy, ratios.center)
+    launch!(be, _avg_center_to_face_z!, size(ratios.Vz), ratios.Vz, ratios.center)
 
     # 4. Shear-stress nodes — average of 4 neighbours in the plane
-    @parallel (@idx size(ratios.xy)) _avg_center_to_edge_xy!(ratios.xy, ratios.center)
-    @parallel (@idx size(ratios.yz)) _avg_center_to_edge_yz!(ratios.yz, ratios.center)
-    @parallel (@idx size(ratios.xz)) _avg_center_to_edge_xz!(ratios.xz, ratios.center)
+    launch!(be, _avg_center_to_edge_xy!, size(ratios.xy), ratios.xy, ratios.center)
+    launch!(be, _avg_center_to_edge_yz!, size(ratios.yz), ratios.yz, ratios.center)
+    launch!(be, _avg_center_to_edge_xz!, size(ratios.xz), ratios.xz, ratios.center)
 
     return nothing
 end
@@ -45,15 +45,17 @@ function compute_volume_below_surface_centers!(ratio_center, surf, xvi)
     nx = length(xv) - 1
     ny = length(yv) - 1
     nz = length(zv) - 1
-    @parallel (1:nx, 1:ny, 1:nz) _compute_volume_below_surface_center!(
+    launch!(
+        ka_backend(ratio_center), _compute_volume_below_surface_center!, (nx, ny, nz),
         ratio_center, topo, xv, yv, zv
     )
     return nothing
 end
 
-@parallel_indices (i, j, k) function _compute_volume_below_surface_center!(
+@kernel function _compute_volume_below_surface_center!(
         rock_fraction, topo, xv, yv, zv
     )
+    i, j, k = @index(Global, NTuple)
     # Cell geometry via GridGeometryUtils.BBox{3}  (cf. Rectangle in 2D areas.jl)
     ox = xv[i]
     oy = yv[j]
@@ -70,15 +72,14 @@ end
     cz4 = topo[i + 1, j + 1]  # back-right
 
     rock_fraction[i, j, k] = cell_rock_volume(cz1, cz2, cz3, cz4, cell)
-
-    return nothing
 end
 
 # Center - vertex
 
-@parallel_indices (i, j, k) function _avg_center_to_vertex_3D!(vertex, center)
+@kernel function _avg_center_to_vertex_3D!(vertex, center)
+    i, j, k = @index(Global, NTuple)
     nx, ny, nz = size(center)
-    s = 0.0
+    s = zero(eltype(center))
     ω = 0
     for dk in 0:1, dj in 0:1, di in 0:1
         ii = i - 1 + di
@@ -89,13 +90,13 @@ end
             ω += 1
         end
     end
-    vertex[i, j, k] = ω > 0 ? s / ω : 0.0
-    return nothing
+    vertex[i, j, k] = ω > 0 ? s / ω : zero(s)
 end
 
-@parallel_indices (i, j, k) function _avg_center_to_face_x!(Vx, center)
+@kernel function _avg_center_to_face_x!(Vx, center)
+    i, j, k = @index(Global, NTuple)
     nx, ny, nz = size(center)
-    s = 0.0
+    s = zero(eltype(center))
     ω = 0
     for di in 0:1
         ii = i - 1 + di
@@ -104,13 +105,13 @@ end
             ω += 1
         end
     end
-    Vx[i, j, k] = ω > 0 ? s / ω : 0.0
-    return nothing
+    Vx[i, j, k] = ω > 0 ? s / ω : zero(s)
 end
 
-@parallel_indices (i, j, k) function _avg_center_to_face_y!(Vy, center)
+@kernel function _avg_center_to_face_y!(Vy, center)
+    i, j, k = @index(Global, NTuple)
     nx, ny, nz = size(center)
-    s = 0.0
+    s = zero(eltype(center))
     ω = 0
     for dj in 0:1
         jj = j - 1 + dj
@@ -119,13 +120,13 @@ end
             ω += 1
         end
     end
-    Vy[i, j, k] = ω > 0 ? s / ω : 0.0
-    return nothing
+    Vy[i, j, k] = ω > 0 ? s / ω : zero(s)
 end
 
-@parallel_indices (i, j, k) function _avg_center_to_face_z!(Vz, center)
+@kernel function _avg_center_to_face_z!(Vz, center)
+    i, j, k = @index(Global, NTuple)
     nx, ny, nz = size(center)
-    s = 0.0
+    s = zero(eltype(center))
     ω = 0
     for dk in 0:1
         kk = k - 1 + dk
@@ -134,13 +135,13 @@ end
             ω += 1
         end
     end
-    Vz[i, j, k] = ω > 0 ? s / ω : 0.0
-    return nothing
+    Vz[i, j, k] = ω > 0 ? s / ω : zero(s)
 end
 
-@parallel_indices (i, j, k) function _avg_center_to_edge_xy!(xy, center)
+@kernel function _avg_center_to_edge_xy!(xy, center)
+    i, j, k = @index(Global, NTuple)
     nx, ny, nz = size(center)
-    s = 0.0
+    s = zero(eltype(center))
     ω = 0
     for dj in 0:1, di in 0:1
         ii = i - 1 + di
@@ -150,13 +151,13 @@ end
             ω += 1
         end
     end
-    xy[i, j, k] = ω > 0 ? s / ω : 0.0
-    return nothing
+    xy[i, j, k] = ω > 0 ? s / ω : zero(s)
 end
 
-@parallel_indices (i, j, k) function _avg_center_to_edge_yz!(yz, center)
+@kernel function _avg_center_to_edge_yz!(yz, center)
+    i, j, k = @index(Global, NTuple)
     nx, ny, nz = size(center)
-    s = 0.0
+    s = zero(eltype(center))
     ω = 0
     for dk in 0:1, dj in 0:1
         jj = j - 1 + dj
@@ -166,13 +167,13 @@ end
             ω += 1
         end
     end
-    yz[i, j, k] = ω > 0 ? s / ω : 0.0
-    return nothing
+    yz[i, j, k] = ω > 0 ? s / ω : zero(s)
 end
 
-@parallel_indices (i, j, k) function _avg_center_to_edge_xz!(xz, center)
+@kernel function _avg_center_to_edge_xz!(xz, center)
+    i, j, k = @index(Global, NTuple)
     nx, ny, nz = size(center)
-    s = 0.0
+    s = zero(eltype(center))
     ω = 0
     for dk in 0:1, di in 0:1
         ii = i - 1 + di
@@ -182,8 +183,7 @@ end
             ω += 1
         end
     end
-    xz[i, j, k] = ω > 0 ? s / ω : 0.0
-    return nothing
+    xz[i, j, k] = ω > 0 ? s / ω : zero(s)
 end
 
 """
@@ -258,7 +258,7 @@ Compute the rock fraction via the 4-triangle prism intersection algorithm. Uses 
     # corners: 1=(left,front), 2=(right,front), 3=(left,back), 4=(right,back), 5=center
     tria = ((1, 2, 5), (2, 4, 5), (4, 3, 5), (3, 1, 5))
 
-    rock_ratio = 0.0
+    rock_ratio = zero(vcell)
     for tri in tria
         rock_ratio += _intersect_triangular_prism(cx, cy, cz, tri, vcell, zbot, ztop)
     end
@@ -291,22 +291,22 @@ Rock fraction contributed by this triangle (in [0, 0.25] for a 4-triangle cell).
     zmax = max(za, zb, zc)
 
     # Empty cell: surface entirely below cell bottom
-    zmax ≤ bot && return 0.0
+    zmax ≤ bot && return zero(vcell)
 
     # Full cell: surface entirely above cell top
-    zmin ≥ top && return 0.25  # quarter because 4 triangles per cell
+    zmin ≥ top && return one(vcell) / 4  # quarter because 4 triangles per cell
 
     # Volume above bottom plane
     vbot = _prism_volume_above_level(xa, ya, za, xb, yb, zb, xc, yc, zc, bot)
 
     # Volume above top plane
-    vtop = 0.0
+    vtop = zero(vcell)
     if zmax > top
         vtop = _prism_volume_above_level(xa, ya, za, xb, yb, zb, xc, yc, zc, top)
     end
 
     # Volume inside cell = volume above bottom - volume above top
-    return (vbot - vtop) / (2.0 * vcell)
+    return (vbot - vtop) / (2 * vcell)
 end
 
 """
@@ -342,12 +342,13 @@ Clamps the intersection to lie within the edge's z-range.
     zp = min(zp, max(z1, z2))
 
     dz = z2 - z1
-    if abs(dz) < 1.0e-30
-        w = 0.0
+    tol = convert(typeof(dz), 1.0e-30)
+    if abs(dz) < tol
+        w = zero(dz)
     else
         w = (zp - z1) / dz
     end
-    w = clamp(w, 0.0, 1.0)
+    w = clamp(w, zero(w), one(w))
 
     xp = x1 + w * (x2 - x1)
     yp = y1 + w * (y2 - y1)
@@ -361,10 +362,10 @@ end
 Compute double the volume of a prism above `level`
 """
 @inline function _get_volume_prism(x1, y1, z1, x2, y2, z2, x3, y3, z3, level)
-    avg_z = (z1 + z2 + z3) / 3.0
+    avg_z = (z1 + z2 + z3) / 3
     if avg_z > level
         area2 = abs((x1 - x3) * (y2 - y3) - (x2 - x3) * (y1 - y3))
         return (avg_z - level) * area2
     end
-    return 0.0
+    return zero(avg_z)
 end

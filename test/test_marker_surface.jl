@@ -1,18 +1,28 @@
-@static if ENV["JULIA_JUSTPIC_BACKEND"] === "AMDGPU"
+const BACKEND_NAME = get(ENV, "JULIA_JUSTPIC_BACKEND", "CPU")
+
+@static if BACKEND_NAME == "AMDGPU"
     using AMDGPU
-elseif ENV["JULIA_JUSTPIC_BACKEND"] === "CUDA"
+    AMDGPU.allowscalar(true)
+elseif BACKEND_NAME == "CUDA"
     using CUDA
+    CUDA.allowscalar(true)
+elseif BACKEND_NAME == "Metal"
+    using Metal
+    Metal.allowscalar(true)
 end
 
-using JustPIC, JustPIC._3D, CellArrays, ParallelStencil, Test, LinearAlgebra
+using JustPIC, CellArrays, Test, LinearAlgebra
 using ImplicitGlobalGrid
+import KernelAbstractions: CPU
 
-const backend = @static if ENV["JULIA_JUSTPIC_BACKEND"] === "AMDGPU"
-    JustPIC.AMDGPUBackend
-elseif ENV["JULIA_JUSTPIC_BACKEND"] === "CUDA"
-    CUDABackend
+const backend = @static if BACKEND_NAME == "AMDGPU"
+    AMDGPU.ROCBackend
+elseif BACKEND_NAME == "CUDA"
+    CUDA.CUDABackend
+elseif BACKEND_NAME == "Metal"
+    Metal.MetalBackend
 else
-    JustPIC.CPUBackend
+    CPU
 end
 
 function make_grid(;
@@ -82,7 +92,7 @@ using Statistics
             # Centroid of triangle
             xp = (0.0 + 1.0 + 0.5) / 3
             yp = (0.0 + 0.0 + 1.0) / 3
-            ok, zp = _3D._interpolate_triangle(cx, cy, cz, tri, xp, yp)
+            ok, zp = JustPIC._interpolate_triangle(cx, cy, cz, tri, xp, yp)
             @test ok == true
             # At centroid, barycentric coords are (1/3, 1/3, 1/3)
             @test zp ≈ (1.0 + 2.0 + 3.0) / 3 atol = 1.0e-10
@@ -93,7 +103,7 @@ using Statistics
             cy = (0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
             cz = (1.0, 2.0, 3.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
             tri = (1, 2, 3)
-            ok, _ = _3D._interpolate_triangle(cx, cy, cz, tri, -1.0, -1.0)
+            ok, _ = JustPIC._interpolate_triangle(cx, cy, cz, tri, -1.0, -1.0)
             @test ok == false
         end
     end
@@ -484,7 +494,7 @@ using Statistics
             cy = (0.0, 0.0, 1.0, 1.0, 0.5)
             cz = (2.0, 2.0, 2.0, 2.0, 2.0)  # surface at z=2, cell is [0,1]
             tri = (1, 2, 5)
-            val = _3D._intersect_triangular_prism(cx, cy, cz, tri, 1.0, 0.0, 1.0)
+            val = JustPIC._intersect_triangular_prism(cx, cy, cz, tri, 1.0, 0.0, 1.0)
             @test val ≈ 0.25 atol = 1.0e-10
         end
 
@@ -493,7 +503,7 @@ using Statistics
             cy = (0.0, 0.0, 1.0, 1.0, 0.5)
             cz = (-1.0, -1.0, -1.0, -1.0, -1.0)  # surface at z=-1, cell is [0,1]
             tri = (1, 2, 5)
-            val = _3D._intersect_triangular_prism(cx, cy, cz, tri, 1.0, 0.0, 1.0)
+            val = JustPIC._intersect_triangular_prism(cx, cy, cz, tri, 1.0, 0.0, 1.0)
             @test val ≈ 0.0 atol = 1.0e-10
         end
     end

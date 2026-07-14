@@ -10,7 +10,7 @@ The topography is stored at the grid vertices (corner nodes), matching LaMEM's
 staggered-grid corner nodes.
 
 # Arguments
-- `backend` : compute backend (`CPUBackend`, `CUDABackend`, `AMDGPUBackend`)
+- `backend` : KernelAbstractions backend type such as `CPU`, `CUDA`, `AMDGPU`, `Metal`
 - `xv`      : 1D array/range of x-coordinates of grid vertices (length `nx+1`)
 - `yv`      : 1D array/range of y-coordinates of grid vertices (length `ny+1`)
 - `initial_elevation` : scalar or 2D array `(nx+1)×(ny+1)` of initial z-elevations
@@ -39,8 +39,8 @@ function init_marker_surface(
 
     # Set initial topography
     if initial_elevation isa Number
-        @fill!(topo, Float64(initial_elevation))
-        @fill!(topo0, Float64(initial_elevation))
+        fill!(topo, Float64(initial_elevation))
+        fill!(topo0, Float64(initial_elevation))
     else
         copyto!(topo, initial_elevation)
         copyto!(topo0, initial_elevation)
