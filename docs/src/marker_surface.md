@@ -47,7 +47,7 @@ compute_rock_fraction!(ratios, surf, xvi, dxi)
 using JustPIC
 using GLMakie
 
-const backend = JustPIC.CPUBackend
+const backend = JustPIC.CPU
 
 # Initialize domain & grids
 n = 33
@@ -103,7 +103,7 @@ Under periodic boundaries the ghost cells used by the advection stencil wrap to 
 using JustPIC
 using GLMakie
 
-const backend = JustPIC.CPUBackend
+const backend = JustPIC.CPU
 
 # Initialize domain & grids
 n = 33
