@@ -81,7 +81,25 @@ already interpolated onto the surface nodes (`surf.vx`, `surf.vy`, `surf.vz`).
     node positions displaced by `dt*v`.
 3. Subdivide the deformed cell into 16 triangles (9 corner + 4 midpoint nodes).
 4. Find which triangle contains the target position and perform barycentric interpolation of the z-coordinate.
-
+```text
+    1 ------- 2 ------- 3
+    |  \\     / \\     /  |
+    |   \\   /   \\   /   |
+    |    \\ /     \\ /    |
+    |    10       11    |
+    |    / \\     / \\    |
+    |   /   \\   /   \\   |
+    |  /     \\ /     \\  |
+    4 ------- 5 ------- 6
+    |  \\     / \\     /  |
+    |   \\   /   \\   /   |
+    |    \\ /     \\ /    |
+    |    12       13    |
+    |    / \\     / \\    |
+    |   /   \\   /   \\   |
+    |  /     \\ /     \\  |
+    7 ------- 8 ------- 9
+```
 # Arguments
 - `surf` : the `MarkerSurface`
 - `dt`   : time step
