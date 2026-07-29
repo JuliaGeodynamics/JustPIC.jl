@@ -178,7 +178,7 @@ function MarkerSurface(
         topo, topo0, vx, vy, vz, xv, yv, air_phase, periodic_1, periodic_2
     )
     return MarkerSurface(
-        CPUBackend,
+        CPU,
         topo, topo0, vx, vy, vz,
         xv, yv,
         air_phase, periodic_1, periodic_2,

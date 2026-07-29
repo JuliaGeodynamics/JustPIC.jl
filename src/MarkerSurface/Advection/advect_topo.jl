@@ -26,7 +26,7 @@ otherwise they are linearly extrapolated. This is the allocation-free, scalar
 counterpart of the former padded-array construction.
 """
 @inline function _ghost_field(arr, i, j, nx, ny, periodic_1::Bool, periodic_2::Bool)
-    @inbounds begin
+    return @inbounds begin
         if 1 ≤ i ≤ nx && 1 ≤ j ≤ ny
             return arr[i, j]
         elseif i == 0 && j == 0

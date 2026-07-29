@@ -1,9 +1,9 @@
 using Test
-using JustPIC, JustPIC._2D
+using JustPIC
 using LinearAlgebra
-import JustPIC._2D: lerp
+import JustPIC: lerp
 
-const backend = JustPIC.CPUBackend # Options: CPUBackend, CUDABackend, AMDGPUBackend
+const backend = JustPIC.CPU # Options: CPU, CUDA.CUDABackend, AMDGPU.ROCBackend
 
 function expand_range(x::AbstractVector)
     dx_left  = x[2] - x[1]
@@ -35,7 +35,7 @@ function findGrowthFactor(L, n, d0)
         err = checkGridLength(n, d0, c) - L
         if abs(err) < L / 1e3
             # println("Grid growth factor: $(c)")
-            return c 
+            return c
         elseif err > 0
             b = c
         else
@@ -52,26 +52,26 @@ function makeExpoGrid(L, n, d0, x0)
     if mod(n,2) == 0
         L2  = L/2.0
         n2  = Int64(n/2)
-        f   = findGrowthFactor(L2, n2, d0) 
+        f   = findGrowthFactor(L2, n2, d0)
         dx[n2:n2+1] .= d0
         dn  = 2
     else
         L2 = L/2.0 + d0/2.0
         n2 = Int64((n+1) / 2)
         f  = findGrowthFactor(L2, n2, d0)
-        dx[n2] = d0 
+        dx[n2] = d0
         dn = 1
     end
     for i = n2+dn : n-1
         dx[i] = dx[i-1] * f
     end
     for i = n2-1 : -1 : 2
-        dx[i] = dx[i+1] * f 
+        dx[i] = dx[i+1] * f
     end
 
     dx[1]     = (L - sum(dx)) / 2.0
     dx[end]   = dx[1]
-    
+
     xn        = zeros(n+1)
     xc        = zeros(n+2) # with ghost cells
     xn[1]     = x0
