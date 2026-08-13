@@ -1,3 +1,5 @@
+using Statistics
+
 """
     compute_topography_vertex!(chain::MarkerChain)
 
@@ -10,53 +12,80 @@ function compute_topography_vertex!(chain::MarkerChain)
     (; coords, index, cell_vertices, h_vertices) = chain
     chain_x, chain_y = coords
 
-    _dx = inv(cell_vertices[2] - cell_vertices[1])
-
     launch!(
         ka_backend(h_vertices), _compute_h_vertex!, length(cell_vertices),
-        h_vertices, chain_x, chain_y, cell_vertices, index, _dx
+        h_vertices, chain_x, chain_y, cell_vertices, index
     )
 
     return nothing
 end
 
 @kernel function _compute_h_vertex!(
-        h_vertices, chain_x, chain_y, cell_vertices, index, _dx
+        h_vertices, chain_x, chain_y, cell_vertices, index
     )
     ivertex = @index(Global)
     _compute_h_vertex_kernel!(
-        h_vertices, chain_x, chain_y, cell_vertices, index, _dx, ivertex
+        h_vertices, chain_x, chain_y, cell_vertices, index, ivertex
     )
 end
 
 function _compute_h_vertex_kernel!(
-        h_vertices, chain_x, chain_y, cell_vertices, index, _dx::T, ivertex
-    ) where {T}
-    h = zero(T)
-    ω = zero(T)
+        h_vertices, chain_x, chain_y, cell_vertices, index, ivertex
+    )
     xcorner = cell_vertices[ivertex]
+    h = zero(xcorner)
+    n = 0
 
-    # iterate over cells on the left and right hand sides of the vertex
-    multiplier = -one(T)
     for j in (ivertex - 1):ivertex
         if 0 < j < length(cell_vertices)
-            for ip in cellaxes(index)
-                CAI.@index(index[ip, j]) || continue
-
-                x_m = CAI.@index chain_x[ip, j]
-                y_m = CAI.@index chain_y[ip, j]
-                dx_m = multiplier * (x_m - xcorner)
-                ωᵢ = @muladd one(T) - dx_m * _dx
-                h += y_m * ωᵢ
-                ω += ωᵢ
-            end
+            h_cell, isvalid = _fit_cell_height(chain_x, chain_y, index, j, xcorner)
+            h += ifelse(isvalid, h_cell, zero(h_cell))
+            n += isvalid
         end
-        multiplier = one(T)
     end
-    h_vertices[ivertex] = h / ω
+    iszero(n) || (h_vertices[ivertex] = h / n)
 
     return nothing
 end
+
+@inline function _fit_cell_height(chain_x, chain_y, index, icell, xq)
+    n = 0
+    sd = zero(xq)
+    sy = zero(xq)
+    sdd = zero(xq)
+    sdy = zero(xq)
+    for ip in cellaxes(index)
+        CAI.@index(index[ip, icell]) || continue
+        x = CAI.@index chain_x[ip, icell]
+        y = CAI.@index chain_y[ip, icell]
+        d = x - xq
+        n += 1
+        sd += d
+        sy += y
+        sdd += d * d
+        sdy += d * y
+    end
+
+    iszero(n) && return zero(xq), false
+    dmean = sd / n
+    ymean = sy / n
+    denominator = sdd - sd * dmean
+    slope = ifelse(iszero(denominator), zero(xq), (sdy - sd * ymean) / denominator)
+    return muladd(-slope, dmean, ymean), true
+end
+
+"""
+    mean_height(chain::MarkerChain)
+
+Return the domain mean of the piecewise-linear vertex topography.
+"""
+function mean_height(h::AbstractVector)
+    n = length(h)
+    endpoints = sum(@view h[1:1]) + sum(@view h[n:n])
+    return (n * mean(h) - endpoints / 2) / (n - 1)
+end
+
+mean_height(chain::MarkerChain) = mean_height(chain.h_vertices)
 
 ######################################
 
