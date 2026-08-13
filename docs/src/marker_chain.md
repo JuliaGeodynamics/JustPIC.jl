@@ -28,6 +28,10 @@ vertices (`h_vertices`). The most useful fields are:
 Marker precision follows the grid/elevation element type, so a `Float32` grid produces a
 `Float32` chain — this is required on Metal, which has no `Float64`.
 
+`cell_vertices` must be finite, strictly increasing, and uniformly spaced. Marker lookup,
+resampling, and movement use one constant cell width; construction throws an
+`ArgumentError` when this grid contract is violated.
+
 ## Creating a chain
 
 Instantiate a chain with a constant elevation `h`:

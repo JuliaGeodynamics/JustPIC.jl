@@ -117,17 +117,24 @@ struct MarkerChain{Backend, N, I, T1, T2, T3, TV} <: AbstractParticles
 end
 
 function MarkerChain(coords, index::CPUCellArray, cell_vertices, min_xcell, max_xcell)
-    return MarkerChain(
+    _uniform_grid_spacing(cell_vertices)
+    coords0 = deepcopy.(coords)
+    T = eltype(eltype(coords[1]))
+    h_vertices = zeros(T, length(cell_vertices))
+    chain = MarkerChain(
         CPU,
         coords,
         coords0,
         h_vertices,
-        h_vertices0,
+        copy(h_vertices),
         cell_vertices,
         index,
-        max_xcell,
         min_xcell,
+        max_xcell,
     )
+    compute_topography_vertex!(chain)
+    copyto!(chain.h_vertices0, chain.h_vertices)
+    return chain
 end
 
 """
@@ -164,6 +171,25 @@ end
 
 unwrap_abstractarray(x::AbstractArray) = typeof(x).name.wrapper
 
+function _uniform_grid_spacing(xv)
+    ncells = length(xv) - 1
+    ncells > 0 || throw(ArgumentError("cell_vertices must contain at least two vertices"))
+
+    spacings = diff(xv)
+    dx = sum(spacings) / ncells
+    T = typeof(dx)
+    min_spacing = minimum(spacings)
+    max_spacing = maximum(spacings)
+    tolerance = convert(T, 32) * eps(T) * max(abs(dx), abs(min_spacing), abs(max_spacing))
+
+    isfinite(dx) && min_spacing > zero(T) ||
+        throw(ArgumentError("MarkerChain cell_vertices must be finite and strictly increasing"))
+    maximum(abs.(spacings .- dx)) ≤ tolerance ||
+        throw(ArgumentError("MarkerChain requires uniformly spaced cell_vertices"))
+
+    return dx
+end
+
 @inline count_particles(p::AbstractParticles, icell::Vararg{Int, N}) where {N} =
     count(p.index[icell...])
 
@@ -173,8 +199,10 @@ unwrap_abstractarray(x::AbstractArray) = typeof(x).name.wrapper
 Return the horizontal cell size of a 2D marker chain.
 
 This is the spacing between consecutive entries in `chain.cell_vertices`.
+Marker chains require this grid to be uniformly spaced.
 """
-@inline cell_length(p::MarkerChain{B, 2}) where {B} = p.cell_vertices[2] - p.cell_vertices[1]
+@inline cell_length(p::MarkerChain{B, 2}) where {B} =
+    sum(diff(p.cell_vertices)) / (length(p.cell_vertices) - 1)
 @inline cell_length_x(p::MarkerChain{B, 3}) where {B} =
     p.cell_vertices[1][2] - p.cell_vertices[1][1]
 @inline cell_length_y(p::MarkerChain{B, 3}) where {B} =

@@ -1,5 +1,3 @@
-using Statistics
-
 """
     advect_markerchain!(chain, method, V, grid_vxi, dt)
 
@@ -21,12 +19,12 @@ function advect_markerchain!(
 
     # interpolate from markers to grid
     compute_topography_vertex!(chain)
-    # average h_vertices0 and h_vertices and store in h_vertices
-    # @. chain.h_vertices = (chain.h_vertices0 + chain.h_vertices) / 2
     # correct topo to conserve mass
-    chain.h_vertices .-= mean(chain.h_vertices) - mean(chain.h_vertices0)
+    chain.h_vertices .-= mean_height(chain.h_vertices) - mean_height(chain.h_vertices0)
     # reconstruct chain from vertices
     reconstruct_chain_from_vertices!(chain)
+    copyto!(chain.coords0[1].data, chain.coords[1].data)
+    copyto!(chain.coords0[2].data, chain.coords[2].data)
     # update old nodal topography
     copyto!(chain.h_vertices0, chain.h_vertices)
 

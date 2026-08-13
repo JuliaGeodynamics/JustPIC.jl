@@ -45,6 +45,7 @@ function host_chain(chain)
 end
 
 chain_tol(chain) = eltype(Array(chain.h_vertices)) <: Float32 ? 1.0f-5 : 1.0e-10
+chain_mean(h) = (sum(h) - (first(h) + last(h)) / 2) / (length(h) - 1)
 
 # set slot `ip` of cell `cell` without assuming the backend's CellArray data layout
 function set_cell_slot!(A, ip, cell, val)
@@ -126,6 +127,12 @@ end
         @test count(index) == nxcell * (length(xv_cpu) - 1)
         @test all(Array(chain.h_vertices) .≈ elevation)
         @test Array(chain.h_vertices0) == Array(chain.h_vertices)
+        @test chain.coords0[1].data !== chain.coords[1].data
+        @test chain.coords0[2].data !== chain.coords[2].data
+        previous_x = host_data(chain.coords0[1])
+        set_cell_slot!(chain.coords[1], 1, 1, px[1, 1] + eps(T))
+        @test isequal(host_data(chain.coords0[1]), previous_x)
+        set_cell_slot!(chain.coords[1], 1, 1, px[1, 1])
         assert_chain_invariants(chain)
 
         for i in axes(index, 2)
@@ -140,10 +147,24 @@ end
         _, py, index, _ = host_chain(chain)
         @test isapprox(Array(chain.h_vertices), topo_y; atol = chain_tol(chain), rtol = chain_tol(chain))
         for i in axes(index, 2)
-            @test all(py[1:nxcell, i] .≈ topo_y[i])
+            expected_y = range(topo_y[i], topo_y[i + 1]; length = nxcell + 2)[2:(end - 1)]
+            @test py[1:nxcell, i] ≈ expected_y
         end
+        compute_topography_vertex!(chain)
+        @test isapprox(Array(chain.h_vertices), topo_y; atol = chain_tol(chain), rtol = chain_tol(chain))
         assert_chain_invariants(chain)
     end
+
+    @static if BACKEND_NAME == "CPU"
+        xv = collect(range(0.0, 1.0; length = 6))
+        original = init_markerchain(CPU, 3, 2, 5, xv, 0.4)
+        reconstructed = MarkerChain(original.coords, original.index, xv, 2, 5)
+        @test Array(reconstructed.h_vertices) ≈ fill(0.4, length(xv))
+        @test reconstructed.coords0[1].data !== reconstructed.coords[1].data
+    end
+
+    nonuniform_xv = TA(backend)(FT[0, 0.2, 0.5, 1])
+    @test_throws ArgumentError init_markerchain(backend, 2, 1, 4, nonuniform_xv, FT(0.4))
 end
 
 @testset "MarkerChain topography reconstruction 2D" begin
@@ -169,7 +190,7 @@ end
 
     compute_topography_vertex!(chain)
     h_vertices = Array(chain.h_vertices)
-    @test isapprox(h_vertices[2:(end - 1)], topo_y[2:(end - 1)]; atol = chain_tol(chain), rtol = chain_tol(chain))
+    @test isapprox(h_vertices, topo_y; atol = chain_tol(chain), rtol = chain_tol(chain))
 end
 
 @testset "MarkerChain reconstruct non-contiguous index 2D" begin
@@ -194,6 +215,22 @@ end
     @test all(.!isnan.(py2[active2, 2]))
     @test all(cell_vertices[2] .< px2[active2, 2] .< cell_vertices[3])
     @test all(diff(px2[active2, 2]) .> 0)
+    assert_chain_invariants(chain)
+end
+
+@testset "MarkerChain multi-cell movement 2D" begin
+    xv_cpu = collect(range(FT(0), FT(1); length = 9))
+    chain = init_markerchain(backend, 1, 1, 4, TA(backend)(xv_cpu), FT(0.4))
+
+    # Two distant sources converge on cell 4. This exercises both arbitrary-distance
+    # jumps and collision-free destination writes on threaded/GPU backends.
+    set_cell_slot!(chain.coords[1], 1, 1, FT(0.4))
+    set_cell_slot!(chain.coords[1], 1, 7, FT(0.46))
+    move_particles!(chain)
+
+    _, _, index, _ = host_chain(chain)
+    @test count(index) == length(xv_cpu) - 1
+    @test active_counts(index) == [0, 1, 1, 3, 1, 1, 0, 1]
     assert_chain_invariants(chain)
 end
 
@@ -256,6 +293,19 @@ end
     @test active_counts(index) == fill(4, length(xv_cpu) - 1)
     assert_chain_invariants(chain)
     assert_markers_on_line(chain, a, b)
+
+    chain = init_markerchain(backend, 4, 2, 6, xv, FT(0.2))
+    for ip in 1:4
+        set_cell_slot!(chain.index, ip, 1, false)
+        set_cell_slot!(chain.coords[1], ip, 1, NaN)
+        set_cell_slot!(chain.coords[2], ip, 1, NaN)
+    end
+    resample!(chain)
+    px, py, index, _ = host_chain(chain)
+    @test count(index[:, 1]) == 2
+    @test all(isfinite, px[index])
+    @test all(isfinite, py[index])
+    assert_chain_invariants(chain)
 end
 
 @testset "MarkerChain advection 2D" begin
@@ -304,7 +354,21 @@ end
     h0 = copy(Array(chain.h_vertices))
     V = constant_markerchain_velocity(grid_vx, grid_vy, FT(0), vy)
     advect_markerchain!(chain, Euler(), V, grid_vi, dt)
-    @test mean(Array(chain.h_vertices)) ≈ mean(h0)
+    @test chain_mean(Array(chain.h_vertices)) ≈ chain_mean(h0)
+    assert_chain_invariants(chain)
+
+    profile = @. FT(0.35) + FT(0.08) * sin(FT(2pi) * xv) + FT(0.03) * xv^2
+    chain = init_markerchain(backend, 4, 2, 8, xv, FT(0))
+    fill_chain_from_vertices!(chain, TA(backend)(collect(profile)))
+    h0 = copy(Array(chain.h_vertices))
+    V0 = constant_markerchain_velocity(grid_vx, grid_vy, FT(0), FT(0))
+    for _ in 1:20
+        advect_markerchain!(chain, RungeKutta2(), V0, grid_vi, dt)
+    end
+    h = Array(chain.h_vertices)
+    tol = FT === Float32 ? 2.0f-4 : 1.0e-9
+    @test isapprox(h, h0; atol = tol, rtol = tol)
+    @test isapprox(chain_mean(h), chain_mean(h0); atol = tol, rtol = tol)
     assert_chain_invariants(chain)
 end
 
@@ -352,8 +416,34 @@ end
     chain = init_markerchain(backend, nxcell, min_xcell, max_xcell, xv, elevation)
     h0 = copy(Array(chain.h_vertices))
     semilagrangian_advection_markerchain!(chain, RungeKutta2(), Vup, grid_vi, grid, dt)
-    @test mean(Array(chain.h_vertices)) ≈ mean(h0)
+    @test chain_mean(Array(chain.h_vertices)) ≈ chain_mean(h0)
     assert_chain_invariants(chain)
+
+    slope = FT(0.1)
+    profile = @. FT(0.3) + slope * xv
+    chain = init_markerchain(backend, nxcell, min_xcell, max_xcell, xv, FT(0))
+    fill_chain_from_vertices!(chain, TA(backend)(collect(profile)))
+    vx = FT(0.05)
+    Vright = constant_markerchain_velocity(grid_vx, grid_vy, vx, FT(0))
+    JustPIC.semilagrangian_advection!(chain, RungeKutta2(), Vright, grid_vi, grid, dt)
+    expected = @. profile - slope * vx * dt
+    @test isapprox(
+        Array(chain.h_vertices)[2:(end - 1)], expected[2:(end - 1)];
+        atol = (FT === Float32 ? 1.0f-5 : 1.0e-12), rtol = chain_tol(chain)
+    )
+
+    steep = fill(FT(0.4), length(xv))
+    steep[2] += FT(0.2)
+    chain = init_markerchain(backend, nxcell, min_xcell, max_xcell, xv, FT(0))
+    fill_chain_from_vertices!(chain, TA(backend)(steep))
+    mean0 = chain_mean(steep)
+    semilagrangian_advection_markerchain!(
+        chain, RungeKutta2(), V0, grid_vi, grid, dt; max_slope_angle = 5
+    )
+    @test isapprox(
+        chain_mean(Array(chain.h_vertices)), mean0;
+        atol = (FT === Float32 ? 1.0f-5 : 1.0e-12), rtol = chain_tol(chain)
+    )
 
     # Float32 grid: the SL path must recast its grids/integrator and keep the topography
     # precision (guards against Float64 promotion, which breaks Metal)
@@ -395,7 +485,7 @@ end
     h = Array(chain.h_vertices)
     @test all(isfinite, h)
     @test all(h .≈ elevation)
-    @test mean(h) ≈ mean(h0)
+    @test chain_mean(h) ≈ chain_mean(h0)
     assert_chain_invariants(chain)
 end
 
@@ -455,6 +545,12 @@ end
         data = Array(field)
         @test all(0 .≤ data .≤ 1)
     end
+
+    topo = @. FT(0.25) + FT(0.3) * xv
+    copyto!(chain.h_vertices, TA(backend)(collect(topo)))
+    ratios = make_ratios()
+    compute_rock_fraction!(ratios, chain, xvi, dxi)
+    @test isapprox(Array(ratios.vertex)[2, 3], FT(0.8); atol = (FT === Float32 ? 1.0f-5 : 1.0e-12))
 end
 
 @testset "MarkerChain slope smoothing 2D" begin
@@ -508,4 +604,5 @@ end
     topo_x = [0.5, 1.5, 1.6, 2.5]
     cell_vertices = [0.0, 1.0, 2.0, 3.0]
     @test JustPIC.first_last_particle_incell(topo_x, cell_vertices, 2) == (2, 3)
+    @test JustPIC.first_last_particle_incell([0.1, 0.2], cell_vertices, 2) == (1, 0)
 end

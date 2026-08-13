@@ -3,6 +3,8 @@
 
 Create a 2D `MarkerChain` sampled along the horizontal grid `xv`.
 
+The vertices in `xv` must be finite, strictly increasing, and uniformly spaced.
+
 `nxcell` controls the initial number of markers per cell, while
 `initial_elevation` can be either a scalar or a vector specifying the initial
 surface height.
@@ -17,7 +19,11 @@ function init_markerchain(
     T = initial_elevation isa AbstractArray ? promote_type(eltype(xv), eltype(initial_elevation)) : promote_type(eltype(xv), typeof(initial_elevation))
     xv = recast_grid(xv, T)
     nx = length(xv) - 1
-    dx = xv[2] - xv[1]
+    0 < nxcell ≤ max_xcell || throw(ArgumentError("nxcell must satisfy 0 < nxcell ≤ max_xcell"))
+    0 < min_xcell ≤ max_xcell || throw(ArgumentError("min_xcell must satisfy 0 < min_xcell ≤ max_xcell"))
+    initial_elevation isa AbstractArray && length(initial_elevation) != nx + 1 &&
+        throw(DimensionMismatch("initial_elevation must have one value per grid vertex"))
+    dx = _uniform_grid_spacing(xv)
     dx_chain = dx / (nxcell + 1)
     initial_elevation = initial_elevation isa AbstractArray ? convert.(T, initial_elevation) : convert(T, initial_elevation)
     px, py = ntuple(_ -> cell_array(backend, convert(T, NaN), (max_xcell,), (nx,)), Val(2))
@@ -28,7 +34,10 @@ function init_markerchain(
         px, py, index, xv, initial_elevation, dx_chain, nxcell, max_xcell
     )
     coords = px, py
-    coords0 = px, py
+    px0, py0 = ntuple(_ -> cell_array(backend, convert(T, NaN), (max_xcell,), (nx,)), Val(2))
+    copyto!(px0.data, px.data)
+    copyto!(py0.data, py.data)
+    coords0 = px0, py0
     h_vertices = TA(backend)(initial_elevation isa AbstractArray ? initial_elevation : fill(initial_elevation, nx + 1))
     h_vertices0 = copy(h_vertices)
 
@@ -59,11 +68,13 @@ end
 
     # lower-left corner of the cell
     x0 = x[i]
-    initial_elevation0 = initial_elevation[i]
+    elevation_left = initial_elevation[i]
+    elevation_right = initial_elevation[i + 1]
     # fill index array
     for ip in 1:nxcell
+        fraction = convert(T, ip) / convert(T, nxcell + 1)
         CAI.@index px[ip, i] = x0 + dx_chain * ip
-        CAI.@index py[ip, i] = initial_elevation0
+        CAI.@index py[ip, i] = elevation_left + (elevation_right - elevation_left) * fraction
         CAI.@index index[ip, i] = true
     end
 end
@@ -125,32 +136,14 @@ function first_last_particle_incell(topo_x, cell_vertices, icell)
     xlims = cell_vertices[icell], cell_vertices[icell + 1]
 
     ifirst = 1
-    ilast = length(topo_x)
-    x1 = topo_x[1]
-    previous_incell = xlims[1] < x1 < xlims[2]
-
-    first_found = false
-    last_found = false
-
-    x = topo_x[2]
-    for i in 2:(ilast - 1)
-        incell = xlims[1] < x < xlims[2]
-
-        if !previous_incell && incell
-            ifirst = i
-            first_found = true
-        end
-
-        xnext = topo_x[i + 1]
-        next_incell = xlims[1] < xnext < xlims[2]
-        if incell && !next_incell
+    ilast = 0
+    for i in eachindex(topo_x)
+        if xlims[1] < topo_x[i] < xlims[2]
+            iszero(ilast) && (ifirst = i)
             ilast = i
-            last_found = true
+        elseif !iszero(ilast)
+            break
         end
-
-        first_found * last_found && break
-
-        x, previous_incell = xnext, incell
     end
 
     return ifirst, ilast
