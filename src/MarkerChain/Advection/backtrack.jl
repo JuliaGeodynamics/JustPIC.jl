@@ -1,5 +1,3 @@
-using Statistics
-
 """
     semilagrangian_advection_markerchain!(chain, method, V, grid_vxi, grid, dt; max_slope_angle = 45.0)
 
@@ -28,10 +26,12 @@ function semilagrangian_advection_markerchain!(
     smooth_slopes!(chain, deg2rad(max_slope_angle))
 
     # Mass conservation
-    chain.h_vertices .-= mean(chain.h_vertices) - mean(chain.h_vertices0)
+    chain.h_vertices .-= mean_height(chain.h_vertices) - mean_height(chain.h_vertices0)
 
     # Reconstruct particles from the updated vertices
     reconstruct_chain_from_vertices!(chain)
+    copyto!(chain.coords0[1].data, chain.coords[1].data)
+    copyto!(chain.coords0[2].data, chain.coords[2].data)
     # update old nodal topography
     copyto!(chain.h_vertices0, chain.h_vertices)
 
@@ -58,6 +58,7 @@ function semilagrangian_advection!(
         dt,
     ) where {N, T}
     (; h_vertices) = chain
+    h_old = copy(h_vertices)
 
     # recast integrator/timestep/grids to the topography precision so Float32 backends
     # (e.g. Metal) are not silently promoted; `recast_grid` also rebuilds the grid ranges
@@ -67,6 +68,7 @@ function semilagrangian_advection!(
     dt = convert(Tc, dt)
     grid_vxi = recast_grid(grid_vxi, Tc)
     grid = recast_grid(grid, Tc)
+    dx_chain = cell_length(chain)
 
     # compute some basic stuff
     ni = length(h_vertices)
@@ -76,7 +78,7 @@ function semilagrangian_advection!(
     # launch parallel advection kernel
     launch!(
         ka_backend(h_vertices), semilagrangian_advection_markerchain_kernel!, ni,
-        h_vertices, method, V, grid_vxi, grid, local_limits, dxi, dt
+        h_vertices, h_old, method, V, grid_vxi, grid, local_limits, dxi, dx_chain, dt
     )
     return nothing
 end
@@ -86,19 +88,30 @@ end
 # Semilagrangian backtracking kernel for staggered grids.
 @kernel function semilagrangian_advection_markerchain_kernel!(
         h_vertices,
+        h_old,
         method::AbstractAdvectionIntegrator,
         V::NTuple{N, T},
         grid_vxi,
         grid,
         local_limits,
         dxi,
+        dx_chain,
         dt,
     ) where {N, T}
     i = @index(Global)
 
-    hᵢ = h_vertices[i]
+    hᵢ = h_old[i]
     pᵢ = grid[1][i], hᵢ
     # backtrack particle position
-    _, hᵢ_new = advect_particle_markerchain(method, pᵢ, V, grid_vxi, local_limits, dxi, dt; backtracking = true)
-    h_vertices[i] -= (hᵢ_new - h_vertices[i])
+    x_departure, y_departure = advect_particle_markerchain(
+        method, pᵢ, V, grid_vxi, local_limits, dxi, dt; backtracking = true
+    )
+    h_departure = _interpolate_topography(x_departure, grid[1], h_old, dx_chain)
+    h_vertices[i] = h_departure + hᵢ - y_departure
+end
+
+@inline function _interpolate_topography(xq, xv, h, dx)
+    x = clamp(xq, xv[1], xv[end])
+    i = clamp(cell_index(x, xv, dx), 1, length(h) - 1)
+    return _interp1D(x, xv[i], xv[i + 1], h[i], h[i + 1])
 end

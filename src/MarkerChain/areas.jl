@@ -216,8 +216,8 @@ end
             origin = (ox, oy) .+ (masks_x[c], masks_y[c])
             ## now we need to interpolate the segment of the chain to the boundaries of the new cell
             # segment of the chain
-            p1 = GridGeometryUtils.Point(x[l], y[k])
-            p2 = GridGeometryUtils.Point(x[l + 1], y[k + 1])
+            p1 = GridGeometryUtils.Point(x[l], y[l])
+            p2 = GridGeometryUtils.Point(x[l + 1], y[l + 1])
             # create a line from the two points
             l = Line(p1, p2)
             # evaluate the line at the origin and origin + dx / 2
