@@ -34,12 +34,14 @@ particle2grid!(T, pT, particles)
 ```
 """
 function update_cell_halo!(
-        x::Vararg{CellArray{S, N, D, A}, NA}
-    ) where {NA, S, N, D, A <: AbstractArray}
+        x::Vararg{CellArray, NA}
+    ) where {NA}
     ni = size(x[1])
     backend = ka_backend(x[1])
-    tmp = KernelAbstractions.zeros(backend, eltype(x[1].data), ni...)
     for xᵢ in x
+        size(xᵢ) == ni || throw(DimensionMismatch("CellArrays must have the same grid size"))
+        ka_backend(xᵢ) == backend || throw(ArgumentError("CellArrays must use the same backend"))
+        tmp = KernelAbstractions.zeros(backend, eltype(xᵢ.data), ni...)
         for ip in cellaxes(xᵢ)
             launch!(backend, move_CellArray_to_Array_kernel!, ni, tmp, xᵢ, ip)
             update_halo!(tmp)

@@ -12,7 +12,11 @@ particle2centroid!(F, Fp, particles::Particles) = particle2centroid!(F, Fp, part
 function particle2centroid!(F, Fp, xci::NTuple, particles::Particles, di)
     (; coords) = particles
     ndrange = length.(inner_range(coords[1]))
-    launch!(ka_backend(particles), particle2centroid_kernel!, ndrange, F, Fp, xci, coords, di)
+    backend = ka_backend(particles)
+    Tc = eltype(eltype(coords[1]))
+    xci = backend_grid(backend, xci, Tc)
+    di = backend_grid(backend, di, Tc)
+    launch!(backend, particle2centroid_kernel!, ndrange, F, Fp, xci, coords, di)
     return nothing
 end
 

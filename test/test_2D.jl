@@ -165,6 +165,13 @@ end
     )
     @test ghost_empty
     @test count(index_cpu[2, 2]) ≥ min_xcell
+
+    fill!(particles.index.data, false)
+    foreach(coord -> fill!(coord.data, FT(NaN)), particles.coords)
+    @test_nowarn JustPIC.inject_particles!(particles, (pT,))
+    @test count(Array(particles.index.data)) == 0
+    JustPIC.inject_particles!(particles, ())
+    @test count(Array(particles.index.data)) > 0
 end
 
 @testset "Cell index 2D" begin
@@ -191,23 +198,80 @@ end
     i, j = JustPIC.cell_index((px, py), xv)
     @test x[i] ≤ px < x[i + 1]
     @test y[j] ≤ py < y[j + 1]
+    @test JustPIC.find_parent_cell_bisection(last(x), x, length(x)) == length(x) - 1
 end
 
 @testset "Periodic ghost nodes 2D" begin
-    xv_uniform = LinRange(0.0, 1.0, 5)
+    xv_uniform = LinRange(FT(0), FT(1), 5)
     xv_uniform_periodic = JustPIC.add_periodic_ghost_nodes(xv_uniform)
     @test xv_uniform_periodic isa LinRange
     @test Array(xv_uniform_periodic) ≈ [-0.25, 0.0, 0.25, 0.5, 0.75, 1.0, 1.25]
 
-    xv_refined = [0.0, 0.1, 0.3, 0.6, 1.0]
+    xv_refined = FT[0.0, 0.1, 0.3, 0.6, 1.0]
     xv_refined_periodic = JustPIC.add_periodic_ghost_nodes(xv_refined)
     @test xv_refined_periodic isa Vector
-    @test xv_refined_periodic == [-0.4, 0.0, 0.1, 0.3, 0.6, 1.0, 1.1]
+    @test xv_refined_periodic ≈ FT[-0.4, 0.0, 0.1, 0.3, 0.6, 1.0, 1.1]
 
-    @test JustPIC.wrap_index((true, false), (6, 7), (1, 3)) == (5, 3)
-    @test JustPIC.wrap_index((true, false), (6, 7), (6, 3)) == (1, 3)
-    @test JustPIC.wrap_index((false, true), (6, 7), (2, 1)) == (2, 6)
-    @test JustPIC.wrap_index((false, true), (6, 7), (2, 7)) == (2, 1)
+    @test collect(JustPIC.add_periodic_ghost_nodes(0:4)) == [-1, 0, 1, 2, 3, 4, 5]
+
+    xc = LinRange(FT(0.125), FT(0.875), 4)
+    grid_vx = xv_uniform, expand_range(xc)
+    grid_vy = expand_range(xc), xv_uniform
+    particles = init_particles(backend, 4, 8, 2, grid_vx, grid_vy)
+    field, = init_cell_arrays(particles, Val(1))
+
+    function reset_particle!(cell, position)
+        fill!(particles.index.data, false)
+        foreach(coord -> fill!(coord.data, FT(NaN)), particles.coords)
+        fill!(field.data, FT(NaN))
+        CAI.@index particles.index[1, cell...] = true
+        CAI.@index particles.coords[1][1, cell...] = position[1]
+        CAI.@index particles.coords[2][1, cell...] = position[2]
+        CAI.@index field[1, cell...] = FT(42)
+        return nothing
+    end
+
+    reset_particle!((5, 3), (FT(1.01), FT(0.375)))
+    move_particles!(particles, (field,); periodic_1 = true)
+    @test count(Array(particles.index.data)) == 1
+    @test CAI.@index(particles.index[1, 2, 3])
+    @test CAI.@index(particles.coords[1][1, 2, 3]) ≈ FT(0.01)
+    @test CAI.@index(field[1, 2, 3]) == FT(42)
+
+    reset_particle!((2, 3), (FT(-0.01), FT(0.375)))
+    move_particles!(particles, (field,); periodic_1 = true)
+    @test count(Array(particles.index.data)) == 1
+    @test CAI.@index(particles.index[1, 5, 3])
+    @test CAI.@index(particles.coords[1][1, 5, 3]) ≈ FT(0.99)
+    @test CAI.@index(field[1, 5, 3]) == FT(42)
+
+    reset_particle!((2, 3), (FT(-0.01), FT(0.375)))
+    move_particles!(particles, (field,))
+    @test count(Array(particles.index.data)) == 0
+
+    Vx = TA(backend)(fill(FT(1), length.(grid_vx)))
+    Vy = TA(backend)(fill(FT(0), length.(grid_vy)))
+    for method in (Euler(), RungeKutta2(), RungeKutta4())
+        reset_particle!((5, 3), (FT(0.99), FT(0.375)))
+        advection!(particles, method, (Vx, Vy), FT(0.02); periodic_1 = true)
+        move_particles!(particles, (field,); periodic_1 = true)
+        @test count(Array(particles.index.data)) == 1
+        @test CAI.@index(particles.index[1, 2, 3])
+        @test CAI.@index(particles.coords[1][1, 2, 3]) ≈ FT(0.01)
+        @test CAI.@index(field[1, 2, 3]) == FT(42)
+    end
+
+    for advection_fn in (advection_LinP!, advection_MQS!)
+        for method in (Euler(), RungeKutta2(), RungeKutta4())
+            reset_particle!((5, 3), (FT(0.99), FT(0.375)))
+            advection_fn(particles, method, (Vx, Vy), FT(0.02); periodic_1 = true)
+            move_particles!(particles, (field,); periodic_1 = true)
+            @test count(Array(particles.index.data)) == 1
+            @test CAI.@index(particles.index[1, 2, 3])
+            @test CAI.@index(particles.coords[1][1, 2, 3]) ≈ FT(0.01)
+            @test CAI.@index(field[1, 2, 3]) == FT(42)
+        end
+    end
 end
 
 @testset "Refined grid advection helpers 2D" begin
@@ -492,7 +556,7 @@ end
 
     launch!(ka_backend(particles), InitialFieldsParticles!, size(phases), phases, particles.coords..., particles.index)
 
-    phase_ratios = JustPIC.PhaseRatios(FT, backend, 2, size(particles.index))
+    phase_ratios = JustPIC.PhaseRatios(FT, backend, 2, inner_size(particles.index))
     update_phase_ratios!(phase_ratios, particles, phases)
 
     @test phase_ratio_sums_ok(phase_ratios.vertex)

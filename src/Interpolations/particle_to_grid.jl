@@ -14,6 +14,8 @@ of component arrays.
 - `particles`: the `Particles` container supplying particle coordinates and
   active-slot information. Its stored `xvi` coordinates define the target
   vertex grid.
+- `ghost_1`, `ghost_2`, `ghost_3`: whether `F` includes ghost nodes in each
+  coordinate direction. Disable a keyword for a physical-only direction.
 
 # Notes
 - This routine mutates `F` in place.

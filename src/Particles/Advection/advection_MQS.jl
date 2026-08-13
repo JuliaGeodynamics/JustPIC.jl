@@ -1,5 +1,5 @@
 """
-    advection_MQS!(particles, method, V, dt)
+    advection_MQS!(particles, method, V, dt; periodic_1=false, periodic_2=false, periodic_3=false)
 
 Advect particles using the monotonic quadratic spline (`MQS`) velocity
 interpolation scheme.
@@ -12,19 +12,29 @@ falls back to linear interpolation.
 
 The public entry point reads the staggered velocity coordinates and spacing from
 `particles.xi_vel` and `particles.di.velocity`.
+
+Periodic keywords have the same meaning as in `advection!` and must also be
+passed to the subsequent `move_particles!` call.
 """
 advection_MQS!(
     particles::Particles,
     method::AbstractAdvectionIntegrator,
     V,
     dt,
+    ;
+    periodic_1 = false,
+    periodic_2 = false,
+    periodic_3 = false,
 ) = advection_MQS!(
     particles,
     method,
     V,
     particles.xi_vel,
     dt,
-    particles.di.velocity
+    particles.di.velocity;
+    periodic_1 = periodic_1,
+    periodic_2 = periodic_2,
+    periodic_3 = periodic_3,
 )
 
 function advection_MQS!(
@@ -33,16 +43,21 @@ function advection_MQS!(
         V,
         grid_vi::NTuple{N, NTuple{N}},
         dt,
-        dxi
+        dxi;
+        periodic_1 = false,
+        periodic_2 = false,
+        periodic_3 = false,
     ) where {N}
     interpolation_fn = interp_velocity2particle_MQS
 
-    # dxi = compute_dx(first(grid_vi))
     (; coords, index) = particles
+    N == 2 && periodic_3 && throw(ArgumentError("periodic_3 is only valid for 3D particles"))
     # compute some basic stuff
     ni = inner_size(index)
     # compute local limits (i.e. domain or MPI rank limits)
     local_limits = inner_limits(grid_vi)
+    periodicity = periodic_1, periodic_2, periodic_3
+    domain_limits = physical_domain_limits(particles)
 
     # recast integrator/timestep to the particle precision (see advection!)
     Tc = eltype(eltype(coords[1]))
@@ -52,7 +67,8 @@ function advection_MQS!(
     # launch parallel advection kernel
     launch!(
         ka_backend(particles), advection_kernel_MQS!, ni,
-        coords, method, V, index, grid_vi, local_limits, dxi, dt, interpolation_fn
+        coords, method, V, index, grid_vi, local_limits, dxi, dt, interpolation_fn,
+        periodicity, domain_limits
     )
 
     return nothing
@@ -70,6 +86,8 @@ end
         dxi,
         dt,
         interpolation_fn::F,
+        periodicity,
+        domain_limits,
     ) where {N, F}
     I = @index(Global, NTuple)
     I_inner = I .+ 1
@@ -80,9 +98,10 @@ end
         doskip(index, ipart, I_inner...) && continue
         # extract particle coordinates
         pᵢ = get_particle_coords(p, ipart, I_inner...)
-        # # advect particle
+        # advect particle
         pᵢ_new = advect_particle(
-            method, pᵢ, V, grid, local_limits, dxi, dt, interpolation_fn, I_inner
+            method, pᵢ, V, grid, local_limits, dxi, dt, interpolation_fn, I_inner,
+            periodicity, domain_limits
         )
         # update particle coordinates
         for k in 1:N

@@ -49,5 +49,5 @@ Advection can then be applied with the usual JustPIC API:
 advection!(particles, RungeKutta2(), values(V), Δt)
 ```
 
-Because `backend == CPUBackend`, `TA(backend)` converts the velocity fields to
+Because `backend == JustPIC.CPU`, `TA(backend)` converts the velocity fields to
 plain CPU arrays before particle advection.

@@ -32,28 +32,35 @@ xv_periodic = add_periodic_ghost_nodes(xv)
 function add_periodic_ghost_nodes(x::AbstractVector)
     length(x) ≥ 2 || throw(ArgumentError("At least two grid nodes are required"))
 
-    x_array = Array(x)
-    dx_left = x_array[2] - x_array[1]
-    dx_right = x_array[end] - x_array[end - 1]
-    xI = x_array[1] - dx_right
-    xF = x_array[end] + dx_left
-
-    return vcat(xI, x_array, xF)
-end
-
-function add_periodic_ghost_nodes(x::AbstractRange)
-    length(x) ≥ 2 || throw(ArgumentError("At least two grid nodes are required"))
-
-    @inline f(x::LinRange, xI, xF) = LinRange(xI, xF, length(x) + 2)
-    @inline f(x::StepRangeLen, xI, xF) = range(xI, xF, length = length(x) + 2)
-    @inline f(x::StepRange, xI, xF) = xI:(x.step):xF
-
     dx_left = x[2] - x[1]
     dx_right = x[end] - x[end - 1]
     xI = x[1] - dx_right
     xF = x[end] + dx_left
 
-    return f(x, xI, xF)
+    return vcat(xI, x, xF)
+end
+
+function add_periodic_ghost_nodes(x::LinRange)
+    length(x) ≥ 2 || throw(ArgumentError("At least two grid nodes are required"))
+    dx = step(x)
+    return LinRange(first(x) - dx, last(x) + dx, length(x) + 2)
+end
+
+function add_periodic_ghost_nodes(x::AbstractRange)
+    length(x) ≥ 2 || throw(ArgumentError("At least two grid nodes are required"))
+    dx = step(x)
+    return range(first(x) - dx; step = dx, length = length(x) + 2)
+end
+
+@inline function wrap_coordinate(x, periodic, limits)
+    periodic || return x
+    xmin, xmax = limits
+    (xmin ≤ x < xmax) && return x
+    return xmin + mod(x - xmin, xmax - xmin)
+end
+
+@inline function wrap_position(x::NTuple{N}, periodicity, domain_limits) where {N}
+    return ntuple(i -> wrap_coordinate(x[i], periodicity[i], domain_limits[i]), Val(N))
 end
 
 """
@@ -155,7 +162,8 @@ starting from the initial guess `seed`.
 # Returns
 - An integer index `i` such that `x[i] ≤ px ≤ x[i + 1]`.
 """
-@inline find_parent_cell_bisection(px::Number, x::AbstractVector, seed) = find_parent_cell_bisection(px, x, 1, length(x), seed)
+@inline find_parent_cell_bisection(px::Number, x::AbstractVector, seed) =
+    find_parent_cell_bisection(px, x, 1, length(x) - 1, clamp(seed, 1, length(x) - 1))
 
 @generated function find_parent_cell_bisection(px::NTuple{N, Number}, x::NTuple{N, AbstractVector}, seed) where {N}
     return quote
@@ -169,12 +177,11 @@ end
         x[seed] ≤ px ≤ x[seed + 1] && return seed
 
         if x[seed] < px
-            lo = seed
-            seed = div(hi + seed, 2)
+            lo = seed + 1
         else
-            hi = seed
-            seed = div(lo + seed, 2)
+            hi = seed - 1
         end
+        lo > hi && return clamp(seed, 1, length(x) - 1)
+        seed = div(lo + hi, 2)
     end
-    return
 end

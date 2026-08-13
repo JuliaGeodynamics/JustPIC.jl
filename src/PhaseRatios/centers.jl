@@ -1,7 +1,7 @@
 ## Kernels to compute phase ratios at the centers
 
 function phase_ratios_center!(phase_ratios::JustPIC.PhaseRatios, particles, phases)
-    ni = inner_size(phase_ratios.center)
+    ni = size(phase_ratios.center)
 
     launch!(
         ka_backend(phase_ratios), phase_ratios_center_kernel!, ni,
@@ -26,6 +26,6 @@ end
     )
     # update phase ratios array
     for k in 1:numphases(ratio_centers)
-        CAI.@index ratio_centers[k, I_inner...] = w[k]
+        CAI.@index ratio_centers[k, I...] = w[k]
     end
 end

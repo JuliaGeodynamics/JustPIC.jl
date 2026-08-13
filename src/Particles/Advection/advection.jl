@@ -17,19 +17,33 @@ The public form reads the staggered velocity coordinate grids and spacing from
 - `grid_vi`: tuple of coordinate tuples matching the staggering of `V`
   (lower-level form only).
 - `dxi`: grid spacing associated with `grid_vi` (lower-level form only).
+- `periodic_1`, `periodic_2`, `periodic_3`: enable periodic wrapping at every
+  integration stage in the corresponding coordinate direction.
+
+# Notes
+- Use the same periodic keywords in the subsequent `move_particles!` call.
+- Stage-wise wrapping is required by `RungeKutta2` and `RungeKutta4`, whose
+  intermediate interpolation points may cross a periodic boundary.
 """
 advection!(
     particles::Particles,
     method::AbstractAdvectionIntegrator,
     V,
     dt,
+    ;
+    periodic_1 = false,
+    periodic_2 = false,
+    periodic_3 = false,
 ) = advection!(
     particles,
     method,
     V,
     particles.xi_vel,
     dt,
-    particles.di.velocity
+    particles.di.velocity;
+    periodic_1 = periodic_1,
+    periodic_2 = periodic_2,
+    periodic_3 = periodic_3,
 )
 
 function advection!(
@@ -38,13 +52,19 @@ function advection!(
         V,
         grid_vi::NTuple{N, NTuple{N, T}},
         dt,
-        dxi
+        dxi;
+        periodic_1 = false,
+        periodic_2 = false,
+        periodic_3 = false,
     ) where {N, T}
     (; coords, index) = particles
+    N == 2 && periodic_3 && throw(ArgumentError("periodic_3 is only valid for 3D particles"))
     # compute some basic stuff
     ni = inner_size(index)
     # compute local limits (i.e. domain or MPI rank limits)
     local_limits = inner_limits(grid_vi)
+    periodicity = periodic_1, periodic_2, periodic_3
+    domain_limits = physical_domain_limits(particles)
 
     # recast the integrator/timestep to the particle precision so Float32 backends
     # (e.g. Metal) don't carry a Float64 value into the kernel
@@ -55,7 +75,7 @@ function advection!(
     # launch parallel advection kernel
     launch!(
         ka_backend(particles), advection_kernel!, ni,
-        coords, method, V, index, grid_vi, local_limits, dxi, dt
+        coords, method, V, index, grid_vi, local_limits, dxi, dt, periodicity, domain_limits
     )
 
     return nothing
@@ -72,6 +92,8 @@ end
         local_limits,
         dxi,
         dt,
+        periodicity,
+        domain_limits,
     ) where {N, T}
     I = @index(Global, NTuple)
     I_inner = I .+ 1
@@ -82,8 +104,10 @@ end
         doskip(index, ipart, I_inner...) && continue
         # extract particle coordinates
         pᵢ = get_particle_coords(p, ipart, I_inner...)
-        # # advect particle
-        pᵢ_new = advect_particle(method, pᵢ, V, grid_vi, local_limits, dxi, dt, I_inner)
+        # advect particle
+        pᵢ_new = advect_particle(
+            method, pᵢ, V, grid_vi, local_limits, dxi, dt, I_inner, periodicity, domain_limits
+        )
         # update particle coordinates
         for k in 1:N
             CAI.@index p[k][ipart, I_inner...] = pᵢ_new[k]

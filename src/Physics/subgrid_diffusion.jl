@@ -94,14 +94,11 @@ function subgrid_diffusion_centroid!(
 
     launch!(ka_backend(pT), memcopy_cellarray_kernel!, ni, pT0, pT)
     centroid2particle!(pT, T_grid, particles)
-    centroid2particle!(pT, T_grid, particles)
 
     launch!(ka_backend(pT), subgrid_diffusion_kernel!, ni, pT, pT0, pΔT, dt₀, particles.index, d, dt)
     particle2centroid!(subgrid_arrays.ΔT_subgrid, pΔT, particles)
-    particle2centroid!(subgrid_arrays.ΔT_subgrid, pΔT, particles)
 
     launch!(ka_backend(subgrid_arrays.ΔT_subgrid), update_ΔT_subgrid_kernel!, ni, subgrid_arrays.ΔT_subgrid, ΔT_grid)
-    centroid2particle!(pΔT, subgrid_arrays.ΔT_subgrid, particles)
     centroid2particle!(pΔT, subgrid_arrays.ΔT_subgrid, particles)
 
     launch!(ka_backend(pT), update_particle_temperature_kernel!, ni, pT, pT0, pΔT)

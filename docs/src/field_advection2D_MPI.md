@@ -35,7 +35,12 @@ Lx = Ly = 1.0   # domain size
 
 Initialize the global grid:
 ```julia
-me, dims, = init_global_grid(n-1, n-1, 1; init_MPI=MPI.Initialized() ? false : true)
+me, dims, = init_global_grid(
+    n-1, n-1, 1;
+    periodx=1,
+    periody=1,
+    init_MPI=MPI.Initialized() ? false : true,
+)
 dxi = dx, dy = Lx /(nx_g()-1), Ly / (ny_g()-1)
 ```
 and the arrays local to each MPI rank
@@ -76,7 +81,10 @@ and the velocity and field we want to advect (on the staggered grid)
 ```julia
 Vx = TA(backend)([vx_stream(x, y) for x in grid_vx[1], y in grid_vx[2]]);
 Vy = TA(backend)([vy_stream(x, y) for x in grid_vy[1], y in grid_vy[2]]);
-T  = TA(backend)([y for x in xv, y in yv]); # defined at the cell vertices
+xvi_particles = Array.(particles.xvi)
+T = TA(backend)([
+    y for x in xvi_particles[1], y in xvi_particles[2]
+])
 V  = Vx, Vy;
 dt = min(
     dx / MPI.Allreduce(maximum(abs.(Vx)), MPI.MAX, MPI.COMM_WORLD),

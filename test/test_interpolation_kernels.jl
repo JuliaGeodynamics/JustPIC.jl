@@ -98,6 +98,12 @@ end
     active = Array(particles.index.data)
     @test Array(pT.data)[active] ≈ Array(particles.coords[2].data)[active]
 
+    pX, pY = JustPIC.init_cell_arrays(particles, Val(2))
+    X = TA(backend)([x for x in xvi_p[1], y in xvi_p[2]])
+    JustPIC.grid2particle!((pX, pY), (X, T), particles)
+    @test Array(pX.data)[active] ≈ Array(particles.coords[1].data)[active]
+    @test Array(pY.data)[active] ≈ Array(particles.coords[2].data)[active]
+
     # Grid to particle test
     JustPIC.grid2particle_flip!(pT, xvi_p, T, T0, particles)
 
@@ -177,6 +183,12 @@ end
 
     active = Array(particles.index.data)
     @test Array(pT.data)[active] ≈ Array(particles.coords[3].data)[active]
+
+    pX, pZ = JustPIC.init_cell_arrays(particles, Val(2))
+    X = TA(backend)([x for x in xvi_p[1], y in xvi_p[2], z in xvi_p[3]])
+    JustPIC.grid2particle!((pX, pZ), (X, T), particles)
+    @test Array(pX.data)[active] ≈ Array(particles.coords[1].data)[active]
+    @test Array(pZ.data)[active] ≈ Array(particles.coords[3].data)[active]
 
     # Grid to particle test
     JustPIC.grid2particle_flip!(pT, xvi_p, T, T0, particles)

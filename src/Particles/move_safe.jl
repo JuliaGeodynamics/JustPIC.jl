@@ -30,19 +30,13 @@ move_particles!(particles::AbstractParticles, args; periodic_1 = false, periodic
 function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args, dxi; periodic_1 = false, periodic_2 = false, periodic_3 = false) where {N}
 
     (; coords, index, max_xcell) = particles
+    N == 2 && periodic_3 && throw(ArgumentError("periodic_3 is only valid for 3D particles"))
     nxi = size(index)
-    domain_limits = extrema.(grid)
+    domain_limits = physical_domain_limits(particles)
     n_color = ntuple(i -> ceil(Int, nxi[i] / 3), Val(N))
     periodicity = periodic_1, periodic_2, periodic_3
-    isperiodic = any(periodicity)
-
-    # first of all, we need to empty ghost nodes to make sure that no particles are moved into them
-    # if !isperiodic
-    #     empty_ghost_nodes!(particles, args)
-    # end
-
     if any(periodicity)
-        wrap_fields!(particles, periodicity, args)
+        wrap_particles!(particles, periodicity, domain_limits)
     end
 
     # move particles
@@ -65,6 +59,10 @@ function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args, dx
     end
 
     return nothing
+end
+
+function physical_domain_limits(particles::Particles{B, N}) where {B, N}
+    return ntuple(i -> extrema(particles.xi_vel[i][i]), Val(N))
 end
 
 @kernel function move_particles_ps!(
@@ -430,74 +428,24 @@ end
 
 ######
 
-wrap_fields!(particles, periodicity, others::NTuple{N, Any}) where {N} = wrap_fields!(particles, periodicity, others...)
-
-function wrap_fields!(particles, periodicity, others...)
-
-    (; index, coords, xvi) = particles
+function wrap_particles!(particles, periodicity, domain_limits)
+    (; index, coords) = particles
     ni = size(index)
-
-    launch!(ka_backend(index), wrap_fields_kernel!, ni, index, coords, (others...,), xvi, periodicity)
-
+    launch!(ka_backend(index), wrap_particles_kernel!, ni, index, coords, periodicity, domain_limits)
     return nothing
 end
 
-@kernel function wrap_fields_kernel!(index, coords, others, xvi, periodicity)
+@kernel function wrap_particles_kernel!(index, coords, periodicity, domain_limits)
     I = @index(Global, NTuple)
-
-    if isghost(size(index), I)
-        I_wrapped = wrap_index(periodicity, size(index), I)
-
-        for ip in cellaxes(index)
-            CAI.@index index[ip, I...] = CAI.@index(index[ip, I_wrapped...])
-            wrap_coordinates!(periodicity, coords, xvi, ip, I_wrapped, I)
-            for other in others
-                CAI.@index other[ip, I...] = CAI.@index(other[ip, I_wrapped...])
+    for ip in cellaxes(index)
+        doskip(index, ip, I...) && continue
+        for dim in eachindex(coords)
+            if periodicity[dim]
+                px = CAI.@index coords[dim][ip, I...]
+                CAI.@index coords[dim][ip, I...] = wrap_coordinate(
+                    px, periodicity[dim], domain_limits[dim]
+                )
             end
         end
     end
-end
-
-@generated function wrap_coordinates!(periodicity, coords::NTuple{N}, xvi, ip, I_wrapped, I::NTuple{N}) where {N}
-    return quote
-        @inline
-        Base.@nexprs $N i -> begin
-            coordsᵢ = coords[i]
-            px = CAI.@index coordsᵢ[ip, I_wrapped...]
-            xmax = xvi[i][end - 1]
-            xmin = xvi[i][2]
-            if periodicity[i]
-                if px > (xmax + xmin) / 2
-                    Δx = xmax - px
-                    px_new = xmin - Δx
-                    CAI.@index coordsᵢ[ip, I...] = px_new
-                else
-                    Δx = px - xmin
-                    px_new = xmax + Δx
-                    CAI.@index coordsᵢ[ip, I...] = px_new
-                end
-            else
-                CAI.@index coordsᵢ[ip, I...] = px
-            end
-        end
-    end
-end
-
-@generated function wrap_index(periodicity, sz::NTuple{N, Int}, I::NTuple{N}) where {N}
-    return quote
-        @inline
-        Base.@ntuple $N i -> begin
-            if periodicity[i]
-                Iᵢ = wrap_index(I[i], sz[i])
-            else
-                I[i]
-            end
-        end
-    end
-end
-
-@inline function wrap_index(i::Integer, idx_max::Integer)
-    i == 1 && return idx_max - 1
-    i == idx_max && return 1
-    return i
 end

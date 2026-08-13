@@ -15,7 +15,11 @@ centroid2particle!(Fp, F, particles) = centroid2particle!(Fp, particles.xci, F, 
 function centroid2particle!(Fp, xci, F, particles, di)
     (; coords) = particles
     ni = inner_size(Fp)
-    launch!(ka_backend(particles), centroid2particle_classic!, ni, Fp, F, xci, di, coords)
+    backend = ka_backend(particles)
+    Tc = eltype(eltype(coords[1]))
+    xci = backend_grid(backend, xci, Tc)
+    di = backend_grid(backend, di, Tc)
+    launch!(backend, centroid2particle_classic!, ni, Fp, F, xci, di, coords)
     return nothing
 end
 

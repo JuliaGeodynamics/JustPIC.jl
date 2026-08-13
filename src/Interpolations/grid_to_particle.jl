@@ -16,6 +16,8 @@ Interpolate a nodal field `F` to particle values `Fp`.
 - `particles`: particle container that provides positions and active slots.
 - `xvi`: optional explicit vertex coordinates for lower-level/internal use.
 - `di`: optional precomputed grid spacing for lower-level/internal use.
+- `ghost_1`, `ghost_2`, `ghost_3`: whether `F` includes ghost nodes in each
+  coordinate direction. Disable a keyword for a physical-only direction.
 
 # Notes
 - `Fp` must be allocated with the same cell layout as `particles.coords`.
@@ -28,11 +30,15 @@ grid2particle!(Fp, F, particles; ghost_1 = true, ghost_2 = true, ghost_3 = true)
 function grid2particle!(Fp, xvi, F, particles, di; ghost_1 = true, ghost_2 = true, ghost_3 = true)
     (; coords, index) = particles
     ni = inner_size(index)
+    backend = ka_backend(particles)
+    Tc = eltype(eltype(coords[1]))
+    xvi = backend_grid(backend, xvi, Tc)
+    di = backend_grid(backend, di, Tc)
 
     # mask shift in case `F` has ghost nodes only in some dimensions, or non at all
     mask = inner_mask(particles, ghost_1, ghost_2, ghost_3)
 
-    launch!(ka_backend(particles), grid2particle_classic!, ni, Fp, F, xvi, index, di, coords, mask)
+    launch!(backend, grid2particle_classic!, ni, Fp, F, xvi, index, di, coords, mask)
 
     return nothing
 end
@@ -86,25 +92,24 @@ end
     end
 end
 
-@inline function _grid2particle_classic!(
-        Fp::NTuple{N1, T1}, p, xvi, di::NTuple{N2, T2}, F::NTuple{N1, T3}, index, idx
-    ) where {N1, T1, N2, T2, T3}
-    # iterate over all the particles within the cells of index `idx`
-    return @inbounds for ip in cellaxes(Fp[1])
-        # skip lines below if there is no particle in this piece of memory
-        doskip(index, ip, idx...) && continue
-
-        # cache particle coordinates
-        pᵢ = get_particle_coords(p, ip, idx...)
-
-        # skip lines below if there is no particle in this piece of memory
-        any(isnan, pᵢ) && continue
-
-        # Interpolate field F onto particle
-        ntuple(Val(N1)) do i
-            Base.@_inline_meta
-            CAI.@index Fp[i][ip, idx...] = _grid2particle(pᵢ, xvi, di, F[i], idx)
+@generated function _grid2particle_classic!(
+        Fp::NTuple{NF}, p, xvi, di, F::NTuple{NF}, index, idx, ::Val{NP}, mask
+    ) where {NF, NP}
+    return quote
+        Base.@_inline_meta
+        Fi = Base.@ntuple $NF field -> field_corners(F[field], idx .+ mask)
+        xi_corner = corner_coordinate(xvi, idx)
+        Base.@nexprs $NP ip -> begin
+            @inbounds if !doskip(index, ip, idx...)
+                pᵢ = get_particle_coords(p, ip, idx...)
+                Base.@nexprs $NF field -> begin
+                    CAI.@index Fp[field][ip, idx...] = _grid2particle(
+                        pᵢ, xi_corner, di, Fi[field]
+                    )
+                end
+            end
         end
+        return nothing
     end
 end
 
@@ -165,9 +170,6 @@ end
 
         # cache particle coordinates
         pᵢ = get_particle_coords(p, ip, idx...)
-
-        # # skip lines below if there is no particle in this piece of memory
-        # any(isnan, pᵢ) && continue
 
         Fᵢ = CAI.@index Fp[ip, idx...]
         F_pic, F0_pic = _grid2particle(pᵢ, xvi, di, (Fi, F0i), idx)

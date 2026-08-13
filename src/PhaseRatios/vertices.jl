@@ -2,7 +2,7 @@
 
 
 function phase_ratios_vertex!(phase_ratios::JustPIC.PhaseRatios, particles, phases)
-    ni = inner_size(phase_ratios.vertex)
+    ni = size(phase_ratios.vertex)
 
     launch!(
         ka_backend(phase_ratios), phase_ratios_vertex_kernel!, ni,
@@ -57,7 +57,7 @@ end
 
     w = w .* inv(sum(w))
     for ip in cellaxes(ratio_vertices)
-        CAI.@index ratio_vertices[ip, I_inner...] = w[ip]
+        CAI.@index ratio_vertices[ip, I...] = w[ip]
     end
 end
 
@@ -104,6 +104,6 @@ end
 
     w = w .* inv(sum(w))
     for ip in cellaxes(ratio_vertices)
-        CAI.@index ratio_vertices[ip, I_inner...] = w[ip]
+        CAI.@index ratio_vertices[ip, I...] = w[ip]
     end
 end

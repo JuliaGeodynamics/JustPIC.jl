@@ -74,11 +74,11 @@ function init_particles(
         return xci
     end
 
+    xci_cpu = center_coordinates(xi_vel_cpu)
+    xvi_cpu = ntuple(i -> xi_vel_cpu[i][i], Val(N))
     xi_vel = ntuple(i -> TA(backend).(xi_vel_cpu[i]), Val(N))
-    xci = center_coordinates(xi_vel)
-    xvi = ntuple(i -> xi_vel[i][i], Val(N))
-    # add ghost nodes to the center and vertex grids
-    xci, xvi = add_periodic_ghost_nodes.(xci), add_periodic_ghost_nodes.(xvi)
+    xci = TA(backend).(add_periodic_ghost_nodes.(xci_cpu))
+    xvi = TA(backend).(add_periodic_ghost_nodes.(xvi_cpu))
 
     di_vertex = diff.(xvi)
     di_center = diff.(xci)
@@ -140,7 +140,8 @@ function init_particles(
     xci = center_coordinates(xi_vel)
     xvi = ntuple(i -> xi_vel[i][i], Val(N))
     # add ghost nodes to the center and vertex grids
-    xci, xvi = add_periodic_ghost_nodes.(xci), add_periodic_ghost_nodes.(xvi)
+    xci = recast_grid(add_periodic_ghost_nodes.(xci), T)
+    xvi = recast_grid(add_periodic_ghost_nodes.(xvi), T)
 
     di_vertex = getindex.(xvi, 2) .- first.(xvi)
     di_center = getindex.(xci, 2) .- first.(xci)

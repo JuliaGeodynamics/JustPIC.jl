@@ -43,16 +43,17 @@ on the grid:
 
 ```julia
 for _ in 1:frame_stride
-    advection!(particles, RungeKutta2(), V, dt)
+    advection!(particles, RungeKutta2(), V, dt; periodic_1 = true)
     move_particles!(particles, particle_args; periodic_1 = true, periodic_2 = false)
     inject_particles!(particles, (pT,))
     particle2grid!(T, pT, particles)
 end
 ```
 
-The key detail is the call to `move_particles!` with `periodic_1 = true`. This
-wraps particles that leave the domain in the first coordinate direction back to
-the opposite side, while the second direction remains non-periodic.
+The key detail is enabling `periodic_1` for both `advection!` and
+`move_particles!`. This wraps particles that leave the domain in the first
+coordinate direction back to the opposite side, while the second direction
+remains non-periodic.
 
 The script also uses `GLMakie` to record a GIF of the evolving annulus, making
 it a convenient example for checking periodic transport and visualization

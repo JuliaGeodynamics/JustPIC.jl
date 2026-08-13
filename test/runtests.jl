@@ -67,6 +67,7 @@ function runtests()
             "test_3D.jl",
             "test_CellArrays.jl",
             "test_interpolation_kernels.jl",
+            "test_refined_grid.jl",
             "test_markerchain_2D.jl",
             "test_save_load.jl",
         )

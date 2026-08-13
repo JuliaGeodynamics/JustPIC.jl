@@ -1,5 +1,5 @@
 """
-    advection_LinP!(particles, method, V, grid_vi, dt)
+    advection_LinP!(particles, method, V, dt; periodic_1=false, periodic_2=false, periodic_3=false)
 
 Advect particles using the linear-plus-pressure (`LinP`) velocity interpolation
 scheme.
@@ -9,12 +9,19 @@ velocities with the `LinP` reconstruction near staggered pressure points.
 
 This method is useful when you want the interpolation behavior described in the
 velocity-interpolation documentation under `LinP`.
+
+Periodic keywords have the same meaning as in `advection!` and must also be
+passed to the subsequent `move_particles!` call.
 """
 advection_LinP!(
     particles::Particles,
     method::AbstractAdvectionIntegrator,
     V,
     dt,
+    ;
+    periodic_1 = false,
+    periodic_2 = false,
+    periodic_3 = false,
 ) = advection_LinP!(
     particles,
     method,
@@ -22,6 +29,10 @@ advection_LinP!(
     particles.xi_vel,
     dt,
     particles.di.velocity,
+    ;
+    periodic_1 = periodic_1,
+    periodic_2 = periodic_2,
+    periodic_3 = periodic_3,
 )
 
 function advection_LinP!(
@@ -30,15 +41,21 @@ function advection_LinP!(
         V,
         grid_vi::NTuple{N, NTuple{N}},
         dt,
-        dxi
+        dxi;
+        periodic_1 = false,
+        periodic_2 = false,
+        periodic_3 = false,
     ) where {N}
     interpolation_fn = interp_velocity2particle_LinP
 
     (; coords, index) = particles
+    N == 2 && periodic_3 && throw(ArgumentError("periodic_3 is only valid for 3D particles"))
     # compute some basic stuff
     ni = inner_size(index)
     # compute local limits (i.e. domain or MPI rank limits)
     local_limits = inner_limits(grid_vi)
+    periodicity = periodic_1, periodic_2, periodic_3
+    domain_limits = physical_domain_limits(particles)
 
     # recast integrator/timestep to the particle precision (see advection!)
     Tc = eltype(eltype(coords[1]))
@@ -48,7 +65,8 @@ function advection_LinP!(
     # launch parallel advection kernel
     launch!(
         ka_backend(particles), advection_kernel_LinP!, ni,
-        coords, method, V, index, grid_vi, local_limits, di, dt, interpolation_fn
+        coords, method, V, index, grid_vi, local_limits, dxi, dt, interpolation_fn,
+        periodicity, domain_limits
     )
 
     return nothing
@@ -66,6 +84,8 @@ end
         dxi,
         dt,
         interpolation_fn::F,
+        periodicity,
+        domain_limits,
     ) where {N, F}
     I = @index(Global, NTuple)
     I_inner = I .+ 1
@@ -78,7 +98,8 @@ end
         pᵢ = get_particle_coords(p, ipart, I_inner...)
         # advect particle
         pᵢ_new = advect_particle(
-            method, pᵢ, V, grid, local_limits, dxi, dt, interpolation_fn, I_inner
+            method, pᵢ, V, grid, local_limits, dxi, dt, interpolation_fn, I_inner,
+            periodicity, domain_limits
         )
         # update particle coordinates
         for k in 1:N

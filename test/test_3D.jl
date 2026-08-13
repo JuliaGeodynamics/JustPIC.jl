@@ -12,6 +12,7 @@ elseif BACKEND_NAME == "Metal"
 end
 
 using JustPIC, CellArrays, Test, LinearAlgebra
+import CellArraysIndexing as CAI
 import KernelAbstractions: CPU
 
 const backend = @static if BACKEND_NAME == "AMDGPU"
@@ -226,15 +227,63 @@ end
 end
 
 @testset "Periodic ghost nodes 3D" begin
-    zv_uniform = LinRange(-1.0, 1.0, 5)
+    zv_uniform = LinRange(FT(-1), FT(1), 5)
     zv_uniform_periodic = JustPIC.add_periodic_ghost_nodes(zv_uniform)
     @test zv_uniform_periodic isa LinRange
     @test Array(zv_uniform_periodic) ≈ [-1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5]
 
-    zv_refined = [-1.0, -0.7, -0.2, 0.4, 1.0]
+    zv_refined = FT[-1.0, -0.7, -0.2, 0.4, 1.0]
     zv_refined_periodic = JustPIC.add_periodic_ghost_nodes(zv_refined)
     @test zv_refined_periodic isa Vector
-    @test zv_refined_periodic == [-1.6, -1.0, -0.7, -0.2, 0.4, 1.0, 1.3]
+    @test zv_refined_periodic ≈ FT[-1.6, -1.0, -0.7, -0.2, 0.4, 1.0, 1.3]
+
+    xv = LinRange(FT(0), FT(1), 5)
+    xc = LinRange(FT(0.125), FT(0.875), 4)
+    grid_vx = xv, expand_range(xc), expand_range(xc)
+    grid_vy = expand_range(xc), xv, expand_range(xc)
+    grid_vz = expand_range(xc), expand_range(xc), xv
+    particles = init_particles(backend, 8, 12, 4, grid_vx, grid_vy, grid_vz)
+    field, = init_cell_arrays(particles, Val(1))
+
+    function reset_particle!(position)
+        fill!(particles.index.data, false)
+        foreach(coord -> fill!(coord.data, FT(NaN)), particles.coords)
+        fill!(field.data, FT(NaN))
+        CAI.@index particles.index[1, 5, 3, 5] = true
+        for i in 1:3
+            CAI.@index particles.coords[i][1, 5, 3, 5] = position[i]
+        end
+        CAI.@index field[1, 5, 3, 5] = FT(42)
+        return nothing
+    end
+
+    reset_particle!((FT(1.01), FT(0.375), FT(1.02)))
+    move_particles!(particles, (field,); periodic_1 = true, periodic_3 = true)
+    @test count(Array(particles.index.data)) == 1
+    @test CAI.@index(particles.index[1, 2, 3, 2])
+    @test CAI.@index(particles.coords[1][1, 2, 3, 2]) ≈ FT(0.01)
+    @test CAI.@index(particles.coords[3][1, 2, 3, 2]) ≈ FT(0.02)
+    @test CAI.@index(field[1, 2, 3, 2]) == FT(42)
+
+    Vx = TA(backend)(fill(FT(1), length.(grid_vx)))
+    Vy = TA(backend)(fill(FT(0), length.(grid_vy)))
+    Vz = TA(backend)(fill(FT(1), length.(grid_vz)))
+    V = Vx, Vy, Vz
+    for advection_fn in (advection!, advection_LinP!, advection_MQS!)
+        for method in (Euler(), RungeKutta2(), RungeKutta4())
+            reset_particle!((FT(0.99), FT(0.375), FT(0.99)))
+            advection_fn(
+                particles, method, V, FT(0.02);
+                periodic_1 = true, periodic_3 = true,
+            )
+            move_particles!(particles, (field,); periodic_1 = true, periodic_3 = true)
+            @test count(Array(particles.index.data)) == 1
+            @test CAI.@index(particles.index[1, 2, 3, 2])
+            @test CAI.@index(particles.coords[1][1, 2, 3, 2]) ≈ FT(0.01)
+            @test CAI.@index(particles.coords[3][1, 2, 3, 2]) ≈ FT(0.01)
+            @test CAI.@index(field[1, 2, 3, 2]) == FT(42)
+        end
+    end
 end
 
 @testset "Refined grid particle initialization 3D" begin
@@ -515,6 +564,6 @@ function test_advection_refined()
 end
 
 @testset "Miniapps" begin
-    # @test test_advection()
-    # @test test_advection_refined()
+    @test test_advection()
+    @test test_advection_refined()
 end

@@ -9,6 +9,7 @@ elseif BACKEND_NAME == "Metal"
 end
 
 using JLD2, JustPIC, Test
+import CellArraysIndexing as CAI
 import KernelAbstractions: CPU
 
 const backend = CPU
@@ -32,6 +33,42 @@ function expand_range(x::AbstractVector)
 end
 
 same_values(a, b) = size(a) == size(b) && all(isequal.(a, b))
+
+@testset "Periodic restart 2D" begin
+    xv = LinRange(0.0, 1.0, 5)
+    xc = LinRange(0.125, 0.875, 4)
+    grid_vx = xv, expand_range(xc)
+    grid_vy = expand_range(xc), xv
+    particles = init_particles(CPU, 4, 8, 2, grid_vx, grid_vy)
+    field, = init_cell_arrays(particles, Val(1))
+
+    fill!(particles.index.data, false)
+    foreach(coord -> fill!(coord.data, NaN), particles.coords)
+    fill!(field.data, NaN)
+    CAI.@index particles.index[1, 5, 3] = true
+    CAI.@index particles.coords[1][1, 5, 3] = 0.99
+    CAI.@index particles.coords[2][1, 5, 3] = 0.375
+    CAI.@index field[1, 5, 3] = 42.0
+
+    mktempdir() do checkpoint_dir
+        checkpointing_particles(checkpoint_dir, particles; particle_args = (field,))
+        data = load(joinpath(checkpoint_dir, "particles_checkpoint.jld2"))
+        restarted_particles = data["particles"]
+        restarted_args = data["particle_args"]
+
+        Vx = fill(1.0, length.(grid_vx))
+        Vy = fill(0.0, length.(grid_vy))
+        advection!(
+            restarted_particles, RungeKutta2(), (Vx, Vy), 0.02; periodic_1 = true
+        )
+        move_particles!(restarted_particles, restarted_args; periodic_1 = true)
+
+        @test count(restarted_particles.index.data) == 1
+        @test CAI.@index(restarted_particles.index[1, 2, 3])
+        @test CAI.@index(restarted_particles.coords[1][1, 2, 3]) ≈ 0.01
+        @test CAI.@index(restarted_args[1][1, 2, 3]) == 42.0
+    end
+end
 
 @testset "Save and load 2D" begin
     # Initialize particles -------------------------------

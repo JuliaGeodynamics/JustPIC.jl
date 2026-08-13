@@ -67,7 +67,41 @@ end
     end
 end
 
-function _inject_particles!(
+@inline function _inject_particles!(
+        ::Tuple{}, coords, index, grid, di_quadrant, min_xcell, idx_cell
+    )
+    xvi = corner_coordinate(grid, idx_cell)
+    xvi_quadrants = quadrant_corners(xvi, di_quadrant)
+    min_xQuadrant = cld(min_xcell, length(xvi_quadrants))
+
+    for vertex in xvi_quadrants
+        pcell = extract_particle_cell_coordinates(coords, idx_cell...)
+        particles_num = 0
+        for i in cellaxes(index)
+            (CAI.@index index[i, idx_cell...]) || continue
+            pcoords = extract_particle_coordinates(pcell, i)
+            isincell(pcoords, vertex, di_quadrant) || continue
+            particles_num += 1
+        end
+
+        particles_num ≥ min_xQuadrant && break
+
+        for i in cellaxes(index)
+            !(CAI.@index index[i, idx_cell...]) || continue
+
+            p_new = new_particle(vertex, di_quadrant)
+            particles_num += 1
+            fill_particle!(coords, p_new, i, idx_cell)
+            CAI.@index index[i, idx_cell...] = true
+
+            particles_num ≥ min_xQuadrant && break
+        end
+    end
+
+    return nothing
+end
+
+@inline function _inject_particles!(
         args::NTuple{N, T}, coords, index, grid, di_quadrant, min_xcell, idx_cell
     ) where {N, T}
 
@@ -104,21 +138,18 @@ function _inject_particles!(
         for i in cellaxes(index)
             !(CAI.@index index[i, idx_cell...]) || continue
 
-            particles_num += 1
-
             # add at cellcenter + small random perturbation
             p_new = new_particle(vertex, di_quadrant)
 
-            # # uncomment below for debugging
-            # new_cell = find_parent_cell_bisection(p_new, grid, idx_cell)
-            # @assert idx_cell == new_cell "Particle in parent cell $idx_cell injected in cell $new_cell"
+            particle_idx, min_idx = index_min_distance(coords, p_new, index, i, idx_cell...)
+            iszero(particle_idx) && continue
+            particles_num += 1
 
             # fill new particles information
             fill_particle!(coords, p_new, i, idx_cell)
             CAI.@index index[i, idx_cell...] = true
 
             # add phase to new particle
-            particle_idx, min_idx = index_min_distance(coords, p_new, index, i, idx_cell...)
             for j in 1:N
                 new_value = CAI.@index args[j][particle_idx, min_idx...]
                 CAI.@index args[j][i, idx_cell...] = new_value
@@ -288,12 +319,13 @@ function _inject_particles_phase!(
         for i in cellaxes(index)
             !(CAI.@index index[i, idx_cell...]) || continue
 
-            particles_num += 1
             # add at cellcenter + small random perturbation
             p_new = new_particle(vertex, di_quadrant)
 
             # add phase to new particle
             particle_idx, min_idx = index_min_distance(coords, p_new, index, i, idx_cell...)
+            iszero(particle_idx) && continue
+            particles_num += 1
             new_phase = CAI.@index particles_phases[particle_idx, min_idx...]
             CAI.@index particles_phases[i, idx_cell...] = new_phase
 
