@@ -8,7 +8,7 @@ This keeps the marker spacing reasonably regular, which improves interpolation
 quality and the stability of subsequent marker-chain operations.
 """
 function resample!(chain::MarkerChain)
-    (; coords, index, cell_vertices, min_xcell, max_xcell) = chain
+    (; coords, index, cell_vertices, h_vertices, min_xcell, max_xcell) = chain
     nx = length(index)
     dx_cells = cell_length(chain)
 
@@ -16,19 +16,25 @@ function resample!(chain::MarkerChain)
     sort_chain!(chain)
 
     # call kernel
-    launch!(ka_backend(index), resample_kernel!, nx, coords, cell_vertices, index, min_xcell, max_xcell, dx_cells)
+    launch!(
+        ka_backend(index), resample_kernel!, nx,
+        coords, cell_vertices, h_vertices, index, min_xcell, max_xcell, dx_cells
+    )
     return nothing
 end
 
 @kernel function resample_kernel!(
-        coords, cell_vertices, index, min_xcell, max_xcell, dx_cells
+        coords, cell_vertices, h_vertices, index, min_xcell, max_xcell, dx_cells
     )
     i = @index(Global)
-    resample_cell!(coords, cell_vertices, index, min_xcell, max_xcell, dx_cells, i)
+    resample_cell!(
+        coords, cell_vertices, h_vertices, index, min_xcell, max_xcell, dx_cells, i
+    )
 end
 
 function resample_cell!(
-        coords::NTuple{2, T}, cell_vertices, index, min_xcell, max_xcell, dx_cells, I
+        coords::NTuple{2, T}, cell_vertices, h_vertices, index,
+        min_xcell, max_xcell, dx_cells, I
     ) where {T}
 
     # cell particles coordinates
@@ -55,7 +61,12 @@ function resample_cell!(
             # x query point
             xq = cell_vertex + dx_chain * ip
             # interpolated y coordinated
-            yq = if 1 < I < length(index)
+            yq = if np < 2
+                _interp1D(
+                    xq, cell_vertices[I], cell_vertices[I + 1],
+                    h_vertices[I], h_vertices[I + 1]
+                )
+            elseif 1 < I < length(index)
                 # inner cells; this is true (ncells-2) consecutive times
                 interp1D_inner(xq, x_cell, y_cell, coords, I)
             else

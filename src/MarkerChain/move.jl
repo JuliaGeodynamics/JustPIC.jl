@@ -4,28 +4,64 @@
 Reassign markers to the correct columns of `chain` after their coordinates have
 been updated.
 
-Markers that crossed a column boundary are moved into the neighbouring column's
+Markers that crossed column boundaries are moved into their destination column's
 slots, keeping the coordinate arrays consistent with the per-column occupancy
-mask. The horizontal grid and spacing are taken from `chain.cell_vertices`.
+mask. A marker may cross any number of columns in one call. The horizontal grid
+and spacing are taken from `chain.cell_vertices`.
 """
 function move_particles!(chain::MarkerChain)
     (; coords, index, cell_vertices) = chain
-    dxi = compute_dx(cell_vertices)
+    dxi = cell_length(chain)
     nxi = size(index, 1)
     grid = cell_vertices
 
-    launch!(ka_backend(index), move_particles_launcher!, nxi, coords, grid, dxi, index)
+    cell_jumps = similar(chain.h_vertices, Int, nxi)
+    launch!(
+        ka_backend(index), maximum_cell_jump!, nxi,
+        cell_jumps, coords, grid, dxi, index, nxi
+    )
+    max_jump = maximum(cell_jumps)
+
+    # Sources of the same color are farther apart than the diameter of their
+    # possible destination intervals. They therefore cannot write to the same
+    # cell, even when markers cross multiple columns in one timestep.
+    ncolors = 2 * max_jump + 1
+    n_color_cells = cld(nxi, ncolors)
+    for offset in 1:min(ncolors, nxi)
+        launch!(
+            ka_backend(index), move_particles_launcher!, n_color_cells,
+            coords, grid, dxi, index, offset, nxi, ncolors
+        )
+    end
 
     return nothing
 end
 
-@kernel function move_particles_launcher!(coords, grid, dxi, index)
+@kernel function maximum_cell_jump!(cell_jumps, coords, grid, dxi, index, nxi)
     i = @index(Global)
-    _move_particles!(coords, grid, dxi, index, i)
+    corner_xi = corner_coordinate(grid, i)
+    max_jump = 0
+
+    for ip in cellaxes(index)
+        doskip(index, ip, i) && continue
+        pᵢ = cache_particle(coords, ip, i)
+        (!isfinite(pᵢ[1]) || !isfinite(pᵢ[2])) && continue
+        isincell(pᵢ[1], corner_xi, dxi) && continue
+
+        new_cell = cell_index(pᵢ[1], grid, dxi)
+        if 1 ≤ new_cell ≤ nxi
+            max_jump = max(max_jump, abs(new_cell - i))
+        end
+    end
+
+    cell_jumps[i] = max_jump
 end
 
-chop(I::NTuple{2, T}) where {T} = I[1]
-chop(I::NTuple{3, T}) where {T} = I[1], I[2]
+@kernel function move_particles_launcher!(coords, grid, dxi, index, offset, nxi, ncolors)
+    i0 = @index(Global)
+    i = ncolors * (i0 - 1) + offset
+    i ≤ nxi && _move_particles!(coords, grid, dxi, index, i)
+end
 
 function _move_particles!(coords, grid, dxi, index, idx)
     # coordinate of the lower-most-left coordinate of the parent cell
@@ -36,7 +72,7 @@ function _move_particles!(coords, grid, dxi, index, idx)
         doskip(index, ip, idx) && continue
         pᵢ = cache_particle(coords, ip, idx)
 
-        if any(isinf, pᵢ)
+        if !isfinite(pᵢ[1]) || !isfinite(pᵢ[2])
             ## SOMEHOW THE PARTICLE DID ESCAPE THE DOMAIN
             ## => REMOVE IT
             @inbounds CAI.@index index[ip, idx] = false
@@ -45,12 +81,12 @@ function _move_particles!(coords, grid, dxi, index, idx)
         else
             # check whether the particle is
             # within the same cell and skip it
-            isincell(chop(pᵢ), corner_xi, dxi) && continue
+            isincell(pᵢ[1], corner_xi, dxi) && continue
 
             # new cell index
-            new_cell = cell_index(chop(pᵢ), grid, dxi)
+            new_cell = cell_index(pᵢ[1], grid, dxi)
 
-            if !(any(<(1), new_cell) || any(new_cell .≥ length(grid)))
+            if 1 ≤ new_cell < length(grid)
                 ## THE PARTICLE DID NOT ESCAPE THE DOMAIN
                 # remove particle from child cell
                 nan = convert(eltype(eltype(coords[1])), NaN)
