@@ -6,7 +6,7 @@ We can instantiate a marker surface at a constant elevation `h` as:
 
 `surf = init_marker_surface(backend, xv, yv, h)`
 
-where `backend` is the device backend, `xv` and `yv` are 1D arrays/ranges of the horizontal grid vertices (lengths `nx+1` and `ny+1`), and `h` is either a scalar elevation or an `(nx+1)×(ny+1)` array of initial heights. Optional keyword arguments are `air_phase` (phase ID of the sticky-air layer, default `0`), `periodic_1` and `periodic_2` (enable periodic boundary conditions in the first / second horizontal direction, default `false`).
+where `backend` is the device backend, `xv` and `yv` are finite, strictly increasing 1D arrays/ranges of the horizontal grid vertices (lengths `nx+1` and `ny+1`), and `h` is either a scalar elevation or an `(nx+1)×(ny+1)` array of initial heights. Optional keyword arguments `periodic_1` and `periodic_2` enable periodic boundary conditions in the first / second horizontal direction.
 
 We can also overwrite the topography of an existing surface from a 2D array:
 
@@ -20,18 +20,10 @@ set_topo_from_array!(surf, z_init)
 The surface is then advected one time step with:
 
 ```julia
-advect_marker_surface!(surf, V, xvi, dt)
+advect_marker_surface!(surf, V, grid_vxi, dt)
 ```
 
-where `V = (Vx, Vy, Vz)` is a tuple of 3D velocity arrays on the staggered grid, `xvi = (xv, yv, zv)` is a tuple of 1D vertex coordinate arrays, and `dt` is the time step. The driver performs three steps internally: it trilinearly interpolates the 3D velocity field onto the surface nodes, advects the height field with a deformed-grid triangle scheme, and optionally smooths slopes exceeding `max_slope_angle` (default 45°).
-
-A cheaper first-order alternative is also available:
-
-```julia
-semilagrangian_advect_surface!(surf, V, xvi, dt)
-```
-
-which updates each vertex by `z += vz·dt` and applies a mass-conservation correction to preserve the mean height.
+where `V = (Vx, Vy, Vz)` is a tuple of 3D velocity arrays and `grid_vxi = (grid_vx, grid_vy, grid_vz)` gives one `(x, y, z)` coordinate tuple per staggered component. Each velocity-array size must equal the lengths of its own coordinate tuple. `dt` is the time step. The driver interpolates the staggered velocity field onto surface nodes, advects the height field with a deformed-grid triangle scheme, and optionally smooths slopes exceeding `max_slope_angle` (default 45°).
 
 For coupling with a Stokes solver, the volumetric fraction of each cell that lies below the free surface (the "rock fraction") at every staggered-grid position is computed by:
 
@@ -39,49 +31,34 @@ For coupling with a Stokes solver, the volumetric fraction of each cell that lie
 compute_rock_fraction!(ratios, surf, xvi, dxi)
 ```
 
-`ratios` is a named tuple of arrays sized at cell centres, vertices, faces, and edges. The function fills all locations by first computing the fraction at cell centres (via a 4-triangle prism intersection) and then averaging to the surrounding staggered positions.
+`ratios` is a named tuple of arrays sized at cell centres, vertices, faces, and edges. The function evaluates the geometric fraction of every corresponding control volume using the surface's 4-triangle representation.
 
-## Example
+## Examples
 
-```julia
-using JustPIC
-using GLMakie
+Run the complete CPU examples, which construct the component-specific staggered
+grids and regenerate the figures below:
 
-const backend = JustPIC.CPU
-
-# Initialize domain & grids
-n = 33
-Lx = Ly = Lz = 1.0
-xv = LinRange(0, Lx, n)
-yv = LinRange(0, Ly, n)
-zv = LinRange(0, Lz, n)
-xvi = (collect(xv), collect(yv), collect(zv))
-
-# Background flow (3D analytical solenoidal field)
-Vx = TA(backend)([ 0.10 * sin(π*x) * cos(π*z)             for x in xv, y in yv, z in zv])
-Vy = TA(backend)([ 0.0                                    for x in xv, y in yv, z in zv])
-Vz = TA(backend)([-0.10 * cos(π*x) * sin(π*z)             for x in xv, y in yv, z in zv])
-V  = Vx, Vy, Vz
-
-# Initialize the surface with a small bump
-z_init = [0.5 + 0.05 * exp(-50 * ((x-0.5)^2 + (y-0.5)^2))
-          for x in xv, y in yv]
-surf = init_marker_surface(backend, xv, yv, z_init)
-
-# Time stepping
-dt = 0.05
-for _ in 1:25
-    advect_marker_surface!(surf, V, xvi, dt; max_slope_angle = 45.0)
-end
-
-# Plot the deformed surface
-f = Figure()
-ax = Axis3(f[1, 1]; aspect = (1, 1, 0.5))
-surface!(ax, xv, yv, Array(surf.topo); colormap = :terrain)
-display(f)
+```sh
+julia --project=docs docs/examples/marker_surface.jl
 ```
-<img src="assets/initial_condition_surface.png" width="250"  />
-<img src="assets/uplifted_surface.png" width="250"  />
+
+The batch example uses CairoMakie and Makie's `:Greys` colormap. GLMakie 0.13
+remains available in the docs environment for interactive rendering.
+
+The nonperiodic figures use a 193×193, approximately 8 m sample centered on
+the Matterhorn summit (45.9763° N, 7.6586° E). It combines
+[swisstopo's 0.5 m swissALTI3D DEM](https://www.swisstopo.admin.ch/en/height-models)
+on the Swiss side with [ARPA Piemonte's transboundary terrain service](https://webgis.arpa.piemonte.it/agportal/home/item.html?id=955f9b1766ac4e2184a4b6979a5878de)
+on the Italian side, whose Valle d'Aosta input is a 2 m LiDAR DTM. Both sources
+are resampled to the example grid, preserving the distinct cross-border summit
+kink. The simulation rescales elevations to its unit-height domain, but the
+Matterhorn figures map them back to the original DEM elevation range and show
+local horizontal coordinates in meters. The periodic figures retain a synthetic
+surface: an isolated mountain is not a periodic terrain field.
+
+![Initial nonperiodic surface](assets/initial_condition_surface.png)
+
+![Advected nonperiodic surface](assets/uplifted_surface.png)
 
 
 ## Periodic boundary conditions
@@ -97,56 +74,18 @@ surf = init_marker_surface(backend, xv, yv, 0.5;
 Under periodic boundaries the ghost cells used by the advection stencil wrap to the opposite side instead of being linearly extrapolated, the slope-limiter's neighbour lookups use `mod1` indexing, and the redundant boundary nodes (`topo[1, :]` and `topo[end, :]`) are kept synchronised after every update. This follows the same convention used by `move_particles!(…; periodic_1, periodic_2, periodic_3)` in JustPIC's particle advection.
 
 
-## Example
+![Initial periodic surface](assets/initial_condition_surface_periodic.png)
 
-```julia
-using JustPIC
-using GLMakie
-
-const backend = JustPIC.CPU
-
-# Initialize domain & grids
-n = 33
-Lx = Ly = Lz = 1.0
-xv = LinRange(0, Lx, n)
-yv = LinRange(0, Ly, n)
-zv = LinRange(0, Lz, n)
-xvi = (collect(xv), collect(yv), collect(zv))
-
-# Background flow (3D analytical solenoidal field)
-Vx = TA(backend)([ 0.10 * sin(π*x) * cos(π*z)             for x in xv, y in yv, z in zv])
-Vy = TA(backend)([ 0.0                                    for x in xv, y in yv, z in zv])
-Vz = TA(backend)([-0.10 * cos(π*x) * sin(π*z)             for x in xv, y in yv, z in zv])
-V  = Vx, Vy, Vz
-
-# Initialize the surface with a small bump
-z_init = [0.5 + 0.05 * exp(-50 * ((x-0.1)^2 + (y-0.5)^2))
-          for x in xv, y in yv]
-surf = init_marker_surface(backend, xv, yv, z_init; periodic_1=true)
-
-# Time stepping
-dt = 0.05
-for _ in 1:25
-    advect_marker_surface!(surf, V, xvi, dt; max_slope_angle = 45.0)
-end
-
-# Plot the deformed surface
-f = Figure()
-ax = Axis3(f[1, 1]; aspect = (1, 1, 0.5))
-surface!(ax, xv, yv, Array(surf.topo); colormap = :terrain)
-display(f)
-```
-<img src="assets/initial_condition_surface_periodic.png" width="250"  />
-<img src="assets/uplifted_surface_periodic.png" width="250"  />
+![Advected periodic surface](assets/uplifted_surface_periodic.png)
 
 ## Multi-GPU / MPI (ImplicitGlobalGrid)
 
 The marker surface works with [ImplicitGlobalGrid.jl](https://github.com/eth-cscs/ImplicitGlobalGrid.jl)
 domain decomposition, including full 3D (x, y and z) decomposition. Build the
 surface from the **local** (rank) vertex coordinates; when a global grid is
-active, `advect_marker_surface!`, `semilagrangian_advect_surface!` and the
-smoothing routines automatically exchange the topography's x/y halo between
-neighbouring ranks (`ImplicitGlobalGrid.update_halo!`). When the grid is
+active, `advect_marker_surface!` and maximum-angle smoothing automatically
+exchange the topography's x/y halo between neighbouring ranks
+(`ImplicitGlobalGrid.update_halo!`). When the grid is
 decomposed in z, the surface velocity is additionally combined across each
 z-column so every node is interpolated from the rank whose slab contains the
 surface elevation — no user action required.
@@ -161,7 +100,7 @@ yv = [y_g(j, dy, Vy) for j in 1:(ny + 1)]
 surf = init_marker_surface(backend, xv, yv, initial_elevation)
 
 for _ in 1:nt
-    advect_marker_surface!(surf, V, xvi, dt)   # halo exchange included
+    advect_marker_surface!(surf, V, grid_vxi, dt)   # halo exchange included
 end
 ```
 
@@ -173,13 +112,12 @@ Notes:
   runs.
 - If you modify `surf.topo` manually, call `update_surface_halo!(surf)`
   afterwards to synchronize the ranks.
-- `compute_avg_topo` is **rank-local** under MPI (JustPIC performs no global
-  reductions); the `semilagrangian_advect_surface!` mass-conservation step
-  therefore preserves each rank's mean, not the global mean.
+- `compute_avg_topo` performs an owned-node global reduction, excluding
+  overlapping x/y nodes and duplicate z-column replicas.
 
 ## Limitations
 
-- Topography and surface velocities are stored in `Float64`.
+- Topography, surface velocities, and horizontal coordinates use the promoted floating-point type of `xv`, `yv`, and the initial elevation.
 - Under z-decomposition, `interpolate_velocity_to_surface_vertices!` performs a
   few small `Allreduce`s per call over each z-column, directly on the device
   velocity arrays (no host staging). On GPU this requires GPU-aware MPI —

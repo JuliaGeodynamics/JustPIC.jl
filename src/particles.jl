@@ -138,7 +138,7 @@ function MarkerChain(coords, index::CPUCellArray, cell_vertices, min_xcell, max_
 end
 
 """
-    MarkerSurface{Backend, I, T2, TV} <: AbstractParticles
+    MarkerSurface{Backend, T2, TV, TB, TW} <: AbstractParticles
 
 A 3D free surface tracker using a structured marker grid.
 The surface is represented as a 2D grid of topography values (z-heights) at corner nodes.
@@ -151,9 +151,12 @@ The surface is represented as a 2D grid of topography values (z-heights) at corn
 - `vz::T2`         — z-velocity interpolated to surface nodes
 - `xv::TV`         — x-coordinates of surface grid vertices
 - `yv::TV`         — y-coordinates of surface grid vertices
-- `air_phase::I`   — phase ID of the air/sticky-air layer
+- `advection_valid::TB` — persistent validity mask for topography advection
+- `smoothing_cell_topo::TW` — persistent cell-centered smoothing workspace
+- `smoothing_steep::TB` — persistent steep-cell mask
+- `z_ownership::TW` — persistent z-column ownership weights
 """
-struct MarkerSurface{Backend, I, T2, TV} <: AbstractParticles
+struct MarkerSurface{Backend, T2, TV, TB, TW} <: AbstractParticles
     topo::T2             # topography at grid vertices (nx+1) x (ny+1)
     topo0::T2            # previous-timestep topography
     vx::T2               # surface velocity x-component at vertices
@@ -161,34 +164,62 @@ struct MarkerSurface{Backend, I, T2, TV} <: AbstractParticles
     vz::T2               # surface velocity z-component at vertices
     xv::TV               # x vertex coordinates
     yv::TV               # y vertex coordinates
-    air_phase::I         # sticky-air phase ID
     periodic_1::Bool     # periodic BC in x direction
     periodic_2::Bool     # periodic BC in y direction
+    advection_valid::TB
+    smoothing_cell_topo::TW
+    smoothing_steep::TB
+    z_ownership::TW
 
     function MarkerSurface(
             ::Type{B},
-            topo::T2, topo0::T2,
-            vx::T2, vy::T2, vz::T2,
-            xv::TV, yv::TV,
-            air_phase::I,
-            periodic_1::Bool,
-            periodic_2::Bool,
-        ) where {B, I, T2, TV}
-        return new{B, I, T2, TV}(
+            topo, topo0,
+            vx, vy, vz,
+            xv, yv,
+            periodic_1, periodic_2,
+        ) where {B}
+        nx1, ny1 = size(topo)
+        advection_valid = similar(topo, Bool)
+        smoothing_cell_topo = similar(topo, nx1 - 1, ny1 - 1)
+        smoothing_steep = similar(topo, Bool, nx1 - 1, ny1 - 1)
+        z_ownership = similar(topo)
+        fill!(advection_valid, false)
+        fill!(smoothing_cell_topo, zero(eltype(topo)))
+        fill!(smoothing_steep, false)
+        fill!(z_ownership, zero(eltype(topo)))
+        return MarkerSurface(
+            B,
             topo, topo0, vx, vy, vz, xv, yv,
-            air_phase, periodic_1, periodic_2,
+            periodic_1, periodic_2,
+            advection_valid, smoothing_cell_topo, smoothing_steep, z_ownership,
+        )
+    end
+
+    function MarkerSurface(
+            ::Type{B},
+            topo, topo0,
+            vx, vy, vz,
+            xv, yv,
+            periodic_1, periodic_2,
+            advection_valid, smoothing_cell_topo, smoothing_steep, z_ownership,
+        ) where {B}
+        return new{
+            B, typeof(topo), typeof(xv), typeof(advection_valid),
+            typeof(smoothing_cell_topo),
+        }(
+            topo, topo0, vx, vy, vz, xv, yv,
+            periodic_1, periodic_2,
+            advection_valid, smoothing_cell_topo, smoothing_steep, z_ownership,
         )
     end
 end
 
-function MarkerSurface(
-        topo, topo0, vx, vy, vz, xv, yv, air_phase, periodic_1, periodic_2
-    )
+function MarkerSurface(topo, topo0, vx, vy, vz, xv, yv, periodic_1, periodic_2)
     return MarkerSurface(
         CPU,
         topo, topo0, vx, vy, vz,
         xv, yv,
-        air_phase, periodic_1, periodic_2,
+        periodic_1, periodic_2,
     )
 end
 

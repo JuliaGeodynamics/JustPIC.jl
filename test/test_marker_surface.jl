@@ -25,41 +25,113 @@ else
     CPU
 end
 
+const FT = if BACKEND_NAME == "Metal" || get(ENV, "JULIA_JUSTPIC_PRECISION", "") == "Float32"
+    Float32
+else
+    Float64
+end
+
 function make_grid(;
         nx = 8, ny = 8, nz = 8,
-        Lx = 1.0, Ly = 1.0, Lz = 1.0
+        Lx = FT(1), Ly = FT(1), Lz = FT(1)
     )
-    xv = LinRange(0.0, Lx, nx + 1)
-    yv = LinRange(0.0, Ly, ny + 1)
-    zv = LinRange(0.0, Lz, nz + 1)
+    xv = LinRange(zero(FT), Lx, nx + 1)
+    yv = LinRange(zero(FT), Ly, ny + 1)
+    zv = LinRange(zero(FT), Lz, nz + 1)
     return xv, yv, zv
 end
 
-using Statistics
+function extend_centers(xv)
+    xc = [(xv[i] + xv[i + 1]) / 2 for i in 1:(length(xv) - 1)]
+    return [2 * xc[1] - xc[2]; xc; 2 * xc[end] - xc[end - 1]]
+end
+
+function staggered_velocity_grid(xv, yv, zv)
+    return (
+        (collect(xv), extend_centers(yv), extend_centers(zv)),
+        (extend_centers(xv), collect(yv), extend_centers(zv)),
+        (extend_centers(xv), extend_centers(yv), collect(zv)),
+    )
+end
+
+device_grid(grid) = ntuple(d -> TA(backend).(grid[d]), Val(3))
+
+function sample_velocity(f, grid_vxi)
+    return ntuple(Val(3)) do d
+        x, y, z = Array.(grid_vxi[d])
+        TA(backend)([f(d, x_, y_, z_) for x_ in x, y_ in y, z_ in z])
+    end
+end
 
 @testset "MarkerSurface" begin
-    @testset "MarkerSurface — Initialization" begin
+    @test !isdefined(JustPIC, :semilagrangian_advect_surface!)
+    @test !isdefined(JustPIC, :smooth_surface_diffusive!)
+
+    @testset "MarkerSurface — Initialization 3D" begin
         xv, yv, zv = make_grid()
 
         @testset "Flat surface (scalar elevation)" begin
-            surf = init_marker_surface(backend, xv, yv, 0.5)
+            surf = init_marker_surface(backend, xv, yv, FT(0.5))
             @test size(surf.topo) == (length(xv), length(yv))
-            @test all(surf.topo .≈ 0.5)
-            @test all(surf.topo0 .≈ 0.5)
-            @test compute_avg_topo(surf) ≈ 0.5
-            @test surf.air_phase == 0
+            @test all(Array(surf.topo) .≈ FT(0.5))
+            @test all(Array(surf.topo0) .≈ FT(0.5))
+            @test compute_avg_topo(surf) ≈ FT(0.5)
         end
 
-        @testset "Flat surface with options" begin
-            surf = init_marker_surface(backend, xv, yv, 0.7; air_phase = 2)
-            @test surf.air_phase == 2
-            @test compute_avg_topo(surf) ≈ 0.7
+        @testset "Precision follows inputs" begin
+            for T in (Float32, Float64)
+                BACKEND_NAME == "Metal" && T === Float64 && continue
+                x = LinRange(zero(T), one(T), 5)
+                y = LinRange(zero(T), one(T), 4)
+                elevation = T(0.25)
+                surf = init_marker_surface(backend, x, y, elevation)
+                @test eltype(surf.topo) === T
+                @test eltype(surf.xv) === T
+                @test eltype(surf.yv) === T
+
+                z = TA(backend)([T(0.1) + x_ + y_ for x_ in x, y_ in y])
+                array_surf = init_marker_surface(backend, x, y, z)
+                @test eltype(array_surf.topo) === T
+                @test Array(array_surf.topo) ≈ Array(z)
+            end
+
+            x = LinRange(zero(FT), one(FT), 5)
+            y = LinRange(zero(FT), one(FT), 4)
+            surf = init_marker_surface(backend, x, y, FT(0.5))
+            @test eltype(surf.topo) === FT
+            @test size(surf.advection_valid) == size(surf.topo)
+            @test size(surf.smoothing_cell_topo) == size(surf.topo) .- 1
+            @test size(surf.smoothing_steep) == size(surf.topo) .- 1
+            @test size(surf.z_ownership) == size(surf.topo)
+
+            surf_copy = copy(surf)
+            @test surf_copy !== surf
+            @test Array(surf_copy.topo) == Array(surf.topo)
+            @test eltype(surf_copy.advection_valid) === Bool
+
+            cpu_surface = Array(surf)
+            @test eltype(cpu_surface.topo) === FT
+            @test eltype(cpu_surface.advection_valid) === Bool
+            @test eltype(cpu_surface.smoothing_steep) === Bool
+
+            if BACKEND_NAME != "Metal"
+                promoted = init_marker_surface(backend, Float32[0, 1], Float32[0, 1], 0.5)
+                @test eltype(promoted.topo) === Float64
+                @test eltype(promoted.xv) === Float64
+                @test eltype(promoted.yv) === Float64
+            end
+        end
+
+        @testset "Invalid initialization fails explicitly" begin
+            @test_throws ArgumentError init_marker_surface(backend, FT[0, 0], FT[0, 1], FT(0))
+            @test_throws ArgumentError init_marker_surface(backend, FT[0, 1], FT[0, FT(NaN)], FT(0))
+            @test_throws DimensionMismatch init_marker_surface(backend, xv, yv, zeros(FT, 2, 2))
         end
 
         @testset "Variable initial topography" begin
             nx1, ny1 = length(xv), length(yv)
             z_init = [
-                0.4 + 0.1 * sin(2π * xv[i]) * cos(2π * yv[j])
+                FT(0.4) + FT(0.1) * sin(FT(2π) * xv[i]) * cos(FT(2π) * yv[j])
                     for i in 1:nx1, j in 1:ny1
             ]
             surf = init_marker_surface(backend, xv, yv, z_init)
@@ -69,13 +141,13 @@ using Statistics
         end
 
         @testset "set_topo_from_array!" begin
-            surf = init_marker_surface(backend, xv, yv, 0.0)
+            surf = init_marker_surface(backend, xv, yv, zero(FT))
             AT = TA(backend)
-            z_new = AT(fill(0.3, length(xv), length(yv)))
+            z_new = AT(fill(FT(0.3), length(xv), length(yv)))
             set_topo_from_array!(surf, z_new)
-            @test all(Array(surf.topo) .≈ 0.3)
-            @test all(Array(surf.topo0) .≈ 0.3)
-            @test compute_avg_topo(surf) ≈ 0.3
+            @test all(Array(surf.topo) .≈ FT(0.3))
+            @test all(Array(surf.topo0) .≈ FT(0.3))
+            @test compute_avg_topo(surf) ≈ FT(0.3)
         end
     end
 
@@ -109,106 +181,241 @@ using Statistics
     end
 
     @testset "MarkerSurface - Advection" begin
+        @testset "MarkerSurface — Physical boundary ghosts clamp fields 3D" begin
+            field = reshape(FT.(1:9), 3, 3)
+            @test JustPIC._ghost_coord(FT[0, 1, 3], 0, 3) == FT(-1)
+            @test JustPIC._ghost_field(field, 0, 0, 3, 3, false, false) == field[1, 1]
+            @test JustPIC._ghost_field(field, 4, 4, 3, 3, false, false) == field[3, 3]
+            @test JustPIC._ghost_field(field, 0, 2, 3, 3, true, false) == field[2, 2]
+            @test JustPIC._ghost_field(field, 2, 4, 3, 3, false, true) == field[2, 2]
+
+            periodic_field = reshape(FT.(1:16), 4, 4)
+            @test JustPIC._ghost_field(periodic_field, 0, 2, 4, 4, true, false) == periodic_field[3, 2]
+            @test JustPIC._ghost_field(periodic_field, 5, 2, 4, 4, true, false) == periodic_field[2, 2]
+        end
+
         @testset "MarkerSurface — Advection (zero velocity)" begin
             xv, yv, zv = make_grid()
-            z0 = 0.5
+            z0 = FT(0.5)
 
             surf = init_marker_surface(backend, xv, yv, z0)
-            dt = 0.01
+            dt = FT(0.01)
 
             # Zero velocity field → topography should not change
             nx1, ny1 = length(xv), length(yv)
-            fill!(surf.vx, 0.0)
-            fill!(surf.vy, 0.0)
-            fill!(surf.vz, 0.0)
+            fill!(surf.vx, zero(FT))
+            fill!(surf.vy, zero(FT))
+            fill!(surf.vz, zero(FT))
 
             advect_surface_topo!(surf, dt)
-            @test all(abs.(surf.topo .- z0) .< 1.0e-12)
+            @test all(abs.(Array(surf.topo) .- z0) .≤ eps(FT) * 8)
         end
 
         @testset "MarkerSurface — Advection (uniform vertical velocity)" begin
             xv, yv, zv = make_grid()
-            z0 = 0.5
-            vz_val = 0.1
-            dt = 0.1
+            z0 = FT(0.5)
+            vz_val = FT(0.1)
+            dt = FT(0.1)
 
             surf = init_marker_surface(backend, xv, yv, z0)
 
             # Set uniform vertical velocity, zero horizontal
-            fill!(surf.vx, 0.0)
-            fill!(surf.vy, 0.0)
-            fill!(surf.vz, vz_val)
+            fill!(surf.vx, zero(FT))
+            fill!(surf.vy, zero(FT))
+            fill!(surf.vz, FT(vz_val))
 
             advect_surface_topo!(surf, dt)
 
             # Expected: z0 + vz*dt = 0.5 + 0.01 = 0.51
             expected = z0 + vz_val * dt
-            @test all(abs.(surf.topo .- expected) .< 1.0e-10)
+            @test all(abs.(Array(surf.topo) .- expected) .≤ eps(FT) * 8)
         end
 
-        @testset "MarkerSurface — Velocity interpolation" begin
-            xv, yv, zv = make_grid(; nx = 4, ny = 4, nz = 4)
-            nx1, ny1 = length(xv), length(yv)
+        @testset "MarkerSurface — Periodic seam" begin
+            xv, yv, _ = make_grid()
+            topo = [FT(0.5) + FT(0.05) * cos(FT(2π) * x) * cos(FT(2π) * y) for x in xv, y in yv]
+            topo[end, :] .= topo[1, :]
+            topo[:, end] .= topo[:, 1]
+            surf = init_marker_surface(backend, xv, yv, topo; periodic_1 = true, periodic_2 = true)
+            fill!(surf.vx, zero(FT))
+            fill!(surf.vy, zero(FT))
+            fill!(surf.vz, FT(0.1))
 
-            surf = init_marker_surface(backend, xv, yv, 0.5)
+            advect_surface_topo!(surf, FT(0.1))
+            result = Array(surf.topo)
+            @test result[end, :] ≈ result[1, :]
+            @test result[:, end] ≈ result[:, 1]
+            @test compute_avg_topo(surf) ≈ sum(result[1:(end - 1), 1:(end - 1)]) / (length(xv) - 1)^2
+        end
 
-            # Create constant velocity field Vz = 1.0 everywhere
-            nxg, nyg, nzg = length(xv), length(yv), length(zv)
-            AT = TA(backend)
-            Vx = AT(zeros(nxg, nyg, nzg))
-            Vy = AT(zeros(nxg, nyg, nzg))
-            Vz = AT(ones(nxg, nyg, nzg))
+        @testset "MarkerSurface — Periodic horizontal transport" begin
+            xv, yv, zv = make_grid(; nx = 32, ny = 8, nz = 8)
+            u, dt = FT(0.1), FT(0.02)
+            topo = [FT(0.5) + FT(0.05) * cos(FT(2π) * x) * cos(FT(2π) * y) for x in xv, y in yv]
+            topo[end, :] .= topo[1, :]
+            surf = init_marker_surface(backend, xv, yv, topo; periodic_1 = true)
+            grid_vxi = device_grid(staggered_velocity_grid(xv, yv, zv))
+            V = sample_velocity(grid_vxi) do d, x, y, z
+                d == 1 ? u : zero(FT)
+            end
 
-            V = (Vx, Vy, Vz)
-            xvi = (AT(collect(Float64, xv)), AT(collect(Float64, yv)), AT(collect(Float64, zv)))
+            advect_marker_surface!(surf, V, grid_vxi, dt; max_slope_angle = zero(FT))
 
-            interpolate_velocity_to_surface_vertices!(surf, V, xvi)
+            result = Array(surf.topo)
+            expected = [FT(0.5) + FT(0.05) * cos(FT(2π) * (x - u * dt)) * cos(FT(2π) * y) for x in xv, y in yv]
+            @test result[1, :] ≈ expected[1, :] atol = FT(2.0e-4)
+            @test result[end, :] ≈ expected[end, :] atol = FT(2.0e-4)
+        end
 
-            # With constant Vz=1, all surface vz should be 1
-            @test all(abs.(Array(surf.vz) .- 1.0) .< 1.0e-10)
-            @test all(abs.(Array(surf.vx)) .< 1.0e-10)
-            @test all(abs.(Array(surf.vy)) .< 1.0e-10)
+        @testset "MarkerSurface — Staggered affine interpolation 3D" begin
+            for (xv, yv, zv) in (
+                    make_grid(; nx = 4, ny = 5, nz = 4),
+                    (FT[0, 0.12, 0.38, 0.7, 1], FT[0, 0.25, 0.55, 1], FT[0, 0.18, 0.48, 0.76, 1]),
+                )
+                topo = [FT(0.2) + FT(0.1) * x + FT(0.05) * y for x in xv, y in yv]
+                surf = init_marker_surface(backend, xv, yv, topo)
+                grid_vxi = device_grid(staggered_velocity_grid(xv, yv, zv))
+                V = sample_velocity(grid_vxi) do d, x, y, z
+                    d == 1 && return FT(0.2) + FT(1.3) * x - FT(0.4) * y + FT(0.7) * z
+                    d == 2 && return -FT(0.1) + FT(0.2) * x + FT(0.9) * y - FT(0.3) * z
+                    return FT(0.4) - FT(0.5) * x + FT(0.6) * y + FT(1.1) * z
+                end
+
+                interpolate_velocity_to_surface_vertices!(surf, V, grid_vxi)
+                atol = FT === Float32 ? FT(3.0e-6) : FT(3.0e-13)
+                expected = ntuple(Val(3)) do d
+                    [
+                        d == 1 ? FT(0.2) + FT(1.3) * x - FT(0.4) * y + FT(0.7) * topo[i, j] :
+                            d == 2 ? -FT(0.1) + FT(0.2) * x + FT(0.9) * y - FT(0.3) * topo[i, j] :
+                            FT(0.4) - FT(0.5) * x + FT(0.6) * y + FT(1.1) * topo[i, j]
+                            for (i, x) in pairs(xv), (j, y) in pairs(yv)
+                    ]
+                end
+                @test Array(surf.vx) ≈ expected[1] atol = atol rtol = atol
+                @test Array(surf.vy) ≈ expected[2] atol = atol rtol = atol
+                @test Array(surf.vz) ≈ expected[3] atol = atol rtol = atol
+
+                # The collocated vertex grid has the wrong dimensions for every
+                # actual staggered component. Accepting it would recreate P0.
+                @test_throws ArgumentError interpolate_velocity_to_surface_vertices!(
+                    surf, V, (xv, yv, zv),
+                )
+            end
+
+            coords = range(FT(-1); step = FT(0.125), length = 17)
+            coords_vector = collect(coords)
+            boundary = coords[8]
+            for value in (
+                    coords[1] - step(coords), coords[1], prevfloat(boundary),
+                    boundary, nextfloat(boundary), coords[end], coords[end] + step(coords),
+                )
+                @test JustPIC._find_cell_1d(coords, value) ==
+                    JustPIC._find_cell_1d(coords_vector, value)
+            end
+
+            xv, yv, zv = make_grid(; nx = 5, ny = 4, nz = 6)
+            vector_grid = staggered_velocity_grid(xv, yv, zv)
+            range_grid = ntuple(Val(3)) do d
+                map(vector_grid[d]) do x
+                    range(first(x); step = x[2] - x[1], length = length(x))
+                end
+            end
+            topo = [FT(0.25) + FT(0.1) * x - FT(0.05) * y for x in xv, y in yv]
+            range_surf = init_marker_surface(backend, xv, yv, topo)
+            vector_surf = init_marker_surface(backend, xv, yv, topo)
+            V = sample_velocity(range_grid) do d, x, y, z
+                FT(d) + FT(0.2) * x - FT(0.3) * y + FT(0.4) * z
+            end
+            interpolate_velocity_to_surface_vertices!(range_surf, V, range_grid)
+            interpolate_velocity_to_surface_vertices!(vector_surf, V, device_grid(vector_grid))
+            atol = FT === Float32 ? FT(3.0e-6) : FT(3.0e-13)
+            @test Array(range_surf.vx) ≈ Array(vector_surf.vx) atol = atol rtol = atol
+            @test Array(range_surf.vy) ≈ Array(vector_surf.vy) atol = atol rtol = atol
+            @test Array(range_surf.vz) ≈ Array(vector_surf.vz) atol = atol rtol = atol
         end
 
         @testset "MarkerSurface — Full advection pipeline" begin
             xv, yv, zv = make_grid(; nx = 8, ny = 8, nz = 8)
-            z0 = 0.5
+            z0 = FT(0.5)
 
             surf = init_marker_surface(backend, xv, yv, z0)
 
-            # Create a velocity field: uniform upward Vz=0.1
-            nxg, nyg, nzg = length(xv), length(yv), length(zv)
-            AT = TA(backend)
-            Vx = AT(zeros(nxg, nyg, nzg))
-            Vy = AT(zeros(nxg, nyg, nzg))
-            Vz = AT(fill(0.1, nxg, nyg, nzg))
-            V = (Vx, Vy, Vz)
-            xvi = (AT(collect(Float64, xv)), AT(collect(Float64, yv)), AT(collect(Float64, zv)))
+            # Create a velocity field on the actual staggered layout.
+            grid_vxi = device_grid(staggered_velocity_grid(xv, yv, zv))
+            V = sample_velocity(grid_vxi) do d, x, y, z
+                d == 3 ? FT(0.1) : zero(FT)
+            end
 
             dt = 0.1
 
-            advect_marker_surface!(surf, V, xvi, dt)
+            advect_marker_surface!(surf, V, grid_vxi, dt)
 
             # Expected: z0 + 0.1 * 0.1 = 0.51
-            @test all(abs.(Array(surf.topo) .- 0.51) .< 1.0e-8)
-            @test abs(compute_avg_topo(surf) - 0.51) < 1.0e-8
+            @test all(abs.(Array(surf.topo) .- FT(0.51)) .≤ eps(FT) * 8)
+            @test abs(compute_avg_topo(surf) - FT(0.51)) ≤ eps(FT) * 8
+        end
+
+        @testset "MarkerSurface — Interior planar transport is physically consistent 3D" begin
+            xv = FT[0, 0.12, 0.38, 0.7, 1]
+            yv = FT[0, 0.3, 0.65, 1]
+            zv = FT[0, 0.2, 0.5, 0.8, 1]
+            a, bx, by = FT(0.3), FT(0.16), FT(-0.11)
+            ux, uy, uz, dt = FT(0.08), FT(-0.05), FT(0.04), FT(0.1)
+            h0 = [a + bx * x + by * y for x in xv, y in yv]
+            surf = init_marker_surface(backend, xv, yv, h0)
+            grid_vxi = device_grid(staggered_velocity_grid(xv, yv, zv))
+            V = sample_velocity(grid_vxi) do d, x, y, z
+                d == 1 ? ux : d == 2 ? uy : uz
+            end
+
+            advect_marker_surface!(surf, V, grid_vxi, dt; max_slope_angle = zero(FT))
+
+            # h_t + uₓ h_x + u_y h_y = u_z: away from physical boundaries, an
+            # Eulerian planar surface changes by (u_z - uₓ bₓ - u_y b_y)dt.
+            # Boundary nodes use the required clamped-field stencil.
+            expected = h0 .+ (uz - ux * bx - uy * by) * dt
+            atol = FT === Float32 ? FT(3.0e-6) : FT(3.0e-13)
+            @test Array(surf.topo)[2:(end - 1), 2:(end - 1)] ≈ expected[2:(end - 1), 2:(end - 1)] atol = atol rtol = atol
+        end
+
+        @testset "MarkerSurface — Invalid geometry fails fast 3D" begin
+            xv, yv, zv = make_grid(; nx = 4, ny = 4, nz = 4)
+            surf = init_marker_surface(backend, xv, yv, FT(0.5))
+            vx = [-FT(2) * x for x in xv, _ in yv]
+            copyto!(surf.vx, TA(backend)(vx))
+            fill!(surf.vy, zero(FT))
+            fill!(surf.vz, zero(FT))
+            before = Array(surf.topo)
+            @test_throws "outside its deformed-grid stencil" advect_surface_topo!(surf, one(FT))
+            @test Array(surf.topo) == before
+
+            outside = init_marker_surface(backend, xv, yv, FT(1.1))
+            grid_vxi = device_grid(staggered_velocity_grid(xv, yv, zv))
+            V = sample_velocity(grid_vxi) do d, x, y, z
+                zero(FT)
+            end
+            @test_throws "outside the vertical velocity grid" interpolate_velocity_to_surface_vertices!(outside, V, grid_vxi)
+
+            nonfinite = init_marker_surface(backend, xv, yv, FT(0.5))
+            set_topo_from_array!(nonfinite, TA(backend)(fill(FT(NaN), length(xv), length(yv))))
+            @test_throws "topography must be finite" advect_surface_topo!(nonfinite, one(FT))
         end
 
         @testset "MarkerSurface Extended — Advection convergence" begin
             # Test that uniform vertical uplift is exact regardless of resolution
             for nx in [4, 8, 16, 32]
                 xv, yv, zv = make_grid(; nx = nx, ny = nx, nz = nx)
-                z0 = 0.5
-                vz_val = 0.2
-                dt = 0.05
+                z0 = FT(0.5)
+                vz_val = FT(0.2)
+                dt = FT(0.05)
                 surf = init_marker_surface(backend, xv, yv, z0)
-                fill!(surf.vx, 0.0)
-                fill!(surf.vy, 0.0)
-                fill!(surf.vz, vz_val)
+                fill!(surf.vx, zero(FT))
+                fill!(surf.vy, zero(FT))
+                fill!(surf.vz, FT(vz_val))
                 advect_surface_topo!(surf, dt)
                 expected = z0 + vz_val * dt
-                err = maximum(abs.(surf.topo .- expected))
-                @test err < 1.0e-12
+                err = maximum(abs.(Array(surf.topo) .- expected))
+                @test err ≤ eps(FT) * 8
             end
         end
 
@@ -218,13 +425,13 @@ using Statistics
             xv, yv, zv = make_grid(; nx = 32, ny = 4, nz = 4)
             nx1, ny1 = length(xv), length(yv)
 
-            z_init = [0.5 + 0.1 * sin(2π * xv[i]) for i in 1:nx1, j in 1:ny1]
+            z_init = [FT(0.5) + FT(0.1) * sin(FT(2π) * xv[i]) for i in 1:nx1, j in 1:ny1]
             surf = init_marker_surface(backend, xv, yv, z_init)
 
             # Pure horizontal advection at small vx
-            fill!(surf.vx, 0.01)
-            fill!(surf.vy, 0.0)
-            fill!(surf.vz, 0.0)
+            fill!(surf.vx, FT(0.01))
+            fill!(surf.vy, zero(FT))
+            fill!(surf.vz, zero(FT))
 
             dt = 0.001  # Small dt for accuracy
             advect_surface_topo!(surf, dt)
@@ -235,46 +442,22 @@ using Statistics
             @test max_change < 0.01  # But not by much with small dt
         end
 
-        @testset "MarkerSurface Extended — Background strain rate" begin
-            xv, yv, zv = make_grid(; nx = 8, ny = 8, nz = 8)
-            z0 = 0.5
-
-            surf = init_marker_surface(backend, xv, yv, z0)
-            fill!(surf.vx, 0.0)
-            fill!(surf.vy, 0.0)
-            fill!(surf.vz, 0.0)
-
-            # With zero velocity but non-zero background strain, the advection
-            # should still produce a valid (flat) result since the target point
-            # is found in the deformed grid
-            dt = 0.1
-            advect_surface_topo!(surf, dt; Exx = 0.01, Eyy = 0.01)
-            advect_surface_topo!(surf, dt; Exx = 0.01, Eyy = 0.01)
-            advect_surface_topo!(surf, dt; Exx = 0.01, Eyy = 0.01)
-            # Flat topography with zero velocity → should remain flat
-            @test all(abs.(Array(surf.topo) .- z0) .< 1.0e-10)
-        end
-
-
         @testset "MarkerSurface Extended — Multiple timestep advection" begin
             xv, yv, zv = make_grid(; nx = 8, ny = 8, nz = 16)
-            z0 = 0.3
-            vz_val = 0.1
-            dt = 0.01
+            z0 = FT(0.3)
+            vz_val = FT(0.1)
+            dt = FT(0.01)
             nsteps = 10
 
             surf = init_marker_surface(backend, xv, yv, z0)
 
-            nxg, nyg, nzg = length(xv), length(yv), length(zv)
-            AT = TA(backend)
-            Vx = AT(zeros(nxg, nyg, nzg))
-            Vy = AT(zeros(nxg, nyg, nzg))
-            Vz = AT(fill(vz_val, nxg, nyg, nzg))
-            V = (Vx, Vy, Vz)
-            xvi = (AT(collect(Float64, xv)), AT(collect(Float64, yv)), AT(collect(Float64, zv)))
+            grid_vxi = device_grid(staggered_velocity_grid(xv, yv, zv))
+            V = sample_velocity(grid_vxi) do d, x, y, z
+                d == 3 ? FT(vz_val) : zero(FT)
+            end
 
             for _ in 1:nsteps
-                advect_marker_surface!(surf, V, xvi, dt)
+                advect_marker_surface!(surf, V, grid_vxi, dt)
             end
 
             expected = z0 + vz_val * dt * nsteps
@@ -287,19 +470,19 @@ using Statistics
             nx1, ny1 = length(xv), length(yv)
 
             # Tilted surface: z = 0.3 + 0.2*x + 0.1*y
-            z_init = [0.3 + 0.2 * xv[i] + 0.1 * yv[j] for i in 1:nx1, j in 1:ny1]
+            z_init = [FT(0.3) + FT(0.2) * xv[i] + FT(0.1) * yv[j] for i in 1:nx1, j in 1:ny1]
             surf = init_marker_surface(backend, xv, yv, z_init)
 
-            fill!(surf.vx, 0.0)
-            fill!(surf.vy, 0.0)
-            fill!(surf.vz, 0.0)
+            fill!(surf.vx, zero(FT))
+            fill!(surf.vy, zero(FT))
+            fill!(surf.vz, zero(FT))
 
             advect_surface_topo!(surf, 0.1)
 
             # Interior nodes should be exact (zero velocity → no change)
             topo_cpu = Array(surf.topo)
             interior_err = maximum(abs.(topo_cpu[2:(end - 1), 2:(end - 1)] .- z_init[2:(end - 1), 2:(end - 1)]))
-            @test interior_err < 1.0e-12
+            @test interior_err ≤ eps(FT) * 8
 
             # Boundary nodes may have small errors due to neighbor clamping
             # (same limitation as LaMEM's FreeSurfAdvectTopo)
@@ -314,7 +497,7 @@ using Statistics
         xv, yv, _ = make_grid(; nx = 4, ny = 4)
 
         @testset "No smoothing when max_angle=0" begin
-            surf = init_marker_surface(backend, xv, yv, 0.5)
+            surf = init_marker_surface(backend, xv, yv, FT(0.5))
             # Add a spike via CPU round-trip
             topo_cpu = Array(surf.topo)
             topo_cpu[3, 3] = 100.0
@@ -324,68 +507,35 @@ using Statistics
         end
 
         @testset "Smoothing removes steep spikes" begin
-            surf = init_marker_surface(backend, xv, yv, 0.5)
+            surf = init_marker_surface(backend, xv, yv, FT(0.5))
             # Add large spike at center
             topo_cpu = Array(surf.topo)
             topo_cpu[3, 3] = 100.0
             copyto!(surf.topo, topo_cpu)
             smooth_surface_max_angle!(surf, 10.0)  # 10 degrees
             # The spike should be smoothed (reduced significantly)
-            @test Array(surf.topo)[3, 3] < 100.0
+            topo_result = Array(surf.topo)
+            @test topo_result[3, 3] < 100.0
+            @test topo_result[1, 1] == FT(0.5)
+            @test all(topo_result[[1, 5], :] .== FT(0.5))
+            @test all(topo_result[:, [1, 5]] .== FT(0.5))
         end
 
-        @testset "Diffusive smoothing" begin
-            surf = init_marker_surface(backend, xv, yv, 0.5)
-            topo_cpu = Array(surf.topo)
-            topo_cpu[3, 3] = 10.0
-            copyto!(surf.topo, topo_cpu)
-            old_val = 10.0
-            smooth_surface_diffusive!(surf, 5)
-            # After diffusion, the spike should be reduced
-            topo_result = Array(surf.topo)
-            @test topo_result[3, 3] < old_val
-            # And neighbors should have increased
-            @test topo_result[3, 2] > 0.5
-        end
         @testset "MarkerSurface Extended — Smoothing preserves flat surfaces" begin
             xv, yv, _ = make_grid(; nx = 16, ny = 16)
 
             # Flat surface should not be modified by smoothing
-            surf = init_marker_surface(backend, xv, yv, 0.5)
+            surf = init_marker_surface(backend, xv, yv, FT(0.5))
             smooth_surface_max_angle!(surf, 5.0)  # 5 degrees
-            @test all(Array(surf.topo) .≈ 0.5)
+            @test all(Array(surf.topo) .≈ FT(0.5))
 
-            # Diffusive smoothing on flat surface: no change
-            smooth_surface_diffusive!(surf, 10)
-            @test all(Array(surf.topo) .≈ 0.5)
-        end
-
-        @testset "MarkerSurface Extended — Smoothing convergence" begin
-            xv, yv, _ = make_grid(; nx = 16, ny = 16)
-            nx1, ny1 = length(xv), length(yv)
-
-            # Surface with a sharp spike
-            z_init = fill(0.5, nx1, ny1)
-            z_init[9, 9] = 5.0  # Large spike
-
-            surf = init_marker_surface(backend, xv, yv, z_init)
-
-            # Repeated diffusive smoothing should converge toward the mean
-            for _ in 1:1000
-                smooth_surface_diffusive!(surf, 1)
-            end
-
-            # After many iterations, the spike should be mostly diffused
-            # All values should be close to each other (within the boundary constraints)
-            interior = Array(surf.topo)[2:(end - 1), 2:(end - 1)]
-            @test std(interior) < 0.1  # Much less than the original spike
         end
 
     end
 
     # ═════════════════════════════════════════════════════════
     # Lightweight mock for RockRatio (avoids JustRelax dependency)
-    struct MockRockRatio3D{T <: AbstractArray{Float64, 3}}
+    struct MockRockRatio3D{T <: AbstractArray}
         center::T
         vertex::T
         Vx::T
@@ -399,15 +549,34 @@ using Statistics
     function MockRockRatio3D(nx, ny, nz)
         AT = TA(backend)
         return MockRockRatio3D(
-            AT(zeros(nx, ny, nz)),
-            AT(zeros(nx + 1, ny + 1, nz + 1)),
-            AT(zeros(nx + 1, ny, nz)),
-            AT(zeros(nx, ny + 1, nz)),
-            AT(zeros(nx, ny, nz + 1)),
-            AT(zeros(nx + 1, ny + 1, nz)),
-            AT(zeros(nx, ny + 1, nz + 1)),
-            AT(zeros(nx + 1, ny, nz + 1)),
+            AT(zeros(FT, nx, ny, nz)),
+            AT(zeros(FT, nx + 1, ny + 1, nz + 1)),
+            AT(zeros(FT, nx + 1, ny, nz)),
+            AT(zeros(FT, nx, ny + 1, nz)),
+            AT(zeros(FT, nx, ny, nz + 1)),
+            AT(zeros(FT, nx + 1, ny + 1, nz)),
+            AT(zeros(FT, nx, ny + 1, nz + 1)),
+            AT(zeros(FT, nx + 1, ny, nz + 1)),
         )
+    end
+
+    function control_bounds(x, i, dual)
+        dual || return x[i], x[i + 1]
+        lo = i == 1 ? x[1] : (x[i - 1] + x[i]) / 2
+        hi = i == length(x) ? x[end] : (x[i] + x[i + 1]) / 2
+        return lo, hi
+    end
+
+    function plane_fraction(ratio, xv, yv, zv, px, py, pz, a, bx, by)
+        expected = similar(Array(ratio))
+        for k in axes(expected, 3), j in axes(expected, 2), i in axes(expected, 1)
+            xlo, xhi = control_bounds(xv, i, px)
+            ylo, yhi = control_bounds(yv, j, py)
+            zlo, zhi = control_bounds(zv, k, pz)
+            height = a + bx * (xlo + xhi) / 2 + by * (ylo + yhi) / 2
+            expected[i, j, k] = clamp((height - zlo) / (zhi - zlo), zero(FT), one(FT))
+        end
+        return expected
     end
 
     @testset "MarkerSurface — Rock fraction (compute_rock_fraction!)" begin
@@ -416,21 +585,21 @@ using Statistics
         di = (xv[2] - xv[1], yv[2] - yv[1], zv[2] - zv[1])
 
         @testset "Surface above domain → all rock" begin
-            surf = init_marker_surface(backend, xv, yv, 1.5)  # above ztop=1.0
+            surf = init_marker_surface(backend, xv, yv, FT(1.5))  # above ztop=1.0
             ϕ = MockRockRatio3D(nx, ny, nz_g)
             compute_rock_fraction!(ϕ, surf, (xv, yv, zv), di)
             @test all(Array(ϕ.center) .≈ 1.0)
         end
 
         @testset "Surface below domain → all air" begin
-            surf = init_marker_surface(backend, xv, yv, -0.5)  # below zbot=0.0
+            surf = init_marker_surface(backend, xv, yv, FT(-0.5))  # below zbot=0.0
             ϕ = MockRockRatio3D(nx, ny, nz_g)
             compute_rock_fraction!(ϕ, surf, (xv, yv, zv), di)
             @test all(Array(ϕ.center) .≈ 0.0)
         end
 
         @testset "Surface at mid-height → partial fill" begin
-            surf = init_marker_surface(backend, xv, yv, 0.5)
+            surf = init_marker_surface(backend, xv, yv, FT(0.5))
             ϕ = MockRockRatio3D(nx, ny, nz_g)
             compute_rock_fraction!(ϕ, surf, (xv, yv, zv), di)
             center_cpu = Array(ϕ.center)
@@ -446,7 +615,7 @@ using Statistics
         end
 
         @testset "Staggered nodes are consistent" begin
-            surf = init_marker_surface(backend, xv, yv, 0.5)
+            surf = init_marker_surface(backend, xv, yv, FT(0.5))
             ϕ = MockRockRatio3D(nx, ny, nz_g)
             compute_rock_fraction!(ϕ, surf, (xv, yv, zv), di)
             # All staggered values should be in [0, 1]
@@ -459,13 +628,67 @@ using Statistics
             @test all(0.0 .≤ Array(ϕ.xz) .≤ 1.0)
         end
 
+        @testset "Every placement uses its own control volume" begin
+            surf = init_marker_surface(backend, xv, yv, FT(0.4))
+            ϕ = MockRockRatio3D(nx, ny, nz_g)
+            compute_rock_fraction!(ϕ, surf, (xv, yv, zv), di)
+
+            cell_profile = FT[1, 0.6, 0, 0]
+            dual_profile = FT[1, 1, 0.1, 0, 0]
+            for ratio in (ϕ.center, ϕ.Vx, ϕ.Vy, ϕ.xy)
+                @test Array(ratio)[1, 1, :] ≈ cell_profile atol = eps(FT) * 16
+            end
+            for ratio in (ϕ.vertex, ϕ.Vz, ϕ.yz, ϕ.xz)
+                @test Array(ratio)[1, 1, :] ≈ dual_profile atol = eps(FT) * 16
+            end
+            @test Array(ϕ.Vz)[1, 1, 3] ≈ FT(0.1) atol = eps(FT) * 16
+        end
+
+        @testset "Inclined surface respects x/y placement symmetry" begin
+            xv, yv, zv = make_grid(; nx = 4, ny = 4, nz = 4)
+            z_init = [FT(0.2) + FT(0.2) * (x + y) for x in xv, y in yv]
+            surf = init_marker_surface(backend, xv, yv, z_init)
+            ϕ = MockRockRatio3D(4, 4, 4)
+            di = (xv[2] - xv[1], yv[2] - yv[1], zv[2] - zv[1])
+            compute_rock_fraction!(ϕ, surf, (xv, yv, zv), di)
+
+            @test Array(ϕ.Vx) ≈ permutedims(Array(ϕ.Vy), (2, 1, 3)) atol = eps(FT) * 32
+            @test Array(ϕ.xz) ≈ permutedims(Array(ϕ.yz), (2, 1, 3)) atol = eps(FT) * 32
+        end
+
+        @testset "Inclined surface is exact at every placement under refinement" begin
+            a, bx, by = FT(0.1), FT(0.1), FT(0.1)
+            for n in (4, 8)
+                xv = range(zero(FT), one(FT), n + 1)
+                yv = range(zero(FT), one(FT), n + 1)
+                zv = range(zero(FT), one(FT), 2)
+                surf = init_marker_surface(backend, xv, yv, [a + bx * x + by * y for x in xv, y in yv])
+                ϕ = MockRockRatio3D(n, n, 1)
+                di = (xv[2] - xv[1], yv[2] - yv[1], one(FT))
+                compute_rock_fraction!(ϕ, surf, (xv, yv, zv), di)
+
+                for (ratio, px, py, pz) in (
+                        (ϕ.center, false, false, false),
+                        (ϕ.vertex, true, true, true),
+                        (ϕ.Vx, true, false, false),
+                        (ϕ.Vy, false, true, false),
+                        (ϕ.Vz, false, false, true),
+                        (ϕ.xy, true, true, false),
+                        (ϕ.yz, false, true, true),
+                        (ϕ.xz, true, false, true),
+                    )
+                    @test Array(ratio) ≈ plane_fraction(ratio, xv, yv, zv, px, py, pz, a, bx, by) atol = eps(FT) * 32
+                end
+            end
+        end
+
         @testset "MarkerSurface Extended — Rock fraction consistency" begin
             xv, yv, zv = make_grid(; nx = 4, ny = 4, nz = 8)
             nx_g, ny_g, nz_g = 4, 4, length(zv) - 1
             di = (xv[2] - xv[1], yv[2] - yv[1], zv[2] - zv[1])
 
             # Flat surface at z=0.5 → cells below should be rock, above should be air
-            surf = init_marker_surface(backend, xv, yv, 0.5)
+            surf = init_marker_surface(backend, xv, yv, FT(0.5))
             ϕ = MockRockRatio3D(nx_g, ny_g, nz_g)
             compute_rock_fraction!(ϕ, surf, (xv, yv, zv), di)
 
@@ -522,8 +745,8 @@ end
     ol = 3
 
     @testset "Halo exchange (periodic self-copy)" begin
-        surf = init_marker_surface(backend, xv, yv, 0.0)
-        A = rand(nx1, ny1)  # seams deliberately inconsistent
+        surf = init_marker_surface(backend, xv, yv, zero(FT))
+        A = rand(FT, nx1, ny1)  # seams deliberately inconsistent
         set_topo_from_array!(surf, AT(A))
 
         update_surface_halo!(surf)
@@ -537,21 +760,17 @@ end
     end
 
     @testset "Advection drivers run under an active global grid" begin
-        surf = init_marker_surface(backend, xv, yv, 0.5)
+        surf = init_marker_surface(backend, xv, yv, FT(0.5))
         nxg, nyg, nzg = length(xv), length(yv), length(zv)
-        V = (
-            AT(zeros(nxg, nyg, nzg)),
-            AT(zeros(nxg, nyg, nzg)),
-            AT(fill(0.1, nxg, nyg, nzg)),
-        )
-        xvi = (AT(collect(Float64, xv)), AT(collect(Float64, yv)), AT(collect(Float64, zv)))
+        grid_vxi = device_grid(staggered_velocity_grid(xv, yv, zv))
+        V = sample_velocity(grid_vxi) do d, x, y, z
+            d == 3 ? FT(0.1) : zero(FT)
+        end
 
         dt = 0.1
-        advect_marker_surface!(surf, V, xvi, dt)
-        @test all(abs.(Array(surf.topo) .- 0.51) .< 1.0e-8)
+        advect_marker_surface!(surf, V, grid_vxi, dt)
+        @test all(abs.(Array(surf.topo) .- FT(0.51)) .≤ eps(FT) * 8)
 
-        semilagrangian_advect_surface!(surf, V, xvi, dt)
-        @test all(isfinite, Array(surf.topo))
     end
 
     finalize_global_grid(; finalize_MPI = false)

@@ -1,5 +1,5 @@
 """
-    interpolate_velocity_to_surface_vertices!(surf::MarkerSurface, V, xvi)
+    interpolate_velocity_to_surface_vertices!(surf::MarkerSurface, V, grid_vxi)
 
 Interpolate the 3D velocity field `V = (Vx, Vy, Vz)` onto the free surface
 nodes. Each surface node at position `(xv[i], yv[j], topo[i,j])` receives
@@ -8,12 +8,16 @@ trilinearly interpolated velocity values.
 # Arguments
 - `surf` : the `MarkerSurface`
 - `V`    : tuple `(Vx, Vy, Vz)` of 3D velocity arrays
-- `xvi`  : tuple `(xv, yv, zv)` of 1D vertex coordinate arrays
+- `grid_vxi` : tuple of component grids `(grid_vx, grid_vy, grid_vz)`, where
+  each component grid is its own `(x, y, z)` coordinate tuple
 """
 function interpolate_velocity_to_surface_vertices!(
         surf::MarkerSurface, V::NTuple{3, AbstractArray{T, 3}},
-        xvi::NTuple{3, Any},
+        grid_vxi::NTuple{3, Any},
     ) where {T}
+    _validate_surface_velocity_layout(V, grid_vxi)
+    Tc = eltype(surf.topo)
+    grid_vxi = recast_grid(grid_vxi, Tc)
     nx1 = length(surf.xv)
     ny1 = length(surf.yv)
 
@@ -24,21 +28,24 @@ function interpolate_velocity_to_surface_vertices!(
     sxv = surf.xv
     syv = surf.yv
     Vx, Vy, Vz = V
+    grid_vx, grid_vy, grid_vz = grid_vxi
 
     launch!(
         ka_backend(topo), _interpolate_velocity_kernel!, (nx1, ny1),
-        svx, svy, svz, topo, sxv, syv, Vx, Vy, Vz, xvi...
+        svx, svy, svz, topo, sxv, syv, Vx, Vy, Vz,
+        grid_vx..., grid_vy..., grid_vz...
     )
 
     # MPI: under z-decomposition each rank only interpolated velocities for
     # surface nodes within its own z-slab; combine them across the z-column.
-    reduce_surface_velocity_z!(surf, xvi[3])
+    reduce_surface_velocity_z!(surf, grid_vz[3])
 
     return nothing
 end
 
 @kernel function _interpolate_velocity_kernel!(
-        svx, svy, svz, topo, sxv, syv, Vx, Vy, Vz, xg, yg, zg
+        svx, svy, svz, topo, sxv, syv, Vx, Vy, Vz,
+        xgx, ygx, zgx, xgy, ygy, zgy, xgz, ygz, zgz,
     )
     i, j = @index(Global, NTuple)
     z_surf = topo[i, j]
@@ -46,9 +53,22 @@ end
     y_s = syv[j]
 
     # Interpolate each velocity component
-    svx[i, j] = _interp_vel_component(Vx, xg, yg, zg, x_s, y_s, z_surf)
-    svy[i, j] = _interp_vel_component(Vy, xg, yg, zg, x_s, y_s, z_surf)
-    svz[i, j] = _interp_vel_component(Vz, xg, yg, zg, x_s, y_s, z_surf)
+    svx[i, j] = _interp_vel_component(Vx, xgx, ygx, zgx, x_s, y_s, z_surf)
+    svy[i, j] = _interp_vel_component(Vy, xgy, ygy, zgy, x_s, y_s, z_surf)
+    svz[i, j] = _interp_vel_component(Vz, xgz, ygz, zgz, x_s, y_s, z_surf)
+end
+
+function _validate_surface_velocity_layout(V, grid_vxi)
+    for d in 1:3
+        grid = grid_vxi[d]
+        grid isa Tuple && length(grid) == 3 ||
+            throw(ArgumentError("grid_vxi[$d] must be an (x, y, z) coordinate tuple"))
+        all(length(coord) ≥ 2 for coord in grid) ||
+            throw(ArgumentError("each coordinate vector in grid_vxi[$d] must contain at least two entries"))
+        size(V[d]) == Tuple(length.(grid)) ||
+            throw(DimensionMismatch("size(V[$d]) = $(size(V[d])) does not match grid_vxi[$d] lengths $(Tuple(length.(grid)))"))
+    end
+    return nothing
 end
 
 """
@@ -81,6 +101,24 @@ using trilinear interpolation.
     return _trilinear(Vcomp, i, j, k, wx, wy, wz)
 end
 
+@inline function _interp_vel_component(
+        Vcomp::AbstractArray{T, 3},
+        xg::AbstractRange, yg::AbstractRange, zg::AbstractRange,
+        x, y, z,
+    ) where {T}
+    i, wx = _uniform_cell_weight(xg, x)
+    j, wy = _uniform_cell_weight(yg, y)
+    k, wz = _uniform_cell_weight(zg, z)
+    return _trilinear(Vcomp, i, j, k, wx, wy, wz)
+end
+
+@inline function _uniform_cell_weight(coords::AbstractRange{T}, val) where {T}
+    q = (convert(T, val) - convert(T, first(coords))) / convert(T, step(coords))
+    q = clamp(q, zero(T), convert(T, length(coords) - 1))
+    i = clamp(floor(Int, q) + 1, 1, length(coords) - 1)
+    return i, clamp(q - convert(T, i - 1), zero(T), one(T))
+end
+
 """
     _find_cell_1d(coords, val)
 
@@ -104,6 +142,21 @@ Returns 0 if `val < coords[1]`, or `length(coords)` if `val >= coords[end]`.
         end
     end
     return lo
+end
+
+@inline function _find_cell_1d(coords::AbstractRange{T}, val) where {T}
+    n = length(coords)
+    n < 2 && return 1
+    val = convert(T, val)
+    x0 = convert(T, first(coords))
+    dx = convert(T, step(coords))
+    val < x0 && return 0
+    val >= last(coords) && return n
+
+    i = clamp(floor(Int, (val - x0) / dx) + 1, 1, n - 1)
+    i = ifelse(val < coords[i], i - 1, i)
+    i = ifelse(val >= coords[i + 1], i + 1, i)
+    return i
 end
 
 """

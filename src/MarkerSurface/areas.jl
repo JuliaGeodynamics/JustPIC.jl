@@ -6,184 +6,107 @@ at all staggered-grid positions and store them in `ratios`.
 
 This is the 3D equivalent of `compute_rock_fraction!(ratios, chain::MarkerChain, xvi, dxi)`.
 The `ratios` struct must have fields `.center`, `.vertex`, `.Vx`, `.Vy`, `.Vz`,
-`.xy`, `.yz`, `.xz` (e.g. a `RockRatio` from JustRelax).
+`.xy`, `.yz`, and `.xz`.
 
 # Arguments
-- `ratios` : struct with staggered-grid arrays (e.g. `RockRatio`)
+- `ratios` : struct with center, vertex, face, and edge arrays
 - `surf`   : the `MarkerSurface`
 - `xvi`    : tuple `(xv, yv, zv)` of 1D vertex coordinate arrays
 - `dxi`    : tuple `(dx, dy, dz)` of grid spacings (kept for API consistency
              with the 2D version; the 3D kernel uses `xvi` directly)
 """
 function compute_rock_fraction!(ratios, surf::MarkerSurface, xvi, dxi)
-    # 1. Cell-center rock fractions (exact prism intersection, cf. cell_rock_area in 2D)
-    compute_volume_below_surface_centers!(ratios.center, surf, xvi)
-
-    be = ka_backend(ratios.center)
-
-    # 2. Vertex values — average of up to 8 neighbouring centers
-    launch!(be, _avg_center_to_vertex_3D!, size(ratios.vertex), ratios.vertex, ratios.center)
-
-    # 3. Velocity nodes — average of 2 neighbours along the staggered direction
-    launch!(be, _avg_center_to_face_x!, size(ratios.Vx), ratios.Vx, ratios.center)
-    launch!(be, _avg_center_to_face_y!, size(ratios.Vy), ratios.Vy, ratios.center)
-    launch!(be, _avg_center_to_face_z!, size(ratios.Vz), ratios.Vz, ratios.center)
-
-    # 4. Shear-stress nodes — average of 4 neighbours in the plane
-    launch!(be, _avg_center_to_edge_xy!, size(ratios.xy), ratios.xy, ratios.center)
-    launch!(be, _avg_center_to_edge_yz!, size(ratios.yz), ratios.yz, ratios.center)
-    launch!(be, _avg_center_to_edge_xz!, size(ratios.xz), ratios.xz, ratios.center)
+    compute_volume_below_surface!(ratios.center, surf, xvi, Val(false), Val(false), Val(false))
+    compute_volume_below_surface!(ratios.vertex, surf, xvi, Val(true), Val(true), Val(true))
+    compute_volume_below_surface!(ratios.Vx, surf, xvi, Val(true), Val(false), Val(false))
+    compute_volume_below_surface!(ratios.Vy, surf, xvi, Val(false), Val(true), Val(false))
+    compute_volume_below_surface!(ratios.Vz, surf, xvi, Val(false), Val(false), Val(true))
+    compute_volume_below_surface!(ratios.xy, surf, xvi, Val(true), Val(true), Val(false))
+    compute_volume_below_surface!(ratios.yz, surf, xvi, Val(false), Val(true), Val(true))
+    compute_volume_below_surface!(ratios.xz, surf, xvi, Val(true), Val(false), Val(true))
 
     return nothing
 end
 
-# Cell-center
-
-function compute_volume_below_surface_centers!(ratio_center, surf, xvi)
-    topo = surf.topo
-    xv, yv, zv = xvi
-    nx = length(xv) - 1
-    ny = length(yv) - 1
-    nz = length(zv) - 1
+function compute_volume_below_surface!(ratio, surf, xvi, px, py, pz)
+    xv, yv, zv = recast_grid(xvi, eltype(ratio))
     launch!(
-        ka_backend(ratio_center), _compute_volume_below_surface_center!, (nx, ny, nz),
-        ratio_center, topo, xv, yv, zv
+        ka_backend(ratio), _compute_volume_below_surface!, size(ratio),
+        ratio, surf.topo, xv, yv, zv, px, py, pz,
     )
     return nothing
 end
 
-@kernel function _compute_volume_below_surface_center!(
-        rock_fraction, topo, xv, yv, zv
+@kernel function _compute_volume_below_surface!(
+        rock_fraction, topo, xv, yv, zv, px, py, pz,
     )
     i, j, k = @index(Global, NTuple)
-    # Cell geometry via GridGeometryUtils.BBox{3}  (cf. Rectangle in 2D areas.jl)
-    ox = xv[i]
-    oy = yv[j]
-    oz = zv[k]
-    dx = xv[i + 1] - ox
-    dy = yv[j + 1] - oy
-    dz = zv[k + 1] - oz
-    cell = BBox((ox, oy, oz), dx, dy, dz)
-
-    # Topography at the 4 corners
-    cz1 = topo[i, j]  # front-left
-    cz2 = topo[i + 1, j]  # front-right
-    cz3 = topo[i, j + 1]  # back-left
-    cz4 = topo[i + 1, j + 1]  # back-right
-
-    rock_fraction[i, j, k] = cell_rock_volume(cz1, cz2, cz3, cz4, cell)
+    rock_fraction[i, j, k] = _control_volume_rock_fraction(
+        topo, xv, yv, zv, i, j, k, px, py, pz,
+    )
 end
 
-# Center - vertex
+@inline _control_bounds(xv, i, ::Val{false}) = (xv[i], xv[i + 1])
 
-@kernel function _avg_center_to_vertex_3D!(vertex, center)
-    i, j, k = @index(Global, NTuple)
-    nx, ny, nz = size(center)
-    s = zero(eltype(center))
-    ω = 0
-    for dk in 0:1, dj in 0:1, di in 0:1
-        ii = i - 1 + di
-        jj = j - 1 + dj
-        kk = k - 1 + dk
-        if 1 ≤ ii ≤ nx && 1 ≤ jj ≤ ny && 1 ≤ kk ≤ nz
-            s += center[ii, jj, kk]
-            ω += 1
-        end
-    end
-    vertex[i, j, k] = ω > 0 ? s / ω : zero(s)
+@inline function _control_bounds(xv, i, ::Val{true})
+    lo = i == 1 ? xv[1] : (xv[i - 1] + xv[i]) / 2
+    hi = i == length(xv) ? xv[end] : (xv[i] + xv[i + 1]) / 2
+    return lo, hi
 end
 
-@kernel function _avg_center_to_face_x!(Vx, center)
-    i, j, k = @index(Global, NTuple)
-    nx, ny, nz = size(center)
-    s = zero(eltype(center))
-    ω = 0
-    for di in 0:1
-        ii = i - 1 + di
-        if 1 ≤ ii ≤ nx
-            s += center[ii, j, k]
-            ω += 1
+@inline _surface_cell_range(i, n, ::Val{false}) = (i, i)
+@inline _surface_cell_range(i, n, ::Val{true}) = (max(i - 1, 1), min(i, n))
+
+@inline _surface_quadrant_range(a, i, ::Val{false}) = (1, 2)
+@inline _surface_quadrant_range(a, i, ::Val{true}) = a < i ? (2, 2) : (1, 1)
+
+@inline function _control_volume_rock_fraction(
+        topo, xv, yv, zv, i, j, k, px, py, pz,
+    )
+    xlo, xhi = _control_bounds(xv, i, px)
+    ylo, yhi = _control_bounds(yv, j, py)
+    zlo, zhi = _control_bounds(zv, k, pz)
+    vcell = (xhi - xlo) * (yhi - ylo) * (zhi - zlo)
+    nx, ny = length(xv) - 1, length(yv) - 1
+    amin, amax = _surface_cell_range(i, nx, px)
+    bmin, bmax = _surface_cell_range(j, ny, py)
+    ratio = zero(vcell)
+
+    for b in bmin:bmax, a in amin:amax
+        qxmin, qxmax = _surface_quadrant_range(a, i, px)
+        qymin, qymax = _surface_quadrant_range(b, j, py)
+        for qy in qymin:qymax, qx in qxmin:qxmax
+            ratio += _quadrant_rock_fraction(topo, xv, yv, a, b, qx, qy, vcell, zlo, zhi)
         end
     end
-    Vx[i, j, k] = ω > 0 ? s / ω : zero(s)
+
+    return clamp(ratio, zero(ratio), one(ratio))
 end
 
-@kernel function _avg_center_to_face_y!(Vy, center)
-    i, j, k = @index(Global, NTuple)
-    nx, ny, nz = size(center)
-    s = zero(eltype(center))
-    ω = 0
-    for dj in 0:1
-        jj = j - 1 + dj
-        if 1 ≤ jj ≤ ny
-            s += center[i, jj, k]
-            ω += 1
-        end
-    end
-    Vy[i, j, k] = ω > 0 ? s / ω : zero(s)
-end
+@inline function _quadrant_rock_fraction(topo, xv, yv, a, b, qx, qy, vcell, zlo, zhi)
+    x0, x1 = xv[a], xv[a + 1]
+    y0, y1 = yv[b], yv[b + 1]
+    xm, ym = (x0 + x1) / 2, (y0 + y1) / 2
+    z00 = topo[a, b]
+    z10 = topo[a + 1, b]
+    z01 = topo[a, b + 1]
+    z11 = topo[a + 1, b + 1]
+    zxm0, zxm1 = (z00 + z10) / 2, (z01 + z11) / 2
+    z0ym, z1ym = (z00 + z01) / 2, (z10 + z11) / 2
+    zc = (z00 + z10 + z01 + z11) / 4
 
-@kernel function _avg_center_to_face_z!(Vz, center)
-    i, j, k = @index(Global, NTuple)
-    nx, ny, nz = size(center)
-    s = zero(eltype(center))
-    ω = 0
-    for dk in 0:1
-        kk = k - 1 + dk
-        if 1 ≤ kk ≤ nz
-            s += center[i, j, kk]
-            ω += 1
-        end
+    if qx == 1 && qy == 1
+        return _triangle_rock_fraction(x0, y0, z00, xm, y0, zxm0, xm, ym, zc, vcell, zlo, zhi) +
+            _triangle_rock_fraction(x0, y0, z00, xm, ym, zc, x0, ym, z0ym, vcell, zlo, zhi)
+    elseif qx == 2 && qy == 1
+        return _triangle_rock_fraction(x1, y0, z10, x1, ym, z1ym, xm, ym, zc, vcell, zlo, zhi) +
+            _triangle_rock_fraction(x1, y0, z10, xm, ym, zc, xm, y0, zxm0, vcell, zlo, zhi)
+    elseif qx == 2 && qy == 2
+        return _triangle_rock_fraction(x1, y1, z11, xm, y1, zxm1, xm, ym, zc, vcell, zlo, zhi) +
+            _triangle_rock_fraction(x1, y1, z11, xm, ym, zc, x1, ym, z1ym, vcell, zlo, zhi)
     end
-    Vz[i, j, k] = ω > 0 ? s / ω : zero(s)
-end
-
-@kernel function _avg_center_to_edge_xy!(xy, center)
-    i, j, k = @index(Global, NTuple)
-    nx, ny, nz = size(center)
-    s = zero(eltype(center))
-    ω = 0
-    for dj in 0:1, di in 0:1
-        ii = i - 1 + di
-        jj = j - 1 + dj
-        if 1 ≤ ii ≤ nx && 1 ≤ jj ≤ ny && 1 ≤ k ≤ nz
-            s += center[ii, jj, k]
-            ω += 1
-        end
-    end
-    xy[i, j, k] = ω > 0 ? s / ω : zero(s)
-end
-
-@kernel function _avg_center_to_edge_yz!(yz, center)
-    i, j, k = @index(Global, NTuple)
-    nx, ny, nz = size(center)
-    s = zero(eltype(center))
-    ω = 0
-    for dk in 0:1, dj in 0:1
-        jj = j - 1 + dj
-        kk = k - 1 + dk
-        if 1 ≤ i ≤ nx && 1 ≤ jj ≤ ny && 1 ≤ kk ≤ nz
-            s += center[i, jj, kk]
-            ω += 1
-        end
-    end
-    yz[i, j, k] = ω > 0 ? s / ω : zero(s)
-end
-
-@kernel function _avg_center_to_edge_xz!(xz, center)
-    i, j, k = @index(Global, NTuple)
-    nx, ny, nz = size(center)
-    s = zero(eltype(center))
-    ω = 0
-    for dk in 0:1, di in 0:1
-        ii = i - 1 + di
-        kk = k - 1 + dk
-        if 1 ≤ ii ≤ nx && 1 ≤ j ≤ ny && 1 ≤ kk ≤ nz
-            s += center[ii, j, kk]
-            ω += 1
-        end
-    end
-    xz[i, j, k] = ω > 0 ? s / ω : zero(s)
+    return _triangle_rock_fraction(x0, y1, z01, x0, ym, z0ym, xm, ym, zc, vcell, zlo, zhi) +
+        _triangle_rock_fraction(x0, y1, z01, xm, ym, zc, xm, y1, zxm1, vcell, zlo, zhi)
 end
 
 """
@@ -286,6 +209,13 @@ Rock fraction contributed by this triangle (in [0, 0.25] for a 4-triangle cell).
     xb, yb, zb = cx[ib], cy[ib], cz[ib]
     xc, yc, zc = cx[ic], cy[ic], cz[ic]
 
+    return _triangle_rock_fraction(xa, ya, za, xb, yb, zb, xc, yc, zc, vcell, bot, top)
+end
+
+@inline function _triangle_rock_fraction(
+        xa, ya, za, xb, yb, zb, xc, yc, zc, vcell, bot, top,
+    )
+
     # z-range of the surface
     zmin = min(za, zb, zc)
     zmax = max(za, zb, zc)
@@ -293,17 +223,20 @@ Rock fraction contributed by this triangle (in [0, 0.25] for a 4-triangle cell).
     # Empty cell: surface entirely below cell bottom
     zmax ≤ bot && return zero(vcell)
 
-    # Full cell: surface entirely above cell top
-    zmin ≥ top && return one(vcell) / 4  # quarter because 4 triangles per cell
+    # Full prism: normalize this triangle's horizontal area by the control volume.
+    zmin ≥ top && return abs((xa - xc) * (yb - yc) - (xb - xc) * (ya - yc)) *
+        (top - bot) / (2 * vcell)
 
     # Volume above bottom plane
-    vbot = _prism_volume_above_level(xa, ya, za, xb, yb, zb, xc, yc, zc, bot)
+    tol = (top - bot) * convert(typeof(za), 1.0e-6)
+    vbot = _prism_volume_above_level(xa, ya, za, xb, yb, zb, xc, yc, zc, bot, tol)
 
     # Volume above top plane
-    vtop = zero(vcell)
-    if zmax > top
-        vtop = _prism_volume_above_level(xa, ya, za, xb, yb, zb, xc, yc, zc, top)
-    end
+    vtop = ifelse(
+        zmax > top,
+        _prism_volume_above_level(xa, ya, za, xb, yb, zb, xc, yc, zc, top, tol),
+        zero(vcell),
+    )
 
     # Volume inside cell = volume above bottom - volume above top
     return (vbot - vtop) / (2 * vcell)
@@ -315,12 +248,12 @@ end
 Compute double the volume of the triangular prism above a horizontal `level` plane.
 """
 @inline function _prism_volume_above_level(
-        xa, ya, za, xb, yb, zb, xc, yc, zc, level
+        xa, ya, za, xb, yb, zb, xc, yc, zc, level, tol,
     )
     # Intersect edges with level
-    xab, yab, zab = _intersect_edge(xa, ya, za, xb, yb, zb, level)
-    xbc, ybc, zbc = _intersect_edge(xb, yb, zb, xc, yc, zc, level)
-    xca, yca, zca = _intersect_edge(xc, yc, zc, xa, ya, za, level)
+    xab, yab, zab = _intersect_edge(xa, ya, za, xb, yb, zb, level, tol)
+    xbc, ybc, zbc = _intersect_edge(xb, yb, zb, xc, yc, zc, level, tol)
+    xca, yca, zca = _intersect_edge(xc, yc, zc, xa, ya, za, level, tol)
 
     vol = _get_volume_prism(xa, ya, za, xab, yab, zab, xca, yca, zca, level)
     vol += _get_volume_prism(xb, yb, zb, xbc, ybc, zbc, xab, yab, zab, level)
@@ -336,13 +269,12 @@ end
 Find the intersection point of edge (p1→p2) with the horizontal plane `z=level`.
 Clamps the intersection to lie within the edge's z-range.
 """
-@inline function _intersect_edge(x1, y1, z1, x2, y2, z2, level)
+@inline function _intersect_edge(x1, y1, z1, x2, y2, z2, level, tol)
     zp = level
     zp = max(zp, min(z1, z2))
     zp = min(zp, max(z1, z2))
 
     dz = z2 - z1
-    tol = convert(typeof(dz), 1.0e-30)
     if abs(dz) < tol
         w = zero(dz)
     else

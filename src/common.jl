@@ -108,13 +108,13 @@ include("MarkerSurface/interp_velocity.jl")
 export interpolate_velocity_to_surface_vertices!
 
 include("MarkerSurface/smoothing.jl")
-export smooth_surface_max_angle!, smooth_surface_diffusive!
+export smooth_surface_max_angle!
 
 include("MarkerSurface/Advection/advect_topo.jl")
 export advect_surface_topo!
 
 include("MarkerSurface/Advection/advection.jl")
-export advect_marker_surface!, semilagrangian_advect_surface!
+export advect_marker_surface!
 
 include("MarkerSurface/areas.jl")
 export compute_rock_fraction!

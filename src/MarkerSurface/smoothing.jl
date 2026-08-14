@@ -24,17 +24,22 @@ function smooth_surface_max_angle!(surf::MarkerSurface, max_slope_angle::Real)
     nx = nx1 - 1  # number of cells in x
     ny = ny1 - 1  # number of cells in y
 
+    T = eltype(topo)
+    max_slope_angle = convert(T, max_slope_angle)
     tan_max = tan(deg2rad(max_slope_angle))
 
     # Step 1: cell-average heights + mask of cells exceeding max slope.
     # A separate Bool mask (not a sign-encoded height) so topographies ≤ 0 work.
-    cell_topo = similar(topo, nx, ny)
-    steep = similar(topo, Bool, nx, ny)
+    cell_topo = surf.smoothing_cell_topo
+    steep = surf.smoothing_steep
 
     launch!(
         ka_backend(topo), _smooth_step1_kernel!, (nx, ny),
         cell_topo, steep, topo, xv, yv, tan_max
     )
+
+    _update_surface_halo!(cell_topo)
+    _update_surface_halo!(steep)
 
     # Step 2: smooth nodal topography (no-op per node when no neighbours are marked)
     launch!(
@@ -87,47 +92,5 @@ end
     if steep[i1, j1] || steep[i1, j2] || steep[i2, j1] || steep[i2, j2]
         topo[iv, jv] =
             (cell_topo[i1, j1] + cell_topo[i1, j2] + cell_topo[i2, j1] + cell_topo[i2, j2]) / 4
-    end
-end
-
-"""
-    smooth_surface_diffusive!(surf::MarkerSurface, niter::Int=1; weight=0.25)
-
-Apply diffusive smoothing to the topography. Each iteration replaces each interior
-node with a weighted average of its neighbors.
-
-# Arguments
-- `surf`   : the `MarkerSurface`
-- `niter`  : number of smoothing iterations (default `1`)
-- `weight` : diffusion weight ∈ (0, 1) (default `0.25`)
-"""
-function smooth_surface_diffusive!(surf::MarkerSurface, niter::Int = 1; weight::Float64 = 0.25)
-    topo = surf.topo
-    nx1, ny1 = size(topo)
-    buf = similar(topo)
-
-    for _ in 1:niter
-        copyto!(buf, topo)
-        launch!(
-            ka_backend(topo), _smooth_diffusive_kernel!, (nx1, ny1),
-            topo, buf, weight, nx1, ny1
-        )
-        # MPI: boundary nodes are interior on the neighbouring rank
-        update_surface_halo!(surf)
-    end
-
-    return nothing
-end
-
-# Boundary nodes (i or j at the domain edge) are left untouched — they stay at
-# their pre-iteration `buf` value, synced from the neighbouring rank by the
-# halo exchange that follows each iteration.
-@kernel function _smooth_diffusive_kernel!(
-        topo, buf, weight, nx1, ny1
-    )
-    i, j = @index(Global, NTuple)
-    if 1 < i < nx1 && 1 < j < ny1
-        avg = (buf[i - 1, j] + buf[i + 1, j] + buf[i, j - 1] + buf[i, j + 1]) / 4
-        topo[i, j] = (1 - weight) * buf[i, j] + weight * avg
     end
 end

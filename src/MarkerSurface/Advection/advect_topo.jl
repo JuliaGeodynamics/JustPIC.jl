@@ -21,62 +21,27 @@ end
 
 Return the value of 2D field `arr` (size `(nx, ny)`) at index `(i, j)`, allowing
 one ghost layer on each side (`i ∈ 0:nx+1`, `j ∈ 0:ny+1`). Ghost values wrap to
-the opposite boundary when periodic (LaMEM style: only clamp when NOT periodic),
-otherwise they are linearly extrapolated. This is the allocation-free, scalar
-counterpart of the former padded-array construction.
+the opposite boundary when periodic; otherwise they clamp to the boundary
+node. Coordinates use linear extrapolation separately in `_ghost_coord`.
 """
 @inline function _ghost_field(arr, i, j, nx, ny, periodic_1::Bool, periodic_2::Bool)
     return @inbounds begin
-        if 1 ≤ i ≤ nx && 1 ≤ j ≤ ny
-            return arr[i, j]
-        elseif i == 0 && j == 0
-            # bottom-left corner
-            return periodic_1 && periodic_2 ? arr[nx - 1, ny - 1] :
-                periodic_1 ? 2 * arr[nx - 1, 1] - arr[nx - 1, 2] :
-                periodic_2 ? 2 * arr[1, ny - 1] - arr[2, ny - 1] :
-                4 * arr[1, 1] - 2 * arr[1, 2] - 2 * arr[2, 1] + arr[2, 2]
-        elseif i == 0 && j == ny + 1
-            # top-left corner
-            return periodic_1 && periodic_2 ? arr[nx - 1, 2] :
-                periodic_1 ? 2 * arr[nx - 1, ny] - arr[nx - 1, ny - 1] :
-                periodic_2 ? 2 * arr[1, 2] - arr[2, 2] :
-                4 * arr[1, ny] - 2 * arr[1, ny - 1] - 2 * arr[2, ny] + arr[2, ny - 1]
-        elseif i == nx + 1 && j == 0
-            # bottom-right corner
-            return periodic_1 && periodic_2 ? arr[2, ny - 1] :
-                periodic_1 ? 2 * arr[2, 1] - arr[2, 2] :
-                periodic_2 ? 2 * arr[nx, ny - 1] - arr[nx - 1, ny - 1] :
-                4 * arr[nx, 1] - 2 * arr[nx, 2] - 2 * arr[nx - 1, 1] + arr[nx - 1, 2]
-        elseif i == nx + 1 && j == ny + 1
-            # top-right corner
-            return periodic_1 && periodic_2 ? arr[2, 2] :
-                periodic_1 ? 2 * arr[2, ny] - arr[2, ny - 1] :
-                periodic_2 ? 2 * arr[nx, 2] - arr[nx - 1, 2] :
-                4 * arr[nx, ny] - 2 * arr[nx, ny - 1] - 2 * arr[nx - 1, ny] + arr[nx - 1, ny - 1]
-        elseif i == 0
-            # left ghost
-            return periodic_1 ? arr[nx - 1, j] : 2 * arr[1, j] - arr[2, j]
-        elseif i == nx + 1
-            # right ghost
-            return periodic_1 ? arr[2, j] : 2 * arr[nx, j] - arr[nx - 1, j]
-        elseif j == 0
-            # bottom ghost
-            return periodic_2 ? arr[i, ny - 1] : 2 * arr[i, 1] - arr[i, 2]
-        else
-            # top ghost (j == ny + 1)
-            return periodic_2 ? arr[i, 2] : 2 * arr[i, ny] - arr[i, ny - 1]
-        end
+        ii = i == 0 ? (periodic_1 ? nx - 1 : 1) :
+            i == nx + 1 ? (periodic_1 ? 2 : nx) : i
+        jj = j == 0 ? (periodic_2 ? ny - 1 : 1) :
+            j == ny + 1 ? (periodic_2 ? 2 : ny) : j
+        return arr[ii, jj]
     end
 end
 
 """
-     advect_surface_topo!(surf::MarkerSurface, dt; Exx=0.0, Eyy=0.0)
+     advect_surface_topo!(surf::MarkerSurface, dt)
 
 Advect the topography on the free surface mesh using the velocity field
 already interpolated onto the surface nodes (`surf.vx`, `surf.vy`, `surf.vz`).
 
-1. Pad topography and velocity arrays with linearly extrapolated ghost nodes
-    to avoid degenerate stencils at domain boundaries.
+1. Extrapolate ghost coordinates while clamping nonperiodic field ghosts to
+    boundary nodes, avoiding degenerate stencils at domain boundaries.
 2. For each surface node, build a local 3×3 "deformed grid" using neighboring
     node positions displaced by `dt*v`.
 3. Subdivide the deformed cell into 16 triangles (9 corner + 4 midpoint nodes).
@@ -103,12 +68,8 @@ already interpolated onto the surface nodes (`surf.vx`, `surf.vy`, `surf.vz`).
 # Arguments
 - `surf` : the `MarkerSurface`
 - `dt`   : time step
-- `Exx, Eyy` : background strain rates in x,y directions (default `0.0`)
 """
-function advect_surface_topo!(
-        surf::MarkerSurface, dt;
-        Exx = 0.0, Eyy = 0.0
-    )
+function advect_surface_topo!(surf::MarkerSurface, dt)
     xv = surf.xv
     yv = surf.yv
     topo = surf.topo
@@ -120,16 +81,24 @@ function advect_surface_topo!(
 
     periodic_1 = surf.periodic_1
     periodic_2 = surf.periodic_2
+    dt = convert(eltype(topo), dt)
+
+    _surface_collective_failure(!all(isfinite, topo)) &&
+        throw(ArgumentError("MarkerSurface topography must be finite before advection"))
 
     # Save old topography; the advection stencil reads from `topo0` and writes into
     # `topo`, so no separate scratch buffer is needed. Ghost nodes are handled
     # in-kernel by `_ghost_coord`/`_ghost_field`, avoiding any padded-array allocation.
     copyto!(topo0, topo)
 
+    valid = surf.advection_valid
     launch!(
         ka_backend(topo), _advect_surface_topo_kernel!, (nx1, ny1),
-        topo, topo0, xv, yv, vx, vy, vz, dt, Exx, Eyy, nx1, ny1, periodic_1, periodic_2
+        topo, valid, topo0, xv, yv, vx, vy, vz, dt, nx1, ny1, periodic_1, periodic_2
     )
+
+    _surface_collective_failure(!all(valid)) &&
+        throw(ArgumentError("MarkerSurface advection target is outside its deformed-grid stencil; reduce the time step or inspect the velocity field"))
 
     # MPI: replace ghost-extrapolated boundary nodes with neighbour values
     update_surface_halo!(surf)
@@ -138,6 +107,11 @@ function advect_surface_topo!(
     _enforce_periodic_seam!(topo, periodic_1, periodic_2)
 
     return nothing
+end
+
+@inline function _surface_collective_failure(local_failure)
+    ImplicitGlobalGrid.grid_is_initialized() || return local_failure
+    return MPI.Allreduce(local_failure, |, ImplicitGlobalGrid.global_grid().comm)
 end
 
 function _enforce_periodic_seam!(topo::AbstractMatrix, periodic_1::Bool, periodic_2::Bool)
@@ -151,7 +125,7 @@ function _enforce_periodic_seam!(topo::AbstractMatrix, periodic_1::Bool, periodi
 end
 
 @kernel function _advect_surface_topo_kernel!(
-        topo, topo0, xv, yv, vx, vy, vz, dt, Exx, Eyy, nx1, ny1, periodic_1, periodic_2
+        topo, valid, topo0, xv, yv, vx, vy, vz, dt, nx1, ny1, periodic_1, periodic_2
     )
     i, j = @index(Global, NTuple)
     # The 16-triangle subdivision topology
@@ -239,9 +213,10 @@ end
     all_cy = (cy..., cy10, cy11, cy12, cy13)
     all_cz = (cz..., cz10, cz11, cz12, cz13)
 
-    # Updated target position with background strain (if needed)
-    Xt = X + dt * Exx * X
-    Yt = Y + dt * Eyy * Y
+    # The target is the fixed Eulerian surface vertex. Any background strain must
+    # be represented in the supplied velocity field.
+    Xt = X
+    Yt = Y
 
     # Search through the 16 triangles
     Z = zero(eltype(topo))
@@ -258,12 +233,8 @@ end
         end
     end
 
-    if !found
-        # Fallback: use the center-node advected value
-        Z = cz[5]
-    end
-
-    topo[i, j] = Z
+    topo[i, j] = ifelse(found, Z, topo0[i, j])
+    valid[i, j] = found
 end
 
 """
@@ -280,7 +251,7 @@ interpolation of the z-coordinate.
 @inline function _interpolate_triangle(
         cx::NTuple, cy::NTuple, cz::NTuple,
         tri::NTuple{3, Int}, xp::T, yp::T;
-        tol = convert(T, 1.0e-10),
+        tol = convert(T, 1.0e-6),
     ) where {T}
     ia, ib, ic = tri
 

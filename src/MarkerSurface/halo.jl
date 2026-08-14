@@ -18,7 +18,7 @@ active `ImplicitGlobalGrid` global grid. No-op when no global grid is
 initialized (serial runs).
 
 Called automatically at the end of `advect_surface_topo!`,
-`smooth_surface_max_angle!` and each iteration of `smooth_surface_diffusive!`;
+`smooth_surface_max_angle!`;
 only needed explicitly after modifying `surf.topo` by hand.
 
 # Notes
@@ -28,9 +28,14 @@ only needed explicitly after modifying `surf.topo` by hand.
   the local periodic flags wrap within the rank-local array.
 """
 function update_surface_halo!(surf::MarkerSurface)
+    _update_surface_halo!(surf.topo)
+    return nothing
+end
+
+@inline function _update_surface_halo!(fields...)
     ImplicitGlobalGrid.grid_is_initialized() || return nothing
-    # Only x/y are exchanged: topo is a 2D field, its z "dimension" is trivial.
-    update_halo!(surf.topo; dims = (1, 2))
+    # Only x/y are exchanged: surface fields have no z dimension.
+    update_halo!(fields...; dims = (1, 2))
     return nothing
 end
 
@@ -51,18 +56,26 @@ z-column recovers the value by weighted average. Nodes bracketed by two ranks
 (shared overlap cells) hold identical velocities, so the average is exact.
 """
 function reduce_surface_velocity_z!(surf::MarkerSurface, zg)
-    ImplicitGlobalGrid.grid_is_initialized() || return nothing
+    zlo, zhi = _z_extent(zg)
+    local_missing = minimum(surf.topo) < zlo || maximum(surf.topo) > zhi
+    ImplicitGlobalGrid.grid_is_initialized() || begin
+        local_missing && throw(ArgumentError("MarkerSurface lies outside the vertical velocity grid"))
+        return nothing
+    end
     # `global_grid()` is IGG's non-copying internal accessor (`get_global_grid()`
     # would `deepcopy` the whole grid struct every call). Type-stable `::GlobalGrid`.
-    gg = ImplicitGlobalGrid.global_grid()
-    gg.dims[3] > 1 || return nothing  # not decomposed in z → nothing to combine
+    igg = ImplicitGlobalGrid.global_grid()
+    if igg.dims[3] == 1
+        MPI.Allreduce(local_missing, |, igg.comm) &&
+            throw(ArgumentError("MarkerSurface lies outside the vertical velocity grid on at least one rank"))
+        return nothing
+    end
 
-    zlo, zhi = _z_extent(zg)  # local z-slab extent (scalars)
     T = eltype(surf.topo)
 
     # Ownership weight, computed on-device: 1 where this rank's z-slab brackets the
     # surface node, 0 otherwise. Fused broadcast → one kernel, one array, no host copy.
-    w = similar(surf.topo)
+    w = surf.z_ownership
     @. w = ifelse((zlo ≤ surf.topo) & (surf.topo ≤ zhi), one(T), zero(T))
 
     # Mask each velocity component in place (on device).
@@ -72,20 +85,20 @@ function reduce_surface_velocity_z!(surf::MarkerSurface, zg)
 
     # Sum owned contributions across the z-column, straight on the device arrays —
     # same path ImplicitGlobalGrid uses for halos (GPU-aware MPI when enabled).
-    zcomm = MPI.Cart_sub(gg.comm, (false, false, true))  # ranks sharing this (x,y) column
+    zcomm = MPI.Cart_sub(igg.comm, (false, false, true))  # ranks sharing this (x,y) column
     MPI.Allreduce!(surf.vx, +, zcomm)
     MPI.Allreduce!(surf.vy, +, zcomm)
     MPI.Allreduce!(surf.vz, +, zcomm)
     MPI.Allreduce!(w, +, zcomm)
     MPI.free(zcomm)
-    # ponytail: subcomm + weight array rebuilt per call; cache them in a
-    # MarkerSurface workspace field for zero steady-state allocation if it profiles hot.
+
+    missing = MPI.Allreduce(any(iszero, w), |, igg.comm)
+    missing && throw(ArgumentError("MarkerSurface lies outside every local vertical velocity slab"))
 
     # Weighted average → the owning rank's value (overlap ranks agree, so exact).
-    # max(w,1) guards the physically-impossible node owned by no rank.
-    surf.vx ./= max.(w, one(T))
-    surf.vy ./= max.(w, one(T))
-    surf.vz ./= max.(w, one(T))
+    surf.vx ./= w
+    surf.vy ./= w
+    surf.vz ./= w
     return nothing
 end
 
