@@ -39,7 +39,7 @@ end
     p2 = GridGeometryUtils.Point(xv[i + 1], topo_y[i + 1])
     s = Segment(p1, p2)
 
-    r = Rectangle((ox, oy), dxi...; θ = zero(ox))
+    r = BBox((ox, oy), dxi...)
     ratio[i, j] = cell_rock_area(s, r)
 end
 
@@ -101,8 +101,8 @@ end
         # and turn them into a segment
         s = Segment(p1, p2)
 
-        ## create a rectangle for the new cell
-        r = Rectangle(origin, half_dx, half_dy; θ = zero(half_dx))
+        ## bounding box of the new cell
+        r = BBox(origin, half_dx, half_dy)
         tmp += cell_rock_area(s, r)
     end
     ratios[i, j] = tmp / ω
@@ -160,8 +160,8 @@ end
         # and turn them into a segment
         s = Segment(p1, p2)
 
-        ## create a rectangle for the new cell
-        r = Rectangle(origin, half_dx, half_dy; θ = zero(half_dx))
+        ## bounding box of the new cell
+        r = BBox(origin, half_dx, half_dy)
         tmp += cell_rock_area(s, r)
     end
     ratios[i, j] = tmp / ω
@@ -229,8 +229,8 @@ end
             # and turn them into a segment
             s = Segment(p1, p2)
 
-            ## create a rectangle for the new cell
-            r = Rectangle(origin, half_dx, half_dy; θ = zero(half_dx))
+            ## bounding box of the new cell
+            r = BBox(origin, half_dx, half_dy)
             tmp += cell_rock_area(s, r)
         end
     end
@@ -239,26 +239,53 @@ end
 
 #############################
 
-@inline function is_chain_above_cell(s::Segment, r::Rectangle)
-    max_y = r.origin[2] + r.h
-    # Check if the segment is above the rectangle
-    return GridGeometryUtils.geq_r(s.p1[2], max_y) && GridGeometryUtils.geq_r(s.p2[2], max_y)
-end
+# `y1`, `y2` are the ends of the chain segment measured from the floor of a cell of height
+# `h`. The comparisons are exact: a round-off-tolerant one carries an absolute near-zero
+# tolerance of `1000 * eps(T)`, which for a `Float32` cell only a few thousand `eps` tall
+# swallows a large fraction of the cell.
+@inline is_chain_above_cell(y1, y2, h) = y1 ≥ h && y2 ≥ h
 
-@inline function is_chain_below_cell(s::Segment, r::Rectangle)
-    min_y = r.origin[2]
-    # Check if the segment is below the rectangle
-    return GridGeometryUtils.leq_r(s.p1[2], min_y) && GridGeometryUtils.leq_r(s.p2[2], min_y)
-end
+@inline is_chain_below_cell(y1::T, y2) where {T} = y1 ≤ zero(T) && y2 ≤ zero(T)
 
-function cell_rock_area(s::Segment, r::Rectangle{T}) where {T}
-    A = if is_chain_above_cell(s, r)
-        one(T)
-    elseif is_chain_below_cell(s, r)
+# Endpoint of the chord on the boundary of the cell `[0, l] × [0, h]` at the end whose
+# vertical edge sits at `x`: the chain's own height when it crosses that edge, otherwise the
+# point where it leaves through the floor or the ceiling. `y_other`/`x_other` are the
+# opposite end of the chord.
+@inline function chord_endpoint(y::T, x, y_other, x_other, h) where {T}
+    y_cut = if y < zero(T)
         zero(T)
+    elseif y > h
+        h
     else
-        clamp(intersecting_area(s, r) / area(r), zero(T), one(T))
+        return GridGeometryUtils.Point(x, y)
     end
+    return GridGeometryUtils.Point(x + (y_cut - y) * (x_other - x) / (y_other - y), y_cut)
+end
 
-    return A
+"""
+    cell_rock_area(s::Segment, r::BBox{2}) -> Real
+
+Fraction of the cell `r` lying below the marker chain segment `s`, in `[0, 1]`.
+
+`s` spans the full width of `r`, running left to right, and may leave the cell through its
+floor or its ceiling.
+"""
+@inline function cell_rock_area(s::Segment, r::BBox{2, T}) where {T}
+    # Heights above the cell floor. `intersecting_area` needs its endpoints on the boundary
+    # of the cell and checks that to a tolerance proportional to the cell size, so the whole
+    # geometry is built relative to the cell's south-west corner: absolute coordinates carry
+    # a round-off proportional to their own magnitude, which for a cell many widths away
+    # from the origin exceeds that tolerance.
+    l, h = r.l, r.h
+    oy = r.origin[2]
+    y1, y2 = s.p1[2] - oy, s.p2[2] - oy
+
+    is_chain_above_cell(y1, y2, h) && return one(T)
+    is_chain_below_cell(y1, y2) && return zero(T)
+
+    cell = Rectangle((l / 2, h / 2), l, h; θ = zero(T))
+    p1 = chord_endpoint(y1, zero(T), y2, l, h)
+    p2 = chord_endpoint(y2, l, y1, zero(T), h)
+
+    return clamp(intersecting_area(p1, p2, cell) / area(cell), zero(T), one(T))
 end
