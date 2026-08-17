@@ -240,15 +240,37 @@ end
     return Segment(GridGeometryUtils.Point(x1, y1), GridGeometryUtils.Point(x2, y2))
 end
 
-@inline function cell_rock_area(s::Segment, r::Rectangle{T}) where {T}
-    A = if is_chain_above_cell(s, r)
-        one(T)
-    elseif is_chain_below_cell(s, r)
-        zero(T)
-    else
-        # A left-to-right chord has the rock region on its right-hand side.
-        clamp(intersecting_area(clip_chain_to_cell(s, r), r) / area(r), zero(T), one(T))
-    end
+# Chord and cell translated so that the cell is centered on the coordinate origin. Both the
+# round-off tolerant comparisons above and `intersecting_area`'s check that the chord ends on
+# the cell boundary size their tolerance relative to the magnitude of the coordinates they are
+# handed, so in absolute coordinates a cell many cell widths from the origin falls inside its
+# own tolerance: a `Float32` cell a few thousand widths out is swallowed whole.
+@inline function recenter_on_cell(s::Segment, r::Rectangle{T}) where {T}
+    ox, oy = r.origin[1], r.origin[2]
+    s_local = Segment(
+        GridGeometryUtils.Point(s.p1[1] - ox, s.p1[2] - oy),
+        GridGeometryUtils.Point(s.p2[1] - ox, s.p2[2] - oy),
+    )
+    return s_local, Rectangle((zero(T), zero(T)), r.l, r.h; θ = zero(T))
+end
 
-    return A
+"""
+    cell_rock_area(s::Segment, r::Rectangle) -> Real
+
+Fraction of the axis-aligned cell `r` lying below the marker chain segment `s`, in `[0, 1]`.
+
+`s` spans the full width of `r`, runs left to right, and may leave the cell through its floor
+or its ceiling.
+"""
+@inline function cell_rock_area(s::Segment, r::Rectangle{T}) where {T}
+    s_local, cell = recenter_on_cell(s, r)
+
+    is_chain_above_cell(s_local, cell) && return one(T)
+    is_chain_below_cell(s_local, cell) && return zero(T)
+
+    # A left-to-right chord has the rock region on its right-hand side.
+    return clamp(
+        intersecting_area(clip_chain_to_cell(s_local, cell), cell) / area(cell),
+        zero(T), one(T)
+    )
 end
