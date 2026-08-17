@@ -13,6 +13,7 @@ end
 
 using JustPIC, Test, Statistics
 using CellArrays: field
+using GridGeometryUtils: BBox, Point, Segment
 import KernelAbstractions: CPU
 
 const backend = @static if BACKEND_NAME == "AMDGPU"
@@ -490,6 +491,29 @@ end
 end
 
 @testset "MarkerChain rock fraction 2D" begin
+    # A 2x2 cell spanning x ∈ [1, 3], y ∈ [2, 4], repeated at offsets of many cell widths:
+    # the geometry is evaluated relative to the cell, so the answers must not degrade as the
+    # cell moves away from the coordinate origin.
+    for T in TEST_PRECISIONS, offset in (T(0), T(1.0e2), T(1.0e4))
+        r = BBox((T(1) + offset, T(2) + offset), T(2), T(2))
+        chain_area(y1, y2) = JustPIC.cell_rock_area(
+            Segment(Point(T(1) + offset, y1 + offset), Point(T(3) + offset, y2 + offset)), r
+        )
+
+        @test chain_area(T(3), T(3)) ≈ T(0.5)          # flat, mid-height
+        @test chain_area(T(1), T(3)) ≈ T(0.125)        # in through the floor, out at the NE corner
+        @test chain_area(T(3), T(1)) ≈ T(0.125)        # mirror image
+        @test chain_area(T(1), T(5)) ≈ T(0.5)          # in through the floor, out through the ceiling
+        @test chain_area(T(5), T(1)) ≈ T(0.5)          # mirror image
+        @test chain_area(T(2), T(4)) ≈ T(0.5)          # corner to corner
+        @test chain_area(T(2), T(2)) ≈ T(0)            # flat, on the floor
+        @test chain_area(T(4), T(4)) ≈ T(1)            # flat, on the ceiling
+        @test chain_area(T(-10), T(-10)) ≈ T(0)        # far below
+        @test chain_area(T(10), T(10)) ≈ T(1)          # far above
+        @test chain_area(T(2), T(3)) ≈ T(0.25)         # floor corner to the right edge
+        @test chain_area(T(3), T(4)) ≈ T(0.75)         # left edge to the ceiling corner
+    end
+
     n = 9
     xv = range(FT(0), FT(1); length = n)
     yv = range(FT(0), FT(1); length = n)
@@ -551,6 +575,25 @@ end
     ratios = make_ratios()
     compute_rock_fraction!(ratios, chain, xvi, dxi)
     @test isapprox(Array(ratios.vertex)[2, 3], FT(0.8); atol = (FT === Float32 ? 1.0f-5 : 1.0e-12))
+
+    # the same flat interface on a grid sitting hundreds of cell widths from the origin
+    shift = FT(500)
+    xv_far = range(shift, shift + FT(1); length = n)
+    xvi_far = TA(backend)(collect(xv_far)), TA(backend)(collect(range(shift, shift + FT(1); length = n)))
+    chain_far = init_markerchain(backend, 3, 2, 6, xv_far, shift + FT(0.42))
+    ratios = make_ratios()
+    compute_rock_fraction!(ratios, chain_far, xvi_far, dxi)
+    center = Array(ratios.center)
+    for j in axes(center, 2)
+        y_bottom = xv_far[j]
+        expected = clamp((shift + FT(0.42) - y_bottom) / dy, FT(0), FT(1))
+        @test all(isapprox.(center[:, j], expected; atol = (FT === Float32 ? 1.0f-2 : 1.0e-6)))
+    end
+    for field in (ratios.center, ratios.vertex, ratios.Vx, ratios.Vy)
+        data = Array(field)
+        @test all(isfinite, data)
+        @test all(0 .≤ data .≤ 1)
+    end
 end
 
 @testset "MarkerChain slope smoothing 2D" begin
