@@ -50,7 +50,7 @@ function surface_figure(surf; elevation_range = nothing)
     if isnothing(elevation_range)
         axis_kwargs = (
             aspect = (1, 1, 0.5), xlabel = "x", ylabel = "y",
-            zlabel = "surface elevation"
+            zlabel = "surface elevation",
         )
     else
         zmin, zmax = elevation_range
@@ -61,7 +61,7 @@ function surface_figure(surf; elevation_range = nothing)
             # Viewed from the northeast, the classic Zermatt profile of the Matterhorn
             aspect = :data, azimuth = 0.2π, elevation = π / 12, perspectiveness = 0.5,
             viewmode = :fit,
-            xlabel = "local easting (m)", ylabel = "local northing (m)", zlabel = "elevation (m)"
+            xlabel = "local easting (m)", ylabel = "local northing (m)", zlabel = "elevation (m)",
         )
     end
     fig = Figure(size = (850, 650))

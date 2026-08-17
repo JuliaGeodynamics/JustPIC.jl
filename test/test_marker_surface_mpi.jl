@@ -20,8 +20,8 @@ const backend = JustPIC.CPU
 # analytic, z-dependent velocity field so the owning z-slab matters
 vx_f(x, y, z) = 0.05 * sin(2π * x) * cos(2π * y) + 0.02 * z
 vy_f(x, y, z) = 0.05 * cos(2π * x) * sin(2π * y) - 0.03 * z
-vz_f(x, y, z) = 0.10 * cos(2π * x) * cos(2π * y) + 0.07 * z
-topo_f(x, y) = 0.5 + 0.30 * sin(2π * x) * sin(2π * y)
+vz_f(x, y, z) = 0.1 * cos(2π * x) * cos(2π * y) + 0.07 * z
+topo_f(x, y) = 0.5 + 0.3 * sin(2π * x) * sin(2π * y)
 
 function extend_centers(xv)
     xc = [(xv[i] + xv[i + 1]) / 2 for i in 1:(length(xv) - 1)]
@@ -108,9 +108,13 @@ for _ in 1:nt
     advect_marker_surface!(ref, Vref, grid_vxi_ref, dt)
 end
 smooth_surface_max_angle!(ref, 25.0)
-err = maximum(abs.(topo_dist .- Array(ref.topo)[
-    (1 + xoff):(nx + 1 + xoff), (1 + yoff):(ny + 1 + yoff),
-]))
+err = maximum(
+    abs.(
+        topo_dist .- Array(ref.topo)[
+            (1 + xoff):(nx + 1 + xoff), (1 + yoff):(ny + 1 + yoff),
+        ]
+    )
+)
 avg_ref = sum(ref.topo) / length(ref.topo)
 
 @testset "MarkerSurface MPI (np=$np, dims=$(Tuple(dims)))" begin
