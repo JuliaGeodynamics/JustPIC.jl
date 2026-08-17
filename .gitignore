@@ -32,6 +32,7 @@ out/
 *.vti
 *.vtm
 *.jld2
+!docs/examples/matterhorn.jld2
 
 # VSCode
 .vscode

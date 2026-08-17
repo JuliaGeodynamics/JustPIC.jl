@@ -710,23 +710,16 @@ end
 
     @testset "MarkerSurface — Triangular prism intersection" begin
         # Verify the prism intersection gives correct rock fractions
-        # for a simple geometry
+        # for a simple geometry: triangle (0,0)-(1,0)-(0.5,0.5), area 0.25,
+        # clipped against the cell's z-range [0, 1].
 
         @testset "Full prism below surface" begin
-            cx = (0.0, 1.0, 0.5, 1.0, 0.5)
-            cy = (0.0, 0.0, 1.0, 1.0, 0.5)
-            cz = (2.0, 2.0, 2.0, 2.0, 2.0)  # surface at z=2, cell is [0,1]
-            tri = (1, 2, 5)
-            val = JustPIC._intersect_triangular_prism(cx, cy, cz, tri, 1.0, 0.0, 1.0)
+            val = JustPIC._triangle_rock_fraction(0.0, 0.0, 2.0, 1.0, 0.0, 2.0, 0.5, 0.5, 2.0, 1.0, 0.0, 1.0)
             @test val ≈ 0.25 atol = 1.0e-10
         end
 
         @testset "Full prism above surface" begin
-            cx = (0.0, 1.0, 0.5, 1.0, 0.5)
-            cy = (0.0, 0.0, 1.0, 1.0, 0.5)
-            cz = (-1.0, -1.0, -1.0, -1.0, -1.0)  # surface at z=-1, cell is [0,1]
-            tri = (1, 2, 5)
-            val = JustPIC._intersect_triangular_prism(cx, cy, cz, tri, 1.0, 0.0, 1.0)
+            val = JustPIC._triangle_rock_fraction(0.0, 0.0, -1.0, 1.0, 0.0, -1.0, 0.5, 0.5, -1.0, 1.0, 0.0, 1.0)
             @test val ≈ 0.0 atol = 1.0e-10
         end
     end

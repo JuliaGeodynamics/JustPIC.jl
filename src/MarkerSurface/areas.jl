@@ -109,109 +109,6 @@ end
         _triangle_rock_fraction(x0, y1, z01, xm, ym, zc, xm, y1, zxm1, vcell, zlo, zhi)
 end
 
-"""
-    is_surface_above_cell(zmin_surface, cell::BBox{3})
-
-Check whether the topographic surface is entirely above (or at) the cell top.
-"""
-@inline function is_surface_above_cell(zmin_surface, cell::BBox{3})
-    ztop = cell.origin[3] + cell.d
-    return GridGeometryUtils.geq_r(zmin_surface, ztop)
-end
-
-"""
-    is_surface_below_cell(zmax_surface, cell::BBox{3})
-
-Check whether the topographic surface is entirely below (or at) the cell bottom.
-"""
-@inline function is_surface_below_cell(zmax_surface, cell::BBox{3})
-    zbot = cell.origin[3]
-    return GridGeometryUtils.leq_r(zmax_surface, zbot)
-end
-
-"""
-    cell_rock_volume(cz1, cz2, cz3, cz4, cell::BBox{3})
-
-Compute the rock fraction of a 3D cell based on the topographic surface heights
-at the four cell corners. Returns a value clamped to [0, 1].
-"""
-@inline function cell_rock_volume(cz1, cz2, cz3, cz4, cell::BBox{3, T}) where {T}
-    zmin_surf = min(cz1, cz2, cz3, cz4)
-    zmax_surf = max(cz1, cz2, cz3, cz4)
-
-    A = if is_surface_above_cell(zmin_surf, cell)
-        one(T)
-    elseif is_surface_below_cell(zmax_surf, cell)
-        zero(T)
-    else
-        clamp(
-            _intersecting_rock_fraction(cz1, cz2, cz3, cz4, cell),
-            zero(T), one(T),
-        )
-    end
-
-    return A
-end
-
-"""
-    _intersecting_rock_fraction(cz1, cz2, cz3, cz4, cell::BBox{3})
-
-Compute the rock fraction via the 4-triangle prism intersection algorithm. Uses `volume(cell)` from GGU.
-"""
-@inline function _intersecting_rock_fraction(cz1, cz2, cz3, cz4, cell::BBox{3})
-    # Cell geometry from GGU BBox
-    ox, oy = cell.origin[1], cell.origin[2]
-    dx, dy = cell.l, cell.h
-    zbot = cell.origin[3]
-    ztop = zbot + cell.d
-    vcell = volume(cell)
-
-    xleft, xright = ox, ox + dx
-    yfront, yback = oy, oy + dy
-
-    # Midpoint topography
-    cz5 = (cz1 + cz2 + cz3 + cz4) / 4
-
-    # Coordinates of corners + midpoint
-    cx = (xleft, xright, xleft, xright, (xleft + xright) / 2)
-    cy = (yfront, yfront, yback, yback, (yfront + yback) / 2)
-    cz = (cz1, cz2, cz3, cz4, cz5)
-
-    # 4-triangle tessellation of the cell top-face
-    # corners: 1=(left,front), 2=(right,front), 3=(left,back), 4=(right,back), 5=center
-    tria = ((1, 2, 5), (2, 4, 5), (4, 3, 5), (3, 1, 5))
-
-    rock_ratio = zero(vcell)
-    for tri in tria
-        rock_ratio += _intersect_triangular_prism(cx, cy, cz, tri, vcell, zbot, ztop)
-    end
-
-    return rock_ratio
-end
-
-"""
-    _intersect_triangular_prism(cx, cy, cz, tri, vcell, bot, top)
-
-Compute the volume of a triangular prism (with a slanted top surface defined
-by the topography) that is inside the cell bounded by `[bot, top]` in z,
-normalized by `vcell`.
-
-# Returns
-Rock fraction contributed by this triangle (in [0, 0.25] for a 4-triangle cell).
-"""
-@inline function _intersect_triangular_prism(
-        cx::NTuple, cy::NTuple, cz::NTuple,
-        tri::NTuple{3, Int}, vcell,
-        bot, top,
-    )
-    ia, ib, ic = tri
-    xa, ya, za = cx[ia], cy[ia], cz[ia]
-    xb, yb, zb = cx[ib], cy[ib], cz[ib]
-    xc, yc, zc = cx[ic], cy[ic], cz[ic]
-
-    return _triangle_rock_fraction(xa, ya, za, xb, yb, zb, xc, yc, zc, vcell, bot, top)
-end
-
 @inline function _triangle_rock_fraction(
         xa, ya, za, xb, yb, zb, xc, yc, zc, vcell, bot, top,
     )
@@ -221,10 +118,10 @@ end
     zmax = max(za, zb, zc)
 
     # Empty cell: surface entirely below cell bottom
-    zmax ≤ bot && return zero(vcell)
+    GridGeometryUtils.leq_r(zmax, bot) && return zero(vcell)
 
     # Full prism: normalize this triangle's horizontal area by the control volume.
-    zmin ≥ top && return abs((xa - xc) * (yb - yc) - (xb - xc) * (ya - yc)) *
+    GridGeometryUtils.geq_r(zmin, top) && return abs((xa - xc) * (yb - yc) - (xb - xc) * (ya - yc)) *
         (top - bot) / (2 * vcell)
 
     # Volume above bottom plane

@@ -58,7 +58,9 @@ function surface_figure(surf; elevation_range = nothing)
         y = MATTERHORN_EXTENT_METERS[2] .* y
         topo = @. zmin + (topo - 0.45) * (zmax - zmin) / 0.1
         axis_kwargs = (
-            aspect = :data, azimuth = 0, elevation = π / 12, perspectiveness = 0.5,
+            # Viewed from the northeast, the classic Zermatt profile of the Matterhorn
+            aspect = :data, azimuth = 0.2π, elevation = π / 12, perspectiveness = 0.5,
+            viewmode = :fit,
             xlabel = "local easting (m)", ylabel = "local northing (m)", zlabel = "elevation (m)"
         )
     end
