@@ -97,8 +97,13 @@ function advect_surface_topo!(surf::MarkerSurface, dt)
         topo, valid, topo0, xv, yv, vx, vy, vz, dt, nx1, ny1, periodic_1, periodic_2
     )
 
-    _surface_collective_failure(!all(valid)) &&
+    if _surface_collective_failure(!all(valid))
+        # Nodes that did find a containing triangle have already been written, so
+        # roll the whole surface back: a caller retrying with a smaller time step
+        # must start from the same topography on every rank.
+        copyto!(topo, topo0)
         throw(ArgumentError("MarkerSurface advection target is outside its deformed-grid stencil; reduce the time step or inspect the velocity field"))
+    end
 
     # MPI: replace ghost-extrapolated boundary nodes with neighbour values
     update_surface_halo!(surf)

@@ -113,6 +113,13 @@ end
         xa, ya, za, xb, yb, zb, xc, yc, zc, vcell, bot, top,
     )
 
+    zmid = (bot + top) / 2
+    za -= zmid
+    zb -= zmid
+    zc -= zmid
+    bot -= zmid
+    top -= zmid
+
     # z-range of the surface
     zmin = min(za, zb, zc)
     zmax = max(za, zb, zc)

@@ -64,9 +64,6 @@ function sample_velocity(f, grid_vxi)
 end
 
 @testset "MarkerSurface" begin
-    @test !isdefined(JustPIC, :semilagrangian_advect_surface!)
-    @test !isdefined(JustPIC, :smooth_surface_diffusive!)
-
     @testset "MarkerSurface — Initialization 3D" begin
         xv, yv, zv = make_grid()
 
@@ -154,29 +151,42 @@ end
     @testset "MarkerSurface — Triangle interpolation" begin
         # Test the helper directly
 
-        @testset "Point inside triangle" begin
-            # Equilateral-ish triangle in XY plane
-            cx = (0.0, 1.0, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
-            cy = (0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
-            cz = (1.0, 2.0, 3.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
-            tri = (1, 2, 3)
+        # Triangle (0,0), (1,0), (0.5,1) carrying the plane z = 1 + x + y.
+        plane(x, y) = FT(1) + x + y
+        pad = ntuple(_ -> zero(FT), 10)
+        cx = (FT(0), FT(1), FT(0.5), pad...)
+        cy = (FT(0), FT(0), FT(1), pad...)
+        cz = (plane(FT(0), FT(0)), plane(FT(1), FT(0)), plane(FT(0.5), FT(1)), pad...)
+        tri = (1, 2, 3)
+        tol = eps(FT) * 16
 
-            # Centroid of triangle
-            xp = (0.0 + 1.0 + 0.5) / 3
-            yp = (0.0 + 0.0 + 1.0) / 3
-            ok, zp = JustPIC._interpolate_triangle(cx, cy, cz, tri, xp, yp)
-            @test ok == true
-            # At centroid, barycentric coords are (1/3, 1/3, 1/3)
-            @test zp ≈ (1.0 + 2.0 + 3.0) / 3 atol = 1.0e-10
+        @testset "Barycentric interpolation reproduces a plane" begin
+            # Linear reproduction: barycentric weights are exact for a linear field,
+            # so every interior point must return the plane value.
+            for (xp, yp) in (
+                    ((cx[1] + cx[2] + cx[3]) / 3, (cy[1] + cy[2] + cy[3]) / 3),  # centroid
+                    (FT(0.5), FT(0.25)), (FT(0.3), FT(0.1)), (FT(0.7), FT(0.5)),
+                )
+                ok, zp = JustPIC._interpolate_triangle(cx, cy, cz, tri, xp, yp)
+                @test ok
+                @test zp ≈ plane(xp, yp) atol = tol
+            end
+
+            # Vertices reproduce their own elevation
+            for n in 1:3
+                ok, zp = JustPIC._interpolate_triangle(cx, cy, cz, tri, cx[n], cy[n])
+                @test ok
+                @test zp ≈ cz[n] atol = tol
+            end
         end
 
         @testset "Point outside triangle" begin
-            cx = (0.0, 1.0, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
-            cy = (0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
-            cz = (1.0, 2.0, 3.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
-            tri = (1, 2, 3)
-            ok, _ = JustPIC._interpolate_triangle(cx, cy, cz, tri, -1.0, -1.0)
-            @test ok == false
+            for (xp, yp) in (
+                    (-one(FT), -one(FT)), (FT(2), FT(0)), (FT(0.5), FT(2)), (FT(0.05), FT(0.5)),
+                )
+                ok, _ = JustPIC._interpolate_triangle(cx, cy, cz, tri, xp, yp)
+                @test !ok
+            end
         end
     end
 
@@ -202,7 +212,6 @@ end
             dt = FT(0.01)
 
             # Zero velocity field → topography should not change
-            nx1, ny1 = length(xv), length(yv)
             fill!(surf.vx, zero(FT))
             fill!(surf.vy, zero(FT))
             fill!(surf.vz, zero(FT))
@@ -380,14 +389,21 @@ end
 
         @testset "MarkerSurface — Invalid geometry fails fast 3D" begin
             xv, yv, zv = make_grid(; nx = 4, ny = 4, nz = 4)
-            surf = init_marker_surface(backend, xv, yv, FT(0.5))
+            # A tilted surface makes a partial write visible: with a flat one every
+            # stencil elevation is identical, so a rolled-back and a half-advected
+            # topography are indistinguishable.
+            tilted = [FT(0.4) + FT(0.15) * x - FT(0.1) * y for x in xv, y in yv]
+            surf = init_marker_surface(backend, xv, yv, tilted)
             vx = [-FT(2) * x for x in xv, _ in yv]
             copyto!(surf.vx, TA(backend)(vx))
             fill!(surf.vy, zero(FT))
-            fill!(surf.vz, zero(FT))
+            fill!(surf.vz, FT(0.3))
             before = Array(surf.topo)
+            # Failed advection leaves the surface untouched, so the caller can retry
+            # with a smaller time step.
             @test_throws "outside its deformed-grid stencil" advect_surface_topo!(surf, one(FT))
             @test Array(surf.topo) == before
+            @test Array(surf.topo0) == before
 
             outside = init_marker_surface(backend, xv, yv, FT(1.1))
             grid_vxi = device_grid(staggered_velocity_grid(xv, yv, zv))
@@ -420,26 +436,31 @@ end
         end
 
         @testset "MarkerSurface Extended — Horizontal advection" begin
-            # When there's only horizontal velocity (vx), the topography shape
-            # should translate horizontally. Test with a sinusoidal surface.
+            # Under a uniform horizontal velocity the surface satisfies
+            # h_t + u h_x = 0, so h(x, t+dt) = h₀(x - u dt): the shape translates
+            # rigidly. Nodes 1 and end read clamped ghosts instead of upwind
+            # neighbours, so the closed form only holds in the interior.
             xv, yv, zv = make_grid(; nx = 32, ny = 4, nz = 4)
-            nx1, ny1 = length(xv), length(yv)
+            u, dt = FT(0.1), FT(0.1)
 
-            z_init = [FT(0.5) + FT(0.1) * sin(FT(2π) * xv[i]) for i in 1:nx1, j in 1:ny1]
+            h₀(x) = FT(0.5) + FT(0.1) * sin(FT(2π) * x)
+            z_init = [h₀(x) for x in xv, _ in yv]
             surf = init_marker_surface(backend, xv, yv, z_init)
 
-            # Pure horizontal advection at small vx
-            fill!(surf.vx, FT(0.01))
+            fill!(surf.vx, u)
             fill!(surf.vy, zero(FT))
             fill!(surf.vz, zero(FT))
 
-            dt = 0.001  # Small dt for accuracy
             advect_surface_topo!(surf, dt)
 
-            # The surface should have shifted slightly; magnitude of change should be small
-            max_change = maximum(abs.(Array(surf.topo) .- z_init))
-            @test max_change > 0  # Something should change
-            @test max_change < 0.01  # But not by much with small dt
+            result = Array(surf.topo)
+            expected = [h₀(x - u * dt) for x in xv, _ in yv]
+            interior = 2:(length(xv) - 1)
+            # Linear interpolation across the deformed cell leaves a per-node error
+            # of ≈½|h″|·s·(dx−s) ≈ 4e-4 for a displacement s = u dt of 0.32 dx,
+            # an order of magnitude below the 6e-3 of surface motion it resolves.
+            @test maximum(abs.(result[interior, :] .- expected[interior, :])) < FT(1.5e-3)
+            @test maximum(abs.(result .- z_init)) > FT(4.0e-3)
         end
 
         @testset "MarkerSurface Extended — Multiple timestep advection" begin
@@ -546,17 +567,17 @@ end
         xz::T
     end
 
-    function MockRockRatio3D(nx, ny, nz)
+    function MockRockRatio3D(nx, ny, nz, T = FT)
         AT = TA(backend)
         return MockRockRatio3D(
-            AT(zeros(FT, nx, ny, nz)),
-            AT(zeros(FT, nx + 1, ny + 1, nz + 1)),
-            AT(zeros(FT, nx + 1, ny, nz)),
-            AT(zeros(FT, nx, ny + 1, nz)),
-            AT(zeros(FT, nx, ny, nz + 1)),
-            AT(zeros(FT, nx + 1, ny + 1, nz)),
-            AT(zeros(FT, nx, ny + 1, nz + 1)),
-            AT(zeros(FT, nx + 1, ny, nz + 1)),
+            AT(zeros(T, nx, ny, nz)),
+            AT(zeros(T, nx + 1, ny + 1, nz + 1)),
+            AT(zeros(T, nx + 1, ny, nz)),
+            AT(zeros(T, nx, ny + 1, nz)),
+            AT(zeros(T, nx, ny, nz + 1)),
+            AT(zeros(T, nx + 1, ny + 1, nz)),
+            AT(zeros(T, nx, ny + 1, nz + 1)),
+            AT(zeros(T, nx + 1, ny, nz + 1)),
         )
     end
 
@@ -584,64 +605,110 @@ end
         nx, ny, nz_g = length(xv) - 1, length(yv) - 1, length(zv) - 1
         di = (xv[2] - xv[1], yv[2] - yv[1], zv[2] - zv[1])
 
-        @testset "Surface above domain → all rock" begin
-            surf = init_marker_surface(backend, xv, yv, FT(1.5))  # above ztop=1.0
-            ϕ = MockRockRatio3D(nx, ny, nz_g)
-            compute_rock_fraction!(ϕ, surf, (xv, yv, zv), di)
-            @test all(Array(ϕ.center) .≈ 1.0)
-        end
-
-        @testset "Surface below domain → all air" begin
-            surf = init_marker_surface(backend, xv, yv, FT(-0.5))  # below zbot=0.0
-            ϕ = MockRockRatio3D(nx, ny, nz_g)
-            compute_rock_fraction!(ϕ, surf, (xv, yv, zv), di)
-            @test all(Array(ϕ.center) .≈ 0.0)
-        end
-
-        @testset "Surface at mid-height → partial fill" begin
-            surf = init_marker_surface(backend, xv, yv, FT(0.5))
-            ϕ = MockRockRatio3D(nx, ny, nz_g)
-            compute_rock_fraction!(ϕ, surf, (xv, yv, zv), di)
-            center_cpu = Array(ϕ.center)
-            for k in 1:nz_g
-                if zv[k + 1] ≤ 0.5
-                    # Cells entirely below surface → fully rock
-                    @test all(center_cpu[:, :, k] .≈ 1.0)
-                elseif zv[k] ≥ 0.5
-                    # Cells entirely above surface → fully air (rock = 0)
-                    @test all(center_cpu[:, :, k] .≈ 0.0)
+        @testset "Surface outside the domain saturates every placement" begin
+            for (elevation, filled) in ((FT(1.5), one(FT)), (FT(-0.5), zero(FT)))
+                surf = init_marker_surface(backend, xv, yv, elevation)
+                ϕ = MockRockRatio3D(nx, ny, nz_g)
+                compute_rock_fraction!(ϕ, surf, (xv, yv, zv), di)
+                for ratio in (ϕ.center, ϕ.vertex, ϕ.Vx, ϕ.Vy, ϕ.Vz, ϕ.xy, ϕ.yz, ϕ.xz)
+                    @test all(Array(ratio) .≈ filled)
                 end
             end
         end
 
-        @testset "Staggered nodes are consistent" begin
-            surf = init_marker_surface(backend, xv, yv, FT(0.5))
-            ϕ = MockRockRatio3D(nx, ny, nz_g)
-            compute_rock_fraction!(ϕ, surf, (xv, yv, zv), di)
-            # All staggered values should be in [0, 1]
-            @test all(0.0 .≤ Array(ϕ.vertex) .≤ 1.0)
-            @test all(0.0 .≤ Array(ϕ.Vx) .≤ 1.0)
-            @test all(0.0 .≤ Array(ϕ.Vy) .≤ 1.0)
-            @test all(0.0 .≤ Array(ϕ.Vz) .≤ 1.0)
-            @test all(0.0 .≤ Array(ϕ.xy) .≤ 1.0)
-            @test all(0.0 .≤ Array(ϕ.yz) .≤ 1.0)
-            @test all(0.0 .≤ Array(ϕ.xz) .≤ 1.0)
-        end
-
         @testset "Every placement uses its own control volume" begin
+            # zv = 0:0.25:1, so a flat surface at 0.4 leaves the second cell layer
+            # 60% full, while the dual layers are offset by half a cell and cut the
+            # third one at 10%. Both profiles are exact for every column.
             surf = init_marker_surface(backend, xv, yv, FT(0.4))
             ϕ = MockRockRatio3D(nx, ny, nz_g)
             compute_rock_fraction!(ϕ, surf, (xv, yv, zv), di)
 
             cell_profile = FT[1, 0.6, 0, 0]
             dual_profile = FT[1, 1, 0.1, 0, 0]
-            for ratio in (ϕ.center, ϕ.Vx, ϕ.Vy, ϕ.xy)
-                @test Array(ratio)[1, 1, :] ≈ cell_profile atol = eps(FT) * 16
+            for (ratio, profile) in (
+                    (ϕ.center, cell_profile), (ϕ.Vx, cell_profile),
+                    (ϕ.Vy, cell_profile), (ϕ.xy, cell_profile),
+                    (ϕ.vertex, dual_profile), (ϕ.Vz, dual_profile),
+                    (ϕ.yz, dual_profile), (ϕ.xz, dual_profile),
+                )
+                A = Array(ratio)
+                for j in axes(A, 2), i in axes(A, 1)
+                    @test A[i, j, :] ≈ profile atol = eps(FT) * 16
+                end
             end
-            for ratio in (ϕ.vertex, ϕ.Vz, ϕ.yz, ϕ.xz)
-                @test Array(ratio)[1, 1, :] ≈ dual_profile atol = eps(FT) * 16
+        end
+
+        @testset "Rock fraction integrates to the volume below the surface" begin
+            # The control volumes of each placement tile the domain exactly, so
+            # Σ ϕ ΔV is the rock volume — for a plane strictly inside the vertical
+            # extent that is ∫∫ h dx dy, independent of the placement.
+            a, bx, by = FT(0.3), FT(0.2), FT(0.1)
+            surf = init_marker_surface(
+                backend, xv, yv, [a + bx * x + by * y for x in xv, y in yv]
+            )
+            ϕ = MockRockRatio3D(nx, ny, nz_g)
+            compute_rock_fraction!(ϕ, surf, (xv, yv, zv), di)
+
+            exact = a + (bx + by) / 2  # unit base, h ∈ [0.3, 0.6] ⊂ [zv[1], zv[end]]
+            for (ratio, px, py, pz) in (
+                    (ϕ.center, false, false, false), (ϕ.vertex, true, true, true),
+                    (ϕ.Vx, true, false, false), (ϕ.Vy, false, true, false),
+                    (ϕ.Vz, false, false, true), (ϕ.xy, true, true, false),
+                    (ϕ.yz, false, true, true), (ϕ.xz, true, false, true),
+                )
+                A = Array(ratio)
+                volume = 0.0
+                for k in axes(A, 3), j in axes(A, 2), i in axes(A, 1)
+                    xlo, xhi = control_bounds(xv, i, px)
+                    ylo, yhi = control_bounds(yv, j, py)
+                    zlo, zhi = control_bounds(zv, k, pz)
+                    volume += A[i, j, k] * (xhi - xlo) * (yhi - ylo) * (zhi - zlo)
+                end
+                @test volume ≈ exact atol = eps(FT) * 256
             end
-            @test Array(ϕ.Vz)[1, 1, 3] ≈ FT(0.1) atol = eps(FT) * 16
+        end
+
+        @testset "Rock fraction is invariant to the coordinates' precision" begin
+            # Coordinates reach the kernel in the field's own precision, whatever
+            # precision the caller stored them in: a wider grid would otherwise
+            # widen the whole kernel with it.
+            @test eltype(JustPIC.recast_grid(Float64[0, 0.5, 1], Float32)) === Float32
+            matched = FT[0, 0.5, 1]
+            @test JustPIC.recast_grid(matched, FT) === matched
+
+            # A host array grid only reaches a kernel on the CPU backend.
+            if backend === CPU
+                surf32 = init_marker_surface(backend, Float32.(xv), Float32.(yv), 0.4f0)
+                ϕ32 = MockRockRatio3D(nx, ny, nz_g, Float32)
+                compute_rock_fraction!(ϕ32, surf32, (Float64.(xv), Float64.(yv), Float64.(zv)), di)
+                @test eltype(ϕ32.center) === Float32
+                @test Array(ϕ32.center)[1, 1, :] ≈ Float32[1, 0.6, 0, 0] atol = eps(Float32) * 16
+            end
+        end
+
+        @testset "Rock fraction is invariant to a vertical origin shift" begin
+            # `leq_r`/`geq_r` size their tolerance relative to the operands, so a domain
+            # far from z = 0 must still resolve a surface cutting through a cell. The
+            # offset makes that tolerance half a cell tall in absolute coordinates.
+            z_offset = (zv[2] - zv[1]) / (2 * 1000 * eps(FT))
+            zv_far = zv .+ z_offset
+
+            surf = init_marker_surface(backend, xv, yv, FT(0.4))
+            ϕ = MockRockRatio3D(nx, ny, nz_g)
+            compute_rock_fraction!(ϕ, surf, (xv, yv, zv), di)
+
+            surf_far = init_marker_surface(backend, xv, yv, FT(0.4) + z_offset)
+            ϕ_far = MockRockRatio3D(nx, ny, nz_g)
+            compute_rock_fraction!(ϕ_far, surf_far, (xv, yv, zv_far), di)
+
+            for (ratio, ratio_far) in (
+                    (ϕ.center, ϕ_far.center), (ϕ.vertex, ϕ_far.vertex),
+                    (ϕ.Vx, ϕ_far.Vx), (ϕ.Vy, ϕ_far.Vy), (ϕ.Vz, ϕ_far.Vz),
+                    (ϕ.xy, ϕ_far.xy), (ϕ.yz, ϕ_far.yz), (ϕ.xz, ϕ_far.xz),
+                )
+                @test Array(ratio_far) ≈ Array(ratio) atol = FT(1.0e-3)
+            end
         end
 
         @testset "Inclined surface respects x/y placement symmetry" begin
@@ -682,26 +749,20 @@ end
             end
         end
 
-        @testset "MarkerSurface Extended — Rock fraction consistency" begin
+        @testset "Rock fraction decreases monotonically with height" begin
+            # A single-valued surface fills a column from the bottom up: no cell may
+            # hold more rock than the one beneath it, whatever the topography.
             xv, yv, zv = make_grid(; nx = 4, ny = 4, nz = 8)
-            nx_g, ny_g, nz_g = 4, 4, length(zv) - 1
+            nz_g = length(zv) - 1
             di = (xv[2] - xv[1], yv[2] - yv[1], zv[2] - zv[1])
-
-            # Flat surface at z=0.5 → cells below should be rock, above should be air
-            surf = init_marker_surface(backend, xv, yv, FT(0.5))
-            ϕ = MockRockRatio3D(nx_g, ny_g, nz_g)
+            topo = [FT(0.45) + FT(0.3) * sin(FT(2π) * x) * cos(FT(2π) * y) for x in xv, y in yv]
+            surf = init_marker_surface(backend, xv, yv, topo)
+            ϕ = MockRockRatio3D(4, 4, nz_g)
             compute_rock_fraction!(ϕ, surf, (xv, yv, zv), di)
 
-            # Check that the rock fraction sums approximately to 50% of total volume
-            total_rock = sum(Array(ϕ.center)) / (nx_g * ny_g * nz_g)
-            @test abs(total_rock - 0.5) < 0.1  # roughly half-filled
-
-            # Monotonicity: lower cells should have higher rock fraction
-            center_cpu = Array(ϕ.center)
-            for i in 1:nx_g, j in 1:ny_g
-                for k in 1:(nz_g - 1)
-                    @test center_cpu[i, j, k] ≥ center_cpu[i, j, k + 1] - 1.0e-10
-                end
+            for ratio in (ϕ.center, ϕ.vertex, ϕ.Vx, ϕ.Vy, ϕ.Vz, ϕ.xy, ϕ.yz, ϕ.xz)
+                A = Array(ratio)
+                @test all(A[:, :, 1:(end - 1)] .≥ A[:, :, 2:end] .- eps(FT) * 16)
             end
         end
 
@@ -713,14 +774,35 @@ end
         # for a simple geometry: triangle (0,0)-(1,0)-(0.5,0.5), area 0.25,
         # clipped against the cell's z-range [0, 1].
 
-        @testset "Full prism below surface" begin
-            val = JustPIC._triangle_rock_fraction(0.0, 0.0, 2.0, 1.0, 0.0, 2.0, 0.5, 0.5, 2.0, 1.0, 0.0, 1.0)
-            @test val ≈ 0.25 atol = 1.0e-10
+        area = FT(0.25)
+        tol = eps(FT) * 32
+        prism(za, zb, zc, bot, top) = JustPIC._triangle_rock_fraction(
+            zero(FT), zero(FT), za, one(FT), zero(FT), zb, FT(0.5), FT(0.5), zc,
+            one(FT), bot, top,
+        )
+
+        @testset "Prism entirely below or above the cell" begin
+            @test prism(FT(2), FT(2), FT(2), zero(FT), one(FT)) ≈ area atol = tol
+            @test prism(-one(FT), -one(FT), -one(FT), zero(FT), one(FT)) ≈ zero(FT) atol = tol
         end
 
-        @testset "Full prism above surface" begin
-            val = JustPIC._triangle_rock_fraction(0.0, 0.0, -1.0, 1.0, 0.0, -1.0, 0.5, 0.5, -1.0, 1.0, 0.0, 1.0)
-            @test val ≈ 0.0 atol = 1.0e-10
+        @testset "Volume below a plane is its mean elevation × area" begin
+            # ∫∫ z dA over a triangle equals its area times the mean vertex elevation.
+            for (za, zb, zc) in ((FT(0.4), FT(0.4), FT(0.4)), (zero(FT), FT(0.6), FT(0.3)))
+                @test prism(za, zb, zc, zero(FT), one(FT)) ≈ area * (za + zb + zc) / 3 atol = tol
+            end
+        end
+
+        @testset "Clipped volumes are additive in z" begin
+            # Two stacked cells must reproduce the tall cell they tile, which is what
+            # exercises clipping against both the bottom and the top plane.
+            za, zb, zc = FT(0.15), FT(0.85), FT(0.5)
+            whole = prism(za, zb, zc, zero(FT), one(FT))
+            @test whole ≈ area * (za + zb + zc) / 3 atol = tol
+            for split in (FT(0.25), FT(0.5), FT(0.7))
+                @test prism(za, zb, zc, zero(FT), split) + prism(za, zb, zc, split, one(FT)) ≈
+                    whole atol = tol
+            end
         end
     end
 end
@@ -728,43 +810,43 @@ end
 @testset "MarkerSurface — ImplicitGlobalGrid (single-rank periodic)" begin
     nx, ny, nz = 8, 8, 8
     init_global_grid(nx, ny, nz; periodx = 1, periody = 1, quiet = true)
+    try
 
-    xv, yv, zv = make_grid(; nx = nx, ny = ny, nz = nz)
-    nx1, ny1 = nx + 1, ny + 1
-    AT = TA(backend)
+        xv, yv, zv = make_grid(; nx = nx, ny = ny, nz = nz)
+        nx1, ny1 = nx + 1, ny + 1
+        AT = TA(backend)
 
-    # vertex arrays share `ol` lines between periodic neighbours
-    # (default overlap of 2 cells -> 3 vertex lines)
-    ol = 3
+        # vertex arrays share `ol` lines between periodic neighbours
+        # (default overlap of 2 cells -> 3 vertex lines)
+        ol = 3
 
-    @testset "Halo exchange (periodic self-copy)" begin
-        surf = init_marker_surface(backend, xv, yv, zero(FT))
-        A = rand(FT, nx1, ny1)  # seams deliberately inconsistent
-        set_topo_from_array!(surf, AT(A))
+        @testset "Halo exchange (periodic self-copy)" begin
+            surf = init_marker_surface(backend, xv, yv, zero(FT))
+            A = rand(FT, nx1, ny1)  # seams deliberately inconsistent
+            set_topo_from_array!(surf, AT(A))
 
-        update_surface_halo!(surf)
-        T = Array(surf.topo)
+            update_surface_halo!(surf)
+            T = Array(surf.topo)
 
-        # periodic identification: line i ≡ line i + (nx1 - ol)
-        @test T[1, :] ≈ T[nx1 - ol + 1, :]
-        @test T[nx1, :] ≈ T[ol, :]
-        @test T[:, 1] ≈ T[:, ny1 - ol + 1]
-        @test T[:, ny1] ≈ T[:, ol]
-    end
-
-    @testset "Advection drivers run under an active global grid" begin
-        surf = init_marker_surface(backend, xv, yv, FT(0.5))
-        nxg, nyg, nzg = length(xv), length(yv), length(zv)
-        grid_vxi = device_grid(staggered_velocity_grid(xv, yv, zv))
-        V = sample_velocity(grid_vxi) do d, x, y, z
-            d == 3 ? FT(0.1) : zero(FT)
+            # periodic identification: line i ≡ line i + (nx1 - ol)
+            @test T[1, :] ≈ T[nx1 - ol + 1, :]
+            @test T[nx1, :] ≈ T[ol, :]
+            @test T[:, 1] ≈ T[:, ny1 - ol + 1]
+            @test T[:, ny1] ≈ T[:, ol]
         end
 
-        dt = 0.1
-        advect_marker_surface!(surf, V, grid_vxi, dt)
-        @test all(abs.(Array(surf.topo) .- FT(0.51)) .≤ eps(FT) * 8)
+        @testset "Advection drivers run under an active global grid" begin
+            surf = init_marker_surface(backend, xv, yv, FT(0.5))
+            grid_vxi = device_grid(staggered_velocity_grid(xv, yv, zv))
+            V = sample_velocity(grid_vxi) do d, x, y, z
+                d == 3 ? FT(0.1) : zero(FT)
+            end
 
+            advect_marker_surface!(surf, V, grid_vxi, FT(0.1))
+            @test all(abs.(Array(surf.topo) .- FT(0.51)) .≤ eps(FT) * 8)
+        end
+
+    finally
+        finalize_global_grid(; finalize_MPI = false)
     end
-
-    finalize_global_grid(; finalize_MPI = false)
 end
