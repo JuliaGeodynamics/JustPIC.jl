@@ -25,6 +25,11 @@ function compute_area_below_chain_centers!(ratio_center, chain, xvi, dxi)
     return nothing
 end
 
+@inline function rectangle_from_min_corner(min_corner, di)
+    center = min_corner[1] + di[1] / 2, min_corner[2] + di[2] / 2
+    return Rectangle(center, di...; θ = zero(center[1]))
+end
+
 @kernel function _compute_area_below_chain_center!(
         ratio::AbstractArray, topo_y, xv, yv, dxi
     )
@@ -38,8 +43,7 @@ end
     p1 = GridGeometryUtils.Point(ox, topo_y[i])
     p2 = GridGeometryUtils.Point(xv[i + 1], topo_y[i + 1])
     s = Segment(p1, p2)
-
-    r = BBox((ox, oy), dxi...)
+    r = rectangle_from_min_corner((ox, oy), dxi)
     ratio[i, j] = cell_rock_area(s, r)
 end
 
@@ -84,25 +88,16 @@ end
 
         ω += 1
 
-        ## new origin at the center of the (ii, jj)-th cell
-        origin = (ox, oy) .+ (mask_x[c], zero(T))
-        ## now we need to interpolate the segment of the chain to the boundaries of the new cell
-        # segment of the chain
+        min_corner = (ox, oy) .+ (mask_x[c], zero(T))
         p1 = GridGeometryUtils.Point(x[l], y[l])
         p2 = GridGeometryUtils.Point(x[l + 1], y[l + 1])
-        # create a line from the two points
-        l = Line(p1, p2)
-        # evaluate the line at the origin and origin + dx / 2
-        y1 = line(l, origin[1])
-        y2 = line(l, origin[1] + half_dx)
-        # create two points at the boundaries of the new cell
-        p1 = GridGeometryUtils.Point(origin[1], y1)
-        p2 = GridGeometryUtils.Point(origin[1] + half_dx, y2)
-        # and turn them into a segment
+        chain_line = Line(p1, p2)
+        y1 = line(chain_line, min_corner[1])
+        y2 = line(chain_line, min_corner[1] + half_dx)
+        p1 = GridGeometryUtils.Point(min_corner[1], y1)
+        p2 = GridGeometryUtils.Point(min_corner[1] + half_dx, y2)
         s = Segment(p1, p2)
-
-        ## bounding box of the new cell
-        r = BBox(origin, half_dx, half_dy)
+        r = rectangle_from_min_corner(min_corner, (half_dx, half_dy))
         tmp += cell_rock_area(s, r)
     end
     ratios[i, j] = tmp / ω
@@ -143,25 +138,16 @@ end
 
         ω += 1
 
-        ## new origin at the center of the (ii, jj)-th cell
-        origin = (ox, oy) .+ (zero(T), mask_y[c])
-        ## now we need to interpolate the segment of the chain to the boundaries of the new cell
-        # segment of the chain
+        min_corner = (ox, oy) .+ (zero(T), mask_y[c])
         p1 = GridGeometryUtils.Point(x[1], y[1])
         p2 = GridGeometryUtils.Point(x[2], y[2])
-        # create a line from the two points
-        l = Line(p1, p2)
-        # evaluate the line at the origin and origin + dx / 2
-        y1 = line(l, origin[1])
-        y2 = line(l, origin[1] + half_dx)
-        # create two points at the boundaries of the new cell
-        p1 = GridGeometryUtils.Point(origin[1], y1)
-        p2 = GridGeometryUtils.Point(origin[1] + half_dx, y2)
-        # and turn them into a segment
+        chain_line = Line(p1, p2)
+        y1 = line(chain_line, min_corner[1])
+        y2 = line(chain_line, min_corner[1] + half_dx)
+        p1 = GridGeometryUtils.Point(min_corner[1], y1)
+        p2 = GridGeometryUtils.Point(min_corner[1] + half_dx, y2)
         s = Segment(p1, p2)
-
-        ## bounding box of the new cell
-        r = BBox(origin, half_dx, half_dy)
+        r = rectangle_from_min_corner(min_corner, (half_dx, half_dy))
         tmp += cell_rock_area(s, r)
     end
     ratios[i, j] = tmp / ω
@@ -212,25 +198,16 @@ end
 
             ω += 1
 
-            ## new origin at the center of the (ii, jj)-th cell
-            origin = (ox, oy) .+ (masks_x[c], masks_y[c])
-            ## now we need to interpolate the segment of the chain to the boundaries of the new cell
-            # segment of the chain
+            min_corner = (ox, oy) .+ (masks_x[c], masks_y[c])
             p1 = GridGeometryUtils.Point(x[l], y[l])
             p2 = GridGeometryUtils.Point(x[l + 1], y[l + 1])
-            # create a line from the two points
-            l = Line(p1, p2)
-            # evaluate the line at the origin and origin + dx / 2
-            y1 = line(l, origin[1])
-            y2 = line(l, origin[1] + half_dx)
-            # create two points at the boundaries of the new cell
-            p1 = GridGeometryUtils.Point(origin[1], y1)
-            p2 = GridGeometryUtils.Point(origin[1] + half_dx, y2)
-            # and turn them into a segment
+            chain_line = Line(p1, p2)
+            y1 = line(chain_line, min_corner[1])
+            y2 = line(chain_line, min_corner[1] + half_dx)
+            p1 = GridGeometryUtils.Point(min_corner[1], y1)
+            p2 = GridGeometryUtils.Point(min_corner[1] + half_dx, y2)
             s = Segment(p1, p2)
-
-            ## bounding box of the new cell
-            r = BBox(origin, half_dx, half_dy)
+            r = rectangle_from_min_corner(min_corner, (half_dx, half_dy))
             tmp += cell_rock_area(s, r)
         end
     end
@@ -239,53 +216,61 @@ end
 
 #############################
 
-# `y1`, `y2` are the ends of the chain segment measured from the floor of a cell of height
-# `h`. The comparisons are exact: a round-off-tolerant one carries an absolute near-zero
-# tolerance of `1000 * eps(T)`, which for a `Float32` cell only a few thousand `eps` tall
-# swallows a large fraction of the cell.
-@inline is_chain_above_cell(y1, y2, h) = y1 ≥ h && y2 ≥ h
+@inline function is_chain_above_cell(s::Segment, r::Rectangle)
+    max_y = r.origin[2] + r.h / 2
+    return GridGeometryUtils.geq_r(s.p1[2], max_y) && GridGeometryUtils.geq_r(s.p2[2], max_y)
+end
 
-@inline is_chain_below_cell(y1::T, y2) where {T} = y1 ≤ zero(T) && y2 ≤ zero(T)
+@inline function is_chain_below_cell(s::Segment, r::Rectangle)
+    min_y = r.origin[2] - r.h / 2
+    return GridGeometryUtils.leq_r(s.p1[2], min_y) && GridGeometryUtils.leq_r(s.p2[2], min_y)
+end
 
-# Endpoint of the chord on the boundary of the cell `[0, l] × [0, h]` at the end whose
-# vertical edge sits at `x`: the chain's own height when it crosses that edge, otherwise the
-# point where it leaves through the floor or the ceiling. `y_other`/`x_other` are the
-# opposite end of the chord.
-@inline function chord_endpoint(y::T, x, y_other, x_other, h) where {T}
-    y_cut = if y < zero(T)
-        zero(T)
-    elseif y > h
-        h
-    else
-        return GridGeometryUtils.Point(x, y)
-    end
-    return GridGeometryUtils.Point(x + (y_cut - y) * (x_other - x) / (y_other - y), y_cut)
+@inline function clip_chain_to_cell(s::Segment, r::Rectangle)
+    min_y = r.origin[2] - r.h / 2
+    max_y = r.origin[2] + r.h / 2
+    dx = s.p2[1] - s.p1[1]
+    dy = s.p2[2] - s.p1[2]
+
+    y1 = clamp(s.p1[2], min_y, max_y)
+    y2 = clamp(s.p2[2], min_y, max_y)
+    x1 = s.p1[2] == y1 ? s.p1[1] : s.p1[1] + (y1 - s.p1[2]) * dx / dy
+    x2 = s.p2[2] == y2 ? s.p2[1] : s.p1[1] + (y2 - s.p1[2]) * dx / dy
+
+    return Segment(GridGeometryUtils.Point(x1, y1), GridGeometryUtils.Point(x2, y2))
+end
+
+# Chord and cell translated so that the cell is centered on the coordinate origin. Both the
+# round-off tolerant comparisons above and `intersecting_area`'s check that the chord ends on
+# the cell boundary size their tolerance relative to the magnitude of the coordinates they are
+# handed, so in absolute coordinates a cell many cell widths from the origin falls inside its
+# own tolerance: a `Float32` cell a few thousand widths out is swallowed whole.
+@inline function recenter_on_cell(s::Segment, r::Rectangle{T}) where {T}
+    ox, oy = r.origin[1], r.origin[2]
+    s_local = Segment(
+        GridGeometryUtils.Point(s.p1[1] - ox, s.p1[2] - oy),
+        GridGeometryUtils.Point(s.p2[1] - ox, s.p2[2] - oy),
+    )
+    return s_local, Rectangle((zero(T), zero(T)), r.l, r.h; θ = zero(T))
 end
 
 """
-    cell_rock_area(s::Segment, r::BBox{2}) -> Real
+    cell_rock_area(s::Segment, r::Rectangle) -> Real
 
-Fraction of the cell `r` lying below the marker chain segment `s`, in `[0, 1]`.
+Fraction of the axis-aligned cell `r` lying below the marker chain segment `s`, in `[0, 1]`.
 
-`s` spans the full width of `r`, running left to right, and may leave the cell through its
-floor or its ceiling.
+`s` spans the full width of `r`, runs left to right, and may leave the cell through its floor
+or its ceiling.
 """
-@inline function cell_rock_area(s::Segment, r::BBox{2, T}) where {T}
-    # Heights above the cell floor. `intersecting_area` needs its endpoints on the boundary
-    # of the cell and checks that to a tolerance proportional to the cell size, so the whole
-    # geometry is built relative to the cell's south-west corner: absolute coordinates carry
-    # a round-off proportional to their own magnitude, which for a cell many widths away
-    # from the origin exceeds that tolerance.
-    l, h = r.l, r.h
-    oy = r.origin[2]
-    y1, y2 = s.p1[2] - oy, s.p2[2] - oy
+@inline function cell_rock_area(s::Segment, r::Rectangle{T}) where {T}
+    s_local, cell = recenter_on_cell(s, r)
 
-    is_chain_above_cell(y1, y2, h) && return one(T)
-    is_chain_below_cell(y1, y2) && return zero(T)
+    is_chain_above_cell(s_local, cell) && return one(T)
+    is_chain_below_cell(s_local, cell) && return zero(T)
 
-    cell = Rectangle((l / 2, h / 2), l, h; θ = zero(T))
-    p1 = chord_endpoint(y1, zero(T), y2, l, h)
-    p2 = chord_endpoint(y2, l, y1, zero(T), h)
-
-    return clamp(intersecting_area(p1, p2, cell) / area(cell), zero(T), one(T))
+    # A left-to-right chord has the rock region on its right-hand side.
+    return clamp(
+        intersecting_area(clip_chain_to_cell(s_local, cell), cell) / area(cell),
+        zero(T), one(T)
+    )
 end
