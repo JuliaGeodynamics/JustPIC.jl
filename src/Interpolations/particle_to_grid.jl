@@ -29,7 +29,8 @@ function particle2grid!(F, Fp, particles; ghost_1 = true, ghost_2 = true, ghost_
     # mask shift in case `F` has ghost nodes only in some dimensions, or non at all
     mask = inner_mask(particles, ghost_1, ghost_2, ghost_3)
 
-    ndrange = length.(inner_ranges(Fp))
+    # `index` carries the cell layout for both scalar and tuple-valued `Fp`
+    ndrange = length.(inner_ranges(index))
     launch!(ka_backend(particles), particle2grid_kernel!, ndrange, F, Fp, xvi, coords, index, mask)
     return nothing
 end
@@ -81,9 +82,9 @@ function _particle2grid!(
         F::NTuple{N, T1}, Fp::NTuple{N, T2}, inode, jnode, xi::NTuple{2, T3}, p, index, mask
     ) where {N, T1, T2, T3}
     px, py = p # particle coordinates
-    nx, ny = size(F[1])
     xvertex = xi[1][inode], xi[2][jnode] # cell lower-left coordinates
-    ω, ωxF = zero(eltype(F[1])), zero(eltype(F[1])) # init weights
+    ω = zero(eltype(F[1])) # init weights
+    ωxF = ntuple(i -> zero(eltype(F[1])), Val(N)) # init weights
 
     # iterate over cells around i-th node
     for joffset in -1:0
@@ -102,9 +103,11 @@ function _particle2grid!(
                 ω_i = distance_weight(xvertex, p_i; order = 2)
                 # ω_i = bilinear_weight(xvertex, p_i, di)
                 ω += ω_i
-                ωxF = ntuple(Val(N)) do j
-                    Base.@_inline_meta
-                    muladd(ω_i, CAI.@index(Fp[j][i, ivertex, jvertex]), ωxF[j])
+                ωxF = let ωxF = ωxF, ω_i = ω_i
+                    ntuple(Val(N)) do j
+                        Base.@_inline_meta
+                        muladd(ω_i, CAI.@index(Fp[j][i, ivertex, jvertex]), ωxF[j])
+                    end
                 end
             end
             # end
@@ -164,7 +167,6 @@ function _particle2grid!(
         F::NTuple{N, T1}, Fp::NTuple{N, T2}, inode, jnode, knode, xi::NTuple{3, T3}, p, index, mask
     ) where {N, T1, T2, T3}
     px, py, pz = p # particle coordinates
-    nx, ny, nz = size(F[1])
     xvertex = xi[1][inode], xi[2][jnode], xi[3][knode] # cell lower-left coordinates
     ω = zero(eltype(F[1])) # init weights
     ωxF = ntuple(i -> zero(eltype(F[1])), Val(N)) # init weights
@@ -191,9 +193,11 @@ function _particle2grid!(
                     ω_i = distance_weight(xvertex, p_i; order = 2)
                     # ω_i = bilinear_weight(xvertex, p_i, di)
                     ω += ω_i
-                    ωxF = ntuple(Val(N)) do j
-                        Base.@_inline_meta
-                        muladd(ω_i, CAI.@index(Fp[j][i, ivertex, jvertex, kvertex]), ωxF[j])
+                    ωxF = let ωxF = ωxF, ω_i = ω_i
+                        ntuple(Val(N)) do j
+                            Base.@_inline_meta
+                            muladd(ω_i, CAI.@index(Fp[j][ip, ivertex, jvertex, kvertex]), ωxF[j])
+                        end
                     end
                 end
                 # end

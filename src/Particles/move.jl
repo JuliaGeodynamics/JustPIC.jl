@@ -120,7 +120,7 @@ end
     return quote
         Base.@_inline_meta
         Base.Cartesian.@nexprs $N i ->
-        (@inbounds !(domain_limits[i][1] < p[i] < domain_limits[i][2]) && return false)
+        (@inbounds !(domain_limits[i][1] ≤ p[i] < domain_limits[i][2]) && return false)
         return true
     end
 end

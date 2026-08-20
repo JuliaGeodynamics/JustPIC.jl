@@ -85,7 +85,7 @@ end
     # staggered grid velocity nodal locations
     grid_vx = xv, expand_range(yc)
     grid_vy = expand_range(xc), yv
-    grid_vel = grid_vx, grid_vx
+    grid_vel = grid_vx, grid_vy
 
     particles = JustPIC.init_particles(backend, nxcell, max_xcell, min_xcell, grid_vel...)
     phases, pT = JustPIC.init_cell_arrays(particles, Val(2))

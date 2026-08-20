@@ -81,6 +81,15 @@ julia> particle2grid!(F, Fp, particles)
 The same `ghost_1`, `ghost_2`, and `ghost_3` keywords select whether each
 destination direction includes particle ghost nodes. They default to `true`.
 
+`particle2centroid!` and `grid2particle_flip!` take the same keywords; for
+`particle2centroid!` they refer to the ghosted centroid grid `particles.xci`.
+`centroid2particle!` has no opt-out: particles sitting between a domain boundary
+and the first centroid are interpolated from the ghost centroids, so its source
+field must always use the `particles.xci` layout.
+
 Related high-level helpers in this workflow are `particle2centroid!`,
 `centroid2particle!`, `update_phase_ratios!`, `subgrid_diffusion!`, and
-`subgrid_diffusion_centroid!`.
+`subgrid_diffusion_centroid!`. The two subgrid-diffusion routines read their
+`T_grid` through `grid2particle!`/`centroid2particle!` and so expect the ghosted
+vertex and centroid layouts respectively, while `ΔT_grid` carries one ghost node
+per side, matching `size(particles.index)`.

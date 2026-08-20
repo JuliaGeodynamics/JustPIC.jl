@@ -197,6 +197,33 @@ end
     @test arrays.pT0.data isa TA(backend)
     @test arrays.pΔT.data isa TA(backend)
     @test arrays.dt₀.data isa TA(backend)
+
+    # with `d = 0` the subgrid correction vanishes and the particles pick up
+    # the resolved increment as it stands
+    xvi_p = JustPIC.add_periodic_ghost_nodes.(xvi)
+    xci_p = JustPIC.add_periodic_ghost_nodes.(xci)
+    ΔT_const = FT(3.5)
+    ΔT_grid = TA(backend)(fill(ΔT_const, size(particles.index)))
+    active = Array(particles.index.data)
+
+    T_vertex = TA(backend)([z for x in xvi_p[1], y in xvi_p[2], z in xvi_p[3]])
+    pT, = JustPIC.init_cell_arrays(particles, Val(1))
+    JustPIC.grid2particle!(pT, T_vertex, particles)
+    pT_before = copy(Array(pT.data))
+    subgrid_diffusion!(pT, T_vertex, ΔT_grid, arrays, particles, FT(1); d = FT(0))
+    @test Array(pT.data)[active] ≈ (pT_before .+ ΔT_const)[active]
+
+    arrays_c = JustPIC.SubgridDiffusionCellArrays(particles; loc = :center)
+    T_centroid = TA(backend)([z for x in xci_p[1], y in xci_p[2], z in xci_p[3]])
+    pTc, = JustPIC.init_cell_arrays(particles, Val(1))
+    JustPIC.centroid2particle!(pTc, T_centroid, particles)
+    pTc_before = copy(Array(pTc.data))
+    subgrid_diffusion_centroid!(pTc, T_centroid, ΔT_grid, arrays_c, particles, FT(1); d = FT(0))
+    @test Array(pTc.data)[active] ≈ (pTc_before .+ ΔT_const)[active]
+
+    @test_throws "ΔT_grid must carry one ghost node per side" subgrid_diffusion!(
+        pT, T_vertex, TA(backend)(zeros(FT, ni...)), arrays, particles, FT(1)
+    )
     GC.gc()
 end
 

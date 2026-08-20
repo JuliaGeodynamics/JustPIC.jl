@@ -84,7 +84,7 @@ end
             particles_num += 1
         end
 
-        particles_num ≥ min_xQuadrant && break
+        particles_num ≥ min_xQuadrant && continue
 
         for i in cellaxes(index)
             !(CAI.@index index[i, idx_cell...]) || continue
@@ -133,7 +133,7 @@ end
         end
 
         # we are fine, do not inject if
-        particles_num ≥ min_xQuadrant && break
+        particles_num ≥ min_xQuadrant && continue
 
         for i in cellaxes(index)
             !(CAI.@index index[i, idx_cell...]) || continue

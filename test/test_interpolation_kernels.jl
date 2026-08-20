@@ -138,6 +138,65 @@ end
     @test pT_copy.data[:] == pT.data[:]
 end
 
+@testset "Ghost-node opt-out 2D" begin
+    nxcell, max_xcell, min_xcell = 5, 5, 1
+    n = 5 # number of vertices
+    Lx = Ly = FT(1)
+    xvi = xv, yv = LinRange(0, Lx, n), LinRange(0, Ly, n)
+    dx, dy = xv[2] - xv[1], yv[2] - yv[1]
+    xci = xc, yc = LinRange(0 + dx / 2, Lx - dx / 2, n - 1), LinRange(0 + dy / 2, Ly - dy / 2, n - 1)
+    grid_vel = TA(backend).((xv, expand_range(yc))), TA(backend).((expand_range(xc), yv))
+
+    particles = JustPIC.init_particles(
+        backend, nxcell, max_xcell, min_xcell, grid_vel...,
+    )
+    xvi_p = JustPIC.add_periodic_ghost_nodes.(xvi)
+    xci_p = JustPIC.add_periodic_ghost_nodes.(xci)
+
+    pT, pX = JustPIC.init_cell_arrays(particles, Val(2))
+    JustPIC.grid2particle!(pT, TA(backend)([y for x in xvi_p[1], y in xvi_p[2]]), particles)
+    JustPIC.grid2particle!(pX, TA(backend)([x for x in xvi_p[1], y in xvi_p[2]]), particles)
+
+    # a tuple of destination fields must agree with the same fields interpolated one by one
+    ghost_nan() = TA(backend)(fill(FT(NaN), length.(xvi_p)))
+    interior(A) = Array(A)[2:(end - 1), 2:(end - 1)]
+    Fx, Fy = ghost_nan(), ghost_nan()
+    Fx_ref, Fy_ref = ghost_nan(), ghost_nan()
+    JustPIC.particle2grid!((Fx, Fy), (pX, pT), particles)
+    JustPIC.particle2grid!(Fx_ref, pX, particles)
+    JustPIC.particle2grid!(Fy_ref, pT, particles)
+    @test interior(Fx) ≈ interior(Fx_ref)
+    @test interior(Fy) ≈ interior(Fy_ref)
+
+    # `ghost_i = false` writes the physical nodes of an unghosted array
+    Fv_plain = TA(backend)(fill(FT(NaN), length.(xvi)))
+    JustPIC.particle2grid!(Fv_plain, pT, particles; ghost_1 = false, ghost_2 = false)
+    @test Array(Fv_plain) == interior(Fy_ref)
+
+    Fc = TA(backend)(fill(FT(NaN), length.(xci_p)))
+    Fc_plain = TA(backend)(fill(FT(NaN), length.(xci)))
+    JustPIC.particle2centroid!(Fc, pT, particles)
+    JustPIC.particle2centroid!(Fc_plain, pT, particles; ghost_1 = false, ghost_2 = false)
+    @test Array(Fc_plain) == Array(Fc)[2:(end - 1), 2:(end - 1)]
+
+    # the same field read back with and without ghost nodes must reach the particles alike
+    T_ghost = TA(backend)([y for x in xvi_p[1], y in xvi_p[2]])
+    T_plain = TA(backend)([y for x in xvi[1], y in xvi[2]])
+    pT_ghost, pT_plain = JustPIC.init_cell_arrays(particles, Val(2))
+    JustPIC.grid2particle!(pT_ghost, T_ghost, particles)
+    JustPIC.grid2particle!(pT_plain, T_plain, particles; ghost_1 = false, ghost_2 = false)
+    active = Array(particles.index.data)
+    @test Array(pT_ghost.data)[active] ≈ Array(pT_plain.data)[active]
+
+    pF_ghost, pF_plain = JustPIC.init_cell_arrays(particles, Val(2))
+    JustPIC.grid2particle_flip!(pF_ghost, xvi_p, T_ghost, T_ghost, particles; α = FT(0.5))
+    JustPIC.grid2particle_flip!(
+        pF_plain, xvi_p, T_plain, T_plain, particles;
+        α = FT(0.5), ghost_1 = false, ghost_2 = false,
+    )
+    @test Array(pF_ghost.data)[active] ≈ Array(pF_plain.data)[active]
+end
+
 @testset "Interpolations 3D" begin
 
 

@@ -9,6 +9,10 @@ Interpolate cell-centered field values `F` to particle values `Fp`.
 `xci` contains the center coordinates of the grid carrying `F`. The destination
 `Fp` is mutated in place and may be either a single particle field or a tuple of
 particle fields.
+
+Particles lying between a domain boundary and the first centroid are
+interpolated from the ghost centroids, so `F` must always use the ghosted
+`particles.xci` layout — unlike `grid2particle!`, there is no opt-out.
 """
 centroid2particle!(Fp, F, particles) = centroid2particle!(Fp, particles.xci, F, particles, particles.di.center)
 

@@ -131,8 +131,10 @@ between the two updates.
 - `F0`: previous grid field.
 - `particles`: particle container.
 - `α`: PIC fraction in the PIC/FLIP blend.
+- `ghost_1`, `ghost_2`, `ghost_3`: whether `F` and `F0` include ghost nodes in
+  each coordinate direction. Disable a keyword for a physical-only direction.
 """
-function grid2particle_flip!(Fp, xvi, F, F0, particles; α = 0.0)
+function grid2particle_flip!(Fp, xvi, F, F0, particles; α = 0.0, ghost_1 = true, ghost_2 = true, ghost_3 = true)
     (; coords, index) = particles
     # recast the grid to the particle precision so the ranges are GPU-safe on Float32
     # backends (they are indexed directly inside the kernel; see advection!)
@@ -142,26 +144,30 @@ function grid2particle_flip!(Fp, xvi, F, F0, particles; α = 0.0)
     ni = inner_size(index)
     # blend factor must match the field precision (Float64 breaks Metal)
     αT = convert(Tc, α)
-    launch!(ka_backend(particles), grid2particle_full!, ni, Fp, F, F0, xvi, di, coords, index, αT)
+
+    # mask shift in case `F` has ghost nodes only in some dimensions, or non at all
+    mask = inner_mask(particles, ghost_1, ghost_2, ghost_3)
+
+    launch!(ka_backend(particles), grid2particle_full!, ni, Fp, F, F0, xvi, di, coords, index, αT, mask)
 
     return nothing
 end
 
 @kernel function grid2particle_full!(
-        Fp, F, F0, xvi, di, particle_coords, index, α
+        Fp, F, F0, xvi, di, particle_coords, index, α, mask
     )
     I = @index(Global, NTuple)
     I_inner = I .+ 1
-    _grid2particle_full!(Fp, particle_coords, xvi, @dxi(di, I_inner...), F, F0, index, I_inner, α)
+    _grid2particle_full!(Fp, particle_coords, xvi, @dxi(di, I_inner...), F, F0, index, I_inner, α, mask)
 end
 
 # INNERMOST INTERPOLATION KERNEL
 
 @inline function _grid2particle_full!(
-        Fp, p, xvi, di::NTuple{N, T}, F, F0, index, idx, α
+        Fp, p, xvi, di::NTuple{N, T}, F, F0, index, idx, α, mask
     ) where {N, T}
-    Fi = field_corners(F, idx)
-    F0i = field_corners(F0, idx)
+    Fi = field_corners(F, idx .+ mask)
+    F0i = field_corners(F0, idx .+ mask)
 
     # iterate over all the particles within the cells of index `idx`
     return @inbounds for ip in cellaxes(Fp)
@@ -190,6 +196,7 @@ end
         index,
         idx,
         α,
+        mask,
     ) where {N1, T1, N2, T2, T3}
     # iterate over all the particles within the cells of index `idx`
     return @inbounds for ip in cellaxes(Fp)
@@ -205,7 +212,9 @@ end
         ntuple(Val(N1)) do i
             Base.@_inline_meta
             Fᵢ = CAI.@index Fp[i][ip, idx...]
-            F_pic, F0_pic = _grid2particle(pᵢ, xvi, di, (F[i], F0[i]), idx)
+            Fi = field_corners(F[i], idx .+ mask)
+            F0i = field_corners(F0[i], idx .+ mask)
+            F_pic, F0_pic = _grid2particle(pᵢ, xvi, di, (Fi, F0i), idx)
             ΔF = F_pic - F0_pic
             F_flip = Fᵢ + ΔF
             # Interpolate field F onto particle

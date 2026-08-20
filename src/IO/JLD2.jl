@@ -81,8 +81,8 @@ plain Julia arrays where needed.
 # Notes
 - Arrays are converted to plain Julia arrays before serialization so the
   checkpoint can be reloaded independently of the active backend.
-- Passing `me` writes rank-local files named
-  `particles_checkpoint0001.jld2`, `particles_checkpoint0002.jld2`, and so on.
+- Passing `me` writes rank-local files named after the zero-based MPI rank:
+  `particles_checkpoint0000.jld2`, `particles_checkpoint0001.jld2`, and so on.
 """
 function checkpointing_particles(
         dst,

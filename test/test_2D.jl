@@ -96,7 +96,7 @@ Base.getindex(p::ForceInjectionPoint2D, i::Int) = p.coords[i]
     # staggered grid velocity nodal locations
     grid_vx = xv, expand_range(yc)
     grid_vy = expand_range(xc), yv
-    grid_vel = grid_vx, grid_vx
+    grid_vel = grid_vx, grid_vy
     # Initialize particles & particle fields
     particles = JustPIC.init_particles(
         backend, nxcell, max_xcell, min_xcell, grid_vel...,
@@ -111,6 +111,36 @@ Base.getindex(p::ForceInjectionPoint2D, i::Int) = p.coords[i]
 
     @test_throws ArgumentError SubgridDiffusionCellArrays(1)
 
+    # with `d = 0` the subgrid correction vanishes and the particles pick up
+    # the resolved increment as it stands
+    xvi_p = JustPIC.add_periodic_ghost_nodes.(xvi)
+    xci_p = JustPIC.add_periodic_ghost_nodes.((xc, yc))
+    ΔT_const = FT(3.5)
+    ΔT_grid = TA(backend)(fill(ΔT_const, size(particles.index)))
+    active = Array(particles.index.data)
+
+    T_vertex = TA(backend)([y for x in xvi_p[1], y in xvi_p[2]])
+    pT, = JustPIC.init_cell_arrays(particles, Val(1))
+    JustPIC.grid2particle!(pT, T_vertex, particles)
+    pT_before = copy(Array(pT.data))
+    subgrid_diffusion!(pT, T_vertex, ΔT_grid, arrays, particles, FT(1); d = FT(0))
+    @test Array(pT.data)[active] ≈ (pT_before .+ ΔT_const)[active]
+
+    arrays_c = JustPIC.SubgridDiffusionCellArrays(particles; loc = :center)
+    T_centroid = TA(backend)([y for x in xci_p[1], y in xci_p[2]])
+    pTc, = JustPIC.init_cell_arrays(particles, Val(1))
+    JustPIC.centroid2particle!(pTc, T_centroid, particles)
+    pTc_before = copy(Array(pTc.data))
+    subgrid_diffusion_centroid!(pTc, T_centroid, ΔT_grid, arrays_c, particles, FT(1); d = FT(0))
+    @test Array(pTc.data)[active] ≈ (pTc_before .+ ΔT_const)[active]
+
+    # a resolved-grid increment without ghost nodes is rejected rather than read out of bounds
+    @test_throws "ΔT_grid must carry one ghost node per side" subgrid_diffusion!(
+        pT, T_vertex, TA(backend)(zeros(FT, nx, ny)), arrays, particles, FT(1)
+    )
+    @test_throws "ΔT_grid must carry one ghost node per side" subgrid_diffusion_centroid!(
+        pTc, T_centroid, TA(backend)(zeros(FT, nx, ny)), arrays_c, particles, FT(1)
+    )
 end
 
 @testset "Particles initialization 2D" begin
@@ -172,6 +202,48 @@ end
     @test count(Array(particles.index.data)) == 0
     JustPIC.inject_particles!(particles, ())
     @test count(Array(particles.index.data)) > 0
+end
+
+@testset "Particle injection fills every quadrant 2D" begin
+    nxcell, max_xcell, min_xcell = 8, 16, 8
+    n = 5
+    Lx = Ly = FT(1)
+    xv, yv = LinRange(0, Lx, n), LinRange(0, Ly, n)
+    dx, dy = xv[2] - xv[1], yv[2] - yv[1]
+    xc, yc = LinRange(dx / 2, Lx - dx / 2, n - 1), LinRange(dy / 2, Ly - dy / 2, n - 1)
+    particles = init_particles(
+        backend, nxcell, max_xcell, min_xcell, (xv, expand_range(yc)), (expand_range(xc), yv),
+    )
+
+    # leave a single cell populated, with every particle in its lower-left quadrant
+    cell = (2, 2)
+    x0, y0 = xv[1], yv[1]
+    fill!(particles.index.data, false)
+    foreach(coord -> fill!(coord.data, FT(NaN)), particles.coords)
+    for ip in 1:3
+        CAI.@index particles.index[ip, cell...] = true
+        CAI.@index particles.coords[1][ip, cell...] = x0 + dx * FT(ip) / 16
+        CAI.@index particles.coords[2][ip, cell...] = y0 + dy * FT(ip) / 16
+    end
+
+    inject_particles!(particles, ())
+
+    # every quadrant, not just the one that was already populated, must be filled
+    idx_cell = Array(particles.index)[cell...]
+    px_cell = Array(particles.coords[1])[cell...]
+    py_cell = Array(particles.coords[2])[cell...]
+    min_xquadrant = cld(min_xcell, 4)
+    for offset in ((0, 0), (1, 0), (0, 1), (1, 1))
+        xlo = x0 + offset[1] * dx / 2
+        ylo = y0 + offset[2] * dy / 2
+        n_quadrant = count(
+            ip -> idx_cell[ip] &&
+                xlo ≤ px_cell[ip] < xlo + dx / 2 &&
+                ylo ≤ py_cell[ip] < ylo + dy / 2,
+            eachindex(idx_cell),
+        )
+        @test n_quadrant ≥ min_xquadrant
+    end
 end
 
 @testset "Cell index 2D" begin
@@ -248,6 +320,14 @@ end
     reset_particle!((2, 3), (FT(-0.01), FT(0.375)))
     move_particles!(particles, (field,))
     @test count(Array(particles.index.data)) == 0
+
+    # wrapping maps the upper limit onto the lower one, which is inside the domain
+    reset_particle!((5, 3), (FT(1), FT(0.375)))
+    move_particles!(particles, (field,); periodic_1 = true)
+    @test count(Array(particles.index.data)) == 1
+    @test CAI.@index(particles.index[1, 2, 3])
+    @test CAI.@index(particles.coords[1][1, 2, 3]) == FT(0)
+    @test CAI.@index(field[1, 2, 3]) == FT(42)
 
     Vx = TA(backend)(fill(FT(1), length.(grid_vx)))
     Vy = TA(backend)(fill(FT(0), length.(grid_vy)))

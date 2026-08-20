@@ -213,11 +213,12 @@ function find_free_memory(initial_index::Integer, index::CellArray, I::Vararg{In
     return 0
 end
 
+# half-open `[xmin, xmax)`, matching `isincell` and the interval `wrap_coordinate` maps into
 @generated function indomain(p::NTuple{N, T1}, domain_limits::NTuple{N, T2}) where {N, T1, T2}
     return quote
         Base.@_inline_meta
         Base.Cartesian.@nexprs $N i ->
-        ((domain_limits[i][1] < p[i] < domain_limits[i][2]) || return false)
+        ((domain_limits[i][1] ≤ p[i] < domain_limits[i][2]) || return false)
         return true
     end
 end
@@ -389,40 +390,6 @@ function count_particles(index, I::Vararg{Int, N}) where {N}
         count += CAI.@index index[i, I...]
     end
     return count
-end
-
-
-######
-
-empty_ghost_nodes!(particles, others::NTuple{N, Any}) where {N} = empty_ghost_nodes!(particles, others...)
-
-function empty_ghost_nodes!(particles, others...)
-
-    (; index, coords) = particles
-    ni = size(index)
-    launch!(ka_backend(index), empty_ghost_nodes_kernel!, ni, index, (coords..., others...))
-
-    return nothing
-end
-
-@kernel function empty_ghost_nodes_kernel!(index, others)
-    I = @index(Global, NTuple)
-
-    if isghost(size(index), I)
-        for ip in cellaxes(index)
-            CAI.@index index[ip, I...] = false
-            for other in others
-                CAI.@index other[ip, I...] = NaN
-            end
-        end
-    end
-end
-
-@generated function isghost(sz::NTuple{N, Int}, I::NTuple{N}) where {N}
-    return quote
-        @inline
-        Base.@nany $N i -> @inbounds isequal(sz[i], I[i]) || @inbounds isequal(1, I[i])
-    end
 end
 
 
