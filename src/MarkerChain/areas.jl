@@ -39,7 +39,8 @@ end
     p2 = GridGeometryUtils.Point(xv[i + 1], topo_y[i + 1])
     s = Segment(p1, p2)
 
-    r = Rectangle((ox, oy), dxi...; θ = zero(ox))
+    # Rectangle's first argument is its center, not its lower-left corner.
+    r = Rectangle((ox + dxi[1] / 2, oy + dxi[2] / 2), dxi...; θ = zero(ox))
     ratio[i, j] = cell_rock_area(s, r)
 end
 
@@ -102,7 +103,10 @@ end
         s = Segment(p1, p2)
 
         ## create a rectangle for the new cell
-        r = Rectangle(origin, half_dx, half_dy; θ = zero(half_dx))
+        r = Rectangle(
+            (origin[1] + half_dx / 2, origin[2] + half_dy / 2),
+            half_dx, half_dy; θ = zero(half_dx)
+        )
         tmp += cell_rock_area(s, r)
     end
     ratios[i, j] = tmp / ω
@@ -161,7 +165,10 @@ end
         s = Segment(p1, p2)
 
         ## create a rectangle for the new cell
-        r = Rectangle(origin, half_dx, half_dy; θ = zero(half_dx))
+        r = Rectangle(
+            (origin[1] + half_dx / 2, origin[2] + half_dy / 2),
+            half_dx, half_dy; θ = zero(half_dx)
+        )
         tmp += cell_rock_area(s, r)
     end
     ratios[i, j] = tmp / ω
@@ -230,7 +237,10 @@ end
             s = Segment(p1, p2)
 
             ## create a rectangle for the new cell
-            r = Rectangle(origin, half_dx, half_dy; θ = zero(half_dx))
+            r = Rectangle(
+                (origin[1] + half_dx / 2, origin[2] + half_dy / 2),
+                half_dx, half_dy; θ = zero(half_dx)
+            )
             tmp += cell_rock_area(s, r)
         end
     end
@@ -240,24 +250,32 @@ end
 #############################
 
 @inline function is_chain_above_cell(s::Segment, r::Rectangle)
-    max_y = r.origin[2] + r.h
+    max_y = r.origin[2] + r.h / 2
     # Check if the segment is above the rectangle
     return GridGeometryUtils.geq_r(s.p1[2], max_y) && GridGeometryUtils.geq_r(s.p2[2], max_y)
 end
 
 @inline function is_chain_below_cell(s::Segment, r::Rectangle)
-    min_y = r.origin[2]
+    min_y = r.origin[2] - r.h / 2
     # Check if the segment is below the rectangle
     return GridGeometryUtils.leq_r(s.p1[2], min_y) && GridGeometryUtils.leq_r(s.p2[2], min_y)
 end
 
-function cell_rock_area(s::Segment, r::Rectangle{T}) where {T}
+@inline function cell_rock_area(s::Segment, r::Rectangle{T}) where {T}
     A = if is_chain_above_cell(s, r)
         one(T)
     elseif is_chain_below_cell(s, r)
         zero(T)
     else
-        clamp(intersecting_area(s, r) / area(r), zero(T), one(T))
+        # The chain spans the rectangle from its left to right edge. Clip the
+        # endpoints in y and integrate the resulting linear profile directly.
+        # Besides avoiding boundary-validation overhead, this keeps the hot
+        # path compatible with GPU kernels.
+        min_y = r.origin[2] - r.h / 2
+        max_y = r.origin[2] + r.h / 2
+        y1 = clamp(s.p1[2], min_y, max_y)
+        y2 = clamp(s.p2[2], min_y, max_y)
+        clamp(((y1 - min_y) + (y2 - min_y)) / (2 * r.h), zero(T), one(T))
     end
 
     return A
