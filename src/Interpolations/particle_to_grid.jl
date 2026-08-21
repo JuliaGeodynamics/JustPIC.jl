@@ -74,7 +74,7 @@ function _particle2grid!(F, Fp, inode, jnode, xi::NTuple{2, T}, p, index, mask) 
         end
     end
 
-    F[(inode, jnode) .+ mask...] = ωxF / ω
+    F[inode + mask[1], jnode + mask[2]] = ωxF / ω
     return nothing
 end
 
@@ -117,7 +117,7 @@ function _particle2grid!(
     _ω = inv(ω)
     return ntuple(Val(N)) do i
         Base.@_inline_meta
-        F[i][(inode, jnode) .+ mask...] = ωxF[i] * _ω
+        F[i][inode + mask[1], jnode + mask[2]] = ωxF[i] * _ω
     end
 end
 
@@ -160,7 +160,7 @@ function _particle2grid!(
         end
     end
 
-    return F[(inode, jnode, knode) .+ mask...] = ωF * inv(ω)
+    return F[inode + mask[1], jnode + mask[2], knode + mask[3]] = ωF * inv(ω)
 end
 
 function _particle2grid!(
@@ -208,7 +208,7 @@ function _particle2grid!(
     _ω = inv(ω)
     return ntuple(Val(N)) do i
         Base.@_inline_meta
-        F[i][(inode, jnode, knode) .+ mask...] = ωxF[i] * _ω
+        F[i][inode + mask[1], jnode + mask[2], knode + mask[3]] = ωxF[i] * _ω
     end
 end
 
