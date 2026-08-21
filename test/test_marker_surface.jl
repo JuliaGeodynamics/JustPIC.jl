@@ -193,7 +193,8 @@ end
     @testset "MarkerSurface - Advection" begin
         @testset "MarkerSurface — Physical boundary ghosts clamp fields 3D" begin
             field = reshape(FT.(1:9), 3, 3)
-            @test JustPIC._ghost_coord(FT[0, 1, 3], 0, 3) == FT(-1)
+            @test JustPIC._ghost_coord(FT[0, 1, 3], 0, 3, false) == FT(-1)
+            @test JustPIC._ghost_coord(FT[0, 1, 3], 4, 3, false) == FT(5)
             @test JustPIC._ghost_field(field, 0, 0, 3, 3, false, false) == field[1, 1]
             @test JustPIC._ghost_field(field, 4, 4, 3, 3, false, false) == field[3, 3]
             @test JustPIC._ghost_field(field, 0, 2, 3, 3, true, false) == field[2, 2]
@@ -202,6 +203,13 @@ end
             periodic_field = reshape(FT.(1:16), 4, 4)
             @test JustPIC._ghost_field(periodic_field, 0, 2, 4, 4, true, false) == periodic_field[3, 2]
             @test JustPIC._ghost_field(periodic_field, 5, 2, 4, 4, true, false) == periodic_field[2, 2]
+
+            # Periodic ghost coordinates are the images of the wrapped nodes (3 and 2),
+            # which linear extrapolation only reproduces on a uniform grid
+            stretched = FT[0, 1, 2, 5]
+            L = stretched[4] - stretched[1]
+            @test JustPIC._ghost_coord(stretched, 0, 4, true) == stretched[3] - L
+            @test JustPIC._ghost_coord(stretched, 5, 4, true) == stretched[2] + L
         end
 
         @testset "MarkerSurface — Advection (zero velocity)" begin
@@ -274,6 +282,33 @@ end
             expected = [FT(0.5) + FT(0.05) * cos(FT(2π) * (x - u * dt)) * cos(FT(2π) * y) for x in xv, y in yv]
             @test result[1, :] ≈ expected[1, :] atol = FT(2.0e-4)
             @test result[end, :] ≈ expected[end, :] atol = FT(2.0e-4)
+        end
+
+        @testset "MarkerSurface — Periodic transport on a stretched grid" begin
+            # Periodic ghost coordinates must be the images of the wrapped nodes;
+            # linear extrapolation of the boundary spacing only agrees on a uniform grid
+            xv = FT[0, 0.02, 0.05, 0.35, 0.5, 0.62, 0.7, 0.9, 1]
+            yv = LinRange(zero(FT), FT(1), 5)
+            L = xv[end] - xv[1]
+            u, dt = FT(0.5), FT(0.03)
+            topo_x = [FT(0.5) + FT(0.05) * cos(FT(2π) * x) for x in xv]
+            topo = [z for z in topo_x, _ in yv]
+            surf = init_marker_surface(backend, xv, yv, topo; periodic_1 = true)
+            fill!(surf.vx, u)
+            fill!(surf.vy, zero(FT))
+            fill!(surf.vz, zero(FT))
+
+            advect_surface_topo!(surf, dt)
+
+            # A uniform horizontal velocity shifts the piecewise-linear surface rigidly
+            function periodic_lerp(x, z, xq, L)
+                xw = mod(xq - x[1], L) + x[1]
+                k = min(searchsortedlast(x, xw), length(x) - 1)
+                t = (xw - x[k]) / (x[k + 1] - x[k])
+                return z[k] * (1 - t) + z[k + 1] * t
+            end
+            expected = [periodic_lerp(xv, topo_x, x - u * dt, L) for x in xv, _ in yv]
+            @test Array(surf.topo) ≈ expected atol = sqrt(eps(FT))
         end
 
         @testset "MarkerSurface — Staggered affine interpolation 3D" begin
@@ -614,6 +649,18 @@ end
                     @test all(Array(ratio) .≈ filled)
                 end
             end
+        end
+
+        @testset "Mismatched horizontal grids are rejected" begin
+            surf = init_marker_surface(backend, xv, yv, FT(0.4))
+            ϕ = MockRockRatio3D(nx, ny, nz_g)
+            xv_fine = LinRange(xv[1], xv[end], 2 * length(xv) - 1)
+            @test_throws "does not match the MarkerSurface topography" compute_rock_fraction!(
+                ϕ, surf, (xv_fine, yv, zv), di
+            )
+            @test_throws "three vertex coordinate vectors" compute_rock_fraction!(
+                ϕ, surf, (xv, yv), di
+            )
         end
 
         @testset "Every placement uses its own control volume" begin

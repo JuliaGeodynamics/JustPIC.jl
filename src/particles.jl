@@ -151,6 +151,8 @@ The surface is represented as a 2D grid of topography values (z-heights) at corn
 - `vz::T2`         — z-velocity interpolated to surface nodes
 - `xv::TV`         — x-coordinates of surface grid vertices
 - `yv::TV`         — y-coordinates of surface grid vertices
+- `periodic_1::Bool` — periodic boundary in x
+- `periodic_2::Bool` — periodic boundary in y
 - `advection_valid::TB` — persistent validity mask for topography advection
 - `smoothing_cell_topo::TW` — persistent cell-centered smoothing workspace
 - `smoothing_steep::TB` — persistent steep-cell mask

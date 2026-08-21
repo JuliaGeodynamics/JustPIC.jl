@@ -32,6 +32,12 @@ function update_surface_halo!(surf::MarkerSurface)
     return nothing
 end
 
+"""
+    _update_surface_halo!(fields...)
+
+Exchange the x/y `ImplicitGlobalGrid` halo of surface-shaped `fields`, which may
+be nodal or cell-centered. No-op when no global grid is initialized.
+"""
 @inline function _update_surface_halo!(fields...)
     ImplicitGlobalGrid.grid_is_initialized() || return nothing
     # Only x/y are exchanged: surface fields have no z dimension.

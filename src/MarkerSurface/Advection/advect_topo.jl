@@ -1,16 +1,20 @@
 """
-    _ghost_coord(v, i, n)
+    _ghost_coord(v, i, n, periodic)
 
 Return the `i`-th coordinate of vector `v` (length `n`) allowing one ghost index
-on each side (`i == 0` and `i == n+1`) via linear extrapolation. Used to build
-the deformed-grid stencil at domain boundaries without materialising a padded
-array.
+on each side (`i == 0` and `i == n+1`). Used to build the deformed-grid stencil
+at domain boundaries without materialising a padded array.
+
+When `periodic`, the ghost coordinates are the periodic images of nodes `n-1`
+and `2` — the same nodes `_ghost_field` wraps to — so that stencil coordinates
+and field values stay paired on nonuniform grids. Otherwise they are linear
+extrapolations of the boundary spacing.
 """
-@inline function _ghost_coord(v, i, n)
+@inline function _ghost_coord(v, i, n, periodic::Bool)
     return if i == 0
-        2 * v[1] - v[2]
+        periodic ? v[n - 1] - (v[n] - v[1]) : 2 * v[1] - v[2]
     elseif i == n + 1
-        2 * v[n] - v[n - 1]
+        periodic ? v[2] + (v[n] - v[1]) : 2 * v[n] - v[n - 1]
     else
         v[i]
     end
@@ -22,7 +26,7 @@ end
 Return the value of 2D field `arr` (size `(nx, ny)`) at index `(i, j)`, allowing
 one ghost layer on each side (`i ∈ 0:nx+1`, `j ∈ 0:ny+1`). Ghost values wrap to
 the opposite boundary when periodic; otherwise they clamp to the boundary
-node. Coordinates use linear extrapolation separately in `_ghost_coord`.
+node. Matching ghost coordinates come from `_ghost_coord`.
 """
 @inline function _ghost_field(arr, i, j, nx, ny, periodic_1::Bool, periodic_2::Bool)
     return @inbounds begin
@@ -40,8 +44,9 @@ end
 Advect the topography on the free surface mesh using the velocity field
 already interpolated onto the surface nodes (`surf.vx`, `surf.vy`, `surf.vz`).
 
-1. Extrapolate ghost coordinates while clamping nonperiodic field ghosts to
-    boundary nodes, avoiding degenerate stencils at domain boundaries.
+1. Build ghost coordinates and field values outside the domain: periodic images
+    of the wrapped nodes when periodic, otherwise extrapolated coordinates with
+    field values clamped to the boundary node.
 2. For each surface node, build a local 3×3 "deformed grid" using neighboring
     node positions displaced by `dt*v`.
 3. Subdivide the deformed cell into 16 triangles (9 corner + 4 midpoint nodes).
@@ -114,11 +119,24 @@ function advect_surface_topo!(surf::MarkerSurface, dt)
     return nothing
 end
 
+"""
+    _surface_collective_failure(local_failure)
+
+Reduce a local failure flag over the global grid so every rank takes the same
+branch. Without the reduction a rank-local failure would throw on one rank only
+and deadlock the others in the next collective.
+"""
 @inline function _surface_collective_failure(local_failure)
     ImplicitGlobalGrid.grid_is_initialized() || return local_failure
     return MPI.Allreduce(local_failure, |, ImplicitGlobalGrid.global_grid().comm)
 end
 
+"""
+    _enforce_periodic_seam!(topo, periodic_1, periodic_2)
+
+Copy the first row/column of `topo` onto the last one along each periodic
+direction, where both hold the same physical node.
+"""
 function _enforce_periodic_seam!(topo::AbstractMatrix, periodic_1::Bool, periodic_2::Bool)
     if periodic_1
         @views topo[end, :] .= topo[1, :]
@@ -149,10 +167,10 @@ end
     Y = yv[j]
 
     # Neighbor coordinates (ghost-aware, always non-degenerate)
-    X1 = _ghost_coord(xv, i - 1, nx1)
-    X2 = _ghost_coord(xv, i + 1, nx1)
-    Y1 = _ghost_coord(yv, j - 1, ny1)
-    Y2 = _ghost_coord(yv, j + 1, ny1)
+    X1 = _ghost_coord(xv, i - 1, nx1, periodic_1)
+    X2 = _ghost_coord(xv, i + 1, nx1, periodic_1)
+    Y1 = _ghost_coord(yv, j - 1, ny1, periodic_2)
+    Y2 = _ghost_coord(yv, j + 1, ny1, periodic_2)
 
     # Build 9 deformed grid positions (node + dt*velocity), reading the old
     # topography/velocity through ghost-aware accessors instead of padded arrays.
@@ -243,7 +261,7 @@ end
 end
 
 """
-    _interpolate_triangle(cx, cy, cz, tri, xp, yp; tol=1e-10)
+    _interpolate_triangle(cx, cy, cz, tri, xp, yp; tol=convert(T, 1e-6))
 
 Check if point (xp, yp) lies inside the triangle defined by indices `tri`
 into coordinate arrays `(cx, cy, cz)`, and compute the barycentric

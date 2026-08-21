@@ -16,6 +16,7 @@ The `ratios` struct must have fields `.center`, `.vertex`, `.Vx`, `.Vy`, `.Vz`,
              with the 2D version; the 3D kernel uses `xvi` directly)
 """
 function compute_rock_fraction!(ratios, surf::MarkerSurface, xvi, dxi)
+    _check_surface_matches_grid(surf, xvi)
     compute_volume_below_surface!(ratios.center, surf, xvi, Val(false), Val(false), Val(false))
     compute_volume_below_surface!(ratios.vertex, surf, xvi, Val(true), Val(true), Val(true))
     compute_volume_below_surface!(ratios.Vx, surf, xvi, Val(true), Val(false), Val(false))
@@ -28,6 +29,29 @@ function compute_rock_fraction!(ratios, surf::MarkerSurface, xvi, dxi)
     return nothing
 end
 
+"""
+    _check_surface_matches_grid(surf::MarkerSurface, xvi)
+
+Throw unless the horizontal vertex grids of `xvi` and `surf.topo` have the same
+size. The kernels index `topo` with cell indices derived from `xvi`, so a surface
+resolved differently from the volume grid would silently return wrong fractions.
+"""
+function _check_surface_matches_grid(surf::MarkerSurface, xvi)
+    length(xvi) == 3 ||
+        throw(ArgumentError("xvi must hold the three vertex coordinate vectors, got $(length(xvi))"))
+    nx1, ny1 = length(xvi[1]), length(xvi[2])
+    (nx1, ny1) == size(surf.topo) ||
+        throw(DimensionMismatch("horizontal grid ($nx1, $ny1) does not match the MarkerSurface topography $(size(surf.topo))"))
+    return nothing
+end
+
+"""
+    compute_volume_below_surface!(ratio, surf, xvi, px, py, pz)
+
+Fill `ratio` with the fraction of each control volume lying below the surface.
+`px`, `py`, `pz` are `Val(true)`/`Val(false)` and select, per direction, whether
+the control volumes are centered on the vertices of `xvi` or span its cells.
+"""
 function compute_volume_below_surface!(ratio, surf, xvi, px, py, pz)
     xv, yv, zv = recast_grid(xvi, eltype(ratio))
     launch!(
@@ -46,6 +70,14 @@ end
     )
 end
 
+"""
+    _control_bounds(xv, i, staggered)
+
+Bounds `(lo, hi)` of the `i`-th control volume along the direction discretized by
+the vertex coordinates `xv`. Cell-centered volumes (`Val(false)`) span
+`xv[i]:xv[i + 1]`; staggered ones (`Val(true)`) are centered on vertex `xv[i]`
+and reach the midpoints of the neighboring cells, clipped at the boundary.
+"""
 @inline _control_bounds(xv, i, ::Val{false}) = (xv[i], xv[i + 1])
 
 @inline function _control_bounds(xv, i, ::Val{true})
@@ -54,12 +86,31 @@ end
     return lo, hi
 end
 
+"""
+    _surface_cell_range(i, n, staggered)
+
+Range of surface cells, out of `n`, overlapped by the `i`-th control volume: cell
+`i` alone when cell-centered, the two cells sharing vertex `i` when staggered.
+"""
 @inline _surface_cell_range(i, n, ::Val{false}) = (i, i)
 @inline _surface_cell_range(i, n, ::Val{true}) = (max(i - 1, 1), min(i, n))
 
+"""
+    _surface_quadrant_range(a, i, staggered)
+
+Range of quadrants of surface cell `a` covered by the `i`-th control volume along
+one direction: both halves of the cell when cell-centered, otherwise only the half
+adjacent to vertex `i`.
+"""
 @inline _surface_quadrant_range(a, i, ::Val{false}) = (1, 2)
 @inline _surface_quadrant_range(a, i, ::Val{true}) = a < i ? (2, 2) : (1, 1)
 
+"""
+    _control_volume_rock_fraction(topo, xv, yv, zv, i, j, k, px, py, pz)
+
+Fraction of the `(i, j, k)`-th control volume that lies below the surface, summed
+over every surface-cell quadrant the volume overlaps and clamped to `[0, 1]`.
+"""
 @inline function _control_volume_rock_fraction(
         topo, xv, yv, zv, i, j, k, px, py, pz,
     )
@@ -83,6 +134,13 @@ end
     return clamp(ratio, zero(ratio), one(ratio))
 end
 
+"""
+    _quadrant_rock_fraction(topo, xv, yv, a, b, qx, qy, vcell, zlo, zhi)
+
+Contribution of quadrant `(qx, qy)` of surface cell `(a, b)` to the rock fraction
+of a control volume of size `vcell` spanning `zlo:zhi`. The bilinear surface patch
+over the quadrant is split into the two triangles that meet at the cell center.
+"""
 @inline function _quadrant_rock_fraction(topo, xv, yv, a, b, qx, qy, vcell, zlo, zhi)
     x0, x1 = xv[a], xv[a + 1]
     y0, y1 = yv[b], yv[b + 1]
@@ -109,6 +167,14 @@ end
         _triangle_rock_fraction(x0, y1, z01, xm, ym, zc, xm, y1, zxm1, vcell, zlo, zhi)
 end
 
+"""
+    _triangle_rock_fraction(xa, ya, za, xb, yb, zb, xc, yc, zc, vcell, bot, top)
+
+Volume under the planar triangle `(a, b, c)` and inside the slab `bot:top`,
+normalized by `vcell`. Elevations are shifted to the slab midpoint first, so the
+relative tolerance of `leq_r`/`geq_r` scales with the slab rather than with the
+distance from `z = 0`.
+"""
 @inline function _triangle_rock_fraction(
         xa, ya, za, xb, yb, zb, xc, yc, zc, vcell, bot, top,
     )
@@ -147,9 +213,10 @@ end
 end
 
 """
-    _prism_volume_above_level(xa,ya,za, xb,yb,zb, xc,yc,zc, level)
+    _prism_volume_above_level(xa,ya,za, xb,yb,zb, xc,yc,zc, level, tol)
 
 Compute double the volume of the triangular prism above a horizontal `level` plane.
+`tol` is the edge-intersection tolerance passed on to `_intersect_edge`.
 """
 @inline function _prism_volume_above_level(
         xa, ya, za, xb, yb, zb, xc, yc, zc, level, tol,
@@ -168,10 +235,11 @@ Compute double the volume of the triangular prism above a horizontal `level` pla
 end
 
 """
-    _intersect_edge(x1,y1,z1, x2,y2,z2, level)
+    _intersect_edge(x1,y1,z1, x2,y2,z2, level, tol)
 
 Find the intersection point of edge (p1→p2) with the horizontal plane `z=level`.
-Clamps the intersection to lie within the edge's z-range.
+Clamps the intersection to lie within the edge's z-range; edges spanning less than
+`tol` in z are treated as horizontal and return `p1`.
 """
 @inline function _intersect_edge(x1, y1, z1, x2, y2, z2, level, tol)
     zp = level

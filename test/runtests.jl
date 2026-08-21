@@ -49,6 +49,7 @@ function runtests()
             include(joinpath(testdir, "test_integrators.jl"))
             include(joinpath(testdir, "test_CellArrays.jl"))
             include(joinpath(testdir, "test_markerchain_2D.jl"))
+            include(joinpath(testdir, "test_refined_grid.jl"))
             include(joinpath(testdir, "test_save_load.jl"))
         catch
             nfail += 1
@@ -61,7 +62,11 @@ function runtests()
         end
         try
             printstyled("Running MarkerSurface tests\n"; bold = true, color = :white)
-            run(`$(Base.julia_cmd()) --startup-file=no --project=. $(joinpath(testdir, "test_marker_surface.jl"))`)
+            cmd = addenv(
+                `$(Base.julia_cmd()) --project=$(test_project) --startup-file=no $(joinpath(testdir, "test_marker_surface.jl"))`,
+                "JULIA_LOAD_PATH" => load_path,
+            )
+            run(cmd)
         catch
             nfail += 1
         end

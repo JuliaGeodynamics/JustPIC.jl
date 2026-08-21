@@ -1,18 +1,18 @@
 using Test
 using JustPIC
 using LinearAlgebra
-import JustPIC: lerp
 
 const backend = JustPIC.CPU # Options: CPU, CUDA.CUDABackend, AMDGPU.ROCBackend
 
-function expand_range(x::AbstractVector)
-    dx_left = x[2] - x[1]
-    dx_right = x[end] - x[end - 1]
-    n = length(x)
-    x1, x2 = extrema(x)
-    xI = x1 - dx_left
-    xF = x2 + dx_right
-    return vcat(xI, x, xF)
+if !@isdefined(expand_range)
+    function expand_range(x::AbstractVector)
+        dx_left = x[2] - x[1]
+        dx_right = x[end] - x[end - 1]
+        x1, x2 = extrema(x)
+        xI = x1 - dx_left
+        xF = x2 + dx_right
+        return vcat(xI, x, xF)
+    end
 end
 
 # checks if grid options are reasonable
@@ -127,29 +127,26 @@ Tc = TA(backend)([y for x in xc, y in yc])
 py = particles.coords[2]
 pT, = init_cell_arrays(particles, Val(1))
 
-# @testset "Interpolations 2D on refined grid" begin
+@testset "Interpolations 2D on refined grid" begin
+    # Grid to particle test
+    grid2particle!(pT, T, particles)
+    @test pT ≈ py
 
-# Grid to particle test
-grid2particle!(pT, T, particles)
-@test pT ≈ py
+    # Grid to particle test
+    grid2particle_flip!(pT, xvi_device, T, T0, particles)
+    @test pT ≈ py
 
-# Grid to particle test
-grid2particle_flip!(pT, xvi_device, T, T0, particles)
-@test pT ≈ py
+    # Particle to grid test
+    T2 = similar(T)
+    particle2grid!(T2, pT, particles)
+    @test norm(T2 .- T) / length(T) < 1.0e-1
 
-# Particle to grid test
-T2 = similar(T)
-particle2grid!(T2, pT, particles)
-@test norm(T2 .- T) / length(T) < 1.0e-1
+    # Grid to centroid test
+    centroid2particle!(pT, Tc, particles)
+    @test all(pT[2, 2] .≈ particles.coords[2][2, 2])
 
-# Grid to centroid test
-centroid2particle!(pT, Tc, particles)
-@test all(pT[2, 2] .≈ particles.coords[2][2, 2])
-
-# Particle to centroid test
-Tc2 = similar(Tc)
-particle2centroid!(Tc2, pT, particles)
-# norm(T2 .- T) / length(T)
-@test norm(Tc2 .- Tc) / length(Tc) < 1.0e-1
-
-# end
+    # Particle to centroid test
+    Tc2 = similar(Tc)
+    particle2centroid!(Tc2, pT, particles)
+    @test norm(Tc2 .- Tc) / length(Tc) < 1.0e-1
+end

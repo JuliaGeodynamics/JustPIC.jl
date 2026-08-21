@@ -66,6 +66,12 @@ function init_marker_surface(
     )
 end
 
+"""
+    _validate_surface_coordinates(name, x)
+
+Throw unless `x` is a strictly increasing vector of at least two finite
+coordinates. `name` identifies the offending argument in the error message.
+"""
 function _validate_surface_coordinates(name, x)
     length(x) ≥ 2 || throw(ArgumentError("$name must contain at least two coordinates"))
     all(isfinite, x) || throw(ArgumentError("$name must contain only finite coordinates"))
@@ -104,6 +110,13 @@ function compute_avg_topo(surf::MarkerSurface)
     return total / count
 end
 
+"""
+    _owned_surface_extent(n, dim, gg)
+
+Number of leading nodes along `dim` that this rank owns exclusively, out of the
+`n` local ones: the trailing `gg.overlaps[dim]` lines are shared with the next
+rank and belong to it, so global reductions count them once.
+"""
 @inline function _owned_surface_extent(n, dim, gg)
     gg.coords[dim] == gg.dims[dim] - 1 && return n
     overlap = gg.overlaps[dim] + n - gg.nxyz[dim]

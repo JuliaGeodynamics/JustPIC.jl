@@ -58,6 +58,13 @@ end
     svz[i, j] = _interp_vel_component(Vz, xgz, ygz, zgz, x_s, y_s, z_surf)
 end
 
+"""
+    _validate_surface_velocity_layout(V, grid_vxi)
+
+Throw unless each `grid_vxi[d]` is an `(x, y, z)` tuple of usable coordinate
+vectors whose lengths match `size(V[d])` — the interpolation reads `V[d]` at cell
+indices looked up in `grid_vxi[d]`.
+"""
 function _validate_surface_velocity_layout(V, grid_vxi)
     for d in 1:3
         grid = grid_vxi[d]
@@ -72,10 +79,11 @@ function _validate_surface_velocity_layout(V, grid_vxi)
 end
 
 """
-    _interp_vel_component(Vcomp, xvi, x, y, z)
+    _interp_vel_component(Vcomp, xg, yg, zg, x, y, z)
 
-Interpolate a single velocity component at point `(x, y, z)` from the 3D grid
-using trilinear interpolation.
+Interpolate a single velocity component at point `(x, y, z)` by trilinear
+interpolation of the 3D array `Vcomp` over its own vertex coordinates
+`(xg, yg, zg)`. Points outside the grid clamp to the boundary cell.
 """
 @inline function _interp_vel_component(
         Vcomp::AbstractArray{T, 3}, xg, yg, zg,
@@ -112,6 +120,13 @@ end
     return _trilinear(Vcomp, i, j, k, wx, wy, wz)
 end
 
+"""
+    _uniform_cell_weight(coords, val)
+
+Cell index and interpolation weight of `val` within the uniformly spaced
+`coords`, computed from `first`/`step` instead of a search. Values outside the
+range clamp to the boundary cell.
+"""
 @inline function _uniform_cell_weight(coords::AbstractRange{T}, val) where {T}
     q = (convert(T, val) - convert(T, first(coords))) / convert(T, step(coords))
     q = clamp(q, zero(T), convert(T, length(coords) - 1))
