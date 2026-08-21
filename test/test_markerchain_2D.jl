@@ -13,6 +13,7 @@ end
 
 using JustPIC, Test, Statistics
 using CellArrays: field
+using GridGeometryUtils: Point, Segment
 import KernelAbstractions: CPU
 
 const backend = @static if BACKEND_NAME == "AMDGPU"
@@ -489,7 +490,57 @@ end
     assert_chain_invariants(chain)
 end
 
+@testset "MarkerChain cell rock area 2D" begin
+    for T in TEST_PRECISIONS
+        min_corner = T(2), T(-1)
+        di = T(4), T(2)
+        r = JustPIC.rectangle_from_min_corner(min_corner, di)
+
+        @test r.origin == JustPIC.Point(T(4), T(0))
+
+        horizontal(y) = JustPIC.Segment(
+            JustPIC.Point(T(2), T(y)), JustPIC.Point(T(6), T(y))
+        )
+        @test JustPIC.cell_rock_area(horizontal(-1), r) == T(0)
+        @test JustPIC.cell_rock_area(horizontal(0), r) == T(0.5)
+        @test JustPIC.cell_rock_area(horizontal(1), r) == T(1)
+
+        rising = JustPIC.Segment(JustPIC.Point(T(2), T(-2)), JustPIC.Point(T(6), T(0)))
+        falling = JustPIC.Segment(JustPIC.Point(T(2), T(0.5)), JustPIC.Point(T(6), T(-0.5)))
+        @test JustPIC.cell_rock_area(rising, r) == T(0.125)
+        @test JustPIC.cell_rock_area(falling, r) == T(0.5)
+
+        clipped = JustPIC.clip_chain_to_cell(rising, r)
+        clipped_reversed = JustPIC.Segment(clipped.p2, clipped.p1)
+        @test JustPIC.intersecting_area(clipped, r) / JustPIC.area(r) == T(0.125)
+        @test JustPIC.intersecting_area(clipped_reversed, r) / JustPIC.area(r) == T(0.875)
+    end
+end
+
 @testset "MarkerChain rock fraction 2D" begin
+    # A 2x2 cell spanning x ∈ [1, 3], y ∈ [2, 4], repeated at offsets of many cell widths:
+    # the geometry is evaluated relative to the cell, so the answers must not degrade as the
+    # cell moves away from the coordinate origin.
+    for T in TEST_PRECISIONS, offset in (T(0), T(1.0e2), T(1.0e4))
+        r = JustPIC.rectangle_from_min_corner((T(1) + offset, T(2) + offset), (T(2), T(2)))
+        chain_area(y1, y2) = JustPIC.cell_rock_area(
+            Segment(Point(T(1) + offset, y1 + offset), Point(T(3) + offset, y2 + offset)), r
+        )
+
+        @test chain_area(T(3), T(3)) ≈ T(0.5)          # flat, mid-height
+        @test chain_area(T(1), T(3)) ≈ T(0.125)        # in through the floor, out at the NE corner
+        @test chain_area(T(3), T(1)) ≈ T(0.125)        # mirror image
+        @test chain_area(T(1), T(5)) ≈ T(0.5)          # in through the floor, out through the ceiling
+        @test chain_area(T(5), T(1)) ≈ T(0.5)          # mirror image
+        @test chain_area(T(2), T(4)) ≈ T(0.5)          # corner to corner
+        @test chain_area(T(2), T(2)) ≈ T(0)            # flat, on the floor
+        @test chain_area(T(4), T(4)) ≈ T(1)            # flat, on the ceiling
+        @test chain_area(T(-10), T(-10)) ≈ T(0)        # far below
+        @test chain_area(T(10), T(10)) ≈ T(1)          # far above
+        @test chain_area(T(2), T(3)) ≈ T(0.25)         # floor corner to the right edge
+        @test chain_area(T(3), T(4)) ≈ T(0.75)         # left edge to the ceiling corner
+    end
+
     n = 9
     xv = range(FT(0), FT(1); length = n)
     yv = range(FT(0), FT(1); length = n)
@@ -528,19 +579,39 @@ end
     copyto!(chain.h_vertices, TA(backend)(fill(h, n)))
     ratios = make_ratios()
     compute_rock_fraction!(ratios, chain, xvi, dxi)
+    rock_fraction(y_bottom, height) = clamp(
+        (h - y_bottom) / height, zero(FT), one(FT)
+    )
+
     center = Array(ratios.center)
     for j in axes(center, 2)
-        y_bottom = yv[j]
-        y_top = yv[j] + dy
-        expected = if h ≥ y_top
-            FT(1)
-        elseif h ≤ y_bottom
-            FT(0)
-        else
-            (h - y_bottom) / dy
-        end
+        expected = rock_fraction(yv[j], dy)
         @test all(center[:, j] .≈ expected)
     end
+
+    vx = Array(ratios.Vx)
+    for j in axes(vx, 2)
+        expected = rock_fraction(yv[j], dy / 2)
+        @test all(vx[:, j] .≈ expected)
+    end
+
+    vertex = Array(ratios.vertex)
+    vy = Array(ratios.Vy)
+    for j in axes(vertex, 2)
+        expected = if j == firstindex(yv)
+            rock_fraction(yv[j], dy / 2)
+        elseif j == lastindex(yv)
+            rock_fraction(yv[j] - dy / 2, dy / 2)
+        else
+            (
+                rock_fraction(yv[j] - dy / 2, dy / 2) +
+                    rock_fraction(yv[j], dy / 2)
+            ) / 2
+        end
+        @test all(vertex[:, j] .≈ expected)
+        @test all(vy[:, j] .≈ expected)
+    end
+
     for field in (ratios.center, ratios.vertex, ratios.Vx, ratios.Vy)
         data = Array(field)
         @test all(0 .≤ data .≤ 1)
@@ -551,6 +622,25 @@ end
     ratios = make_ratios()
     compute_rock_fraction!(ratios, chain, xvi, dxi)
     @test isapprox(Array(ratios.vertex)[2, 3], FT(0.8); atol = (FT === Float32 ? 1.0f-5 : 1.0e-12))
+
+    # the same flat interface on a grid sitting hundreds of cell widths from the origin
+    shift = FT(500)
+    xv_far = range(shift, shift + FT(1); length = n)
+    xvi_far = TA(backend)(collect(xv_far)), TA(backend)(collect(range(shift, shift + FT(1); length = n)))
+    chain_far = init_markerchain(backend, 3, 2, 6, xv_far, shift + FT(0.42))
+    ratios = make_ratios()
+    compute_rock_fraction!(ratios, chain_far, xvi_far, dxi)
+    center = Array(ratios.center)
+    for j in axes(center, 2)
+        y_bottom = xv_far[j]
+        expected = clamp((shift + FT(0.42) - y_bottom) / dy, FT(0), FT(1))
+        @test all(isapprox.(center[:, j], expected; atol = (FT === Float32 ? 1.0f-2 : 1.0e-6)))
+    end
+    for field in (ratios.center, ratios.vertex, ratios.Vx, ratios.Vy)
+        data = Array(field)
+        @test all(isfinite, data)
+        @test all(0 .≤ data .≤ 1)
+    end
 end
 
 @testset "MarkerChain slope smoothing 2D" begin
