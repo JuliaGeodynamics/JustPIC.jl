@@ -129,8 +129,8 @@ function MarkerChain(coords, index::CPUCellArray, cell_vertices, min_xcell, max_
         copy(h_vertices),
         cell_vertices,
         index,
-        min_xcell,
         max_xcell,
+        min_xcell,
     )
     compute_topography_vertex!(chain)
     copyto!(chain.h_vertices0, chain.h_vertices)

@@ -115,7 +115,7 @@ grid_vi_device = (
 )
 
 particles = init_particles(
-    backend, nxcell, max_xcell, min_xcell, xvi_device...,
+    backend, nxcell, max_xcell, min_xcell, grid_vi_device...,
 )
 
 # Linear field at the vertices
@@ -124,31 +124,31 @@ T0 = TA(backend)([y for x in xv, y in yv])
 # Linear field at the centroids
 Tc = TA(backend)([y for x in xc, y in yc])
 
-px = particles.coords[1]
+py = particles.coords[2]
 pT, = init_cell_arrays(particles, Val(1))
 
 # @testset "Interpolations 2D on refined grid" begin
 
 # Grid to particle test
-_2D.grid2particle!(pT, xvi, T, particles)
-@test all(pT[i] == px[i] for i in eachindex(pT[1]))
+grid2particle!(pT, T, particles)
+@test pT ≈ py
 
 # Grid to particle test
-_2D.grid2particle_flip!(pT, xvi, T, T0, particles)
-@test all(pT[i] == px[i] for i in eachindex(pT[1]))
+grid2particle_flip!(pT, xvi_device, T, T0, particles)
+@test pT ≈ py
 
 # Particle to grid test
 T2 = similar(T)
-_2D.particle2grid!(T2, pT, xvi, particles)
+particle2grid!(T2, pT, particles)
 @test norm(T2 .- T) / length(T) < 1.0e-1
 
 # Grid to centroid test
-_2D.centroid2particle!(pT, xci, Tc, particles)
-@test all(pT[2, 2] .≈ particles.coords[1][2, 2])
+centroid2particle!(pT, Tc, particles)
+@test all(pT[2, 2] .≈ particles.coords[2][2, 2])
 
 # Particle to centroid test
 Tc2 = similar(Tc)
-_2D.particle2centroid!(Tc2, pT, xvi, particles)
+particle2centroid!(Tc2, pT, particles)
 # norm(T2 .- T) / length(T)
 @test norm(Tc2 .- Tc) / length(Tc) < 1.0e-1
 
