@@ -194,6 +194,6 @@ advect_markerchain!
 semilagrangian_advection_markerchain!
 resample!
 compute_topography_vertex!
-compute_rock_fraction!
+compute_rock_fraction!(ratios, chain::MarkerChain, xvi, dxi)
 interpolate_velocity_to_markerchain!
 ```

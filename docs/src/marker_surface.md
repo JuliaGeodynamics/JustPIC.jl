@@ -124,3 +124,18 @@ Notes:
   the same `IGG_CUDAAWARE_MPI=1` / `IGG_ROCMAWARE_MPI=1` setup
   `ImplicitGlobalGrid` already uses for its halo exchange. Grids decomposed only
   in x/y have no such requirement.
+
+## API
+
+```@docs
+MarkerSurface
+init_marker_surface
+set_topo_from_array!
+compute_avg_topo
+interpolate_velocity_to_surface_vertices!
+advect_surface_topo!
+advect_marker_surface!
+smooth_surface_max_angle!
+update_surface_halo!
+compute_rock_fraction!(ratios, surf::MarkerSurface, xvi, dxi)
+```
