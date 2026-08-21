@@ -102,7 +102,7 @@ end
 
         ## create a rectangle for the new cell
         r = Rectangle(
-            (origin[1] + half_dx / 2, origin[2] + half_dy / 2),
+            (min_corner[1] + half_dx / 2, min_corner[2] + half_dy / 2),
             half_dx, half_dy; θ = zero(half_dx)
         )
         tmp += cell_rock_area(s, r)
@@ -157,7 +157,7 @@ end
 
         ## create a rectangle for the new cell
         r = Rectangle(
-            (origin[1] + half_dx / 2, origin[2] + half_dy / 2),
+            (min_corner[1] + half_dx / 2, min_corner[2] + half_dy / 2),
             half_dx, half_dy; θ = zero(half_dx)
         )
         tmp += cell_rock_area(s, r)
@@ -222,7 +222,7 @@ end
 
             ## create a rectangle for the new cell
             r = Rectangle(
-                (origin[1] + half_dx / 2, origin[2] + half_dy / 2),
+                (min_corner[1] + half_dx / 2, min_corner[2] + half_dy / 2),
                 half_dx, half_dy; θ = zero(half_dx)
             )
             tmp += cell_rock_area(s, r)
@@ -245,22 +245,19 @@ end
     return GridGeometryUtils.leq_r(s.p1[2], min_y) && GridGeometryUtils.leq_r(s.p2[2], min_y)
 end
 
-@inline function cell_rock_area(s::Segment, r::Rectangle{T}) where {T}
-    A = if is_chain_above_cell(s, r)
-        one(T)
-    elseif is_chain_below_cell(s, r)
-        zero(T)
-    else
-        # The chain spans the rectangle from its left to right edge. Clip the
-        # endpoints in y and integrate the resulting linear profile directly.
-        # Besides avoiding boundary-validation overhead, this keeps the hot
-        # path compatible with GPU kernels.
-        min_y = r.origin[2] - r.h / 2
-        max_y = r.origin[2] + r.h / 2
-        y1 = clamp(s.p1[2], min_y, max_y)
-        y2 = clamp(s.p2[2], min_y, max_y)
-        clamp(((y1 - min_y) + (y2 - min_y)) / (2 * r.h), zero(T), one(T))
-    end
+@inline function clip_chain_to_cell(s::Segment, r::Rectangle)
+    min_y = r.origin[2] - r.h / 2
+    max_y = r.origin[2] + r.h / 2
+    dx = s.p2[1] - s.p1[1]
+    dy = s.p2[2] - s.p1[2]
+
+    y1 = clamp(s.p1[2], min_y, max_y)
+    y2 = clamp(s.p2[2], min_y, max_y)
+    x1 = s.p1[2] == y1 ? s.p1[1] : s.p1[1] + (y1 - s.p1[2]) * dx / dy
+    x2 = s.p2[2] == y2 ? s.p2[1] : s.p1[1] + (y2 - s.p1[2]) * dx / dy
+
+    return Segment(GridGeometryUtils.Point(x1, y1), GridGeometryUtils.Point(x2, y2))
+end
 
 # Chord and cell translated so that the cell is centered on the coordinate origin. Both the
 # round-off tolerant comparisons above and `intersecting_area`'s check that the chord ends on
