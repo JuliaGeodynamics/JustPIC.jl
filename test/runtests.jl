@@ -30,7 +30,7 @@ function runtests()
     testdir = @__DIR__
     projectdir = dirname(testdir)
     test_project = dirname(Base.active_project())
-    load_path = string("@:", projectdir, ":@v#.#:@stdlib")
+    load_path = join(("@", projectdir, "@v#.#", "@stdlib"), Sys.iswindows() ? ';' : ':')
     testfiles = sort(
         filter(
             istest,
