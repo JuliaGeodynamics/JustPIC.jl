@@ -188,6 +188,33 @@ end
                 @test !ok
             end
         end
+
+        @testset "Degenerate triangle falls back to the centroid" begin
+            # A cell flattened by the deformation leaves a zero-area triangle. Every
+            # barycentric weight then vanishes, and the elevation is the mean of the
+            # three corners rather than a division by zero.
+            zs = (FT(1), FT(2), FT(3))
+            mean_z = (zs[1] + zs[2] + zs[3]) / 3
+
+            # all three corners collapsed onto one point
+            collapsed_x = (FT(0), FT(0), FT(0), pad...)
+            collapsed_y = (FT(0), FT(0), FT(0), pad...)
+            ok, zp = JustPIC._interpolate_triangle(
+                collapsed_x, collapsed_y, (zs..., pad...), tri, zero(FT), zero(FT)
+            )
+            @test ok
+            @test zp ≈ mean_z atol = tol
+
+            # collinear corners, query point on the line
+            collinear_x = (FT(0), FT(1), FT(2), pad...)
+            collinear_y = (FT(0), FT(0), FT(0), pad...)
+            ok, zp = JustPIC._interpolate_triangle(
+                collinear_x, collinear_y, (zs..., pad...), tri, FT(1), zero(FT)
+            )
+            @test ok
+            @test zp ≈ mean_z atol = tol
+            @test isfinite(zp)
+        end
     end
 
     @testset "MarkerSurface - Advection" begin
