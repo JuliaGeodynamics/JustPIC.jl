@@ -75,51 +75,126 @@ end
     grid_vy = expand_range(xc), yv
     xvi_device = TA(backend).(xvi)
     grid_vel = TA(backend).(grid_vx), TA(backend).(grid_vy)
+    grid_vx = xv, JustPIC.add_periodic_ghost_nodes(yc)
+    grid_vy = JustPIC.add_periodic_ghost_nodes(xc), yv
 
     # Initialize particles & particle fields
     particles = JustPIC.init_particles(
         backend, nxcell, max_xcell, min_xcell, grid_vel...,
     )
     pT, = JustPIC.init_cell_arrays(particles, Val(1))
+    xvi_p = JustPIC.add_periodic_ghost_nodes.(xvi)
+    xci_p = JustPIC.add_periodic_ghost_nodes.(xci)
 
     # Linear field at the vertices
-    T = TA(backend)([y for x in xv, y in yv])
-    T0 = TA(backend)([y for x in xv, y in yv])
+    T = TA(backend)([y for x in xvi_p[1], y in xvi_p[2]])
+    T0 = TA(backend)([y for x in xvi_p[1], y in xvi_p[2]])
     # Linear field at the centroids
-    Tc = TA(backend)([y for x in xc, y in yc])
+    Tc = TA(backend)([y for x in xci_p[1], y in xci_p[2]])
 
     # Grid to particle test
-    JustPIC.grid2particle!(pT, T, particles)
+    JustPIC.grid2particle!(pT, xvi_p, T, particles, diff.(xvi_p))
 
-    @test pT ≈ particles.coords[2]
+    active = Array(particles.index.data)
+    @test Array(pT.data)[active] ≈ Array(particles.coords[2].data)[active]
+
+    pX, pY = JustPIC.init_cell_arrays(particles, Val(2))
+    X = TA(backend)([x for x in xvi_p[1], y in xvi_p[2]])
+    JustPIC.grid2particle!((pX, pY), (X, T), particles)
+    @test Array(pX.data)[active] ≈ Array(particles.coords[1].data)[active]
+    @test Array(pY.data)[active] ≈ Array(particles.coords[2].data)[active]
 
     # Grid to particle test
-    JustPIC.grid2particle_flip!(pT, xvi_device, T, T0, particles)
+    JustPIC.grid2particle_flip!(pT, xvi_p, T, T0, particles)
 
-    @test pT ≈ particles.coords[2]
+    @test Array(pT.data)[active] ≈ Array(particles.coords[2].data)[active]
 
     # Particle to grid test
     T2 = similar(T)
+    fill!(T2, NaN)
     JustPIC.particle2grid!(T2, pT, particles)
     # norm(T2 .- T) / length(T)
-    @test norm(T2 .- T) / length(T) < 1.0e-1
+    finite_mask = isfinite.(T2)
+    @test norm(T2[finite_mask] .- T[finite_mask]) / count(finite_mask) < 1.0e-1
 
     # Grid to centroid test
-    JustPIC.centroid2particle!(pT, Tc, particles)
+    JustPIC.centroid2particle!(pT, xci_p, Tc, particles, diff.(xci_p))
 
-    @test all(pT[2, 2] .≈ particles.coords[2][2, 2])
+    @test Array(pT.data)[active] ≈ Array(particles.coords[2].data)[active]
 
     # Particle to centroid test
     Tc2 = similar(Tc)
     JustPIC.particle2centroid!(Tc2, pT, particles)
+    fill!(Tc2, NaN)
+    JustPIC.particle2centroid!(Tc2, pT, xci_p, particles, diff.(xci_p))
     # norm(T2 .- T) / length(T)
-    @test norm(Tc2 .- Tc) / length(Tc) < 1.0e-1
+    finite_mask_c = isfinite.(Tc2)
+    @test norm(Tc2[finite_mask_c] .- Tc[finite_mask_c]) / count(finite_mask_c) < 1.0e-1
 
     # test copy function
     particles_copy = copy(particles)
     pT_copy = copy(pT)
     @test particles_copy.index.data[:] == particles.index.data[:]
     @test pT_copy.data[:] == pT.data[:]
+end
+
+@testset "Ghost-node opt-out 2D" begin
+    nxcell, max_xcell, min_xcell = 5, 5, 1
+    n = 5 # number of vertices
+    Lx = Ly = FT(1)
+    xvi = xv, yv = LinRange(0, Lx, n), LinRange(0, Ly, n)
+    dx, dy = xv[2] - xv[1], yv[2] - yv[1]
+    xci = xc, yc = LinRange(0 + dx / 2, Lx - dx / 2, n - 1), LinRange(0 + dy / 2, Ly - dy / 2, n - 1)
+    grid_vel = TA(backend).((xv, expand_range(yc))), TA(backend).((expand_range(xc), yv))
+
+    particles = JustPIC.init_particles(
+        backend, nxcell, max_xcell, min_xcell, grid_vel...,
+    )
+    xvi_p = JustPIC.add_periodic_ghost_nodes.(xvi)
+    xci_p = JustPIC.add_periodic_ghost_nodes.(xci)
+
+    pT, pX = JustPIC.init_cell_arrays(particles, Val(2))
+    JustPIC.grid2particle!(pT, TA(backend)([y for x in xvi_p[1], y in xvi_p[2]]), particles)
+    JustPIC.grid2particle!(pX, TA(backend)([x for x in xvi_p[1], y in xvi_p[2]]), particles)
+
+    # a tuple of destination fields must agree with the same fields interpolated one by one
+    ghost_nan() = TA(backend)(fill(FT(NaN), length.(xvi_p)))
+    interior(A) = Array(A)[2:(end - 1), 2:(end - 1)]
+    Fx, Fy = ghost_nan(), ghost_nan()
+    Fx_ref, Fy_ref = ghost_nan(), ghost_nan()
+    JustPIC.particle2grid!((Fx, Fy), (pX, pT), particles)
+    JustPIC.particle2grid!(Fx_ref, pX, particles)
+    JustPIC.particle2grid!(Fy_ref, pT, particles)
+    @test interior(Fx) ≈ interior(Fx_ref)
+    @test interior(Fy) ≈ interior(Fy_ref)
+
+    # `ghost_i = false` writes the physical nodes of an unghosted array
+    Fv_plain = TA(backend)(fill(FT(NaN), length.(xvi)))
+    JustPIC.particle2grid!(Fv_plain, pT, particles; ghost_1 = false, ghost_2 = false)
+    @test Array(Fv_plain) == interior(Fy_ref)
+
+    Fc = TA(backend)(fill(FT(NaN), length.(xci_p)))
+    Fc_plain = TA(backend)(fill(FT(NaN), length.(xci)))
+    JustPIC.particle2centroid!(Fc, pT, particles)
+    JustPIC.particle2centroid!(Fc_plain, pT, particles; ghost_1 = false, ghost_2 = false)
+    @test Array(Fc_plain) == Array(Fc)[2:(end - 1), 2:(end - 1)]
+
+    # the same field read back with and without ghost nodes must reach the particles alike
+    T_ghost = TA(backend)([y for x in xvi_p[1], y in xvi_p[2]])
+    T_plain = TA(backend)([y for x in xvi[1], y in xvi[2]])
+    pT_ghost, pT_plain = JustPIC.init_cell_arrays(particles, Val(2))
+    JustPIC.grid2particle!(pT_ghost, T_ghost, particles)
+    JustPIC.grid2particle!(pT_plain, T_plain, particles; ghost_1 = false, ghost_2 = false)
+    active = Array(particles.index.data)
+    @test Array(pT_ghost.data)[active] ≈ Array(pT_plain.data)[active]
+
+    pF_ghost, pF_plain = JustPIC.init_cell_arrays(particles, Val(2))
+    JustPIC.grid2particle_flip!(pF_ghost, xvi_p, T_ghost, T_ghost, particles; α = FT(0.5))
+    JustPIC.grid2particle_flip!(
+        pF_plain, xvi_p, T_plain, T_plain, particles;
+        α = FT(0.5), ghost_1 = false, ghost_2 = false,
+    )
+    @test Array(pF_ghost.data)[active] ≈ Array(pF_plain.data)[active]
 end
 
 @testset "Interpolations 3D" begin
@@ -143,42 +218,60 @@ end
     xvi_device = TA(backend).(xvi)
     grid_vel = TA(backend).(grid_vx), TA(backend).(grid_vy), TA(backend).(grid_vz)
 
+    # staggered grid velocity nodal locations
+    grid_vx = xv, JustPIC.add_periodic_ghost_nodes(yc), JustPIC.add_periodic_ghost_nodes(zc)
+    grid_vy = JustPIC.add_periodic_ghost_nodes(xc), yv, JustPIC.add_periodic_ghost_nodes(zc)
+    grid_vz = JustPIC.add_periodic_ghost_nodes(xc), JustPIC.add_periodic_ghost_nodes(yc), zv
+
     # Initialize particles -------------------------------
     particles = JustPIC.init_particles(
         backend, nxcell, max_xcell, min_xcell, grid_vel...
     )
     pT, = JustPIC.init_cell_arrays(particles, Val(1))
+    xvi_p = JustPIC.add_periodic_ghost_nodes.(xvi)
+    xci_p = JustPIC.add_periodic_ghost_nodes.(xci)
 
     # Linear field at the vertices
-    T = TA(backend)([z for x in xv, y in yv, z in zv])
-    T0 = TA(backend)([z for x in xv, y in yv, z in zv])
+    T = TA(backend)([z for x in xvi_p[1], y in xvi_p[2], z in xvi_p[3]])
+    T0 = TA(backend)([z for x in xvi_p[1], y in xvi_p[2], z in xvi_p[3]])
     # Linear field at the centroids
-    Tc = TA(backend)([z for x in xc, y in yc, z in zc])
+    Tc = TA(backend)([z for x in xci_p[1], y in xci_p[2], z in xci_p[3]])
 
     # Grid to particle test
-    JustPIC.grid2particle!(pT, T, particles)
+    JustPIC.grid2particle!(pT, xvi_p, T, particles, diff.(xvi_p))
 
-    @test pT ≈ particles.coords[3]
+    active = Array(particles.index.data)
+    @test Array(pT.data)[active] ≈ Array(particles.coords[3].data)[active]
+
+    pX, pZ = JustPIC.init_cell_arrays(particles, Val(2))
+    X = TA(backend)([x for x in xvi_p[1], y in xvi_p[2], z in xvi_p[3]])
+    JustPIC.grid2particle!((pX, pZ), (X, T), particles)
+    @test Array(pX.data)[active] ≈ Array(particles.coords[1].data)[active]
+    @test Array(pZ.data)[active] ≈ Array(particles.coords[3].data)[active]
 
     # Grid to particle test
-    JustPIC.grid2particle_flip!(pT, xvi_device, T, T0, particles)
+    JustPIC.grid2particle_flip!(pT, xvi_p, T, T0, particles)
 
-    @test pT ≈ particles.coords[3]
+    @test Array(pT.data)[active] ≈ Array(particles.coords[3].data)[active]
 
     # Particle to grid test
     T2 = similar(T)
+    fill!(T2, NaN)
     JustPIC.particle2grid!(T2, pT, particles)
-    @test norm(T2 .- T) / length(T) < 1.0e-1
+    finite_mask = isfinite.(T2)
+    @test norm(T2[finite_mask] .- T[finite_mask]) / count(finite_mask) < 1.0e-1
 
     # Grid to centroid test
-    JustPIC.centroid2particle!(pT, Tc, particles)
-    @test all(pT .≈ particles.coords[3])
+    JustPIC.centroid2particle!(pT, xci_p, Tc, particles, diff.(xci_p))
+    @test Array(pT.data)[active] ≈ Array(particles.coords[3].data)[active]
 
     # Particle to centroid test
     Tc2 = similar(Tc)
-    JustPIC.particle2centroid!(Tc2, pT, particles)
+    fill!(Tc2, NaN)
+    JustPIC.particle2centroid!(Tc2, pT, xci_p, particles, diff.(xci_p))
     # norm(T2 .- T) / length(T)
-    @test norm(Tc2 .- Tc) / length(Tc) < 1.0e-1
+    finite_mask_c = isfinite.(Tc2)
+    @test norm(Tc2[finite_mask_c] .- Tc[finite_mask_c]) / count(finite_mask_c) < 1.0e-1
 
     # test copy function
     particles_copy = copy(particles)

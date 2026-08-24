@@ -43,7 +43,9 @@ end
     p1 = GridGeometryUtils.Point(ox, topo_y[i])
     p2 = GridGeometryUtils.Point(xv[i + 1], topo_y[i + 1])
     s = Segment(p1, p2)
-    r = rectangle_from_min_corner((ox, oy), dxi)
+
+    # Rectangle's first argument is its center, not its lower-left corner.
+    r = Rectangle((ox + dxi[1] / 2, oy + dxi[2] / 2), dxi...; θ = zero(ox))
     ratio[i, j] = cell_rock_area(s, r)
 end
 
@@ -97,7 +99,12 @@ end
         p1 = GridGeometryUtils.Point(min_corner[1], y1)
         p2 = GridGeometryUtils.Point(min_corner[1] + half_dx, y2)
         s = Segment(p1, p2)
-        r = rectangle_from_min_corner(min_corner, (half_dx, half_dy))
+
+        ## create a rectangle for the new cell
+        r = Rectangle(
+            (min_corner[1] + half_dx / 2, min_corner[2] + half_dy / 2),
+            half_dx, half_dy; θ = zero(half_dx)
+        )
         tmp += cell_rock_area(s, r)
     end
     ratios[i, j] = tmp / ω
@@ -147,7 +154,12 @@ end
         p1 = GridGeometryUtils.Point(min_corner[1], y1)
         p2 = GridGeometryUtils.Point(min_corner[1] + half_dx, y2)
         s = Segment(p1, p2)
-        r = rectangle_from_min_corner(min_corner, (half_dx, half_dy))
+
+        ## create a rectangle for the new cell
+        r = Rectangle(
+            (min_corner[1] + half_dx / 2, min_corner[2] + half_dy / 2),
+            half_dx, half_dy; θ = zero(half_dx)
+        )
         tmp += cell_rock_area(s, r)
     end
     ratios[i, j] = tmp / ω
@@ -207,7 +219,12 @@ end
             p1 = GridGeometryUtils.Point(min_corner[1], y1)
             p2 = GridGeometryUtils.Point(min_corner[1] + half_dx, y2)
             s = Segment(p1, p2)
-            r = rectangle_from_min_corner(min_corner, (half_dx, half_dy))
+
+            ## create a rectangle for the new cell
+            r = Rectangle(
+                (min_corner[1] + half_dx / 2, min_corner[2] + half_dy / 2),
+                half_dx, half_dy; θ = zero(half_dx)
+            )
             tmp += cell_rock_area(s, r)
         end
     end
@@ -218,11 +235,13 @@ end
 
 @inline function is_chain_above_cell(s::Segment, r::Rectangle)
     max_y = r.origin[2] + r.h / 2
+    # Check if the segment is above the rectangle
     return GridGeometryUtils.geq_r(s.p1[2], max_y) && GridGeometryUtils.geq_r(s.p2[2], max_y)
 end
 
 @inline function is_chain_below_cell(s::Segment, r::Rectangle)
     min_y = r.origin[2] - r.h / 2
+    # Check if the segment is below the rectangle
     return GridGeometryUtils.leq_r(s.p1[2], min_y) && GridGeometryUtils.leq_r(s.p2[2], min_y)
 end
 

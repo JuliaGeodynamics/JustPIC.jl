@@ -1,129 +1,102 @@
-[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://juliageodynamics.github.io/JustPIC.jl/stable/)
-[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://juliageodynamics.github.io/JustPIC.jl/dev/)
-[![version](https://juliahub.com/docs/General/JustPIC/stable/version.svg)](https://juliahub.com/ui/Packages/General/JustPIC)
-[![DOI](https://zenodo.org/badge/507905159.svg)](https://zenodo.org/doi/10.5281/zenodo.10212675)
-[![CPU UnitTests](https://github.com/JuliaGeodynamics/JustPIC.jl/actions/workflows/UnitTests.yml/badge.svg)](https://github.com/JuliaGeodynamics/JustPIC.jl/actions/workflows/UnitTests.yml)
-[![GPU UnitTests](https://badge.buildkite.com/bb05ed7ef3b43f843a5ba4a976c27a724064d67955193accea.svg?branch=main)](https://buildkite.com/julialang/justpic-dot-jl)
-[![CSCS UnitTests](https://gitlab.com/cscs-ci/ci-testing/webhook-ci/mirrors/6264856887055800/8444213376739374/badges/main/pipeline.svg?ignore_skipped=true)](https://gitlab.com/cscs-ci/ci-testing/webhook-ci/mirrors/6264856887055800/8444213376739374/-/pipelines)
+[![Stable docs](https://img.shields.io/badge/docs-stable-blue.svg)](https://juliageodynamics.github.io/JustPIC.jl/stable/)
+[![Dev docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://juliageodynamics.github.io/JustPIC.jl/dev/)
+[![Julia tests](https://github.com/JuliaGeodynamics/JustPIC.jl/actions/workflows/UnitTests.yml/badge.svg)](https://github.com/JuliaGeodynamics/JustPIC.jl/actions/workflows/UnitTests.yml)
+[![GPU tests](https://badge.buildkite.com/bb05ed7ef3b43f843a5ba4a976c27a724064d67955193accea.svg?branch=main)](https://buildkite.com/julialang/justpic-dot-jl)
 [![codecov](https://codecov.io/gh/JuliaGeodynamics/JustPIC.jl/graph/badge.svg?token=PN0AJZXK13)](https://codecov.io/gh/JuliaGeodynamics/JustPIC.jl)
 [![Aqua QA](https://raw.githubusercontent.com/JuliaTesting/Aqua.jl/master/badge.svg)](https://github.com/JuliaTesting/Aqua.jl)
 
 # JustPIC.jl
 
-Particle-in-Cell advection ready to rock the GPU  :rocket:
+JustPIC.jl is a backend-generic Julia library for Particle-in-Cell (PIC)
+advection and particle/grid interpolation. It is designed for large-scale
+geodynamics simulations and supports 2D and 3D workflows on CPUs, Nvidia GPUs,
+AMD GPUs, and Apple GPUs through
+[KernelAbstractions.jl](https://github.com/JuliaGPU/KernelAbstractions.jl).
 
-# Example
-Load JustPIC and choose where particle arrays are allocated. Backend tags live
-in KernelAbstractions; use `JustPIC.CPU` by default, or load CUDA.jl /
-AMDGPU.jl and switch to `CUDA.CUDABackend` / `AMDGPU.ROCBackend`.
+The algorithm is selected by the array backend, so the same application code
+can run on different hardware.
+
+## Installation
+
+JustPIC.jl is registered in Julia’s General registry:
+
+```julia
+using Pkg
+Pkg.add("JustPIC")
+```
+
+The CPU backend is available immediately. For GPU execution, install the
+matching optional package (`CUDA`, `AMDGPU`, or `Metal`) and select its
+KernelAbstractions backend. See the [mixed CPU/GPU guide](https://juliageodynamics.github.io/JustPIC.jl/dev/mixed_CPU_GPU/).
+
+## What it provides
+
+- Cell-local particle storage with injection, cleanup, and locality-preserving
+  movement.
+- Euler, RK2, and RK4 particle advection, plus linear, MQS, and
+  semi-Lagrangian variants.
+- Grid-to-particle, particle-to-grid, and particle-to-centroid interpolation.
+- Phase-ratio updates, subgrid diffusion, and passive markers.
+- Marker chains for free-surface and topography tracking, including advection
+  and resampling.
+- JLD2 checkpointing and MPI-aware cell-halo updates.
+
+## Minimal example
 
 ```julia
 using JustPIC
-using GLMakie
 
-const backend = JustPIC.CPU
-```
+backend = JustPIC.CPU
+n = 33
+L = 1.0
+xv = yv = LinRange(0.0, L, n)
+dx = dy = xv[2] - xv[1]
+xc = yc = LinRange(dx / 2, L - dx / 2, n - 1)
 
-Define domain and grids of the domain:
+# Staggered velocity-grid coordinates, including one ghost layer.
+grid_vx = xv, LinRange(first(yc) - dy, last(yc) + dy, length(yc) + 2)
+grid_vy = LinRange(first(xc) - dx, last(xc) + dx, length(xc) + 2), yv
 
-```julia
-# number of grid points
-n            = 257
-# number of cells
-nx           = ny = n-1
-# domain size
-Lx           = Ly = 1.0
-# nodal vertices
-xvi = xv, yv = range(0, Lx, length=n), range(0, Ly, length=n)
-# grid spacing
-dxi = dx, dy = xv[2] - xv[1], yv[2] - yv[1]
-# nodal centers
-xci = xc, yc = range(0+dx/2, Lx-dx/2, length=n-1), range(0+dy/2, Ly-dy/2, length=n-1)
-# staggered grid velocity nodal locations
-grid_vx      = xv, expand_range(yc)
-grid_vy      = expand_range(xc), yv
-```
-where `expand_range` is a helper function that expands a range by one element on each side:
-```julia
-function expand_range(x::AbstractRange)
-    dx = x[2] - x[1]
-    n = length(x)
-    x1, x2 = extrema(x)
-    xI = round(x1-dx; sigdigits=5)
-    xF = round(x2+dx; sigdigits=5)
-    range(xI, xF, length=n+2)
+particles = init_particles(backend, 8, 16, 4, grid_vx, grid_vy)
+
+vx(x, y) = 250 * sin(π * x) * cos(π * y)
+vy(x, y) = -250 * cos(π * x) * sin(π * y)
+V = (
+    TA(backend)([vx(x, y) for x in grid_vx[1], y in grid_vx[2]]),
+    TA(backend)([vy(x, y) for x in grid_vy[1], y in grid_vy[2]]),
+)
+
+dt = min(dx / maximum(abs, V[1]), dy / maximum(abs, V[2]))
+scheme = RungeKutta2()
+
+for _ in 1:100
+    advection!(particles, scheme, V, dt)
+    move_particles!(particles, ())
 end
 ```
 
-Now we can initialize the particles object
-```julia
-nxcell    = 24 # initial number of particles per cell
-max_xcell = 48 # maximum number of particles per cell
-min_xcell = 12 # minimum number of particles per cell
-particles = init_particles(
-    backend, nxcell, max_xcell, min_xcell, grid_vx, grid_vy
-)
+`TA(backend)` maps the KernelAbstractions backend to its plain array type:
+`Array` on the CPU and the corresponding device array type when a GPU extension
+is loaded. For a complete workflow, including interpolation and visualization,
+see the [documentation](https://juliageodynamics.github.io/JustPIC.jl/dev/).
+
+## Development
+
+Run the CPU test suite from a checkout with:
+
+```sh
+julia --project=. -e 'using Pkg; Pkg.test()'
 ```
 
-The velocity field is defined by the stream function $\psi=\frac{250}{\pi}\sin(\pi x)\cos(\pi y)$, so that the analytical velocity field at the particle $p=p(x,y)$ is given by
-```julia
-vx_stream(x, y) =   250 * sin(π*x) * cos(π*y)
-vy_stream(x, y) =  -250 * cos(π*x) * sin(π*y)
-```
-and therefore the velocity field (__with ghost nodes__) on the staggered grid is given by
-```julia
-Vx = TA(backend)([vx_stream(x, y) for x in grid_vx[1], y in grid_vx[2]]);
-Vy = TA(backend)([vy_stream(x, y) for x in grid_vy[1], y in grid_vy[2]]);
-V  = Vx, Vy
-dt = min(dx / maximum(abs.(Vx)),  dy / maximum(abs.(Vy))) # time step
-```
-where `TA(backend)` is `Array` on `JustPIC.CPU`, `CuArray` on
-`CUDA.CUDABackend`, and `ROCArray` on `AMDGPU.ROCBackend`.
+Build the documentation locally with:
 
-We save the initial particle positions:
-```julia
-pxv = particles.coords[1].data;
-pyv = particles.coords[2].data;
-idxv = particles.index.data;
-p = [(pxv[idxv][1], pyv[idxv][1])]
+```sh
+julia --project=docs docs/make.jl
 ```
 
-chose the advection scheme
-```julia
-advection_scheme = RungeKutta2()
-```
-
-and finally perform the time iterations:
-```julia
- # Advection test
-particle_args = ()
-niter = 750
-for iter in 1:niter
-    # advect particles
-    advection!(particles, advection_scheme, V, dt)
-    # shuffle particles in the memory to keep the spatial locality tight
-    move_particles!(particles, particle_args)
-    # save particle position
-    pxv = particles.coords[1].data;
-    pyv = particles.coords[2].data;
-    idxv = particles.index.data;
-    p_i = (pxv[idxv][1], pyv[idxv][1])
-    push!(p, p_i)
-end
-```
-
-where `particle_args` is an empty tuple, but typically it contains the fields that are advected with the particles (e.g. temperature). At last, we plot the particle trajectory on top of the stream function:
-```julia
-using GLMakie
-g(x) = Point2f(
-    vx_stream(x[1], x[2]),
-    vy_stream(x[1], x[2])
-)
-f, ax, = streamplot(g, xvi...)
-lines!(ax, p, color=:red)
-f
-```
-
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution requirements.
 
 ## Funding
-The development of this package is supported by the [GPU4GEO](https://ptsolvers.github.io/GPU4GEO/) [PASC](https://www.pasc-ch.org) project.
+
+Development is supported by the [GPU4GEO](https://ptsolvers.github.io/GPU4GEO/)
+[PASC](https://www.pasc-ch.org) project.

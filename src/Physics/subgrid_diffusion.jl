@@ -7,8 +7,9 @@ The returned object stores old particle temperatures, per-particle temperature
 increments, characteristic diffusion timescales, and a grid-sized accumulation
 buffer.
 
-`loc` selects whether the accumulation buffer should match a vertex-based or
-cell-centered grid layout.
+`loc` selects whether the accumulation buffer should match a vertex-based
+(`:vertex`) or cell-centered (`:center`) grid layout. Either way the buffer is
+ghosted like `particles.xvi`/`particles.xci`.
 """
 struct SubgridDiffusionCellArrays{CA, T}
     pT0::CA # particle old temperature
@@ -45,9 +46,12 @@ particle temperatures.
 
 # Arguments
 - `pT`: particle temperature field updated in place.
-- `T_grid`: source temperature on the vertex grid.
-- `ΔT_grid`: resolved-grid temperature increment.
-- `subgrid_arrays`: scratch storage created with `SubgridDiffusionCellArrays`.
+- `T_grid`: source temperature on the ghosted vertex grid, sized as
+  `length.(particles.xvi)`.
+- `ΔT_grid`: resolved-grid temperature increment carrying one ghost node per
+  side, sized `ncells .+ 2`.
+- `subgrid_arrays`: scratch storage created with
+  `SubgridDiffusionCellArrays(particles)`.
 - `particles`: particle container.
 - `dt`: timestep.
 - `d`: dimensionless subgrid diffusion coefficient.
@@ -56,6 +60,7 @@ function subgrid_diffusion!(
         pT, T_grid, ΔT_grid, subgrid_arrays, particles::Particles, dt; d = 1.0
     )
     # d = dimensionless numerical diffusion coefficient (0 ≤ d ≤ 1)
+    check_resolved_grid_layout(ΔT_grid, pT)
     (; pT0, pΔT, dt₀) = subgrid_arrays
     ni = size(pT)
     # scalars must match the particle-field precision (Float64 breaks Metal)
@@ -67,7 +72,7 @@ function subgrid_diffusion!(
     launch!(ka_backend(pT), subgrid_diffusion_kernel!, ni, pT, pT0, pΔT, dt₀, particles.index, d, dt)
     particle2grid!(subgrid_arrays.ΔT_subgrid, pΔT, particles)
 
-    launch!(ka_backend(subgrid_arrays.ΔT_subgrid), update_ΔT_subgrid_kernel!, ni .+ 1, subgrid_arrays.ΔT_subgrid, ΔT_grid)
+    launch!(ka_backend(subgrid_arrays.ΔT_subgrid), update_ΔT_subgrid_kernel!, size(ΔT_grid), subgrid_arrays.ΔT_subgrid, ΔT_grid)
     grid2particle!(pΔT, subgrid_arrays.ΔT_subgrid, particles)
 
     launch!(ka_backend(pT), update_particle_temperature_kernel!, ni, pT, pT0, pΔT)
@@ -81,12 +86,15 @@ end
 Centroid-grid variant of `subgrid_diffusion!`.
 
 Use this when the resolved temperature field lives at cell centers instead of
-vertices.
+vertices. `T_grid` is then the ghosted centroid field sized as
+`length.(particles.xci)`, while `ΔT_grid` keeps the same `ncells .+ 2` layout as
+in `subgrid_diffusion!`.
 """
 function subgrid_diffusion_centroid!(
-        pT, T_grid, ΔT_grid, subgrid_arrays, particles, dt; d = 1.0
+        pT, T_grid, ΔT_grid, subgrid_arrays, particles::Particles, dt; d = 1.0
     )
     # d = dimensionless numerical diffusion coefficient (0 ≤ d ≤ 1)
+    check_resolved_grid_layout(ΔT_grid, pT)
     (; pT0, pΔT, dt₀) = subgrid_arrays
     ni = size(pT)
     # scalars must match the particle-field precision (Float64 breaks Metal)
@@ -98,12 +106,20 @@ function subgrid_diffusion_centroid!(
     launch!(ka_backend(pT), subgrid_diffusion_kernel!, ni, pT, pT0, pΔT, dt₀, particles.index, d, dt)
     particle2centroid!(subgrid_arrays.ΔT_subgrid, pΔT, particles)
 
-    launch!(ka_backend(subgrid_arrays.ΔT_subgrid), update_ΔT_subgrid_kernel!, ni, subgrid_arrays.ΔT_subgrid, ΔT_grid)
+    launch!(ka_backend(subgrid_arrays.ΔT_subgrid), update_ΔT_subgrid_kernel!, size(ΔT_grid), subgrid_arrays.ΔT_subgrid, ΔT_grid)
     centroid2particle!(pΔT, subgrid_arrays.ΔT_subgrid, particles)
 
     launch!(ka_backend(pT), update_particle_temperature_kernel!, ni, pT, pT0, pΔT)
 
     return nothing
+end
+
+function check_resolved_grid_layout(ΔT_grid, pT)
+    return size(ΔT_grid) == size(pT) || throw(
+        DimensionMismatch(
+            "ΔT_grid must carry one ghost node per side, i.e. have size $(size(pT)), got $(size(ΔT_grid))"
+        )
+    )
 end
 
 @kernel function memcopy_cellarray_kernel!(A, B)
@@ -132,7 +148,7 @@ end
 
 @kernel function update_ΔT_subgrid_kernel!(ΔTsubgrid, ΔT)
     I = @index(Global, NTuple)
-    ΔTsubgrid[I...] = ΔT[I .+ 1...] - ΔTsubgrid[I...]
+    ΔTsubgrid[I...] = ΔT[I...] - ΔTsubgrid[I...]
 end
 
 @kernel function update_particle_temperature_kernel!(pT, pT0, pΔT)

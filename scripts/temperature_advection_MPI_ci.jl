@@ -44,7 +44,9 @@ function main()
     me, dims, = init_global_grid(
         n - 1, n - 1, 1;
         init_MPI = MPI.Initialized() ? false : true,
-        select_device = false
+        select_device = false,
+        periodx = 1,
+        periody = 1,
     )
     Lx = Ly = 1.0
     dxi = dx, dy = Lx / (nx_g() - 1), Ly / (ny_g() - 1)
@@ -74,7 +76,8 @@ function main()
     # Cell fields -------------------------------
     Vx = TA(backend)([vx_stream(x, y) for x in grid_vx[1], y in grid_vx[2]])
     Vy = TA(backend)([vy_stream(x, y) for x in grid_vy[1], y in grid_vy[2]])
-    T = TA(backend)([y for x in xv, y in yv])
+    xvi_particles = Array.(particles.xvi)
+    T = TA(backend)([y for x in xvi_particles[1], y in xvi_particles[2]])
     T0 = deepcopy(T)
     V = Vx, Vy
 
@@ -97,61 +100,19 @@ function main()
         advection!(particles, RungeKutta2(), V, dt)
 
         # update halos
-        update_cell_halo!(particles.coords...)
-        update_cell_halo!(particle_args...)
-        update_cell_halo!(particles.index)
+        update_cell_halo!(particles.coords..., particle_args..., particles.index)
         # shuffle particles
         move_particles!(particles, particle_args)
+        inject_particles!(particles, ())
+        grid2particle!(pT, T, particles)
+        update_cell_halo!(particles.coords..., particle_args..., particles.index)
         # interpolate T from particle to grid
         particle2grid!(T, pT, particles)
 
         @views T_nohalo .= T[2:(end - 1), 2:(end - 1)]
+        all(isfinite, Array(T_nohalo)) || error("Non-finite reconstructed field on rank $me")
         gather!(Array(T_nohalo), T_v)
-
-        # if me == 0 && iter % 1 == 0
-        #     x_global = range(0, Lx, length = size(T_v, 1))
-        #     y_global = range(0, Ly, length = size(T_v, 2))
-        #     f, ax, = heatmap(x_global, y_global, T_v)
-        #     w = 0.504
-        #     offset = 0.5 - (w - 0.5)
-        #     lines!(
-        #         ax,
-        #         [0, w, w, 0, 0],
-        #         [0, 0, w, w, 0],
-        #         linewidth = 3
-        #     )
-        #     lines!(
-        #         ax,
-        #         [0, w, w, 0, 0] .+ offset,
-        #         [0, 0, w, w, 0],
-        #         linewidth = 3
-        #     )
-        #     lines!(
-        #         ax,
-        #         [0, w, w, 0, 0] .+ offset,
-        #         [0, 0, w, w, 0] .+ offset,
-        #         linewidth = 3
-        #     )
-        #     lines!(
-        #         ax,
-        #         [0, w, w, 0, 0],
-        #         [0, 0, w, w, 0] .+ offset,
-        #         linewidth = 3
-        #     )
-
-        #     save("figs/T_MPI_$iter.png", f)
-        # end
-
-        # px = particles.coords[1].data[:]
-        # py = particles.coords[2].data[:]
-        # idx = particles.index.data[:]
-        # f = scatter(px[idx], py[idx], color=:black)
-        # save("figs/particles_$(iter)_$(me).png", f)
     end
-
-    # f, ax, = heatmap(xvi..., T, colormap=:batlow)
-    # streamplot!(ax, g, xvi...)
-    # f
     return finalize_global_grid()
 
 end

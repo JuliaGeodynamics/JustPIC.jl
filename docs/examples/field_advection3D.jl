@@ -49,7 +49,8 @@ particles = init_particles(
 Vx = TA(backend)([vx_stream(x, z) for x in grid_vx[1], y in grid_vx[2], z in grid_vx[3]])
 Vy = TA(backend)([vy_stream(x, z) for x in grid_vy[1], y in grid_vy[2], z in grid_vy[3]])
 Vz = TA(backend)([vz_stream(x, z) for x in grid_vz[1], y in grid_vz[2], z in grid_vz[3]])
-T = TA(backend)([z for x in xv, y in yv, z in zv]) # defined at the cell vertices
+xvi_particles = Array.(particles.xvi)
+T = TA(backend)([z for x in xvi_particles[1], y in xvi_particles[2], z in xvi_particles[3]]) # includes periodic ghost nodes
 V = Vx, Vy, Vz
 # where `TA(backend)` will move the data to the specified backend (CPU, CUDA, or AMDGPU)
 

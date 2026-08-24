@@ -3,17 +3,8 @@
 function phase_ratios_face!(
         phase_face, particles::Particles{B, N}, phases, dimension
     ) where {B, N}
-    ni = size(phases)
     offsets = face_offset(Val(N), dimension)
-    idx_di = if dimension === :x
-        1
-    elseif dimension === :y
-        2
-    elseif dimension === :z
-        3
-    else
-        throw(ArgumentError("dimension must be :x, :y or :z"))
-    end
+    ni = size(phase_face) .- offsets
     launch!(
         ka_backend(phase_face), phase_ratios_face_kernel!, ni,
         phase_face, particles.coords, particles.xci, particles.di.vertex, phases, offsets
@@ -25,19 +16,21 @@ end
         ratio_faces, pxi::NTuple{N}, xci::NTuple{N}, dᵢ::NTuple{N}, phases, offsets
     ) where {N}
     I = @index(Global, NTuple)
+    I_inner = I .+ 1
 
     # index corresponding to the cell center
-    di = @dxi(dᵢ, I...)
+    di = @dxi(dᵢ, I_inner...)
 
-    cell_center = getindex.(xci, I)
+    cell_center = getindex.(xci, I_inner)
     cell_face = @. cell_center + di * offsets / 2
     ni = size(phases)
+    nf = size(ratio_faces)
     NC = nphases(ratio_faces)
     w = ntuple(_ -> zero(eltype(eltype(ratio_faces))), NC)
 
     # general case
     for offsetsᵢ in (ntuple(_ -> 0, Val(N)), offsets)
-        cell_index = min.(I .+ offsetsᵢ, ni)
+        cell_index = min.(I_inner .+ offsetsᵢ, ni)
         all(@. 0 < cell_index < ni + 1) || continue
 
         di = @dxi(dᵢ, cell_index...)
@@ -55,23 +48,22 @@ end
     end
 
     w = w .* inv(sum(w))
+    face_index = min.(I_inner .+ offsets .- 1, nf)
     for ip in cellaxes(ratio_faces)
-        CAI.@index ratio_faces[ip, (I .+ offsets)...] = w[ip] * !isnan(w[ip]) # make it zero if there are NaNs (means no particles within velocity half cell)
+        CAI.@index ratio_faces[ip, face_index...] = w[ip] * !isnan(w[ip]) # make it zero if there are NaNs (means no particles within velocity half cell)
     end
 
     if isboundary(offsets, I)
-        # index corresponding to the cell center
+        # Fill the first boundary face, which is not covered by the forward offset write above.
         cell_face = @. cell_center - di * offsets / 2
         w = ntuple(_ -> zero(eltype(eltype(ratio_faces))), NC)
 
         for ip in cellaxes(phases)
-            p = get_particle_coords(pxi, ip, I...)
+            p = get_particle_coords(pxi, ip, I_inner...)
             any(isnan, p) && continue
-            # check if it's within half cell
             isinhalfcell(p, cell_face, di) || continue
             x = @inline bilinear_weight(cell_face, p, di)
-            ph_local = CAI.@index phases[ip, I...]
-            # this is doing sum(w * δij(i, phase)), where δij is the Kronecker delta
+            ph_local = CAI.@index phases[ip, I_inner...]
             w = accumulate_weight(w, x, ph_local, NC)
         end
         w = w .* inv(sum(w))
@@ -108,21 +100,20 @@ end
 function phase_ratios_midpoint!(
         phase_midpoint, particles::Particles{B, N}, phases, dimension
     ) where {B, N}
-    ni = size(phases)
     offsets = midpoint_offset(Val(N), dimension)
-    dxi_midpoints = midpoint_grid_spacing(particles.di, dimension::Symbol)
+    ni = size(phase_midpoint) .- offsets
     launch!(
         ka_backend(phase_midpoint), phase_ratios_midpoint_kernel!, ni,
-        phase_midpoint, particles.coords, particles.xci, particles.di.vertex, dxi_midpoints, phases, offsets
+        phase_midpoint, particles.coords, particles.xci, particles.di.vertex, phases, offsets
     )
     return nothing
 end
 
 @kernel function phase_ratios_midpoint_kernel!(
-        ratio_midpoints, pxi::NTuple, xci::NTuple, dxi_vertex, dxi_midpoints, phases, offsets
+        ratio_midpoints, pxi::NTuple, xci::NTuple, dxi_vertex, phases, offsets
     )
     I = @index(Global, NTuple)
-    _phase_ratios_midpoint_kernel!(ratio_midpoints, pxi, xci, dxi_vertex, dxi_midpoints, phases, offsets, I...)
+    _phase_ratios_midpoint_kernel!(ratio_midpoints, pxi, xci, dxi_vertex, phases, offsets, I...)
 end
 
 function _phase_ratios_midpoint_kernel!(
@@ -130,28 +121,26 @@ function _phase_ratios_midpoint_kernel!(
         pxi::NTuple{N},
         xci::NTuple{N},
         dxi_vertex,
-        dxi_midpoints,
         phases,
         offsets,
         I::Vararg{Int, N},
     ) where {N}
     MASK_3D = (1, 0, 0), (0, 1, 0), (0, 0, 1), (1, 1, 1)
 
+    I_inner = I .+ 1
     # index corresponding to the cell center
-    cell_center = getindex.(xci, I)
-    di = @dxi(dxi_vertex, I...)
+    cell_center = getindex.(xci, I_inner)
+    di = @dxi(dxi_vertex, I_inner...)
     cell_midpoint = @. cell_center + di * offsets / 2
     ni = size(phases)
-    nm = size(ratio_midpoints)
     NC = nphases(ratio_midpoints)
     w = ntuple(_ -> zero(eltype(eltype(ratio_midpoints))), NC)
 
     # general case
     for mask in MASK_3D
         offsetsᵢ = offsets .* mask
-        cell_index = min.(I .+ offsetsᵢ, ni)
+        cell_index = min.(I_inner .+ offsetsᵢ, ni)
 
-        all(cell_index .≤ nm) || continue
         di = @dxi(dxi_vertex, cell_index...)
 
         for ip in cellaxes(phases)
@@ -172,22 +161,21 @@ function _phase_ratios_midpoint_kernel!(
     end
 
     if isboundary(offsets, I)
-        offset_boundary = lastboundary_offset(offsets, I, ni)
+        offset_boundary = lastboundary_offset(offsets, I, ni .- 2)
         for offset_boundaryᵢ in ((0, 0, 0), offset_boundary)
             all(x -> x === false, offset_boundaryᵢ) && continue # skip if not last boundary
 
             midpoint_index = I .+ offset_boundaryᵢ
             # index corresponding to the cell center
             flip_sign_mask = (0, 0, 0) .- offset_boundary # need to add dxi if we are in the last boundary
-            di = @dxi(dxi_vertex, min.(I, ni)...)
+            di = @dxi(dxi_vertex, min.(I_inner, ni)...)
 
             cell_midpoint = @. cell_center - (di * offsets * flip_sign_mask) / 2
             w = ntuple(_ -> zero(eltype(eltype(ratio_midpoints))), NC)
 
             for mask in MASK_3D
                 offsetsᵢ = offsets .* mask
-                cell_index = min.(I .+ offsetsᵢ, ni)
-                all(cell_index .≤ nm) || continue
+                cell_index = min.(I_inner .+ offsetsᵢ, ni)
                 di = @dxi(dxi_vertex, cell_index...)
 
                 for ip in cellaxes(phases)
