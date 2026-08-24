@@ -1,9 +1,13 @@
 ## random particles initialization
 """
-    init_particles(backend, nxcell, max_xcell, min_xcell, xvi...)
+    init_particles(backend, nxcell, max_xcell, min_xcell, grid_vx, grid_vy[, grid_vz])
 
-Initialize a `Particles` container on the grid defined by the vertex coordinates
-`xvi`.
+Initialize a `Particles` container from the staggered velocity grids.
+
+Each velocity component is supplied as an `N`-tuple of coordinate vectors. The
+diagonal coordinate vector of each component defines the particle vertex grid;
+the off-diagonal vectors define the cell-center grid. For example, in 2D pass
+`grid_vx = (xv, yc_extended)` and `grid_vy = (xc_extended, yv)`.
 
 If `nxcell` is a number, particles are distributed randomly within cell
 quadrants. If it is an `NTuple`, it is interpreted as the number of particles to
@@ -19,7 +23,9 @@ provided.
   describing a structured per-dimension layout.
 - `max_xcell`: number of particle slots reserved per cell.
 - `min_xcell`: minimum occupancy used by reinjection routines.
-- `xvi`: 1D coordinate arrays describing the mesh vertices in each dimension.
+- `grid_vx`, `grid_vy`, `grid_vz`: staggered velocity-grid coordinate tuples.
+  Omit `grid_vz` for a 2D simulation. Each tuple must contain one coordinate
+  vector per spatial dimension.
 
 # Returns
 - A `Particles` object whose coordinates and occupancy arrays are ready for
@@ -28,8 +34,13 @@ provided.
 
 # Example
 ```julia
-xvi = LinRange(0, 1, 33), LinRange(0, 1, 33)
-particles = init_particles(CPU, 24, 48, 12, xvi...)
+xv, yv = LinRange(0, 1, 33), LinRange(0, 1, 33)
+dx = xv[2] - xv[1]
+xc = LinRange(dx / 2, 1 - dx / 2, 32)
+yc = xc
+grid_vx = xv, LinRange(first(yc) - dx, last(yc) + dx, 34)
+grid_vy = LinRange(first(xc) - dx, last(xc) + dx, 34), yv
+particles = init_particles(CPU, 24, 48, 12, grid_vx, grid_vy)
 ```
 """
 function init_particles(
