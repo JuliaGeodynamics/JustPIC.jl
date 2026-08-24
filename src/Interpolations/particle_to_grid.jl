@@ -116,7 +116,7 @@ function _particle2grid!(F, Fp, inode, jnode, xi::NTuple{2, T}, p, index, mask) 
         end
     end
 
-    F[inode + mask[1], jnode + mask[2]] = ωxF / ω
+    F[inode + mask[1], jnode + mask[2]] = iszero(ω) ? zero(ωxF) : ωxF / ω
     return nothing
 end
 
@@ -151,7 +151,7 @@ function _particle2grid!(
         end
     end
 
-    _ω = inv(ω)
+    _ω = iszero(ω) ? zero(ω) : inv(ω)
     _particle2grid_store!(F, ωxF, _ω, inode, jnode, mask)
     return nothing
 end
@@ -195,7 +195,7 @@ function _particle2grid!(
         end
     end
 
-    return F[inode + mask[1], jnode + mask[2], knode + mask[3]] = ωF * inv(ω)
+    return F[inode + mask[1], jnode + mask[2], knode + mask[3]] = iszero(ω) ? zero(ωF) : ωF * inv(ω)
 end
 
 function _particle2grid!(
@@ -237,7 +237,7 @@ function _particle2grid!(
         end
     end
 
-    _ω = inv(ω)
+    _ω = iszero(ω) ? zero(ω) : inv(ω)
     _particle2grid_store!(F, ωxF, _ω, inode, jnode, knode, mask)
     return nothing
 end
