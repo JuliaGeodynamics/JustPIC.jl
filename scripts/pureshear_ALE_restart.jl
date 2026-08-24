@@ -99,9 +99,8 @@ function main(ALE, restart, last_step)
             nxcell,
             max_xcell,
             min_xcell,
-            values(verts),
-            values(Δ),
-            values(Nc)
+            (verts.x, cents_ext.y),
+            (cents_ext.x, verts.y),
         ) # random position by default
 
         # Initialise phase field

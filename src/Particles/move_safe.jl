@@ -1,5 +1,6 @@
 """
-    move_particles!(particles::AbstractParticles, args)
+    move_particles!(particles::AbstractParticles, args; periodic_1=false, periodic_2=false, periodic_3=false)
+    move_particles!(particles::AbstractParticles, grid, args, dxi; periodic_1=false, periodic_2=false, periodic_3=false)
 
 Reassign particles to the correct parent cells after their coordinates have been
 updated.
@@ -12,20 +13,31 @@ layout.
 - `particles`: particle container whose coordinates have already been modified.
 - `args`: tuple of per-particle fields that must move together with the particle
   coordinates.
+- `grid`: optional vertex grid coordinates used by the lower-level method.
+- `dxi`: optional grid spacing used by the lower-level method.
+- `periodic_1`, `periodic_2`, `periodic_3`: enable periodic wrapping in the
+  corresponding coordinate direction.
 
 # Notes
-- Particles that leave the domain are discarded.
+- Particles that leave a non-periodic direction are discarded.
+- Periodic directions use the ghost cells created by `add_periodic_ghost_nodes`
+  to wrap coordinates and particle fields across opposite domain boundaries.
 - `args` must use the same cell layout as `particles.coords`.
 - The public entry point uses the vertex grid and spacing stored in `particles`.
 """
-move_particles!(particles::AbstractParticles, args) = move_particles!(particles, particles.xvi, args, particles.di.vertex)
+move_particles!(particles::AbstractParticles, args; periodic_1 = false, periodic_2 = false, periodic_3 = false) = move_particles!(particles, particles.xvi, args, particles.di.vertex; periodic_1 = periodic_1, periodic_2 = periodic_2, periodic_3 = periodic_3)
 
-function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args, dxi) where {N}
+function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args, dxi; periodic_1 = false, periodic_2 = false, periodic_3 = false) where {N}
 
     (; coords, index, max_xcell) = particles
+    N == 2 && periodic_3 && throw(ArgumentError("periodic_3 is only valid for 3D particles"))
     nxi = size(index)
-    domain_limits = extrema.(grid)
+    domain_limits = physical_domain_limits(particles)
     n_color = ntuple(i -> ceil(Int, nxi[i] / 3), Val(N))
+    periodicity = periodic_1, periodic_2, periodic_3
+    if any(periodicity)
+        wrap_particles!(particles, periodicity, domain_limits)
+    end
 
     # move particles
     if N == 2 # 2D case
@@ -45,7 +57,12 @@ function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args, dx
     else
         error(ThrowArgument("The dimension of the problem must be either 2 or 3"))
     end
+
     return nothing
+end
+
+function physical_domain_limits(particles::Particles{B, N}) where {B, N}
+    return ntuple(i -> extrema(particles.xi_vel[i][i]), Val(N))
 end
 
 @kernel function move_particles_ps!(
@@ -196,11 +213,12 @@ function find_free_memory(initial_index::Integer, index::CellArray, I::Vararg{In
     return 0
 end
 
+# half-open `[xmin, xmax)`, matching `isincell` and the interval `wrap_coordinate` maps into
 @generated function indomain(p::NTuple{N, T1}, domain_limits::NTuple{N, T2}) where {N, T1, T2}
     return quote
         Base.@_inline_meta
         Base.Cartesian.@nexprs $N i ->
-        ((domain_limits[i][1] < p[i] < domain_limits[i][2]) || return false)
+        ((domain_limits[i][1] ≤ p[i] < domain_limits[i][2]) || return false)
         return true
     end
 end
@@ -372,4 +390,29 @@ function count_particles(index, I::Vararg{Int, N}) where {N}
         count += CAI.@index index[i, I...]
     end
     return count
+end
+
+
+######
+
+function wrap_particles!(particles, periodicity, domain_limits)
+    (; index, coords) = particles
+    ni = size(index)
+    launch!(ka_backend(index), wrap_particles_kernel!, ni, index, coords, periodicity, domain_limits)
+    return nothing
+end
+
+@kernel function wrap_particles_kernel!(index, coords, periodicity, domain_limits)
+    I = @index(Global, NTuple)
+    for ip in cellaxes(index)
+        doskip(index, ip, I...) && continue
+        for dim in eachindex(coords)
+            if periodicity[dim]
+                px = CAI.@index coords[dim][ip, I...]
+                CAI.@index coords[dim][ip, I...] = wrap_coordinate(
+                    px, periodicity[dim], domain_limits[dim]
+                )
+            end
+        end
+    end
 end

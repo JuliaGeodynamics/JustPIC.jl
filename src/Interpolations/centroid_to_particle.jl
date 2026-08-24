@@ -9,19 +9,27 @@ Interpolate cell-centered field values `F` to particle values `Fp`.
 `xci` contains the center coordinates of the grid carrying `F`. The destination
 `Fp` is mutated in place and may be either a single particle field or a tuple of
 particle fields.
+
+Particles lying between a domain boundary and the first centroid are
+interpolated from the ghost centroids, so `F` must always use the ghosted
+`particles.xci` layout — unlike `grid2particle!`, there is no opt-out.
 """
 centroid2particle!(Fp, F, particles) = centroid2particle!(Fp, particles.xci, F, particles, particles.di.center)
 
 function centroid2particle!(Fp, xci, F, particles, di)
     (; coords) = particles
-    ni = size(Fp)
-    launch!(ka_backend(particles), centroid2particle_classic!, ni, Fp, F, xci, di, coords)
+    ni = inner_size(Fp)
+    backend = ka_backend(particles)
+    Tc = eltype(eltype(coords[1]))
+    xci = backend_grid(backend, xci, Tc)
+    di = backend_grid(backend, di, Tc)
+    launch!(backend, centroid2particle_classic!, ni, Fp, F, xci, di, coords)
     return nothing
 end
 
 @kernel function centroid2particle_classic!(Fp, F, xci, di, coords)
     I = @index(Global, NTuple)
-    _centroid2particle_classic!(Fp, coords, xci, di, F, I)
+    _centroid2particle_classic!(Fp, coords, xci, di, F, I .+ 1)
 end
 
 # INNERMOST INTERPOLATION KERNEL
@@ -58,7 +66,7 @@ end
         # continue the kernel
         xc = ntuple(i -> xci[i][I[i]], Val(N))
         cell_index = shifted_index(pᵢ, xc, I)
-        cell_index = clamp.(cell_index, 1, ni)
+        # cell_index = clamp.(cell_index, 1, ni) # no need with ghost nodes
         # Interpolate field F onto particle
         for n in 1:NF # should be unrolled
             CAI.@index Fp[n][ip, I...] = _grid2particle(pᵢ, xci, @dxi(di, cell_index...), F[n], cell_index)

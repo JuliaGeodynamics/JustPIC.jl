@@ -6,7 +6,9 @@
         local_limits,
         dxi,
         dt,
-        I::NTuple{N};
+        I::NTuple{N},
+        periodicity,
+        domain_limits;
         backtracking::Bool = false
     ) where {N}
 
@@ -14,7 +16,11 @@
     vp0 = interp_velocity2particle(p0, grid_vi, local_limits, dxi, V, I)
 
     # first advection stage x = x + v * dt * α
-    p1 = first_stage(method, dt, vp0, p0; backtracking = backtracking)
+    p1 = wrap_position(
+        first_stage(method, dt, vp0, p0; backtracking = backtracking),
+        periodicity,
+        domain_limits,
+    )
 
     # interpolate velocity to new location
     vp1 = interp_velocity2particle(p1, grid_vi, local_limits, dxi, V, I)
@@ -22,7 +28,7 @@
     # final advection step
     p2 = second_stage(method, dt, vp0, vp1, p0; backtracking = backtracking)
 
-    return p2
+    return wrap_position(p2, periodicity, domain_limits)
 end
 
 @inline function advect_particle(
@@ -34,7 +40,9 @@ end
         dxi,
         dt,
         interpolation_fn::F,
-        I::NTuple;
+        I::NTuple,
+        periodicity,
+        domain_limits;
         backtracking::Bool = false
     ) where {N, F <: Function}
 
@@ -42,7 +50,11 @@ end
     vp0 = interpolation_fn(p0, grid_vi, local_limits, dxi, V, I)
 
     # first advection stage x = x + v * dt * α
-    p1 = first_stage(method, dt, vp0, p0; backtracking = backtracking)
+    p1 = wrap_position(
+        first_stage(method, dt, vp0, p0; backtracking = backtracking),
+        periodicity,
+        domain_limits,
+    )
 
     # interpolate velocity to new location
     vp1 = interpolation_fn(p1, grid_vi, local_limits, dxi, V, I)
@@ -50,7 +62,7 @@ end
     # final advection step
     p2 = second_stage(method, dt, vp0, vp1, p0; backtracking = backtracking)
 
-    return p2
+    return wrap_position(p2, periodicity, domain_limits)
 end
 
 @inline function advect_particle_SML(

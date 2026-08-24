@@ -49,6 +49,9 @@ function expand_range(x::AbstractVector)
     xF = x2 + dx_right
     return vcat(xI, x, xF)
 end
+
+phase_ratio_sums(A) = [sum(A[I]) for I in CartesianIndices(size(A))]
+
 @testset "CellArrays - 2D" begin
     x = FT(1)
     ni = (2, 2)
@@ -106,10 +109,12 @@ end
 
     JustPIC.update_phase_ratios!(phase_ratios, particles, phases)
 
-    @test all(extrema([sum(p) for p in phase_ratios.vertex]) .≈ 1)
-    @test all(extrema([sum(p) for p in phase_ratios.center]) .≈ 1)
-    @test all(extrema([sum(p) for p in phase_ratios.Vx]) .≈ 1)
-    @test all(extrema([sum(p) for p in phase_ratios.Vy]) .≈ 1)
+    @test all(extrema(phase_ratio_sums(phase_ratios.vertex)) .≈ 1)
+    @test all(extrema(phase_ratio_sums(phase_ratios.center)) .≈ 1)
+    @test all(extrema(phase_ratio_sums(phase_ratios.Vx)) .≈ 1)
+    @test all(extrema(phase_ratio_sums(phase_ratios.Vy)) .≈ 1)
+
+    @test applicable(update_cell_halo!, particles.coords..., phases, particles.index)
 end
 
 @testset "CellArrays - 3D" begin
@@ -173,12 +178,12 @@ end
 
     JustPIC.update_phase_ratios!(phase_ratios, particles, phases)
 
-    @test all(extrema([sum(p) for p in phase_ratios.vertex]) .≈ 1)
-    @test all(extrema([sum(p) for p in phase_ratios.center]) .≈ 1)
-    @test all(extrema([sum(p) for p in phase_ratios.Vx]) .≈ 1)
-    @test all(extrema([sum(p) for p in phase_ratios.Vy]) .≈ 1)
-    @test all(extrema([sum(p) for p in phase_ratios.Vz]) .≈ 1)
-    @test all(extrema([sum(p) for p in phase_ratios.xz]) .≈ 1)
-    @test all(extrema([sum(p) for p in phase_ratios.yz]) .≈ 1)
-    @test all(extrema([sum(p) for p in phase_ratios.xy]) .≈ 1)
+    @test all(extrema(phase_ratio_sums(phase_ratios.vertex)) .≈ 1)
+    @test all(extrema(phase_ratio_sums(phase_ratios.center)) .≈ 1)
+    @test all(extrema(phase_ratio_sums(phase_ratios.Vx)) .≈ 1)
+    @test all(extrema(phase_ratio_sums(phase_ratios.Vy)) .≈ 1)
+    @test all(extrema(phase_ratio_sums(phase_ratios.Vz)) .≈ 1)
+    @test all(extrema(phase_ratio_sums(phase_ratios.xz)) .≈ 1)
+    @test all(extrema(phase_ratio_sums(phase_ratios.yz)) .≈ 1)
+    @test all(extrema(phase_ratio_sums(phase_ratios.xy)) .≈ 1)
 end

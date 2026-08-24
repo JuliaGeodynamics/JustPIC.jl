@@ -9,6 +9,7 @@ elseif BACKEND_NAME == "Metal"
 end
 
 using JLD2, JustPIC, Test
+import CellArraysIndexing as CAI
 import KernelAbstractions: CPU
 
 const backend = CPU
@@ -31,6 +32,44 @@ function expand_range(x::AbstractVector)
     return vcat(xI, x, xF)
 end
 
+same_values(a, b) = size(a) == size(b) && all(isequal.(a, b))
+
+@testset "Periodic restart 2D" begin
+    xv = LinRange(0.0, 1.0, 5)
+    xc = LinRange(0.125, 0.875, 4)
+    grid_vx = xv, expand_range(xc)
+    grid_vy = expand_range(xc), xv
+    particles = init_particles(CPU, 4, 8, 2, grid_vx, grid_vy)
+    field, = init_cell_arrays(particles, Val(1))
+
+    fill!(particles.index.data, false)
+    foreach(coord -> fill!(coord.data, NaN), particles.coords)
+    fill!(field.data, NaN)
+    CAI.@index particles.index[1, 5, 3] = true
+    CAI.@index particles.coords[1][1, 5, 3] = 0.99
+    CAI.@index particles.coords[2][1, 5, 3] = 0.375
+    CAI.@index field[1, 5, 3] = 42.0
+
+    mktempdir() do checkpoint_dir
+        checkpointing_particles(checkpoint_dir, particles; particle_args = (field,))
+        data = load(joinpath(checkpoint_dir, "particles_checkpoint.jld2"))
+        restarted_particles = data["particles"]
+        restarted_args = data["particle_args"]
+
+        Vx = fill(1.0, length.(grid_vx))
+        Vy = fill(0.0, length.(grid_vy))
+        advection!(
+            restarted_particles, RungeKutta2(), (Vx, Vy), 0.02; periodic_1 = true
+        )
+        move_particles!(restarted_particles, restarted_args; periodic_1 = true)
+
+        @test count(restarted_particles.index.data) == 1
+        @test CAI.@index(restarted_particles.index[1, 2, 3])
+        @test CAI.@index(restarted_particles.coords[1][1, 2, 3]) ≈ 0.01
+        @test CAI.@index(restarted_args[1][1, 2, 3]) == 42.0
+    end
+end
+
 @testset "Save and load 2D" begin
     # Initialize particles -------------------------------
     nxcell, max_xcell, min_xcell = 6, 6, 6
@@ -46,7 +85,7 @@ end
     # staggered grid velocity nodal locations
     grid_vx = xv, expand_range(yc)
     grid_vy = expand_range(xc), yv
-    grid_vel = grid_vx, grid_vx
+    grid_vel = grid_vx, grid_vy
 
     particles = JustPIC.init_particles(backend, nxcell, max_xcell, min_xcell, grid_vel...)
     phases, pT = JustPIC.init_cell_arrays(particles, Val(2))
@@ -87,8 +126,8 @@ end
     phases2 = data["phases"]
     phase_ratios2 = data["phase_ratios"]
 
-    @test Array(particles).coords[1].data == particles2.coords[1].data
-    @test Array(particles).coords[2].data == particles2.coords[2].data
+    @test same_values(Array(particles).coords[1].data, particles2.coords[1].data)
+    @test same_values(Array(particles).coords[2].data, particles2.coords[2].data)
     @test Array(particles).index.data == particles2.index.data
     @test Array(phase_ratios).center.data == phase_ratios2.center.data
     @test Array(phase_ratios).vertex.data == phase_ratios2.vertex.data
@@ -113,8 +152,8 @@ end
     @test particle_args3 isa Tuple
     @test particle_args_reduced3 isa Tuple
     @test particle_args_kwarg3 isa Tuple
-    @test Array(particles).coords[1].data == particles3.coords[1].data
-    @test Array(particles).coords[2].data == particles3.coords[2].data
+    @test same_values(Array(particles).coords[1].data, particles3.coords[1].data)
+    @test same_values(Array(particles).coords[2].data, particles3.coords[2].data)
     @test Array(particles).index.data == particles3.index.data
     @test Array(phase_ratios).center.data == phase_ratios3.center.data
     @test Array(phase_ratios).vertex.data == phase_ratios3.vertex.data
@@ -288,8 +327,8 @@ end
     @test particle_args3 isa Tuple
     @test particle_args_reduced3 isa Tuple
     @test particle_args_kwarg3 isa Tuple
-    @test Array(particles).coords[1].data == particles2.coords[1].data
-    @test Array(particles).coords[2].data == particles2.coords[2].data
+    @test same_values(Array(particles).coords[1].data, particles2.coords[1].data)
+    @test same_values(Array(particles).coords[2].data, particles2.coords[2].data)
     @test Array(particles).index.data == particles2.index.data
     @test Array(phase_ratios).center.data == phase_ratios2.center.data
     @test Array(phase_ratios).vertex.data == phase_ratios2.vertex.data
@@ -301,8 +340,8 @@ end
     @test size(Array(phase_ratios).vertex.data) == size(phase_ratios2.vertex.data)
     @test size(Array(phases).data) == size(phases2.data)
 
-    @test Array(particles).coords[1].data == particles3.coords[1].data
-    @test Array(particles).coords[2].data == particles3.coords[2].data
+    @test same_values(Array(particles).coords[1].data, particles3.coords[1].data)
+    @test same_values(Array(particles).coords[2].data, particles3.coords[2].data)
     @test Array(particles).index.data == particles3.index.data
     @test Array(phase_ratios).center.data == phase_ratios3.center.data
     @test Array(phase_ratios).vertex.data == phase_ratios3.vertex.data

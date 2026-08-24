@@ -76,9 +76,8 @@ function main()
         nxcell,
         max_xcell,
         min_xcell,
-        values(verts),
-        values(Δ),
-        values(Nc)
+        (verts.x, cents_ext.y),
+        (cents_ext.x, verts.y),
     ) # random position by default
 
     # Initialise phase field

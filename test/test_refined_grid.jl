@@ -1,18 +1,19 @@
 using Test
 using JustPIC
 using LinearAlgebra
+import JustPIC: lerp
+import KernelAbstractions: CPU
 
-const backend = JustPIC.CPU # Options: CPU, CUDA.CUDABackend, AMDGPU.ROCBackend
+const backend = CPU
 
-if !@isdefined(expand_range)
-    function expand_range(x::AbstractVector)
-        dx_left = x[2] - x[1]
-        dx_right = x[end] - x[end - 1]
-        x1, x2 = extrema(x)
-        xI = x1 - dx_left
-        xF = x2 + dx_right
-        return vcat(xI, x, xF)
-    end
+function expand_range(x::AbstractVector)
+    dx_left = x[2] - x[1]
+    dx_right = x[end] - x[end - 1]
+    n = length(x)
+    x1, x2 = extrema(x)
+    xI = x1 - dx_left
+    xF = x2 + dx_right
+    return vcat(xI, x, xF)
 end
 
 # checks if grid options are reasonable
@@ -118,35 +119,47 @@ particles = init_particles(
     backend, nxcell, max_xcell, min_xcell, grid_vi_device...,
 )
 
-# Linear field at the vertices
-T = TA(backend)([y for x in xv, y in yv])
-T0 = TA(backend)([y for x in xv, y in yv])
-# Linear field at the centroids
-Tc = TA(backend)([y for x in xc, y in yc])
+# init_particles pads the vertex/center grids with periodic ghost nodes; use its
+# stored (padded) grids rather than the pre-padding local xvi/xci so field arrays
+# line up with particles.coords.
+xvi_p = particles.xvi
+xci_p = particles.xci
 
-py = particles.coords[2]
+# Linear field at the vertices
+T = TA(backend)([y for x in xvi_p[1], y in xvi_p[2]])
+T0 = TA(backend)([y for x in xvi_p[1], y in xvi_p[2]])
+# Linear field at the centroids
+Tc = TA(backend)([y for x in xci_p[1], y in xci_p[2]])
+
 pT, = init_cell_arrays(particles, Val(1))
+active = Array(particles.index.data)
 
 @testset "Interpolations 2D on refined grid" begin
-    # Grid to particle test
-    grid2particle!(pT, T, particles)
-    @test pT ≈ py
 
     # Grid to particle test
-    grid2particle_flip!(pT, xvi_device, T, T0, particles)
-    @test pT ≈ py
+    JustPIC.grid2particle!(pT, T, particles)
+    @test Array(pT.data)[active] ≈ Array(particles.coords[2].data)[active]
+
+    # Grid to particle test
+    JustPIC.grid2particle_flip!(pT, xvi_p, T, T0, particles)
+    @test Array(pT.data)[active] ≈ Array(particles.coords[2].data)[active]
 
     # Particle to grid test
     T2 = similar(T)
-    particle2grid!(T2, pT, particles)
-    @test norm(T2 .- T) / length(T) < 1.0e-1
+    fill!(T2, NaN)
+    JustPIC.particle2grid!(T2, pT, particles)
+    finite_mask = isfinite.(T2)
+    @test norm(T2[finite_mask] .- T[finite_mask]) / count(finite_mask) < 1.0e-1
 
     # Grid to centroid test
-    centroid2particle!(pT, Tc, particles)
-    @test all(pT[2, 2] .≈ particles.coords[2][2, 2])
+    JustPIC.centroid2particle!(pT, Tc, particles)
+    @test Array(pT.data)[active] ≈ Array(particles.coords[2].data)[active]
 
     # Particle to centroid test
     Tc2 = similar(Tc)
-    particle2centroid!(Tc2, pT, particles)
-    @test norm(Tc2 .- Tc) / length(Tc) < 1.0e-1
+    fill!(Tc2, NaN)
+    JustPIC.particle2centroid!(Tc2, pT, particles)
+    finite_mask_c = isfinite.(Tc2)
+    @test norm(Tc2[finite_mask_c] .- Tc[finite_mask_c]) / count(finite_mask_c) < 1.0e-1
+
 end

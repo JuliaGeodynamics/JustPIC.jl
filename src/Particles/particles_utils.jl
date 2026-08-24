@@ -1,13 +1,21 @@
 ## random particles initialization
 """
-    init_particles(backend, nxcell, max_xcell, min_xcell, xvi...)
+    init_particles(backend, nxcell, max_xcell, min_xcell, grid_vx, grid_vy[, grid_vz])
 
-Initialize a `Particles` container on the grid defined by the vertex coordinates
-`xvi`.
+Initialize a `Particles` container from the staggered velocity grids.
+
+Each velocity component is supplied as an `N`-tuple of coordinate vectors. The
+diagonal coordinate vector of each component defines the particle vertex grid;
+the off-diagonal vectors define the cell-center grid. For example, in 2D pass
+`grid_vx = (xv, yc_extended)` and `grid_vy = (xc_extended, yv)`.
 
 If `nxcell` is a number, particles are distributed randomly within cell
 quadrants. If it is an `NTuple`, it is interpreted as the number of particles to
 place regularly along each coordinate direction within every cell.
+
+The particle vertex and center grids stored in the returned container are
+extended with periodic ghost nodes. The staggered velocity grids are stored as
+provided.
 
 # Arguments
 - `backend`: KernelAbstractions backend type such as `CPU`.
@@ -15,16 +23,24 @@ place regularly along each coordinate direction within every cell.
   describing a structured per-dimension layout.
 - `max_xcell`: number of particle slots reserved per cell.
 - `min_xcell`: minimum occupancy used by reinjection routines.
-- `xvi`: 1D coordinate arrays describing the mesh vertices in each dimension.
+- `grid_vx`, `grid_vy`, `grid_vz`: staggered velocity-grid coordinate tuples.
+  Omit `grid_vz` for a 2D simulation. Each tuple must contain one coordinate
+  vector per spatial dimension.
 
 # Returns
 - A `Particles` object whose coordinates and occupancy arrays are ready for
-  advection/interpolation routines.
+  advection/interpolation routines, with `particles.xvi` and `particles.xci`
+  including one periodic ghost node on each side.
 
 # Example
 ```julia
-xvi = LinRange(0, 1, 33), LinRange(0, 1, 33)
-particles = init_particles(CPU, 24, 48, 12, xvi...)
+xv, yv = LinRange(0, 1, 33), LinRange(0, 1, 33)
+dx = xv[2] - xv[1]
+xc = LinRange(dx / 2, 1 - dx / 2, 32)
+yc = xc
+grid_vx = xv, LinRange(first(yc) - dx, last(yc) + dx, 34)
+grid_vy = LinRange(first(xc) - dx, last(xc) + dx, 34), yv
+particles = init_particles(CPU, 24, 48, 12, grid_vx, grid_vy)
 ```
 """
 function init_particles(
@@ -69,15 +85,16 @@ function init_particles(
         return xci
     end
 
+    xci_cpu = center_coordinates(xi_vel_cpu)
+    xvi_cpu = ntuple(i -> xi_vel_cpu[i][i], Val(N))
     xi_vel = ntuple(i -> TA(backend).(xi_vel_cpu[i]), Val(N))
-    xci = center_coordinates(xi_vel)
-    xvi = ntuple(i -> xi_vel[i][i], Val(N))
+    xci = TA(backend).(add_periodic_ghost_nodes.(xci_cpu))
+    xvi = TA(backend).(add_periodic_ghost_nodes.(xvi_cpu))
 
     di_vertex = diff.(xvi)
     di_center = diff.(xci)
     di_vel = ntuple(i -> (diff.(xi_vel[i])), Val(N))
     di = (; center = TA(backend).(di_center), vertex = TA(backend).(di_vertex), velocity = di_vel)
-
     _di = (;
         center = map(x -> inv.(x), di.center),
         vertex = map(x -> inv.(x), di.vertex),
@@ -98,7 +115,7 @@ function init_particles(
     index = cell_array(backend, false, (max_xcell,), nᵢ)
 
     launch!(
-        ka_backend(index), fill_coords_index!, nᵢ,
+        ka_backend(index), fill_coords_index!, nᵢ .- 2,
         pxᵢ, index, xvi, di.vertex, np_quadrant
     )
 
@@ -133,6 +150,9 @@ function init_particles(
     xi_vel = recast_grid(xi_vel_cpu, T)
     xci = center_coordinates(xi_vel)
     xvi = ntuple(i -> xi_vel[i][i], Val(N))
+    # add ghost nodes to the center and vertex grids
+    xci = recast_grid(add_periodic_ghost_nodes.(xci), T)
+    xvi = recast_grid(add_periodic_ghost_nodes.(xvi), T)
 
     di_vertex = getindex.(xvi, 2) .- first.(xvi)
     di_center = getindex.(xci, 2) .- first.(xci)
@@ -158,7 +178,7 @@ function init_particles(
     index = cell_array(backend, false, (max_xcell,), nᵢ)
 
     launch!(
-        ka_backend(index), fill_coords_index!, nᵢ,
+        ka_backend(index), fill_coords_index!, nᵢ .- 2,
         pxᵢ, index, xvi, di.vertex, np_quadrant
     )
 
@@ -168,8 +188,8 @@ end
 @kernel function fill_coords_index!(
         pxᵢ::NTuple{N, T}, index, coords, di::NTuple{N}, np_quadrant
     ) where {N, T}
-    I = @index(Global, NTuple)
-
+    I0 = @index(Global, NTuple)
+    I = I0 .+ 1 # shift by one to skip the periodic ghost node
     # lower-left corner of the cell
     x0ᵢ = ntuple(Val(N)) do ndim
         @inline

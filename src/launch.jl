@@ -56,6 +56,14 @@ end
     return StepRangeLen(convert(T, first(x)), convert(T, step(x)), length(x))
 end
 
+@inline backend_grid(::Any, x, ::Type{T}) where {T} = convert(T, x)
+@inline backend_grid(backend, x::Tuple, ::Type{T}) where {T} = map(g -> backend_grid(backend, g, T), x)
+@inline backend_grid(::Any, x::AbstractRange, ::Type{T}) where {T} = recast_grid(x, T)
+@inline function backend_grid(backend, x::AbstractArray, ::Type{T}) where {T}
+    ka_backend(x) === backend && eltype(x) === T && return x
+    return TA(typeof(backend)){T}(x)
+end
+
 # ---------------------------------------------------------------------------
 # Kernel launch
 # ---------------------------------------------------------------------------
