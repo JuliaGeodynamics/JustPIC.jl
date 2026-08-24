@@ -39,7 +39,7 @@ function main()
     grid_vx = xv, expand_range(yc)
     grid_vy = expand_range(xc), yv
 
-    particles = init_particle(
+    particles = init_particles(
         backend, nxcell, max_xcell, min_xcell, grid_vx, grid_vy
     )
 
@@ -47,8 +47,8 @@ function main()
     particle_args = ()
 
     # Cell fields -------------------------------
-    Vx = TA([vx_stream(x, y) for x in grid_vx[1], y in grid_vx[2]])
-    Vy = TA([vy_stream(x, y) for x in grid_vy[1], y in grid_vy[2]])
+    Vx = TA(backend)([vx_stream(x, y) for x in grid_vx[1], y in grid_vx[2]])
+    Vy = TA(backend)([vy_stream(x, y) for x in grid_vy[1], y in grid_vy[2]])
     V = Vx, Vy
 
     dt = min(dx / maximum(abs.(Vx)), dy / maximum(abs.(Vy)))
