@@ -41,6 +41,48 @@ end
     _particle2grid!(F, Fp, I_inner..., xi, particle_coords, index, mask)
 end
 
+@generated function _particle2grid_zero(::Val{N}, F) where {N}
+    return :(Base.@ntuple $N i -> zero(eltype(F[1])))
+end
+
+@generated function _particle2grid_accumulate(
+        ωxF::NTuple{N}, ω_i, Fp::NTuple{N}, ip, ivertex, jvertex
+    ) where {N}
+    return quote
+        Base.@ntuple $N j -> muladd(
+            ω_i, CAI.@index(Fp[j][ip, ivertex, jvertex]), ωxF[j]
+        )
+    end
+end
+
+@generated function _particle2grid_accumulate(
+        ωxF::NTuple{N}, ω_i, Fp::NTuple{N}, ip, ivertex, jvertex, kvertex
+    ) where {N}
+    return quote
+        Base.@ntuple $N j -> muladd(
+            ω_i, CAI.@index(Fp[j][ip, ivertex, jvertex, kvertex]), ωxF[j]
+        )
+    end
+end
+
+@generated function _particle2grid_store!(
+        F::NTuple{N}, ωxF::NTuple{N}, _ω, inode, jnode, mask
+    ) where {N}
+    return quote
+        Base.@nexprs $N i -> F[i][inode + mask[1], jnode + mask[2]] = ωxF[i] * _ω
+        nothing
+    end
+end
+
+@generated function _particle2grid_store!(
+        F::NTuple{N}, ωxF::NTuple{N}, _ω, inode, jnode, knode, mask
+    ) where {N}
+    return quote
+        Base.@nexprs $N i -> F[i][inode + mask[1], jnode + mask[2], knode + mask[3]] = ωxF[i] * _ω
+        nothing
+    end
+end
+
 ## INTERPOLATION KERNEL 2D
 
 function _particle2grid!(F, Fp, inode, jnode, xi::NTuple{2, T}, p, index, mask) where {T}
@@ -84,7 +126,7 @@ function _particle2grid!(
     px, py = p # particle coordinates
     xvertex = xi[1][inode], xi[2][jnode] # cell lower-left coordinates
     ω = zero(eltype(F[1])) # init weights
-    ωxF = ntuple(i -> zero(eltype(F[1])), Val(N)) # init weights
+    ωxF = _particle2grid_zero(Val(N), F) # init weights
 
     # iterate over cells around i-th node
     for joffset in -1:0
@@ -103,22 +145,15 @@ function _particle2grid!(
                 ω_i = distance_weight(xvertex, p_i; order = 2)
                 # ω_i = bilinear_weight(xvertex, p_i, di)
                 ω += ω_i
-                ωxF = let ωxF = ωxF, ω_i = ω_i
-                    ntuple(Val(N)) do j
-                        Base.@_inline_meta
-                        muladd(ω_i, CAI.@index(Fp[j][i, ivertex, jvertex]), ωxF[j])
-                    end
-                end
+                ωxF = _particle2grid_accumulate(ωxF, ω_i, Fp, i, ivertex, jvertex)
             end
             # end
         end
     end
 
     _ω = inv(ω)
-    return ntuple(Val(N)) do i
-        Base.@_inline_meta
-        F[i][inode + mask[1], jnode + mask[2]] = ωxF[i] * _ω
-    end
+    _particle2grid_store!(F, ωxF, _ω, inode, jnode, mask)
+    return nothing
 end
 
 ## INTERPOLATION KERNEL 3D
@@ -169,7 +204,7 @@ function _particle2grid!(
     px, py, pz = p # particle coordinates
     xvertex = xi[1][inode], xi[2][jnode], xi[3][knode] # cell lower-left coordinates
     ω = zero(eltype(F[1])) # init weights
-    ωxF = ntuple(i -> zero(eltype(F[1])), Val(N)) # init weights
+    ωxF = _particle2grid_zero(Val(N), F) # init weights
 
     # iterate over cells around i-th node
     for koffset in -1:0
@@ -193,12 +228,9 @@ function _particle2grid!(
                     ω_i = distance_weight(xvertex, p_i; order = 2)
                     # ω_i = bilinear_weight(xvertex, p_i, di)
                     ω += ω_i
-                    ωxF = let ωxF = ωxF, ω_i = ω_i
-                        ntuple(Val(N)) do j
-                            Base.@_inline_meta
-                            muladd(ω_i, CAI.@index(Fp[j][ip, ivertex, jvertex, kvertex]), ωxF[j])
-                        end
-                    end
+                    ωxF = _particle2grid_accumulate(
+                        ωxF, ω_i, Fp, ip, ivertex, jvertex, kvertex
+                    )
                 end
                 # end
             end
@@ -206,10 +238,8 @@ function _particle2grid!(
     end
 
     _ω = inv(ω)
-    return ntuple(Val(N)) do i
-        Base.@_inline_meta
-        F[i][inode + mask[1], jnode + mask[2], knode + mask[3]] = ωxF[i] * _ω
-    end
+    _particle2grid_store!(F, ωxF, _ω, inode, jnode, knode, mask)
+    return nothing
 end
 
 ## OTHERS
