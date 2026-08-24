@@ -3,10 +3,7 @@ using CairoMakie, JLD2, JustPIC
 const backend = JustPIC.CPU
 const MATTERHORN_EXTENT_METERS = (1542.7, 2212.2)
 
-function extend_centers(xv)
-    xc = [(xv[i] + xv[i + 1]) / 2 for i in 1:(length(xv) - 1)]
-    return [2 * xc[1] - xc[2]; xc; 2 * xc[end] - xc[end - 1]]
-end
+extend_centers(xv) = range(first(xv) - step(xv) / 2; step = step(xv), length = length(xv) + 1)
 
 function matterhorn_topography()
     elevation = load_object(joinpath(@__DIR__, "matterhorn.jld2"))

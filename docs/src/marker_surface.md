@@ -25,6 +25,8 @@ advect_marker_surface!(surf, V, grid_vxi, dt)
 
 where `V = (Vx, Vy, Vz)` is a tuple of 3D velocity arrays and `grid_vxi = (grid_vx, grid_vy, grid_vz)` gives one `(x, y, z)` coordinate tuple per staggered component. Each velocity-array size must equal the lengths of its own coordinate tuple. `dt` is the time step. The driver interpolates the staggered velocity field onto surface nodes, advects the height field with a deformed-grid triangle scheme, and optionally smooths slopes exceeding `max_slope_angle` (default 45°).
 
+Coordinates may be ranges or vectors, and both are fully supported. A uniformly spaced grid passed as a range lets the interpolation locate the containing cell by arithmetic; the same grid passed as a vector costs a binary search per surface node instead, roughly tripling the interpolation time. Non-uniformly spaced grids — adaptively refined meshes, for instance — are vectors by nature and take the search path.
+
 For coupling with a Stokes solver, the volumetric fraction of each cell that lies below the free surface (the "rock fraction") at every staggered-grid position is computed by:
 
 ```julia
