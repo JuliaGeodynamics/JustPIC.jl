@@ -282,14 +282,20 @@ Fraction of the axis-aligned cell `r` lying below the marker chain segment `s`, 
 or its ceiling.
 """
 @inline function cell_rock_area(s::Segment, r::Rectangle{T}) where {T}
-    s_local, cell = recenter_on_cell(s, r)
-
-    is_chain_above_cell(s_local, cell) && return one(T)
-    is_chain_below_cell(s_local, cell) && return zero(T)
-
-    # A left-to-right chord has the rock region on its right-hand side.
-    return clamp(
-        intersecting_area(clip_chain_to_cell(s_local, cell), cell) / area(cell),
-        zero(T), one(T)
-    )
+    A = if is_chain_above_cell(s, r)
+        one(T)
+    elseif is_chain_below_cell(s, r)
+        zero(T)
+    else
+        # Clip the marker-chain endpoints to the cell and integrate the
+        # resulting linear profile directly. This also handles steep or
+        # stair-step topography without relying on boundary intersection
+        # classification.
+        min_y = r.origin[2] - r.h / 2
+        max_y = r.origin[2] + r.h / 2
+        y1 = clamp(s.p1[2], min_y, max_y)
+        y2 = clamp(s.p2[2], min_y, max_y)
+        clamp(((y1 - min_y) + (y2 - min_y)) / (2 * r.h), zero(T), one(T))
+    end
+    return A
 end
