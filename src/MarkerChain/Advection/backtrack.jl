@@ -61,24 +61,23 @@ function semilagrangian_advection!(
     h_old = copy(h_vertices)
 
     # recast integrator/timestep/grids to the topography precision so Float32 backends
-    # (e.g. Metal) are not silently promoted; `recast_grid` also rebuilds the grid ranges
-    # so they are GPU-safe when indexed directly inside the kernel (see advection!)
+    # (e.g. Metal) are not silently promoted; `backend_grid` also makes the grids GPU-safe
+    # when indexed directly inside the kernel (see advection!)
     Tc = eltype(h_vertices)
+    backend = ka_backend(h_vertices)
     method = set_precision(method, Tc)
     dt = convert(Tc, dt)
-    grid_vxi = recast_grid(grid_vxi, Tc)
-    grid = recast_grid(grid, Tc)
-    dx_chain = cell_length(chain)
+    grid_vxi = backend_grid(backend, grid_vxi, Tc)
+    grid = backend_grid(backend, grid, Tc)
 
     # compute some basic stuff
     ni = length(h_vertices)
-    dxi = compute_dx(first(grid_vxi))
     local_limits = inner_limits(grid_vxi)
 
     # launch parallel advection kernel
     launch!(
-        ka_backend(h_vertices), semilagrangian_advection_markerchain_kernel!, ni,
-        h_vertices, h_old, method, V, grid_vxi, grid, local_limits, dxi, dx_chain, dt
+        backend, semilagrangian_advection_markerchain_kernel!, ni,
+        h_vertices, h_old, method, V, grid_vxi, grid, local_limits, dt
     )
     return nothing
 end
@@ -94,8 +93,6 @@ end
         grid_vxi,
         grid,
         local_limits,
-        dxi,
-        dx_chain,
         dt,
     ) where {N, T}
     i = @index(Global)
@@ -104,14 +101,14 @@ end
     pᵢ = grid[1][i], hᵢ
     # backtrack particle position
     x_departure, y_departure = advect_particle_markerchain(
-        method, pᵢ, V, grid_vxi, local_limits, dxi, dt; backtracking = true
+        method, pᵢ, V, grid_vxi, local_limits, dt, i; backtracking = true
     )
-    h_departure = _interpolate_topography(x_departure, grid[1], h_old, dx_chain)
+    h_departure = _interpolate_topography(x_departure, grid[1], h_old, i)
     h_vertices[i] = h_departure + hᵢ - y_departure
 end
 
-@inline function _interpolate_topography(xq, xv, h, dx)
+@inline function _interpolate_topography(xq, xv, h, seed)
     x = clamp(xq, xv[1], xv[end])
-    i = clamp(cell_index(x, xv, dx), 1, length(h) - 1)
+    i = clamp(parent_cell_index(x, xv, seed), 1, length(h) - 1)
     return _interp1D(x, xv[i], xv[i + 1], h[i], h[i + 1])
 end

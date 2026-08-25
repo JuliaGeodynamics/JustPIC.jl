@@ -90,7 +90,7 @@ end
 end
 
 @inline function is_above_surface(xq, yq, coords, cell_vertices)
-    I = cell_index(xq, cell_vertices)
+    I = parent_cell_index(xq, cell_vertices, midpoint_seed(cell_vertices))
     x_cell, y_cell = coords[1][I], coords[2][I]
     return yq > interp1D_inner(xq, x_cell, y_cell, coords, I)
 end

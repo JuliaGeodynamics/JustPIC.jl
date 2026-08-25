@@ -66,7 +66,9 @@ and a boolean occupancy mask marks which are live.
 - `h_vertices::T2`: topography sampled at the grid vertices (current step).
 - `h_vertices0::T2`: topography at the vertices from the previous step; used by
   `advect_markerchain!`/`semilagrangian_advection_markerchain!` to conserve the mean height.
-- `cell_vertices::TV`: the horizontal grid `xv` that defines the columns.
+- `cell_vertices::TV`: the horizontal grid `xv` that defines the columns. It must be
+  finite and strictly increasing; the spacing may be non-uniform, in which case every
+  operation resolves each column's width from its own pair of vertices.
 - `index::T3`: per-slot occupancy mask (`true` ⟺ the matching `coords` slot is live).
 - `min_xcell`, `max_xcell::I`: the minimum and maximum number of markers allowed per
   column; `resample!` refills depleted columns back up to `min_xcell`.
@@ -117,7 +119,7 @@ struct MarkerChain{Backend, N, I, T1, T2, T3, TV} <: AbstractParticles
 end
 
 function MarkerChain(coords, index::CPUCellArray, cell_vertices, min_xcell, max_xcell)
-    _uniform_grid_spacing(cell_vertices)
+    _validate_chain_grid(cell_vertices)
     coords0 = deepcopy.(coords)
     T = eltype(eltype(coords[1]))
     h_vertices = zeros(T, length(cell_vertices))
@@ -171,38 +173,58 @@ end
 
 unwrap_abstractarray(x::AbstractArray) = typeof(x).name.wrapper
 
-function _uniform_grid_spacing(xv)
+# Markers are bucketed into columns by looking their x-coordinate up in `cell_vertices`,
+# which requires the vertices to bracket every column unambiguously. The spacing between
+# them is free.
+function _validate_chain_grid(xv)
     ncells = length(xv) - 1
     ncells > 0 || throw(ArgumentError("cell_vertices must contain at least two vertices"))
 
     spacings = diff(xv)
-    dx = sum(spacings) / ncells
-    T = typeof(dx)
-    min_spacing = minimum(spacings)
-    max_spacing = maximum(spacings)
-    tolerance = convert(T, 32) * eps(T) * max(abs(dx), abs(min_spacing), abs(max_spacing))
-
-    isfinite(dx) && min_spacing > zero(T) ||
+    all(isfinite, spacings) && minimum(spacings) > zero(eltype(spacings)) ||
         throw(ArgumentError("MarkerChain cell_vertices must be finite and strictly increasing"))
-    maximum(abs.(spacings .- dx)) ≤ tolerance ||
-        throw(ArgumentError("MarkerChain requires uniformly spaced cell_vertices"))
 
-    return dx
+    return nothing
+end
+
+@inline _is_uniform_grid(::AbstractRange) = true
+
+function _is_uniform_grid(xv::AbstractVector)
+    spacings = diff(xv)
+    dx = sum(spacings) / length(spacings)
+    T = typeof(dx)
+    tolerance = convert(T, 32) * eps(T) *
+        max(abs(dx), abs(minimum(spacings)), abs(maximum(spacings)))
+
+    return maximum(abs.(spacings .- dx)) ≤ tolerance
 end
 
 @inline count_particles(p::AbstractParticles, icell::Vararg{Int, N}) where {N} =
     count(p.index[icell...])
 
 """
+    cell_length(chain::MarkerChain, i::Integer)
     cell_length(chain::MarkerChain)
 
-Return the horizontal cell size of a 2D marker chain.
+Return the horizontal width of column `i` of a 2D marker chain, that is
+`chain.cell_vertices[i + 1] - chain.cell_vertices[i]`.
 
-This is the spacing between consecutive entries in `chain.cell_vertices`.
-Marker chains require this grid to be uniformly spaced.
+The one-argument method returns the width shared by every column, and is therefore defined
+only when `chain.cell_vertices` is uniformly spaced; on a refined grid it throws an
+`ArgumentError`.
 """
-@inline cell_length(p::MarkerChain{B, 2}) where {B} =
-    sum(diff(p.cell_vertices)) / (length(p.cell_vertices) - 1)
+@inline cell_length(p::MarkerChain{B, 2}, i::Integer) where {B} = cell_width(p.cell_vertices, i)
+
+function cell_length(p::MarkerChain{B, 2}) where {B}
+    xv = p.cell_vertices
+    _is_uniform_grid(xv) || throw(
+        ArgumentError(
+            "cell_vertices are not uniformly spaced, so the chain has no single cell " *
+                "length; use cell_length(chain, i) for the width of column i"
+        )
+    )
+    return sum(diff(xv)) / (length(xv) - 1)
+end
 @inline cell_length_x(p::MarkerChain{B, 3}) where {B} =
     p.cell_vertices[1][2] - p.cell_vertices[1][1]
 @inline cell_length_y(p::MarkerChain{B, 3}) where {B} =
