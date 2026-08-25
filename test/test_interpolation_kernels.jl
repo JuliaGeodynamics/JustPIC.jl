@@ -175,7 +175,7 @@ end
 
     # Empty particle neighborhoods must produce zero rather than NaN from 0 / 0.
     particles_empty = copy(particles)
-    fill!(particles_empty.index, false)
+    fill!(particles_empty.index.data, false)
     Fempty = TA(backend)(fill(FT(NaN), length.(xvi)))
     JustPIC.particle2grid!(Fempty, pT, particles_empty; ghost_1 = false, ghost_2 = false)
     @test all(iszero, Fempty)
