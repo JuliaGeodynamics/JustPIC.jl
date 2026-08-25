@@ -3,7 +3,8 @@
 
 Create a 2D `MarkerChain` sampled along the horizontal grid `xv`.
 
-The vertices in `xv` must be finite, strictly increasing, and uniformly spaced.
+The vertices in `xv` must be finite and strictly increasing; the spacing may be
+non-uniform, in which case each column is populated according to its own width.
 
 `nxcell` controls the initial number of markers per cell, while
 `initial_elevation` can be either a scalar or a vector specifying the initial
@@ -17,28 +18,37 @@ function init_markerchain(
         ::Type{backend}, nxcell, min_xcell, max_xcell, xv, initial_elevation
     ) where {backend}
     T = initial_elevation isa AbstractArray ? promote_type(eltype(xv), eltype(initial_elevation)) : promote_type(eltype(xv), typeof(initial_elevation))
-    xv = recast_grid(xv, T)
+    _validate_chain_grid(xv)
     nx = length(xv) - 1
     0 < nxcell ≤ max_xcell || throw(ArgumentError("nxcell must satisfy 0 < nxcell ≤ max_xcell"))
     0 < min_xcell ≤ max_xcell || throw(ArgumentError("min_xcell must satisfy 0 < min_xcell ≤ max_xcell"))
     initial_elevation isa AbstractArray && length(initial_elevation) != nx + 1 &&
         throw(DimensionMismatch("initial_elevation must have one value per grid vertex"))
-    dx = _uniform_grid_spacing(xv)
-    dx_chain = dx / (nxcell + 1)
-    initial_elevation = initial_elevation isa AbstractArray ? convert.(T, initial_elevation) : convert(T, initial_elevation)
+    # a refined grid and a vertex-wise elevation are both indexed inside the kernels below,
+    # so they have to live on the device
+    xv = device_grid(backend, xv, T)
+    initial_elevation = if initial_elevation isa AbstractArray
+        TA(backend){T}(initial_elevation)
+    else
+        convert(T, initial_elevation)
+    end
     px, py = ntuple(_ -> cell_array(backend, convert(T, NaN), (max_xcell,), (nx,)), Val(2))
     index = cell_array(backend, false, (max_xcell,), (nx,))
 
     launch!(
         ka_backend(index), fill_markerchain_coords_index!, nx,
-        px, py, index, xv, initial_elevation, dx_chain, nxcell, max_xcell
+        px, py, index, xv, initial_elevation, nxcell, max_xcell
     )
     coords = px, py
     px0, py0 = ntuple(_ -> cell_array(backend, convert(T, NaN), (max_xcell,), (nx,)), Val(2))
     copyto!(px0.data, px.data)
     copyto!(py0.data, py.data)
     coords0 = px0, py0
-    h_vertices = TA(backend)(initial_elevation isa AbstractArray ? initial_elevation : fill(initial_elevation, nx + 1))
+    h_vertices = if initial_elevation isa AbstractArray
+        copy(initial_elevation)
+    else
+        TA(backend)(fill(initial_elevation, nx + 1))
+    end
     h_vertices0 = copy(h_vertices)
 
     return MarkerChain(
@@ -47,12 +57,13 @@ function init_markerchain(
 end
 
 @kernel function fill_markerchain_coords_index!(
-        px, py, index, x, initial_elevation, dx_chain, nxcell, max_xcell
+        px, py, index, x, initial_elevation, nxcell, max_xcell
     )
     i = @index(Global)
 
     # lower-left corner of the cell
     x0 = x[i]
+    dx_chain = cell_width(x, i) / (nxcell + 1)
     # fill index array
     for ip in 1:nxcell
         CAI.@index px[ip, i] = x0 + dx_chain * ip
@@ -62,12 +73,13 @@ end
 end
 
 @kernel function fill_markerchain_coords_index!(
-        px, py, index, x, initial_elevation::AbstractArray{T, 1}, dx_chain, nxcell, max_xcell
+        px, py, index, x, initial_elevation::AbstractArray{T, 1}, nxcell, max_xcell
     ) where {T}
     i = @index(Global)
 
     # lower-left corner of the cell
     x0 = x[i]
+    dx_chain = cell_width(x, i) / (nxcell + 1)
     elevation_left = initial_elevation[i]
     elevation_right = initial_elevation[i + 1]
     # fill index array

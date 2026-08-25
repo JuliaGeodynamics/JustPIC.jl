@@ -28,9 +28,12 @@ vertices (`h_vertices`). The most useful fields are:
 Marker precision follows the grid/elevation element type, so a `Float32` grid produces a
 `Float32` chain — this is required on Metal, which has no `Float64`.
 
-`cell_vertices` must be finite, strictly increasing, and uniformly spaced. Marker lookup,
-resampling, and movement use one constant cell width; construction throws an
-`ArgumentError` when this grid contract is violated.
+`cell_vertices` must be finite and strictly increasing; construction throws an
+`ArgumentError` otherwise. The spacing is free: a refined (non-uniformly spaced) grid is
+supported, and marker lookup, resampling and movement all resolve each column's width from
+its own pair of vertices. `cell_length(chain, i)` returns that width. The one-argument
+`cell_length(chain)` returns the single width shared by every column and therefore throws
+on a refined grid.
 
 ## Creating a chain
 
@@ -114,7 +117,9 @@ compute_rock_fraction!(ratios, chain, xvi, dxi)
 
 `ratios` is a container with `center`, `vertex`, `Vx`, and `Vy` fields (e.g. a `PhaseRatios`
 or a named tuple of arrays) sized to the respective grid locations; each is filled with a
-value in `[0, 1]`. `xvi` is the vertex grid and `dxi` the grid spacing.
+value in `[0, 1]`. `xvi` is the vertex grid and `dxi` the matching spacing: one `Number`
+per direction on a uniform grid, or one vector of per-cell widths per direction on a
+refined one.
 
 You can also interpolate the grid velocity onto the current marker positions (for diagnostics
 or custom advection) with `interpolate_velocity_to_markerchain!(chain, chain_V, V, grid_vxi)`,
@@ -180,13 +185,44 @@ scatter!(px, py, color = :black)
 display(f)
 ```
 
+### Refined grid
+
+The same example runs on a graded horizontal grid — only the construction of `xv`/`yv`
+changes. A non-range grid is indexed directly inside the kernels, so on a GPU backend it has
+to be moved to the device with `TA(backend)`:
+
+```julia
+# cell widths growing left to right by a factor of 4
+function graded(n, L)
+    widths = [1 + 3 * (i - 1) / (n - 2) for i in 1:(n - 1)]
+    x = cumsum(vcat(0.0, widths))
+    return L .* x ./ last(x)
+end
+
+expand_vector(x) = vcat(x[1] - (x[2] - x[1]), x, x[end] + (x[end] - x[end - 1]))
+
+xv, yv = graded(n, Lx), graded(n, Ly)
+xc = (xv[1:(end - 1)] .+ xv[2:end]) ./ 2
+yc = (yv[1:(end - 1)] .+ yv[2:end]) ./ 2
+
+grid_vx = TA(backend)(xv), TA(backend)(expand_vector(yc))
+grid_vy = TA(backend)(expand_vector(xc)), TA(backend)(yv)
+grid_vxi = grid_vx, grid_vy
+
+chain = init_markerchain(backend, nxcell, min_xcell, max_xcell, TA(backend)(xv), initial_elevation)
+```
+
+The time-stepping loop is unchanged. Where a uniform grid passes a scalar `dxi` to
+`compute_rock_fraction!`, a refined one passes the per-cell widths: `dxi = diff(xv), diff(yv)`.
+
 The `scripts/rotating_marker_chain*.jl` files in the repository provide runnable Lagrangian
-and semi-Lagrangian variants of this example.
+and semi-Lagrangian variants of this example, each with a `*_refined.jl` sibling.
 
 ## API
 
 ```@docs
 MarkerChain
+cell_length
 init_markerchain
 fill_chain_from_chain!
 fill_chain_from_vertices!

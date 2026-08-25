@@ -47,6 +47,16 @@ import KernelAbstractions
     return StepRangeLen(convert(T, first(x)), convert(T, step(x)), length(x))
 end
 
+# Counterpart of `backend_grid` for the constructors that receive the backend as a type
+# parameter rather than as a `ka_backend` instance. A refined (non-range) grid is indexed
+# directly inside kernels, so it has to live on the device.
+@inline device_grid(::Type{B}, x::AbstractRange, ::Type{T}) where {B, T} = recast_grid(x, T)
+@inline function device_grid(::Type{B}, x::AbstractVector, ::Type{T}) where {B, T}
+    A = TA(B)
+    x isa A && eltype(x) === T && return x
+    return A{T}(x)
+end
+
 @inline backend_grid(::Any, x, ::Type{T}) where {T} = convert(T, x)
 @inline backend_grid(backend, x::Tuple, ::Type{T}) where {T} = map(g -> backend_grid(backend, g, T), x)
 @inline backend_grid(::Any, x::AbstractRange, ::Type{T}) where {T} = recast_grid(x, T)

@@ -10,7 +10,6 @@ quality and the stability of subsequent marker-chain operations.
 function resample!(chain::MarkerChain)
     (; coords, index, cell_vertices, h_vertices, min_xcell, max_xcell) = chain
     nx = length(index)
-    dx_cells = cell_length(chain)
 
     # sort marker chain
     sort_chain!(chain)
@@ -18,23 +17,23 @@ function resample!(chain::MarkerChain)
     # call kernel
     launch!(
         ka_backend(index), resample_kernel!, nx,
-        coords, cell_vertices, h_vertices, index, min_xcell, max_xcell, dx_cells
+        coords, cell_vertices, h_vertices, index, min_xcell, max_xcell
     )
     return nothing
 end
 
 @kernel function resample_kernel!(
-        coords, cell_vertices, h_vertices, index, min_xcell, max_xcell, dx_cells
+        coords, cell_vertices, h_vertices, index, min_xcell, max_xcell
     )
     i = @index(Global)
     resample_cell!(
-        coords, cell_vertices, h_vertices, index, min_xcell, max_xcell, dx_cells, i
+        coords, cell_vertices, h_vertices, index, min_xcell, max_xcell, i
     )
 end
 
 function resample_cell!(
         coords::NTuple{2, T}, cell_vertices, h_vertices, index,
-        min_xcell, max_xcell, dx_cells, I
+        min_xcell, max_xcell, I
     ) where {T}
 
     # cell particles coordinates
@@ -45,6 +44,7 @@ function resample_cell!(
 
     # lower-left corner of the cell
     cell_vertex = cell_vertices[I]
+    dx_cells = cell_width(cell_vertices, I)
     # number of p`articles in the cell
     np = count(index_I)
     # dx of the new chain
