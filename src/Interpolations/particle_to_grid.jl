@@ -107,6 +107,7 @@ function _particle2grid!(F, Fp, inode, jnode, xi::NTuple{2, T}, p, index, mask) 
                 doskip(index, ip, ivertex, jvertex) && continue
 
                 p_i = CAI.@index(px[ip, ivertex, jvertex]), CAI.@index(py[ip, ivertex, jvertex])
+                any(isnan, p_i) && continue
                 ω_i = distance_weight(xvertex, p_i; order = 2)
 
                 # ω_i = bilinear_weight(xvertex, p_i, di)
@@ -116,7 +117,7 @@ function _particle2grid!(F, Fp, inode, jnode, xi::NTuple{2, T}, p, index, mask) 
         end
     end
 
-    F[inode + mask[1], jnode + mask[2]] = ωxF / ω
+    F[inode + mask[1], jnode + mask[2]] = iszero(ω) ? zero(ωxF) : ωxF / ω
     return nothing
 end
 
@@ -142,6 +143,7 @@ function _particle2grid!(
                 doskip(index, i, ivertex, jvertex) && continue
 
                 p_i = CAI.@index(px[i, ivertex, jvertex]), CAI.@index(py[i, ivertex, jvertex])
+                any(isnan, p_i) && continue
                 ω_i = distance_weight(xvertex, p_i; order = 2)
                 # ω_i = bilinear_weight(xvertex, p_i, di)
                 ω += ω_i
@@ -151,7 +153,7 @@ function _particle2grid!(
         end
     end
 
-    _ω = inv(ω)
+    _ω = iszero(ω) ? zero(ω) : inv(ω)
     _particle2grid_store!(F, ωxF, _ω, inode, jnode, mask)
     return nothing
 end
@@ -185,6 +187,7 @@ function _particle2grid!(
                         CAI.@index(py[ip, ivertex, jvertex, kvertex]),
                         CAI.@index(pz[ip, ivertex, jvertex, kvertex]),
                     )
+                    any(isnan, p_i) && continue
                     ω_i = distance_weight(xvertex, p_i; order = 2)
                     # ω_i = bilinear_weight(xvertex, p_i, di)
                     ω += ω_i
@@ -195,7 +198,7 @@ function _particle2grid!(
         end
     end
 
-    return F[inode + mask[1], jnode + mask[2], knode + mask[3]] = ωF * inv(ω)
+    return F[inode + mask[1], jnode + mask[2], knode + mask[3]] = iszero(ω) ? zero(ωF) : ωF * inv(ω)
 end
 
 function _particle2grid!(
@@ -225,6 +228,7 @@ function _particle2grid!(
                         CAI.@index(py[ip, ivertex, jvertex, kvertex]),
                         CAI.@index(pz[ip, ivertex, jvertex, kvertex]),
                     )
+                    any(isnan, p_i) && continue
                     ω_i = distance_weight(xvertex, p_i; order = 2)
                     # ω_i = bilinear_weight(xvertex, p_i, di)
                     ω += ω_i
@@ -237,7 +241,7 @@ function _particle2grid!(
         end
     end
 
-    _ω = inv(ω)
+    _ω = iszero(ω) ? zero(ω) : inv(ω)
     _particle2grid_store!(F, ωxF, _ω, inode, jnode, knode, mask)
     return nothing
 end

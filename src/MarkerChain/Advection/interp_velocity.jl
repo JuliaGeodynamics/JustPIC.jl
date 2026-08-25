@@ -15,21 +15,20 @@ function interpolate_velocity_to_markerchain!(
     ) where {N, T}
     (; coords, index) = chain
 
-    # recast the grid to the marker precision so the ranges are GPU-safe on Float32
-    # backends (they are indexed directly inside the kernel; see advection!)
+    # make the grid GPU-safe: it is indexed directly inside the kernel (see advection!)
     Tc = eltype(eltype(coords[1]))
-    grid_vi = recast_grid(grid_vi, Tc)
+    backend = ka_backend(chain)
+    grid_vi = backend_grid(backend, grid_vi, Tc)
 
     # compute some basic stuff
     ni = size(index, 1)
-    dxi = compute_dx(first(grid_vi))
 
     local_limits = inner_limits(grid_vi)
 
     # launch parallel advection kernel
     launch!(
-        ka_backend(chain), interpolate_velocity_to_markerchain_kernel!, ni,
-        coords, chain_V, V, index, grid_vi, local_limits, dxi,
+        backend, interpolate_velocity_to_markerchain_kernel!, ni,
+        coords, chain_V, V, index, grid_vi, local_limits,
     )
     return nothing
 end
@@ -42,7 +41,6 @@ end
         index,
         grid,
         local_limits,
-        dxi,
     ) where {N, T}
     i = @index(Global)
 
@@ -52,7 +50,7 @@ end
         # extract particle coordinates
         pᵢ = get_particle_coords(p, ipart, i)
         # interpolate velocity to particle
-        v = interp_velocity2particle_markerchain(pᵢ, grid, local_limits, dxi, V)
+        v = interp_velocity2particle_markerchain(pᵢ, grid, local_limits, V, i)
         CAI.@index chain_V[1][ipart, i] = v[1]
         CAI.@index chain_V[2][ipart, i] = v[2]
     end

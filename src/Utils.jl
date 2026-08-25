@@ -185,3 +185,34 @@ end
         seed = div(lo + hi, 2)
     end
 end
+
+"""
+    parent_cell_index(x, xv, seed)
+
+Return the index `i` of the cell of the vertex vector `xv` that contains `x`, i.e. the `i`
+such that `xv[i] ≤ x < xv[i + 1]`, clamped to `1:length(xv) - 1`.
+
+`xv` may be uniformly spaced (an `AbstractRange`, resolved arithmetically) or refined (any
+other `AbstractVector`, resolved by bisection from the initial guess `seed`). `seed` is
+ignored in the uniform case.
+"""
+@inline parent_cell_index(x, xv::AbstractRange, seed) =
+    clamp(cell_index(x, xv, step(xv)), 1, length(xv) - 1)
+@inline function parent_cell_index(x, xv::AbstractVector, seed)
+    i = find_parent_cell_bisection(x, xv, seed)
+    # the bisection brackets inclusively at both ends; cells are half-open
+    # `[xv[i], xv[i + 1])`, so a point sitting exactly on an interior vertex
+    # belongs to the cell on its right, as it does on a range
+    return ifelse(i < length(xv) - 1 && x == xv[i + 1], i + 1, i)
+end
+
+# Seed for a lookup with no caller context: starting from the middle cell bounds the number
+# of bisection steps to log2 of the cell count.
+@inline midpoint_seed(xv::AbstractVector) = max(length(xv) >> 1, 1)
+
+"""
+    cell_width(xv, i)
+
+Width of cell `i` of the vertex vector `xv`.
+"""
+@inline cell_width(xv, i::Integer) = xv[i + 1] - xv[i]

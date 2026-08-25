@@ -173,6 +173,13 @@ end
     JustPIC.particle2grid!(Fv_plain, pT, particles; ghost_1 = false, ghost_2 = false)
     @test Array(Fv_plain) == interior(Fy_ref)
 
+    # Empty particle neighborhoods must produce zero rather than NaN from 0 / 0.
+    particles_empty = copy(particles)
+    fill!(particles_empty.index.data, false)
+    Fempty = TA(backend)(fill(FT(NaN), length.(xvi)))
+    JustPIC.particle2grid!(Fempty, pT, particles_empty; ghost_1 = false, ghost_2 = false)
+    @test all(iszero, Fempty)
+
     Fc = TA(backend)(fill(FT(NaN), length.(xci_p)))
     Fc_plain = TA(backend)(fill(FT(NaN), length.(xci)))
     JustPIC.particle2centroid!(Fc, pT, particles)

@@ -75,6 +75,29 @@ function markerchain_velocity_grid(n = 17)
     return xv, yv, grid_vx, grid_vy
 end
 
+# strictly increasing, with cell widths growing left to right by a factor of `ratio`
+function markerchain_graded_grid(n, ratio = FT(4))
+    widths = FT[1 + (ratio - 1) * (i - 1) / (n - 2) for i in 1:(n - 1)]
+    xv = cumsum(vcat(zero(FT), widths))
+    return xv ./ last(xv)
+end
+
+function markerchain_expand_vector(x)
+    return vcat(x[1] - (x[2] - x[1]), x, x[end] + (x[end] - x[end - 1]))
+end
+
+# Staggered velocity grids on graded meshes refined in opposite directions, so a kernel
+# that reuses the x-component spacing for the y component gives a wrong answer.
+function markerchain_refined_velocity_grid(n = 17)
+    xv = markerchain_graded_grid(n)
+    yv = reverse(one(FT) .- markerchain_graded_grid(n))
+    xc = (xv[1:(end - 1)] .+ xv[2:end]) ./ 2
+    yc = (yv[1:(end - 1)] .+ yv[2:end]) ./ 2
+    grid_vx = TA(backend)(xv), TA(backend)(markerchain_expand_vector(yc))
+    grid_vy = TA(backend)(markerchain_expand_vector(xc)), TA(backend)(yv)
+    return xv, yv, grid_vx, grid_vy
+end
+
 function constant_markerchain_velocity(grid_vx, grid_vy, vx, vy)
     Vx = TA(backend)(fill(vx, length(grid_vx[1]), length(grid_vx[2])))
     Vy = TA(backend)(fill(vy, length(grid_vy[1]), length(grid_vy[2])))
@@ -156,6 +179,19 @@ end
         assert_chain_invariants(chain)
     end
 
+    # the initialization kernel indexes both the grid and a vertex-wise elevation, so host
+    # inputs have to reach the device
+    host_xv = collect(range(FT(0), FT(1); length = 7))
+    host_elevation = collect(range(FT(0.1), FT(0.3); length = 7))
+    chain = init_markerchain(backend, nxcell, min_xcell, max_xcell, host_xv, host_elevation)
+    @test chain.cell_vertices isa TA(backend)
+    @test chain.h_vertices isa TA(backend)
+    @test chain.h_vertices !== chain.h_vertices0
+    @test isapprox(
+        Array(chain.h_vertices), host_elevation; atol = chain_tol(chain), rtol = chain_tol(chain)
+    )
+    assert_chain_invariants(chain)
+
     @static if BACKEND_NAME == "CPU"
         xv = collect(range(0.0, 1.0; length = 6))
         original = init_markerchain(CPU, 3, 2, 5, xv, 0.4)
@@ -166,8 +202,19 @@ end
         @test reconstructed.max_xcell == 5
     end
 
+    # refined grids are supported; the grid only has to be strictly increasing
     nonuniform_xv = TA(backend)(FT[0, 0.2, 0.5, 1])
-    @test_throws ArgumentError init_markerchain(backend, 2, 1, 4, nonuniform_xv, FT(0.4))
+    refined = init_markerchain(backend, 2, 1, 4, nonuniform_xv, FT(0.4))
+    assert_chain_invariants(refined)
+    @test_throws ArgumentError init_markerchain(
+        backend, 2, 1, 4, TA(backend)(FT[0, 0.5, 0.2, 1]), FT(0.4)
+    )
+    @test_throws ArgumentError init_markerchain(
+        backend, 2, 1, 4, TA(backend)(FT[0, 0.5, 0.5, 1]), FT(0.4)
+    )
+    @test_throws ArgumentError init_markerchain(
+        backend, 2, 1, 4, TA(backend)(FT[0.0]), FT(0.4)
+    )
 end
 
 @testset "MarkerChain topography reconstruction 2D" begin
@@ -593,7 +640,7 @@ end
 
     vx = Array(ratios.Vx)
     for j in axes(vx, 2)
-        expected = rock_fraction(yv[j], dy / 2)
+        expected = rock_fraction(yv[j], dy)
         @test all(vx[:, j] .≈ expected)
     end
 
@@ -697,4 +744,303 @@ end
     cell_vertices = [0.0, 1.0, 2.0, 3.0]
     @test JustPIC.first_last_particle_incell(topo_x, cell_vertices, 2) == (2, 3)
     @test JustPIC.first_last_particle_incell([0.1, 0.2], cell_vertices, 2) == (1, 0)
+end
+
+@testset "MarkerChain refined grid initialization 2D" begin
+    nxcell, min_xcell, max_xcell = 3, 2, 6
+    xv_cpu = markerchain_graded_grid(9)
+    chain = init_markerchain(backend, nxcell, min_xcell, max_xcell, TA(backend)(xv_cpu), FT(0.4))
+
+    px, _, index, _ = host_chain(chain)
+    @test active_counts(index) == fill(nxcell, length(xv_cpu) - 1)
+    assert_chain_invariants(chain)
+
+    # each column is populated according to its own width
+    for i in axes(index, 2)
+        dx = xv_cpu[i + 1] - xv_cpu[i]
+        expected = xv_cpu[i] .+ dx .* (1:nxcell) ./ (nxcell + 1)
+        @test px[1:nxcell, i] ≈ expected
+    end
+end
+
+@testset "MarkerChain cell_length 2D" begin
+    xv_cpu = markerchain_graded_grid(9)
+    refined = init_markerchain(backend, 2, 2, 4, TA(backend)(xv_cpu), FT(0.4))
+    for i in 1:(length(xv_cpu) - 1)
+        @test cell_length(refined, i) ≈ xv_cpu[i + 1] - xv_cpu[i]
+    end
+    @test_throws "cell_vertices are not uniformly spaced" cell_length(refined)
+    @test_throws "cell_length(chain, i)" cell_length(refined)
+
+    xv_uniform = collect(range(FT(0), FT(1); length = 9))
+    dx = xv_uniform[2] - xv_uniform[1]
+    uniform = init_markerchain(backend, 2, 2, 4, TA(backend)(xv_uniform), FT(0.4))
+    @test cell_length(uniform) ≈ dx
+    @test all(cell_length(uniform, i) ≈ dx for i in 1:(length(xv_uniform) - 1))
+
+    ranged = init_markerchain(backend, 2, 2, 4, range(FT(0), FT(1); length = 9), FT(0.4))
+    @test cell_length(ranged) ≈ dx
+    @test cell_length(ranged, 1) ≈ dx
+end
+
+@testset "MarkerChain refined grid movement 2D" begin
+    xv_cpu = markerchain_graded_grid(9)
+    ncells = length(xv_cpu) - 1
+    chain = init_markerchain(backend, 1, 1, 4, TA(backend)(xv_cpu), FT(0.4))
+
+    # a marker crossing several columns of differing width lands in the right one, and one
+    # pushed past the right edge of the domain is deleted
+    set_cell_slot!(chain.coords[1], 1, 1, (xv_cpu[6] + xv_cpu[7]) / 2)
+    set_cell_slot!(chain.coords[1], 1, ncells, FT(1.5))
+    move_particles!(chain)
+
+    _, _, index, _ = host_chain(chain)
+    counts = active_counts(index)
+    @test counts[1] == 0
+    @test counts[6] == 2
+    @test counts[ncells] == 0
+    @test count(index) == ncells - 1
+    assert_chain_invariants(chain)
+end
+
+@testset "MarkerChain refined grid resample 2D" begin
+    xv_cpu = markerchain_graded_grid(9)
+    ncells = length(xv_cpu) - 1
+    min_xcell, max_xcell = 4, 6
+    # the widest column is several times the narrowest, so a single global spacing cannot
+    # satisfy both
+    @test (xv_cpu[end] - xv_cpu[end - 1]) > 3 * (xv_cpu[2] - xv_cpu[1])
+
+    chain = init_markerchain(backend, 2, min_xcell, max_xcell, TA(backend)(xv_cpu), FT(0.2))
+    resample!(chain)
+    px, py, index, _ = host_chain(chain)
+    @test active_counts(index) == fill(min_xcell, ncells)
+    @test all(py[index] .≈ FT(0.2))
+    assert_chain_invariants(chain)
+
+    for i in (1, ncells)
+        dx = (xv_cpu[i + 1] - xv_cpu[i]) / (min_xcell + 1)
+        @test diff(px[1:min_xcell, i]) ≈ fill(dx, min_xcell - 1)
+    end
+end
+
+@testset "MarkerChain refined grid velocity interpolation 2D" begin
+    xv, _, grid_vx, grid_vy = markerchain_refined_velocity_grid()
+    grid_vi = grid_vx, grid_vy
+    chain = init_markerchain(backend, 3, 2, 6, TA(backend)(xv), FT(0.45))
+    chain_V = ntuple(_ -> cell_array(backend, FT(0), (chain.max_xcell,), size(chain.index)), Val(2))
+
+    vx_field(x, y) = FT(0.1) * x + FT(0.2) * y
+    vy_field(x, y) = FT(-0.3) * x + FT(0.05) * y
+    gvx, gvy = Array.(grid_vx), Array.(grid_vy)
+    V = (
+        TA(backend)([vx_field(x, y) for x in gvx[1], y in gvx[2]]),
+        TA(backend)([vy_field(x, y) for x in gvy[1], y in gvy[2]]),
+    )
+
+    interpolate_velocity_to_markerchain!(chain, chain_V, V, grid_vi)
+    px, py, index, _ = host_chain(chain)
+    Vx_chain = host_data(chain_V[1])
+    Vy_chain = host_data(chain_V[2])
+
+    # bilinear interpolation of a linear field is exact only when each component is
+    # normalized by the spacing of its own staggered grid
+    atol = FT === Float32 ? 1.0f-5 : 1.0e-12
+    @test all(isapprox.(Vx_chain[index], vx_field.(px[index], py[index]); atol, rtol = atol))
+    @test all(isapprox.(Vy_chain[index], vy_field.(px[index], py[index]); atol, rtol = atol))
+end
+
+@testset "MarkerChain refined grid advection 2D" begin
+    xv, yv, grid_vx, grid_vy = markerchain_refined_velocity_grid()
+    grid_vi = grid_vx, grid_vy
+    grid = TA(backend)(xv), TA(backend)(yv)
+    nxcell, min_xcell, max_xcell = 3, 2, 6
+    elevation = FT(0.45)
+    dt = FT(0.1)
+    vx, vy = FT(0.03), FT(-0.02)
+    V = constant_markerchain_velocity(grid_vx, grid_vy, vx, vy)
+
+    reference = init_markerchain(backend, nxcell, min_xcell, max_xcell, TA(backend)(xv), elevation)
+    px0, py0, index0, _ = host_chain(reference)
+
+    for method in (Euler(), RungeKutta2(), RungeKutta4())
+        chain = init_markerchain(backend, nxcell, min_xcell, max_xcell, TA(backend)(xv), elevation)
+        advection!(chain, method, V, grid_vi, dt)
+        px, py, index, _ = host_chain(chain)
+        atol = chain_tol(chain)
+        @test index == index0
+        @test all(isapprox.(px[index], px0[index0] .+ vx * dt; atol, rtol = atol))
+        @test all(isapprox.(py[index], py0[index0] .+ vy * dt; atol, rtol = atol))
+    end
+
+    # a uniform vertical velocity lifts a flat surface by vy*dt
+    chain = init_markerchain(backend, nxcell, min_xcell, max_xcell, TA(backend)(xv), elevation)
+    Vup = constant_markerchain_velocity(grid_vx, grid_vy, FT(0), vy)
+    JustPIC.semilagrangian_advection!(chain, RungeKutta2(), Vup, grid_vi, grid, dt)
+    @test isapprox(
+        Array(chain.h_vertices), fill(elevation + vy * dt, length(xv));
+        atol = (FT === Float32 ? 1.0f-5 : 1.0e-6)
+    )
+
+    # both wrappers conserve the mean height
+    Vright = constant_markerchain_velocity(grid_vx, grid_vy, FT(0.05), FT(0))
+    for advect! in (
+            (c) -> advect_markerchain!(c, RungeKutta2(), Vright, grid_vi, FT(0.05)),
+            (c) -> semilagrangian_advection_markerchain!(c, RungeKutta2(), Vright, grid_vi, grid, FT(0.05)),
+        )
+        chain = init_markerchain(backend, nxcell, min_xcell, max_xcell, TA(backend)(xv), elevation)
+        h0 = chain_mean(Array(chain.h_vertices))
+        for _ in 1:10
+            advect!(chain)
+        end
+        h = Array(chain.h_vertices)
+        @test all(isfinite, h)
+        @test isapprox(chain_mean(h), h0; atol = chain_tol(chain), rtol = chain_tol(chain))
+        assert_chain_invariants(chain)
+    end
+end
+
+@testset "MarkerChain refined grid rock fraction 2D" begin
+    n = 9
+    xv = markerchain_graded_grid(n)
+    yv = reverse(one(FT) .- markerchain_graded_grid(n))
+    dx = diff(xv)
+    dy = diff(yv)
+    xvi = TA(backend)(xv), TA(backend)(yv)
+    dxi = TA(backend)(dx), TA(backend)(dy)
+
+    make_ratios() = (
+        center = TA(backend)(zeros(FT, n - 1, n - 1)),
+        vertex = TA(backend)(zeros(FT, n, n)),
+        Vx = TA(backend)(zeros(FT, n, n - 1)),
+        Vy = TA(backend)(zeros(FT, n - 1, n)),
+    )
+
+    chain = init_markerchain(backend, 3, 2, 6, TA(backend)(xv), FT(0.5))
+
+    copyto!(chain.h_vertices, TA(backend)(fill(FT(2), n)))
+    ratios = make_ratios()
+    compute_rock_fraction!(ratios, chain, xvi, dxi)
+    for field in (ratios.center, ratios.vertex, ratios.Vx, ratios.Vy)
+        @test all(Array(field) .≈ 1)
+    end
+
+    copyto!(chain.h_vertices, TA(backend)(fill(FT(-1), n)))
+    ratios = make_ratios()
+    compute_rock_fraction!(ratios, chain, xvi, dxi)
+    for field in (ratios.center, ratios.vertex, ratios.Vx, ratios.Vy)
+        @test all(Array(field) .≈ 0)
+    end
+
+    # flat interface: every control volume gets the fraction of its own height below `h`
+    h = FT(0.42)
+    copyto!(chain.h_vertices, TA(backend)(fill(h, n)))
+    ratios = make_ratios()
+    compute_rock_fraction!(ratios, chain, xvi, dxi)
+    rock_fraction(y_bottom, height) = clamp((h - y_bottom) / height, zero(FT), one(FT))
+
+    center = Array(ratios.center)
+    for j in axes(center, 2)
+        @test all(center[:, j] .≈ rock_fraction(yv[j], dy[j]))
+    end
+
+    vx = Array(ratios.Vx)
+    for j in axes(vx, 2)
+        @test all(vx[:, j] .≈ rock_fraction(yv[j], dy[j]))
+    end
+
+    vertex = Array(ratios.vertex)
+    vy = Array(ratios.Vy)
+    for j in axes(vertex, 2)
+        # the two halves straddling vertex `j` are cut from rows of different height, so
+        # the control-volume fraction weights them by area, not by count
+        expected = if j == firstindex(yv)
+            rock_fraction(yv[j], dy[j] / 2)
+        elseif j == lastindex(yv)
+            rock_fraction(yv[j] - dy[j - 1] / 2, dy[j - 1] / 2)
+        else
+            (
+                dy[j - 1] * rock_fraction(yv[j] - dy[j - 1] / 2, dy[j - 1] / 2) +
+                    dy[j] * rock_fraction(yv[j], dy[j] / 2)
+            ) / (dy[j - 1] + dy[j])
+        end
+        @test all(vertex[:, j] .≈ expected)
+        @test all(vy[:, j] .≈ expected)
+    end
+
+    for field in (ratios.center, ratios.vertex, ratios.Vx, ratios.Vy)
+        data = Array(field)
+        @test all(isfinite, data)
+        @test all(0 .≤ data .≤ 1)
+    end
+end
+
+# Exact fraction of the rectangle [x0, x1] x [y0, y1] lying below the line y = h0 + s * x.
+# The integrand is piecewise linear with breakpoints where the line crosses the floor and
+# the ceiling, so the trapezoid rule over those nodes is exact.
+function markerchain_rock_fraction(h0, s, x0, x1, y0, y1)
+    g(x) = clamp((h0 + s * x - y0) / (y1 - y0), zero(FT), one(FT))
+    breaks = iszero(s) ? FT[] : FT[(y0 - h0) / s, (y1 - h0) / s]
+    nodes = sort(vcat(FT[x0, x1], filter(x -> x0 < x < x1, breaks)))
+    total = zero(FT)
+    for k in 1:(length(nodes) - 1)
+        total += (g(nodes[k]) + g(nodes[k + 1])) * (nodes[k + 1] - nodes[k]) / 2
+    end
+    return total / (x1 - x0)
+end
+
+@testset "MarkerChain sloping interface rock fraction 2D" begin
+    n = 9
+    xv = markerchain_graded_grid(n)
+    yv = reverse(one(FT) .- markerchain_graded_grid(n))
+    dx = diff(xv)
+    dy = diff(yv)
+    xvi = TA(backend)(xv), TA(backend)(yv)
+    dxi = TA(backend)(dx), TA(backend)(dy)
+
+    h0, slope = FT(0.25), FT(0.5)
+    chain = init_markerchain(backend, 3, 2, 6, TA(backend)(xv), FT(0.5))
+    copyto!(chain.h_vertices, TA(backend)(h0 .+ slope .* xv))
+
+    ratios = (
+        center = TA(backend)(zeros(FT, n - 1, n - 1)),
+        vertex = TA(backend)(zeros(FT, n, n)),
+        Vx = TA(backend)(zeros(FT, n, n - 1)),
+        Vy = TA(backend)(zeros(FT, n - 1, n)),
+    )
+    compute_rock_fraction!(ratios, chain, xvi, dxi)
+
+    # extents of the staggered control volumes, truncated at the domain boundary; the
+    # sub-cells tiling them have unequal areas on a graded grid, so a count-weighted average
+    # of their fractions is wrong
+    left(i) = i == 1 ? xv[1] : xv[i] - dx[i - 1] / 2
+    right(i) = i == n ? xv[n] : xv[i] + dx[i] / 2
+    bottom(j) = j == 1 ? yv[1] : yv[j] - dy[j - 1] / 2
+    top(j) = j == n ? yv[n] : yv[j] + dy[j] / 2
+
+    atol = FT === Float32 ? 1.0f-4 : 1.0e-9
+
+    center = Array(ratios.center)
+    for j in axes(center, 2), i in axes(center, 1)
+        expected = markerchain_rock_fraction(h0, slope, xv[i], xv[i + 1], yv[j], yv[j + 1])
+        @test isapprox(center[i, j], expected; atol, rtol = atol)
+    end
+
+    vertex = Array(ratios.vertex)
+    for j in axes(vertex, 2), i in axes(vertex, 1)
+        expected = markerchain_rock_fraction(h0, slope, left(i), right(i), bottom(j), top(j))
+        @test isapprox(vertex[i, j], expected; atol, rtol = atol)
+    end
+
+    vx = Array(ratios.Vx)
+    for j in axes(vx, 2), i in axes(vx, 1)
+        expected = markerchain_rock_fraction(h0, slope, left(i), right(i), yv[j], yv[j + 1])
+        @test isapprox(vx[i, j], expected; atol, rtol = atol)
+    end
+
+    vy = Array(ratios.Vy)
+    for j in axes(vy, 2), i in axes(vy, 1)
+        expected = markerchain_rock_fraction(h0, slope, xv[i], xv[i + 1], bottom(j), top(j))
+        @test isapprox(vy[i, j], expected; atol, rtol = atol)
+    end
 end

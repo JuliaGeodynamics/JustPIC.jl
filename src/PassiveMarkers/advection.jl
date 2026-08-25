@@ -28,11 +28,10 @@ function advection!(
     grid_vxi = recast_grid(grid_vxi, Tc)
 
     # compute some basic stuff
-    dxi = compute_dx(first(grid_vxi))
     local_limits = inner_limits(grid_vxi)
 
     # launch parallel advection kernel
-    launch!(ka_backend(particles), _advection!, np, method, coords, V, grid_vxi, local_limits, dxi, dt)
+    launch!(ka_backend(particles), _advection!, np, method, coords, V, grid_vxi, local_limits, dt)
     return nothing
 end
 
@@ -40,14 +39,17 @@ end
 
 # Runge-Kutta advection kernel for staggered grids.
 @kernel function _advection!(
-        method::AbstractAdvectionIntegrator, p, V::NTuple{N}, grid, local_limits, dxi, dt
+        method::AbstractAdvectionIntegrator, p, V::NTuple{N}, grid, local_limits, dt
     ) where {N}
     ipart = @index(Global)
 
     # cache particle coordinates
     pᵢ = get_particle_coords(p, ipart)
-    # reuses marker chain methods
-    pᵢ_new = advect_particle_markerchain(method, pᵢ, V, grid, local_limits, dxi, dt)
+    # reuses marker chain methods; passive markers carry no cell index, so the cell
+    # lookups start from the middle of the grid
+    pᵢ_new = advect_particle_markerchain(
+        method, pᵢ, V, grid, local_limits, dt, midpoint_seed(grid[1][1])
+    )
 
     # p[ipart] = SVector(p_new)
     ntuple(Val(N)) do i

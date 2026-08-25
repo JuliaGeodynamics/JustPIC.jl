@@ -50,24 +50,24 @@ function advection!(
     ) where {N, T}
     (; coords, index) = chain
 
-    # recast integrator/timestep/grid to the marker precision (see particle
-    # advection!); `recast_grid` also makes the grid ranges GPU-safe on Float32
-    # backends (they are indexed directly inside the kernel)
+    # recast integrator/timestep/grid to the marker precision (see particle advection!);
+    # `backend_grid` also makes the grid GPU-safe -- it is indexed directly inside the
+    # kernel, so ranges are rebuilt Float32-safe and refined grids are moved to the device
     Tc = eltype(eltype(coords[1]))
+    backend = ka_backend(chain)
     method = set_precision(method, Tc)
     dt = convert(Tc, dt)
-    grid_vi = recast_grid(grid_vi, Tc)
+    grid_vi = backend_grid(backend, grid_vi, Tc)
 
     # compute some basic stuff
     ni = size(index, 1)
-    dxi = compute_dx(first(grid_vi))
 
     local_limits = inner_limits(grid_vi)
 
     # launch parallel advection kernel
     launch!(
-        ka_backend(chain), advection_markerchain_kernel!, ni,
-        coords, method, V, index, grid_vi, local_limits, dxi, dt
+        backend, advection_markerchain_kernel!, ni,
+        coords, method, V, index, grid_vi, local_limits, dt
     )
     return nothing
 end
@@ -82,7 +82,6 @@ end
         index,
         grid,
         local_limits,
-        dxi,
         dt,
     ) where {N, T}
     i = @index(Global)
@@ -93,7 +92,7 @@ end
         # extract particle coordinates
         pᵢ = get_particle_coords(p, ipart, i)
         # advect particle
-        pᵢ_new = advect_particle_markerchain(method, pᵢ, V, grid, local_limits, dxi, dt)
+        pᵢ_new = advect_particle_markerchain(method, pᵢ, V, grid, local_limits, dt, i)
         # update particle coordinates
         for k in 1:N
             @inbounds CAI.@index p[k][ipart, i] = pᵢ_new[k]
@@ -102,13 +101,13 @@ end
 end
 
 @inline function interp_velocity2particle_markerchain(
-        particle_coords::NTuple{N, Any}, grid_vi, local_limits, dxi, V::NTuple{N, Any}
+        particle_coords::NTuple{N, Any}, grid_vi, local_limits, V::NTuple{N, Any}, icell
     ) where {N}
     return ntuple(Val(N)) do i
         Base.@_inline_meta
         local_lims = local_limits[i]
         v = if check_local_limits(local_lims, particle_coords)
-            interp_velocity_grid2particle(particle_coords, grid_vi[i], dxi, V[i])
+            interp_velocity_grid2particle(particle_coords, grid_vi[i], V[i], icell)
         else
             # Typed sentinel: a bare `Inf` is Float64 and widens the tuple eltype,
             # which forces heap allocation inside the kernel (fatal on Metal).
@@ -118,20 +117,20 @@ end
 end
 
 @inline function interp_velocity2particle_markerchain(
-        particle_coords::NTuple{N, Any}, grid_vi, dxi, V::NTuple{N, Any}
+        particle_coords::NTuple{N, Any}, grid_vi, V::NTuple{N, Any}, icell
     ) where {N}
     return ntuple(Val(N)) do i
         Base.@_inline_meta
-        interp_velocity_grid2particle(particle_coords, grid_vi[i], dxi, V[i])
+        interp_velocity_grid2particle(particle_coords, grid_vi[i], V[i], icell)
     end
 end
 
 # Interpolate velocity from staggered grid to particle
 @inline function interp_velocity_grid2particle(
-        pᵢ::Union{SVector, NTuple}, xi_vx::NTuple, dxi::NTuple, F::AbstractArray
+        pᵢ::Union{SVector, NTuple}, xi_vx::NTuple, F::AbstractArray, icell
     )
-    # F and coordinates at/of the cell corners
-    Fi, x_vertex_cell = corner_field_nodes_MC(F, pᵢ, xi_vx, dxi)
+    # F, coordinates and spacing of the cell corners
+    Fi, x_vertex_cell, dxi = corner_field_nodes_MC(F, pᵢ, xi_vx, icell)
     # normalize particle coordinates
     ti = normalize_coordinates(pᵢ, x_vertex_cell, dxi)
     # Interpolate field F onto particle
@@ -139,14 +138,19 @@ end
     return Fp
 end
 
-# Get field F and nodal indices of the cell corners where the particle is located
-@inline function corner_field_nodes_MC(F::AbstractArray{T, N}, pᵢ, xi_vx, dxi) where {T, N}
+# Get field F, and the coordinates and widths of the cell where the particle is located.
+# The widths are read off `xi_vx` per direction and per cell, so a staggered grid whose
+# components are refined differently is handled by construction.
+@inline function corner_field_nodes_MC(F::AbstractArray{T, N}, pᵢ, xi_vx, icell) where {T, N}
     # a marker-chain vertex can sit exactly on the right/top boundary (x == xi_vx[i][end]),
-    # where cell_index returns the last vertex; clamp to the last cell so the corner lookup
+    # where the lookup returns the last vertex; clamp to the last cell so the corner lookup
     # (I and I+1) stays in bounds and interpolates from the edge cell
     I = ntuple(Val(N)) do i
         Base.@_inline_meta
-        clamp(cell_index(pᵢ[i], xi_vx[i], dxi[i]), 1, size(F, i) - 1)
+        # the marker's own column is a one- or two-step seed for the horizontal search;
+        # the vertical grid has no counterpart, so bisect from its middle
+        seed = ifelse(i == 1, icell, midpoint_seed(xi_vx[i]))
+        clamp(parent_cell_index(pᵢ[i], xi_vx[i], seed), 1, size(F, i) - 1)
     end
 
     # coordinates of lower-left corner of the cell
@@ -154,8 +158,12 @@ end
         Base.@_inline_meta
         xi_vx[i][I[i]]
     end
+    dxi = ntuple(Val(N)) do i
+        Base.@_inline_meta
+        cell_width(xi_vx[i], I[i])
+    end
     # F at the four centers
     Fi = extract_field_corners(F, I...)
 
-    return Fi, x_vertex_cell
+    return Fi, x_vertex_cell, dxi
 end

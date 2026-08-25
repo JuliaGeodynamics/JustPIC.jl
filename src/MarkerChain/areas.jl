@@ -6,6 +6,10 @@ chain.
 
 The result is written at cell centers, vertices, and staggered velocity nodes
 using the topography currently stored in `chain`.
+
+`xvi` are the cell vertices per direction and `dxi` the matching spacings: either one
+`Number` per direction for a uniform grid, or one `AbstractVector` of per-cell widths per
+direction for a refined one.
 """
 function compute_rock_fraction!(ratios, chain::MarkerChain, xvi, dxi)
     compute_area_below_chain_centers!(ratios.center, chain, xvi, dxi)
@@ -39,39 +43,36 @@ end
     # cell origin
     ox = xv[i]
     oy = yv[j]
+    dx, dy = @dxi dxi i j
 
     p1 = GridGeometryUtils.Point(ox, topo_y[i])
     p2 = GridGeometryUtils.Point(xv[i + 1], topo_y[i + 1])
     s = Segment(p1, p2)
 
     # Rectangle's first argument is its center, not its lower-left corner.
-    r = Rectangle((ox + dxi[1] / 2, oy + dxi[2] / 2), dxi...; θ = zero(ox))
+    r = Rectangle((ox + dx / 2, oy + dy / 2), dx, dy; θ = zero(ox))
     ratio[i, j] = cell_rock_area(s, r)
 end
 
 function compute_area_below_chain_vx!(ratio_velocity, chain, xvi, dxi)
     topo_y = chain.h_vertices
     nx, ny = size(ratio_velocity)
-    mask_x = (-1, 0) .* dxi[1] ./ 2
 
     launch!(
         ka_backend(ratio_velocity), _compute_area_below_chain_vx!, (nx, ny),
-        ratio_velocity, topo_y, mask_x, xvi..., nx, dxi
+        ratio_velocity, topo_y, xvi..., nx, dxi
     )
     return nothing
 end
 
 @kernel function _compute_area_below_chain_vx!(
-        ratios::AbstractArray{T}, topo_y, mask_x, xv, yv, nx, dxi
+        ratios::AbstractArray{T}, topo_y, xv, yv, nx, dxi
     ) where {T}
     I = @index(Global, NTuple)
     i, j = I
 
-    dx, dy = dxi
-    half_dx = dx / 2
-    half_dy = dy / 2
-    c = 0
-    ω = 0 # weight for the average
+    dy = @dy dxi j
+    ω = zero(T) # total area of the sampled sub-cells
     tmp = zero(T)
     # we can cache the potential coordinates
     x, y = if 1 < i < nx
@@ -85,12 +86,12 @@ end
     ox = xv[i]
     oy = yv[j]
     for (l, ii) in enumerate((i - 1):i)
-        c += 1
         !(0 < ii < nx) && continue
 
-        ω += 1
-
-        min_corner = (ox, oy) .+ (mask_x[c], zero(T))
+        # the two halves of the control volume straddle the vertex `ox`, each half as wide
+        # as the column it is cut from and as tall as the row it sits in
+        half_dx = (@dx dxi ii) / 2
+        min_corner = (ifelse(ii < i, ox - half_dx, ox), oy)
         p1 = GridGeometryUtils.Point(x[l], y[l])
         p2 = GridGeometryUtils.Point(x[l + 1], y[l + 1])
         chain_line = Line(p1, p2)
@@ -102,10 +103,14 @@ end
 
         ## create a rectangle for the new cell
         r = Rectangle(
-            (min_corner[1] + half_dx / 2, min_corner[2] + half_dy / 2),
-            half_dx, half_dy; θ = zero(half_dx)
+            (min_corner[1] + half_dx / 2, min_corner[2] + dy / 2),
+            half_dx, dy; θ = zero(half_dx)
         )
-        tmp += cell_rock_area(s, r)
+        # the halves differ in area on a refined grid, so their fractions are
+        # area-weighted rather than averaged
+        dA = half_dx * dy
+        tmp += cell_rock_area(s, r) * dA
+        ω += dA
     end
     ratios[i, j] = tmp / ω
 end
@@ -113,54 +118,54 @@ end
 function compute_area_below_chain_vy!(ratio_velocity, chain, xvi, dxi)
     topo_y = chain.h_vertices
     nx, ny = size(ratio_velocity)
-    mask_y = (-1, 0) .* dxi[2] ./ 2
 
     launch!(
         ka_backend(ratio_velocity), _compute_area_below_chain_vy!, (nx, ny),
-        ratio_velocity, topo_y, mask_y, xvi..., ny, dxi
+        ratio_velocity, topo_y, xvi..., ny, dxi
     )
     return nothing
 end
 
 @kernel function _compute_area_below_chain_vy!(
-        ratios::AbstractArray{T}, topo_y, mask_y, xv, yv, ny, dxi
+        ratios::AbstractArray{T}, topo_y, xv, yv, ny, dxi
     ) where {T}
     I = @index(Global, NTuple)
     i, j = I
 
-    dx, dy = dxi
-    half_dx = dx / 2
-    half_dy = dy / 2
-    c = 0
-    ω = 0 # weight for the average
+    dx = @dx dxi i
+    ω = zero(T) # total area of the sampled sub-cells
     tmp = zero(T)
     # we can cache the potential coordinates
     x, y = (xv[i], xv[i + 1]), (topo_y[i], topo_y[i + 1])
     ox = xv[i]
     oy = yv[j]
 
-    for (k, jj) in enumerate((j - 1):j)
-        c += 1
+    for jj in (j - 1):j
         !(0 < jj < ny) && continue
 
-        ω += 1
-
-        min_corner = (ox, oy) .+ (zero(T), mask_y[c])
+        # the two halves of the control volume straddle the vertex `oy`, each half as tall
+        # as the row it is cut from and as wide as the column it sits in
+        half_dy = (@dy dxi jj) / 2
+        min_corner = (ox, ifelse(jj < j, oy - half_dy, oy))
         p1 = GridGeometryUtils.Point(x[1], y[1])
         p2 = GridGeometryUtils.Point(x[2], y[2])
         chain_line = Line(p1, p2)
         y1 = line(chain_line, min_corner[1])
-        y2 = line(chain_line, min_corner[1] + half_dx)
+        y2 = line(chain_line, min_corner[1] + dx)
         p1 = GridGeometryUtils.Point(min_corner[1], y1)
-        p2 = GridGeometryUtils.Point(min_corner[1] + half_dx, y2)
+        p2 = GridGeometryUtils.Point(min_corner[1] + dx, y2)
         s = Segment(p1, p2)
 
         ## create a rectangle for the new cell
         r = Rectangle(
-            (min_corner[1] + half_dx / 2, min_corner[2] + half_dy / 2),
-            half_dx, half_dy; θ = zero(half_dx)
+            (min_corner[1] + dx / 2, min_corner[2] + half_dy / 2),
+            dx, half_dy; θ = zero(dx)
         )
-        tmp += cell_rock_area(s, r)
+        # the halves differ in area on a refined grid, so their fractions are
+        # area-weighted rather than averaged
+        dA = dx * half_dy
+        tmp += cell_rock_area(s, r) * dA
+        ω += dA
     end
     ratios[i, j] = tmp / ω
 end
@@ -168,27 +173,21 @@ end
 function compute_area_below_chain_vertex!(ratio_vertex, chain, xvi, dxi)
     topo_y = chain.h_vertices
     ni = size(ratio_vertex)
-    masks_x = (-1, 0, -1, 0) .* dxi[1] ./ 2
-    masks_y = (-1, -1, 0, 0) .* dxi[2] ./ 2
 
     launch!(
         ka_backend(ratio_vertex), _compute_area_below_chain_vertex!, ni,
-        ratio_vertex, topo_y, masks_x, masks_y, xvi..., ni..., dxi
+        ratio_vertex, topo_y, xvi..., ni..., dxi
     )
     return nothing
 end
 
 @kernel function _compute_area_below_chain_vertex!(
-        ratios::AbstractArray{T}, topo_y, masks_x, masks_y, xv, yv, nx, ny, dxi
+        ratios::AbstractArray{T}, topo_y, xv, yv, nx, ny, dxi
     ) where {T}
     I = @index(Global, NTuple)
     i, j = I
 
-    dx, dy = dxi
-    half_dx = dx / 2
-    half_dy = dy / 2
-    c = 0 # linear index of the mask
-    ω = 0 # weight for the average
+    ω = zero(T) # total area of the sampled sub-cells
     tmp = zero(T)
     # we can cache the potential coordinates
     x, y = if 1 < i < nx
@@ -204,13 +203,17 @@ end
 
     for (k, jj) in enumerate((j - 1):j)
         for (l, ii) in enumerate((i - 1):i)
-            c += 1
             !(0 < ii < nx) && continue
             !(0 < jj < ny) && continue
 
-            ω += 1
-
-            min_corner = (ox, oy) .+ (masks_x[c], masks_y[c])
+            # each quadrant of the control volume is half as wide and half as tall as the
+            # cell it is cut from
+            half_dx = (@dx dxi ii) / 2
+            half_dy = (@dy dxi jj) / 2
+            min_corner = (
+                ifelse(ii < i, ox - half_dx, ox),
+                ifelse(jj < j, oy - half_dy, oy),
+            )
             p1 = GridGeometryUtils.Point(x[l], y[l])
             p2 = GridGeometryUtils.Point(x[l + 1], y[l + 1])
             chain_line = Line(p1, p2)
@@ -225,7 +228,11 @@ end
                 (min_corner[1] + half_dx / 2, min_corner[2] + half_dy / 2),
                 half_dx, half_dy; θ = zero(half_dx)
             )
-            tmp += cell_rock_area(s, r)
+            # the quadrants differ in area on a refined grid, so their fractions are
+            # area-weighted rather than averaged
+            dA = half_dx * half_dy
+            tmp += cell_rock_area(s, r) * dA
+            ω += dA
         end
     end
     ratios[i, j] = tmp / ω
