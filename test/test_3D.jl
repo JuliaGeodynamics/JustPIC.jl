@@ -169,6 +169,45 @@ end
     @test count(index_cpu[2, 2, 2]) ≥ min_xcell
 end
 
+@testset "Particle injection with a cell-centered field 3D" begin
+    nxcell, max_xcell, min_xcell = 12, 24, 6
+    nx, ny, nz = 8, 6, 10
+    ni = nx, ny, nz
+    Li = 1.0, 1.0, 1.0
+    xvi = ntuple(i -> LinRange(0, Li[i], ni[i] + 1), Val(3))
+    dxi = ntuple(i -> xvi[i][2] - xvi[i][1], Val(3))
+    xci = ntuple(i -> LinRange(dxi[i] / 2, Li[i] - dxi[i] / 2, ni[i]), Val(3))
+    grid_vx = xvi[1], expand_range(xci[2]), expand_range(xci[3])
+    grid_vy = expand_range(xci[1]), xvi[2], expand_range(xci[3])
+    grid_vz = expand_range(xci[1]), expand_range(xci[2]), xvi[3]
+
+    particles = JustPIC.init_particles(
+        backend, nxcell, max_xcell, min_xcell, grid_vx, grid_vy, grid_vz,
+    )
+    pPhases, pT = JustPIC.init_cell_arrays(particles, Val(2))
+    fill!(pPhases.data, 1)
+
+    # Empty a block of interior cells so injection fires there. It has to reach the last
+    # cell along a dimension: that is where interpolating a cell-centered field reads one
+    # index past its end if the field is mistaken for a vertex-centered one.
+    cells = [(i, j, k) for i in 4:6, j in 3:6, k in 5:7]
+    for c in cells, ip in 1:max_xcell
+        CAI.@index particles.index[ip, c...] = false
+    end
+
+    # A constant field must survive interpolation exactly, so every injected particle
+    # carries that constant.
+    F_center = TA(backend)(fill(FT(7.5), ni))
+    JustPIC.inject_particles_phase!(particles, pPhases, (pT,), (F_center,))
+
+    index_cpu, pT_cpu = Array(particles.index), Array(pT)
+    injected = [
+        pT_cpu[c...][ip] for c in cells for ip in 1:max_xcell if index_cpu[c...][ip]
+    ]
+    @test !isempty(injected)
+    @test all(x -> x ≈ FT(7.5), injected)
+end
+
 @testset "Subgrid diffusion 3D" begin
     nxcell, max_xcell, min_xcell = 24, 24, 1
     n = 5 # number of vertices
