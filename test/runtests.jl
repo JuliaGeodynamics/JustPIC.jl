@@ -30,7 +30,7 @@ function runtests()
     testdir = @__DIR__
     projectdir = dirname(testdir)
     test_project = dirname(Base.active_project())
-    load_path = string("@:", projectdir, ":@v#.#:@stdlib")
+    load_path = join(("@", projectdir, "@v#.#", "@stdlib"), Sys.iswindows() ? ';' : ':')
     testfiles = sort(
         filter(
             istest,
@@ -49,15 +49,25 @@ function runtests()
             include(joinpath(testdir, "test_integrators.jl"))
             include(joinpath(testdir, "test_CellArrays.jl"))
             include(joinpath(testdir, "test_markerchain_2D.jl"))
+            include(joinpath(testdir, "test_refined_grid.jl"))
             include(joinpath(testdir, "test_save_load.jl"))
             include(joinpath(testdir, "test_interpolation_kernels.jl"))
-            include(joinpath(testdir, "test_refined_grid.jl"))
         catch
             nfail += 1
         end
         try
             printstyled("Running 3D tests\n"; bold = true, color = :white)
             include(joinpath(testdir, "test_3D.jl"))
+        catch
+            nfail += 1
+        end
+        try
+            printstyled("Running MarkerSurface tests\n"; bold = true, color = :white)
+            cmd = addenv(
+                `$(Base.julia_cmd()) --project=$(test_project) --startup-file=no $(joinpath(testdir, "test_marker_surface.jl"))`,
+                "JULIA_LOAD_PATH" => load_path,
+            )
+            run(cmd)
         catch
             nfail += 1
         end
@@ -70,6 +80,7 @@ function runtests()
             "test_refined_grid.jl",
             "test_markerchain_2D.jl",
             "test_save_load.jl",
+            "test_marker_surface.jl",
         )
         for f in gpu_testfiles
             println("\n Running tests from $f")

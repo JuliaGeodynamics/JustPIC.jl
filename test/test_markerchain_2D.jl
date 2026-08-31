@@ -198,6 +198,8 @@ end
         reconstructed = MarkerChain(original.coords, original.index, xv, 2, 5)
         @test Array(reconstructed.h_vertices) ≈ fill(0.4, length(xv))
         @test reconstructed.coords0[1].data !== reconstructed.coords[1].data
+        @test reconstructed.min_xcell == 2
+        @test reconstructed.max_xcell == 5
     end
 
     # refined grids are supported; the grid only has to be strictly increasing

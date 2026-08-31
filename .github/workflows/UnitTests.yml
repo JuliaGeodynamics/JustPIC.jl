@@ -61,3 +61,17 @@ jobs:
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false  # or true if you want CI to fail when Codecov fails
+
+  marker_surface_mpi:
+    name: MarkerSurface MPI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: '1'
+      - uses: julia-actions/julia-buildpkg@latest
+      - name: Run four-rank MarkerSurface test
+        run: >-
+          julia --project=. -e 'using MPI;
+          run(`$(mpiexec()) -n 4 $(Base.julia_cmd()) --project=. test/test_marker_surface_mpi.jl`)'

@@ -51,9 +51,9 @@ function expand_range(x::AbstractVector)
 end
 
 # Analytical flow solution
-vx_stream(x, z) = 250 * sin(π * x) * cos(π * z)
-vy_stream(x, z) = zero(x)
-vz_stream(x, z) = -250 * cos(π * x) * sin(π * z)
+vx_stream_3D(x, z) = 250 * sin(π * x) * cos(π * z)
+vy_stream_3D(x, z) = zero(x)
+vz_stream_3D(x, z) = -250 * cos(π * x) * sin(π * z)
 
 struct ForceInjectionPoint3D{T}
     coords::NTuple{3, T}
@@ -402,9 +402,9 @@ end
     )
 
     # Cell fields -------------------------------
-    Vx = TA(backend)([vx_stream(x, z) for x in grid_vx[1], y in grid_vx[2], z in grid_vx[3]])
-    Vy = TA(backend)([vy_stream(x, z) for x in grid_vy[1], y in grid_vy[2], z in grid_vy[3]])
-    Vz = TA(backend)([vz_stream(x, z) for x in grid_vz[1], y in grid_vz[2], z in grid_vz[3]])
+    Vx = TA(backend)([vx_stream_3D(x, z) for x in grid_vx[1], y in grid_vx[2], z in grid_vx[3]])
+    Vy = TA(backend)([vy_stream_3D(x, z) for x in grid_vy[1], y in grid_vy[2], z in grid_vy[3]])
+    Vz = TA(backend)([vz_stream_3D(x, z) for x in grid_vz[1], y in grid_vz[2], z in grid_vz[3]])
     T = TA(backend)([z for x in xv, y in yv, z in zv])
     P = TA(backend)([x for x in xv, y in yv, z in zv])
     V = Vx, Vy, Vz
@@ -512,9 +512,9 @@ function test_advection_3D()
     grid_vel = grid_vx, grid_vy, grid_vz
 
     # Cell fields -------------------------------
-    Vx = TA(backend)([vx_stream(x, z) for x in grid_vx[1], y in grid_vx[2], z in grid_vx[3]])
-    Vy = TA(backend)([vy_stream(x, z) for x in grid_vy[1], y in grid_vy[2], z in grid_vy[3]])
-    Vz = TA(backend)([vz_stream(x, z) for x in grid_vz[1], y in grid_vz[2], z in grid_vz[3]])
+    Vx = TA(backend)([vx_stream_3D(x, z) for x in grid_vx[1], y in grid_vx[2], z in grid_vx[3]])
+    Vy = TA(backend)([vy_stream_3D(x, z) for x in grid_vy[1], y in grid_vy[2], z in grid_vy[3]])
+    Vz = TA(backend)([vz_stream_3D(x, z) for x in grid_vz[1], y in grid_vz[2], z in grid_vz[3]])
     xvi_p = JustPIC.add_periodic_ghost_nodes.(xvi)
     T = TA(backend)([z for x in xvi_p[1], y in xvi_p[2], z in xvi_p[3]])
     T0 = deepcopy(T)
@@ -565,9 +565,9 @@ function test_advection_3D_refined()
     grid_vy = expand_range(xc), yv, expand_range(zc)
     grid_vz = expand_range(xc), expand_range(yc), zv
 
-    Vx = TA(backend)([vx_stream(x, z) for x in grid_vx[1], y in grid_vx[2], z in grid_vx[3]])
-    Vy = TA(backend)([vy_stream(x, z) for x in grid_vy[1], y in grid_vy[2], z in grid_vy[3]])
-    Vz = TA(backend)([vz_stream(x, z) for x in grid_vz[1], y in grid_vz[2], z in grid_vz[3]])
+    Vx = TA(backend)([vx_stream_3D(x, z) for x in grid_vx[1], y in grid_vx[2], z in grid_vx[3]])
+    Vy = TA(backend)([vy_stream_3D(x, z) for x in grid_vy[1], y in grid_vy[2], z in grid_vy[3]])
+    Vz = TA(backend)([vz_stream_3D(x, z) for x in grid_vz[1], y in grid_vz[2], z in grid_vz[3]])
     xvi_p = JustPIC.add_periodic_ghost_nodes.(xvi)
     T = TA(backend)([z for x in xvi_p[1], y in xvi_p[2], z in xvi_p[3]])
     T0 = deepcopy(T)

@@ -29,9 +29,12 @@ backend.
 `test/runtests.jl` keeps **two explicit file lists**:
 
 - CPU path: in-process `include`s (`test_Aqua.jl`, `test_2D.jl`, `test_integrators.jl`,
-  `test_CellArrays.jl`, `test_save_load.jl`, `test_3D.jl`)
-- GPU path: the `gpu_testfiles` tuple, one subprocess per file, spawned with
-  `--project=<Pkg.test sandbox>` — that flag is load-bearing, don't remove it
+  `test_CellArrays.jl`, `test_markerchain_2D.jl`, `test_refined_grid.jl`,
+  `test_save_load.jl`, `test_3D.jl`), plus `test_marker_surface.jl` in a subprocess
+- GPU path: the `gpu_testfiles` tuple, one subprocess per file
+
+Subprocesses are spawned with `--project=<Pkg.test sandbox>` and the `JULIA_LOAD_PATH`
+built in `runtests` — both are load-bearing, don't drop them.
 
 **A new `test_*.jl` file must be added to these lists or it will never run.** Check for
 this whenever creating a test file.
