@@ -77,12 +77,14 @@ function semilagrangian_advection!(
     return nothing
 end
 
+# The trailing argument count is fixed at the marker-chain arity `(V, grid_vxi, grid, dt)`:
+# an open `Vararg` would also cover the seven-argument grid-field
+# `semilagrangian_advection!`, leaving the two methods ambiguous.
 function semilagrangian_advection!(
         chain::MarkerChain,
         method::AbstractAdvectionIntegrator,
-        args::Vararg{Any, N},
-    ) where {N}
-
+        args::Vararg{Any, 4},
+    )
     throw(ArgumentError("Marker-chain backtracking requires RungeKutta2 or RungeKutta4"))
     return nothing
 end
