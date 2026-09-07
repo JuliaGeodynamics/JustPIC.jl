@@ -13,7 +13,7 @@ $v_{\text{p}} = t v_0  + (1 -t) v_1$
 
 where the $t$, $v_0$, and $v_1$ are graphically described below.
 
-<img src="assets/lerp.png" width="250"  />
+![Linear interpolation between the nodal values `v0` and `v1`](assets/lerp.png)
 
 Numerically, it is more appropriately implemented as a double [fma](https://en.wikipedia.org/wiki/Multiply%E2%80%93accumulate_operation) as it is slightly more accurate than a naive implementation:
 
@@ -93,3 +93,13 @@ Related high-level helpers in this workflow are `particle2centroid!`,
 `T_grid` through `grid2particle!`/`centroid2particle!` and so expect the ghosted
 vertex and centroid layouts respectively, while `ΔT_grid` carries one ghost node
 per side, matching `size(particles.index)`.
+
+## API
+
+```@docs
+grid2particle!
+grid2particle_flip!
+particle2grid!
+centroid2particle!
+particle2centroid!
+```
