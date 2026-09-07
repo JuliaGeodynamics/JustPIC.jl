@@ -82,7 +82,7 @@ function semilagrangian_advection!(
         method::AbstractAdvectionIntegrator,
         args::Vararg{Any, N},
     ) where {N}
-    
+
     throw(ArgumentError("Marker-chain backtracking requires RungeKutta2 or RungeKutta4"))
     return nothing
 end
