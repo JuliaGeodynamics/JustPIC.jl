@@ -13,22 +13,14 @@ Use this when evolving a free surface or interface represented by a
 function advect_markerchain!(
         chain::MarkerChain, method::AbstractAdvectionIntegrator, V, grid_vxi, dt
     )
+    target_mean = mean_height(chain)
     advection!(chain, method, V, grid_vxi, dt)
     move_particles!(chain)
     resample!(chain)
 
     # interpolate from markers to grid
     compute_topography_vertex!(chain)
-    # correct topo to conserve mass
-    chain.h_vertices .-= mean_height(chain.h_vertices) - mean_height(chain.h_vertices0)
-    # reconstruct chain from vertices
-    reconstruct_chain_from_vertices!(chain)
-    copyto!(chain.coords0[1].data, chain.coords[1].data)
-    copyto!(chain.coords0[2].data, chain.coords[2].data)
-    # update old nodal topography
-    copyto!(chain.h_vertices0, chain.h_vertices)
-
-    return nothing
+    return finish_markerchain_step!(chain, target_mean)
 end
 
 # Two-step Runge-Kutta advection scheme for marker chains

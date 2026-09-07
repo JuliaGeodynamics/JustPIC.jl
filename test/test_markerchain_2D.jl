@@ -47,6 +47,7 @@ end
 
 chain_tol(chain) = eltype(Array(chain.h_vertices)) <: Float32 ? 1.0f-5 : 1.0e-10
 chain_mean(h) = (sum(h) - (first(h) + last(h)) / 2) / (length(h) - 1)
+chain_mean(h, x) = sum(diff(x) .* (h[1:(end - 1)] .+ h[2:end])) / (2 * (last(x) - first(x)))
 
 # set slot `ip` of cell `cell` without assuming the backend's CellArray data layout
 function set_cell_slot!(A, ip, cell, val)
@@ -435,6 +436,124 @@ end
 
     @test all(Vx_chain[index] .≈ vx)
     @test all(Vy_chain[index] .≈ vy)
+end
+
+@testset "MarkerChain semi-Lagrangian characteristic consistency" begin
+    for make_grid in (markerchain_velocity_grid, markerchain_refined_velocity_grid)
+        xv, yv, grid_vx, grid_vy = make_grid()
+        grid_vi = grid_vx, grid_vy
+        grid = TA(backend)(collect(xv)), TA(backend)(collect(yv))
+        dt = FT(0.2)
+        elevation, slope = FT(0.3), FT(0.4)
+        # In vertical extension, backward integration of the NEW height must land
+        # on the old flat surface: R(-dt) * h_new == h_old.
+        Vstretch = (
+            TA(backend)(zeros(FT, length.(grid_vx)...)),
+            TA(backend)([y for x in host_grid(grid_vy[1]), y in host_grid(grid_vy[2])]),
+        )
+        # Horizontal shear transports a line into h(x,t) = (b + m*x)/(1 + m*t).
+        Vshear = (
+            TA(backend)([y for x in host_grid(grid_vx[1]), y in host_grid(grid_vx[2])]),
+            TA(backend)(zeros(FT, length.(grid_vy)...)),
+        )
+        for method in (RungeKutta2(), RungeKutta2(FT(0.75)), RungeKutta4())
+            chain = init_markerchain(backend, 3, 2, 6, xv, elevation)
+            semilagrangian_advection!(chain, method, Vstretch, grid_vi, grid, dt)
+            R = 1 - dt + dt^2 / 2
+            method isa RungeKutta4 && (R += -dt^3 / 6 + dt^4 / 24)
+            @test all(isapprox.(Array(chain.h_vertices), elevation / R; atol = chain_tol(chain)))
+
+            profile = @. elevation + slope * xv
+            fill_chain_from_vertices!(chain, TA(backend)(collect(profile)))
+            semilagrangian_advection!(chain, method, Vshear, grid_vi, grid, dt)
+            # Exclude inflow vertices, where the boundary height is extended constantly.
+            inside = findall(x -> x > elevation * dt, xv)
+            @test isapprox(
+                Array(chain.h_vertices)[inside], profile[inside] ./ (1 + slope * dt);
+                atol = chain_tol(chain), rtol = chain_tol(chain)
+            )
+        end
+    end
+end
+
+@testset "MarkerChain semi-Lagrangian convergence and state" begin
+    xv, yv, grid_vx, grid_vy = markerchain_velocity_grid(9)
+    grid_vi, grid = (grid_vx, grid_vy), (xv, yv)
+    V = (
+        TA(backend)(zeros(FT, length.(grid_vx)...)),
+        TA(backend)([y for x in grid_vy[1], y in grid_vy[2]]),
+    )
+    # No spatial interpolation error for a flat surface in v_y = y, so these
+    # errors isolate the temporal order of the backward characteristic solve.
+    if FT === Float64
+        for (method, minimum_ratio) in ((RungeKutta2(), 3.5), (RungeKutta4(), 14))
+            errors = map((4, 8, 16)) do nsteps
+                chain = init_markerchain(backend, 3, 2, 6, xv, FT(0.2))
+                for _ in 1:nsteps
+                    semilagrangian_advection!(chain, method, V, grid_vi, grid, FT(0.8 / nsteps))
+                end
+                maximum(abs.(Array(chain.h_vertices) .- FT(0.2) * exp(FT(0.8))))
+            end
+            @test all(errors[1:2] ./ errors[2:3] .> minimum_ratio)
+        end
+    end
+
+    chain = init_markerchain(backend, 3, 2, 6, xv, FT(0.3))
+    counts = active_counts(host_data(chain.index))
+    for _ in 1:200
+        semilagrangian_advection_markerchain!(
+            chain, RungeKutta2(), V, grid_vi, grid, FT(0.001);
+            conserve_mean = false, max_slope_angle = nothing
+        )
+    end
+    @test all(isapprox.(Array(chain.h_vertices), FT(0.3) * exp(FT(0.2)); atol = FT(1.0e-5)))
+    @test active_counts(host_data(chain.index)) == counts
+    @test Array(chain.h_vertices0) == Array(chain.h_vertices)
+    for d in 1:2
+        @test isequal(host_data(chain.coords0[d]), host_data(chain.coords[d]))
+    end
+    assert_chain_invariants(chain)
+
+    # A low-level step intentionally leaves the cached old state untouched. The
+    # next wrapper must conserve its input surface, not revert to that stale cache.
+    semilagrangian_advection!(chain, RungeKutta2(), V, grid_vi, grid, FT(0.1))
+    before = copy(Array(chain.h_vertices))
+    V0 = constant_markerchain_velocity(grid_vx, grid_vy, FT(0), FT(0))
+    semilagrangian_advection_markerchain!(chain, RungeKutta2(), V0, grid_vi, grid, FT(0.1))
+    @test Array(chain.h_vertices) ≈ before
+
+    @test_throws ArgumentError semilagrangian_advection!(chain, Euler(), V, grid_vi, grid, FT(0.1))
+    @test_throws DimensionMismatch semilagrangian_advection!(chain, RungeKutta2(), V, grid_vi, (xv[1:3], yv), FT(0.1))
+    @test Array(chain.h_vertices) ≈ before
+
+    # A non-finite trajectory must not partially overwrite the chain.
+    Vbad = constant_markerchain_velocity(grid_vx, grid_vy, FT(0), FT(NaN))
+    @test_throws ErrorException semilagrangian_advection_markerchain!(chain, RungeKutta2(), Vbad, grid_vi, grid, FT(0.1))
+    @test Array(chain.h_vertices) ≈ before
+    @test Array(chain.h_vertices0) ≈ before
+
+    @test_throws ArgumentError semilagrangian_advection_markerchain!(chain, RungeKutta2(), V, grid_vi, grid, FT(0.1); max_slope_angle = -1)
+    @test Array(chain.h_vertices) ≈ before
+end
+
+@testset "MarkerChain refined topography corrections" begin
+    xv, yv, grid_vx, grid_vy = markerchain_refined_velocity_grid(7)
+    grid_vi, grid = (grid_vx, grid_vy), (xv, yv)
+    chain = init_markerchain(backend, 3, 2, 6, xv, FT(0))
+    profile = @. FT(0.2) + FT(2) * xv
+    fill_chain_from_vertices!(chain, TA(backend)(profile))
+    JustPIC.smooth_slopes!(chain, FT(deg2rad(5)))
+    @test isapprox(Array(chain.h_vertices), profile; atol = chain_tol(chain))
+
+    profile = FT[0.2, 0.2, 0.5, 0.2, 0.2, 0.2, 0.2]
+    fill_chain_from_vertices!(chain, TA(backend)(profile))
+    @test JustPIC.mean_height(chain) ≈ chain_mean(profile, xv)
+    V = constant_markerchain_velocity(grid_vx, grid_vy, FT(0), FT(0))
+    # 90 degrees disables smoothing even when Float32 pi/2 rounds upward.
+    semilagrangian_advection_markerchain!(chain, RungeKutta2(), V, grid_vi, grid, FT(0.1); max_slope_angle = FT(90))
+    @test Array(chain.h_vertices) ≈ profile
+    semilagrangian_advection_markerchain!(chain, RungeKutta2(), V, grid_vi, grid, FT(0.1))
+    @test isapprox(chain_mean(Array(chain.h_vertices), xv), chain_mean(profile, xv); atol = chain_tol(chain))
 end
 
 @testset "MarkerChain semi-Lagrangian advection 2D" begin
