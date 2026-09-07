@@ -2,6 +2,8 @@ pushfirst!(LOAD_PATH, dirname(@__DIR__))
 
 using JustPIC
 
+using Pkg
+
 istest(f) = endswith(f, ".jl") && startswith(basename(f), "test_")
 
 function parse_flags!(args, flag; default = nothing, type = typeof(default))
@@ -89,10 +91,13 @@ end
 _, backend_name = parse_flags!(ARGS, "--backend"; default = "CPU", type = String)
 
 @static if backend_name == "AMDGPU"
+    Pkg.add("AMDGPU")
     ENV["JULIA_JUSTPIC_BACKEND"] = "AMDGPU"
 elseif backend_name == "CUDA"
+    Pkg.add("CUDA")
     ENV["JULIA_JUSTPIC_BACKEND"] = "CUDA"
 elseif backend_name == "Metal"
+    Pkg.add("Metal")
     ENV["JULIA_JUSTPIC_BACKEND"] = "Metal"
 elseif backend_name == "CPU"
     ENV["JULIA_JUSTPIC_BACKEND"] = "CPU"
