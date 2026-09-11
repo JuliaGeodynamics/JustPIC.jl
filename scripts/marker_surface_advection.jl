@@ -17,10 +17,10 @@ grid_vxi = (
     (extend_centers(xv), extend_centers(yv), zv),
 )
 
-# Background flow (3D analytical solenoidal field)
-Vx = TA(backend)([0.1 * sin(π * x) * cos(π * z) for x in grid_vxi[1][1], y in grid_vxi[1][2], z in grid_vxi[1][3]])
-Vy = TA(backend)([0.0 for x in grid_vxi[2][1], y in grid_vxi[2][2], z in grid_vxi[2][3]])
-Vz = TA(backend)([-0.1 * cos(π * x) * sin(π * z) for x in grid_vxi[3][1], y in grid_vxi[3][2], z in grid_vxi[3][3]])
+# Uniform advection in the x direction
+Vx = TA(backend)(fill(0.2, length.(grid_vxi[1])))
+Vy = TA(backend)(fill(0.0, length.(grid_vxi[2])))
+Vz = TA(backend)(fill(0.0, length.(grid_vxi[3])))
 V = Vx, Vy, Vz
 
 # Initialize the surface with a small bump
