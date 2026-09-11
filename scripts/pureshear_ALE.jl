@@ -4,7 +4,7 @@ using JustPIC
 import KernelAbstractions: @kernel, @index
 import CellArraysIndexing as CAI
 const backend = JustPIC.CPU
-const DO_PLOT = get(ENV, "JUSTPIC_PLOT", "true") == "true"
+const DO_PLOT = true
 DO_PLOT && (@eval import GLMakie)
 
 const ALE = true
