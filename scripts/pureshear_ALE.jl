@@ -4,6 +4,8 @@ using JustPIC
 import KernelAbstractions: @kernel, @index
 import CellArraysIndexing as CAI
 const backend = JustPIC.CPU
+const DO_PLOT = get(ENV, "JUSTPIC_PLOT", "true") == "true"
+DO_PLOT && (@eval import GLMakie)
 
 const ALE = true
 
@@ -59,7 +61,7 @@ function update_particle_grid(particles, grid_vx, grid_vy)
     )
 end
 
-function main(; do_plot = isinteractive())
+function main(; do_plot = DO_PLOT)
 
     @printf("Running on %d thread(s)\n", nthreads())
 
@@ -123,9 +125,8 @@ function main(; do_plot = isinteractive())
     Δt = C * min(Δ...) / max(maximum(abs.(V.x)), maximum(abs.(V.y)))
     @show Δt
 
-    # Generate a figure only for interactive runs. GLMakie is an optional script dependency.
+    # Generate a figure when requested.
     if do_plot
-        @eval import GLMakie
         f = GLMakie.Figure()
         ax = GLMakie.Axis(f[1, 1], title = "Particles", aspect = L.x / L.y)
     end

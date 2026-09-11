@@ -4,6 +4,8 @@ using JustPIC
 import KernelAbstractions: @kernel, @index
 import CellArraysIndexing as CAI
 const backend = JustPIC.CPU
+const DO_PLOT = get(ENV, "JUSTPIC_PLOT", "true") == "true"
+DO_PLOT && (@eval import CairoMakie)
 
 @kernel function InitialFieldsParticles!(phases, px, py, index)
     I = @index(Global, NTuple)
@@ -49,7 +51,7 @@ function update_particle_grid(particles, grid_vx, grid_vy)
     )
 end
 
-function main(ALE, restart, last_step; do_plot = isinteractive())
+function main(ALE, restart, last_step; do_plot = DO_PLOT)
 
     @printf("Running on %d thread(s)\n", nthreads())
 
@@ -187,7 +189,6 @@ function main(ALE, restart, last_step; do_plot = isinteractive())
             clr = phases.data[:]
             idxv = particles.index.data[:]
             if do_plot
-                @eval import CairoMakie
                 f = CairoMakie.Figure()
                 ax = CairoMakie.Axis(f[1, 1], title = "Particles", aspect = L.x / L.y, xlabel = "x", ylabel = "y")
                 CairoMakie.scatter!(ax, Array(pxv[idxv]), Array(pyv[idxv]); color = Array(clr[idxv]), colormap = :roma, markersize = 2)
