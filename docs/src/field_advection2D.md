@@ -31,14 +31,8 @@ xci = xc, yc = LinRange(0+dx/2, Lx-dx/2, n-1), LinRange(0+dy/2, Ly-dy/2, n-1) # 
 ```
 
 JustPIC uses staggered velocity grids, so we define one coordinate tuple for
-each velocity component:
-
-```julia
-grid_vx = xv, expand_range(yc) # staggered grid for Vx
-grid_vy = expand_range(xc), yv # staggered grid for Vy
-```
-
-Here `expand_range` extends a 1D coordinate range by one cell size on both sides:
+each velocity component. Each staggered direction carries one ghost cell on
+either side, which `expand_range` adds to a 1D coordinate range:
 
 ```julia
 function expand_range(x::AbstractRange)
@@ -49,6 +43,11 @@ function expand_range(x::AbstractRange)
     xF = round(x2+dx; sigdigits=5)
     LinRange(xI, xF, n + 2)
 end
+```
+
+```julia
+grid_vx = xv, expand_range(yc) # staggered grid for Vx
+grid_vy = expand_range(xc), yv # staggered grid for Vy
 ```
 
 Next, initialize the particles:
@@ -71,7 +70,6 @@ Vy = TA(backend)([vy_stream(x, y) for x in grid_vy[1], y in grid_vy[2]]);
 xvi_particles = Array.(particles.xvi)
 T  = TA(backend)([y for x in xvi_particles[1], y in xvi_particles[2]]); # includes periodic ghost nodes
 V  = Vx, Vy;
-nothing #hide
 ```
 
 `TA(backend)` converts the data to the array type associated with the selected
@@ -81,14 +79,12 @@ We also need to initialize the field `T` on the particles
 
 ```julia
 particle_args = pT, = init_cell_arrays(particles, Val(1));
-nothing #hide
 ```
 
 Use `grid2particle!` to interpolate `T` to the particles:
 
 ```julia
 grid2particle!(pT, T, particles);
-nothing #hide
 ```
 
 We can now start the time loop:

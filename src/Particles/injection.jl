@@ -287,7 +287,10 @@ function _inject_particles_phase!(
     )
     # coordinates of the lower-left corner of the cell
     xvi = corner_coordinate(grid, idx_cell)
-    ni_cells = size(index)
+    # Number of cells, i.e. the size of a cell-centered field. `index` carries a halo, so
+    # its own size is `ni .+ 2`; comparing a field against that below would never match and
+    # every field would be treated as vertex-centered.
+    ni_cells = inner_size(index)
 
     # coordinates of the lower-left corner of the cell quadrants
     xvi_quadrants = quadrant_corners(xvi, di_quadrant)

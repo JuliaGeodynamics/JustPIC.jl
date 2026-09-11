@@ -85,7 +85,22 @@ function mean_height(h::AbstractVector)
     return (n * mean(h) - endpoints / 2) / (n - 1)
 end
 
-mean_height(chain::MarkerChain) = mean_height(chain.h_vertices)
+mean_height(chain::MarkerChain) = mean_height(chain.h_vertices, chain.cell_vertices)
+
+function mean_height(h, x)
+    x isa AbstractRange && return mean_height(h)
+    widths = @views x[2:end] .- x[1:(end - 1)]
+    return sum(@views (h[1:(end - 1)] .+ h[2:end]) .* widths) / (2 * sum(widths))
+end
+
+# Both advection wrappers finish by rebuilding the markers and refreshing old state.
+function finish_markerchain_step!(chain, target_mean)
+    isnothing(target_mean) || (chain.h_vertices .-= mean_height(chain) - target_mean)
+    reconstruct_chain_from_vertices!(chain)
+    foreach((dst, src) -> copyto!(dst.data, src.data), chain.coords0, chain.coords)
+    copyto!(chain.h_vertices0, chain.h_vertices)
+    return nothing
+end
 
 ######################################
 
@@ -160,24 +175,26 @@ end
 """
     smooth_slopes!(chain::MarkerChain, max_angle::Real)
 
-Limit the local slope of the vertex topography to `max_angle` (in radians).
+Smooth local slopes exceeding `max_angle` (in radians) in one pass.
 
-Interior vertices whose left or right slope steeper than `tan(max_angle)` are replaced by a
-3-point average of themselves and their neighbours (LaMEM-style limiting). This suppresses
+Interior vertices whose left or right slope is steeper than `tan(max_angle)` are averaged
+with the linear interpolant between their neighbours. This preserves straight lines on
+refined grids and reduces to a 3-point average on uniform grids. This suppresses
 the spurious spikes that semi-Lagrangian backtracking can introduce on a steep interface;
 it is applied automatically inside [`semilagrangian_advection_markerchain!`](@ref). Chains
-with fewer than three vertices are left untouched.
+with fewer than three vertices are left untouched. This is not a strict slope bound.
 """
-function smooth_slopes!(chain::MarkerChain, max_angle::Real)
-    (; h_vertices, cell_vertices) = chain
+smooth_slopes!(chain::MarkerChain, max_angle::Real) =
+    smooth_slopes!(chain.h_vertices, chain.cell_vertices, max_angle)
+
+function smooth_slopes!(h_vertices, cell_vertices, max_angle::Real)
     n = length(h_vertices)
 
     n < 3 && return nothing  # Need at least 3 vertices for smoothing
 
     tan_max_angle = convert(eltype(h_vertices), tan(max_angle))
 
-    h_smoothed = similar(h_vertices)
-    copyto!(h_smoothed, h_vertices)  # Initialize with original values
+    h_smoothed = copy(h_vertices)
 
     launch!(
         ka_backend(h_vertices), smooth_slopes_kernel!, n - 2,
@@ -206,10 +223,7 @@ end
 
     # If either adjacent slope is too steep, apply smoothing
     if slope_left > tan_max_angle || slope_right > tan_max_angle
-        # Simple 3-point averaging (integer literals keep the array's precision)
-        h_smoothed[i] = (h_vertices[i - 1] + 2 * h_vertices[i] + h_vertices[i + 1]) / 4
-    else
-        # Keep original value
-        h_smoothed[i] = h_vertices[i]
+        h_smoothed[i] = h_vertices[i] +
+            (dx_left * dh_right - dx_right * dh_left) / (2 * (dx_left + dx_right))
     end
 end

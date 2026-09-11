@@ -22,7 +22,7 @@ where $u_L$ is the bi- or trilinear interpolation from velocity nodes to the
 particle, $u_P$ is the interpolation from pressure nodes to the particle, and
 $A = 2/3$ is an empirical coefficient.
 
-<img src="assets/LinP.png" width="700"  />
+![LinP velocity interpolation stencil](assets/LinP.png)
 
 ## Modified Quadratic Spline
 
@@ -35,30 +35,47 @@ falls back to the linear interpolation path.
 
 Example for the $u_x$ component in 2D:
 
-<img src="assets/MQs.png" width="700"  />
+![Modified quadratic spline stencil for the `x` velocity component in 2D](assets/MQS.png)
 
-Step 1: compute the normalized distances between the particle and the lower-left
-corner of the interpolation cell:
+Step 1: compute the normalized distances between the particle and the velocity
+node $(i, j)$ at the lower-left corner of the interpolation cell:
 
-$t_{x} = \frac{x_m - xc_j}{\Delta x}$
+$t_{x} = \frac{x_m - x_i}{\Delta x}$
 
-$t_{y} = \frac{y_m - yc_j}{\Delta y}$
+$t_{y} = \frac{y_m - y_j}{\Delta y}$
 
-Step 2: compute the bottom and top intermediate values:
+Step 2: lerp along $x$ on the bottom and top edges of the cell:
 
-$u_{m}^{(13)} = u_{i,j} t_x + u_{i,j+1} t_x$
+$u_{m}^{\text{bot}} = (1 - t_x) u_{i,j} + t_x u_{i+1,j}$
 
-$u_{m}^{(23)} = u_{i+1,j} t_x + u_{i+1,j+1} t_x$
+$u_{m}^{\text{top}} = (1 - t_x) u_{i,j+1} + t_x u_{i+1,j+1}$
 
-Step 3: add the quadratic correction:
+Step 3: add the quadratic correction, a second difference along $x$ over the
+three nodes closest to the particle. Which triplet that is depends on which half
+of the cell the particle sits in — the figure above shows the $t_x < 1/2$ case:
 
-$u_{m}^{(13)} = u_{m}^{(13)} + \frac{1}{2} (t_x-\frac{1}{2})^2 (u_{i,j-1}-2u_{i,j}+u_{i,j-1})$
+```math
+u_{m}^{\text{bot}} \mathrel{+}= \frac{1}{2} \left(t_x - \frac{1}{2}\right)^2
+\begin{cases}
+u_{i-1,j} - 2 u_{i,j} + u_{i+1,j} & t_x < 1/2 \\
+u_{i,j} - 2 u_{i+1,j} + u_{i+2,j} & t_x \geq 1/2
+\end{cases}
+```
 
-$u_{m}^{(24)} = u_{m}^{(24)} + \frac{1}{2} (t_x-\frac{1}{2})^2 (u_{i+1,j-1}-2u_{i+1,j}+u_{i+1,j-1})$
+```math
+u_{m}^{\text{top}} \mathrel{+}= \frac{1}{2} \left(t_x - \frac{1}{2}\right)^2
+\begin{cases}
+u_{i-1,j+1} - 2 u_{i,j+1} + u_{i+1,j+1} & t_x < 1/2 \\
+u_{i,j+1} - 2 u_{i+1,j+1} + u_{i+2,j+1} & t_x \geq 1/2
+\end{cases}
+```
 
-Step 4: interpolate the corrected values in the vertical direction:
+Step 4: lerp the corrected values along $y$:
 
-$u_{m} = (1-t_y) u_{m}^{(13)}+(t_y) u_{m}^{(24)}$
+$u_{m} = (1-t_y) u_{m}^{\text{bot}} + t_y u_{m}^{\text{top}}$
+
+The $u_y$ component uses the same construction with the roles of the two
+directions exchanged.
 
 ## Choosing a Scheme
 

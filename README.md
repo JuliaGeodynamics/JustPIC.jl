@@ -4,6 +4,7 @@
 [![GPU tests](https://badge.buildkite.com/bb05ed7ef3b43f843a5ba4a976c27a724064d67955193accea.svg?branch=main)](https://buildkite.com/julialang/justpic-dot-jl)
 [![codecov](https://codecov.io/gh/JuliaGeodynamics/JustPIC.jl/graph/badge.svg?token=PN0AJZXK13)](https://codecov.io/gh/JuliaGeodynamics/JustPIC.jl)
 [![Aqua QA](https://raw.githubusercontent.com/JuliaTesting/Aqua.jl/master/badge.svg)](https://github.com/JuliaTesting/Aqua.jl)
+[![Version](https://juliahub.com/docs/General/JustPIC/stable/version.svg)](https://juliahub.com/ui/Packages/General/JustPIC)
 
 # JustPIC.jl
 

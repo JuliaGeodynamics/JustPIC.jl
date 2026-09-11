@@ -184,6 +184,7 @@ end
         lo > hi && return clamp(seed, 1, length(x) - 1)
         seed = div(lo + hi, 2)
     end
+    return
 end
 
 """
