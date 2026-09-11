@@ -89,3 +89,56 @@ update_phase_ratios!(phase_ratios, particles, phases)
 ```
 
 This is the preferred high-level style for simulation code, tests, and examples.
+
+## API
+
+### Containers
+
+```@docs
+Particles
+PassiveMarkers
+```
+
+### Initialization
+
+```@docs
+init_particles
+init_passive_markers
+init_cell_arrays
+```
+
+### Advection
+
+```@docs
+AbstractAdvectionIntegrator
+Euler
+RungeKutta2
+RungeKutta4
+set_precision
+advection!
+advection_LinP!
+advection_MQS!
+semilagrangian_advection!
+semilagrangian_advection_LinP!
+semilagrangian_advection_MQS!
+```
+
+### Maintenance
+
+```@docs
+move_particles!
+inject_particles!
+inject_particles_phase!
+clean_particles!
+force_injection!
+```
+
+### Phase ratios and subgrid diffusion
+
+```@docs
+PhaseRatios
+nphases
+subgrid_diffusion!
+subgrid_diffusion_centroid!
+SubgridDiffusionCellArrays
+```

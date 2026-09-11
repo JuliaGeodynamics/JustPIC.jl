@@ -35,15 +35,8 @@ xci = xc, yc, zc = ntuple(i -> LinRange(0+dxi[i]/2, Li[i]-dxi[i]/2, ni[i]), Val(
 ```
 
 JustPIC uses staggered velocity grids, so we define one coordinate tuple for
-each velocity component:
-
-```julia
-grid_vx = xv              , expand_range(yc), expand_range(zc) # staggered grid for Vx
-grid_vy = expand_range(xc), yv              , expand_range(zc) # staggered grid for Vy
-grid_vz = expand_range(xc), expand_range(yc), zv               # staggered grid for Vz
-```
-
-Here `expand_range` extends a 1D coordinate range by one cell size on both sides:
+each velocity component. Each staggered direction carries one ghost cell on
+either side, which `expand_range` adds to a 1D coordinate range:
 
 ```julia
 function expand_range(x::AbstractRange)
@@ -54,6 +47,12 @@ function expand_range(x::AbstractRange)
     xF = round(x2+dx; sigdigits=5)
     LinRange(xI, xF, n+2)
 end
+```
+
+```julia
+grid_vx = xv              , expand_range(yc), expand_range(zc) # staggered grid for Vx
+grid_vy = expand_range(xc), yv              , expand_range(zc) # staggered grid for Vy
+grid_vz = expand_range(xc), expand_range(yc), zv               # staggered grid for Vz
 ```
 
 Next, initialize the particles:

@@ -77,3 +77,9 @@ particle_args = TA(backend).(Float64, data["particle_args"])
 ```
 `TA(backend)` selects the backend-appropriate array type, so the same checkpoint
 can be restored onto CPU or accelerator arrays.
+
+## API
+
+```@docs
+checkpointing_particles
+```

@@ -79,18 +79,41 @@ topography:
 advect_markerchain!(chain, method, V, grid_vxi, dt)
 ```
 
-**Semi-Lagrangian** — backtrack the vertex heights through the velocity field, limit steep
-slopes, conserve mass, and reconstruct the markers:
+**Semi-Lagrangian** — solve for new vertex heights whose backward trajectories land on
+the old surface, smooth steep slopes, conserve the spatial mean height, and reconstruct
+the markers:
 
 ```julia
-semilagrangian_advection_markerchain!(chain, method, V, grid_vxi, xvi, dt; max_slope_angle = 45.0)
+semilagrangian_advection_markerchain!(chain, method, V, grid_vxi, xvi, dt;
+    max_slope_angle = 45.0, conserve_mean = true)
 ```
 
-where `xvi = (xv, yv)` is the chain's vertex grid. The semi-Lagrangian scheme is more robust
-on steep or strongly sheared surfaces where marker advection would tangle. Both schemes
-conserve the mean height. `method` is the time integrator: `advect_markerchain!` accepts
+where `xvi = (xv, yv)` is the chain's vertex grid, with `xv` matching
+`chain.cell_vertices`. The surface must remain single-valued. Both wrappers conserve
+the mean height by default, using cell-width weights on refined grids. `method` is the
+time integrator: `advect_markerchain!` accepts
 `Euler`, `RungeKutta2`, or `RungeKutta4`, while the semi-Lagrangian scheme requires a
 backtracking-capable integrator (`RungeKutta2` or `RungeKutta4`).
+
+Set `conserve_mean = false` for net uplift, subsidence, or boundary flux: restoring the
+old mean would remove that physical change. Set `max_slope_angle = nothing` or `90` to
+disable smoothing. Angles must be in `[0, 90]` degrees. Otherwise, one smoothing pass acts
+on slopes exceeding that angle;
+it does not guarantee that every slope ends below that angle. Straight lines are preserved
+even on refined grids.
+
+The semi-Lagrangian solve enforces `y_departure = h_old(x_departure)`, rather than
+backtracking from the old height and applying a single correction. The velocity is held
+fixed during each step. RK2/RK4 determine the trajectory integration order; the old
+topography is interpolated piecewise linearly, which also limits the overall accuracy.
+Departures outside the horizontal domain use constant endpoint heights, while velocities
+are extrapolated from their edge cells. These boundary choices are not periodic inflow
+conditions. A failed characteristic solve raises an error before changing the chain;
+reduce the timestep and check whether the surface is still single-valued.
+
+The lower-level `semilagrangian_advection!(chain, method, V, grid_vxi, xvi, dt)` only
+updates `h_vertices`. It leaves marker coordinates and previous-step buffers unchanged,
+and applies neither smoothing nor mean-height correction.
 
 ## Resampling and topography
 
