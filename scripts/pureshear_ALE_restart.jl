@@ -1,19 +1,18 @@
-using Statistics, LinearAlgebra, Printf, Base.Threads, CairoMakie, JLD2
-const year = 365 * 3600 * 24
-const USE_GPU = false
+using Printf, Base.Threads, JLD2
 
 using JustPIC
 import KernelAbstractions: @kernel, @index
+import CellArraysIndexing as CAI
 const backend = JustPIC.CPU
 
 @kernel function InitialFieldsParticles!(phases, px, py, index)
     I = @index(Global, NTuple)
     for ip in cellaxes(phases)
         # quick escape
-        JustPIC.@index(index[ip, I...]) == 0 && continue
-        x = JustPIC.@index px[ip, I...]
-        y = JustPIC.@index py[ip, I...]
-        JustPIC.@index phases[ip, I...] = x < y ? 1.0 : 2.0
+        CAI.@index(index[ip, I...]) == 0 && continue
+        x = CAI.@index px[ip, I...]
+        y = CAI.@index py[ip, I...]
+        CAI.@index phases[ip, I...] = x < y ? 1.0 : 2.0
     end
 end
 
@@ -29,7 +28,28 @@ end
 
 velocity_ndrange(V) = map(max, size(V.x), size(V.y))
 
-function main(ALE, restart, last_step)
+function update_particle_grid(particles, grid_vx, grid_vy)
+    grid_vi = grid_vx, grid_vy
+    xci = add_periodic_ghost_nodes.((grid_vy[1], grid_vx[2]))
+    xvi = add_periodic_ghost_nodes.((grid_vx[1], grid_vy[2]))
+    di = (
+        center = map(x -> x[2] - x[1], xci),
+        vertex = map(x -> x[2] - x[1], xvi),
+        velocity = map(grids -> map(x -> x[2] - x[1], grids), grid_vi),
+    )
+    _di_values = map(values(di)) do spacings
+        map(x -> x isa Tuple ? inv.(x) : inv(x), spacings)
+    end
+    _di = (; center = _di_values[1], vertex = _di_values[2], velocity = _di_values[3])
+
+    return Particles(
+        backend, particles.coords, particles.index, particles.nxcell,
+        particles.max_xcell, particles.min_xcell, particles.np,
+        di, _di, xci, xvi, grid_vi,
+    )
+end
+
+function main(ALE, restart, last_step; do_plot = isinteractive())
 
     @printf("Running on %d thread(s)\n", nthreads())
 
@@ -39,11 +59,9 @@ function main(ALE, restart, last_step)
         data = load(file)
         particles = data["particles"]
         phases = data["phases"]
-        phase_ratios = data["phase_ratios"]
-        particle_args = data["particle_args"]
         xlims = data["xlims"]
         ylims = data["ylims"]
-        t = data["t"]
+        t = haskey(data, "time") ? data["time"] : data["t"]
         Nt = last_step + 100
         it0 = last_step + 1
         ε̇bg = -1.0
@@ -68,10 +86,6 @@ function main(ALE, restart, last_step)
     cents_ext = (
         x = LinRange(xlims[1] - Δ.x / 2, xlims[2] + Δ.x / 2, Nc.x + 2),
         y = LinRange(ylims[1] - Δ.y / 2, ylims[2] + Δ.y / 2, Nc.y + 2),
-    )
-    cents = (
-        x = LinRange(xlims[1] + Δ.x / 2, xlims[2] - Δ.x / 2, Nc.x + 2),
-        y = LinRange(ylims[1] + Δ.y / 2, ylims[2] - Δ.y / 2, Nc.y + 2),
     )
     verts = (
         x = LinRange(xlims[1], xlims[2], Nc.x + 1),
@@ -112,19 +126,19 @@ function main(ALE, restart, last_step)
         )
     end
 
+    particle_args = (phases,)
+    grid_vx = verts.x, cents_ext.y
+    grid_vy = cents_ext.x, verts.y
+    particles = update_particle_grid(particles, grid_vx, grid_vy)
+
     phase_ratios = JustPIC.PhaseRatios(backend, 2, values(Nc))
-    phase_ratios_vertex!(phase_ratios, particles, values(verts), phases)
-    phase_ratios_center!(phase_ratios, particles, values(cents), phases)
+    update_phase_ratios!(phase_ratios, particles, phases)
     Npart = sum(particles.index.data)
 
 
     # Time step
     Δt = C * min(Δ...) / max(maximum(abs.(V.x)), maximum(abs.(V.y)))
     @show Δt
-
-    # Create necessary tuples
-    grid_vx = verts.x, cents_ext.y
-    grid_vy = cents_ext.x, verts.y
 
     for it in it0:Nt
 
@@ -135,11 +149,6 @@ function main(ALE, restart, last_step)
         # advection!(particles, RungeKutta2(), values(V), Δt)
         # advection_LinP!(particles, RungeKutta2(), values(V), (grid_vx, grid_vy), Δt)
         advection_MQS!(particles, RungeKutta2(), values(V), Δt)
-        move_particles!(particles, particle_args)
-        inject_particles_phase!(particles, phases, (), (), values(verts))
-        phase_ratios_vertex!(phase_ratios, particles, values(verts), phases)
-        phase_ratios_center!(phase_ratios, particles, values(cents), phases)
-        Npart = sum(particles.index.data)
 
         if ALE
             xlims[1] += xlims[1] * ε̇bg * Δt
@@ -158,11 +167,14 @@ function main(ALE, restart, last_step)
             )
             grid_vx = (verts.x, cents_ext.y)
             grid_vy = (cents_ext.x, verts.y)
-            Δt = C * min(Δ...) / max(maximum(abs.(V.x)), maximum(abs.(V.y)))
+            particles = update_particle_grid(particles, grid_vx, grid_vy)
             launch!(ka_backend(V.x), SetVelocity, velocity_ndrange(V), V, verts, ε̇bg)
-            move_particles!(particles, (phases,))
-            phase_ratios_vertex!(phase_ratios, particles, values(verts), phases)
+            Δt = C * min(Δ...) / max(maximum(abs.(V.x)), maximum(abs.(V.y)))
         end
+        move_particles!(particles, particle_args)
+        inject_particles_phase!(particles, phases, (), ())
+        update_phase_ratios!(phase_ratios, particles, phases)
+        Npart = sum(particles.index.data)
 
         if mod(it, Nout) == 0 || it == 1
             @show
@@ -174,18 +186,21 @@ function main(ALE, restart, last_step)
             pyv = ppy.data[:]
             clr = phases.data[:]
             idxv = particles.index.data[:]
-            f = Figure()
-            ax = Axis(f[1, 1], title = "Particles", aspect = L.x / L.y, xlabel = "x", ylabel = "y")
-            scatter!(ax, Array(pxv[idxv]), Array(pyv[idxv]), color = Array(clr[idxv]), colormap = :roma, markersize = 2)
-            xlims!(ax, verts.x[1], verts.x[end])
-            ylims!(ax, verts.y[1], verts.y[end])
-            display(f)
+            if do_plot
+                @eval import CairoMakie
+                f = CairoMakie.Figure()
+                ax = CairoMakie.Axis(f[1, 1], title = "Particles", aspect = L.x / L.y, xlabel = "x", ylabel = "y")
+                CairoMakie.scatter!(ax, Array(pxv[idxv]), Array(pyv[idxv]); color = Array(clr[idxv]), colormap = :roma, markersize = 2)
+                CairoMakie.xlims!(ax, verts.x[1], verts.x[end])
+                CairoMakie.ylims!(ax, verts.y[1], verts.y[end])
+                display(f)
+            end
         end
 
         # Save checkpoint
-        if it == 100
+        if it == Nt
             @show file = @sprintf("./Checkpoint%05d.jld2", Nt)
-            jldsave(file; particles, phases, phase_ratios, particle_args, xlims, ylims, t)
+            checkpointing_particles(pwd(), particles, file; phases, phase_ratios, t, dt = Δt, xlims, ylims)
         end
     end
 
@@ -194,8 +209,8 @@ end
 
 ###################################
 
-ALE = true
-last_step = 100
-restart = false
+ALE = get(ENV, "JUSTPIC_ALE", "true") == "true"
+last_step = parse(Int, get(ENV, "JUSTPIC_RESTART_STEP", "100"))
+restart = get(ENV, "JUSTPIC_RESTART", "false") == "true"
 
 main(ALE, restart, last_step)

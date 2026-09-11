@@ -1,9 +1,8 @@
-using Statistics, LinearAlgebra, Printf, Base.Threads, GLMakie
-const year = 365 * 3600 * 24
-const USE_GPU = false
+using Printf, Base.Threads
 
 using JustPIC
 import KernelAbstractions: @kernel, @index
+import CellArraysIndexing as CAI
 const backend = JustPIC.CPU
 
 const ALE = true
@@ -12,13 +11,13 @@ const ALE = true
     I = @index(Global, NTuple)
     for ip in cellaxes(phases)
         # quick escape
-        JustPIC.@index(index[ip, I...]) == 0 && continue
-        x = JustPIC.@index px[ip, I...]
-        y = JustPIC.@index py[ip, I...]
+        CAI.@index(index[ip, I...]) == 0 && continue
+        x = CAI.@index px[ip, I...]
+        y = CAI.@index py[ip, I...]
         if x < y
-            JustPIC.@index phases[ip, I...] = 1.0
+            CAI.@index phases[ip, I...] = 1.0
         else
-            JustPIC.@index phases[ip, I...] = 2.0
+            CAI.@index phases[ip, I...] = 2.0
         end
     end
 end
@@ -37,7 +36,30 @@ end
 
 velocity_ndrange(V) = map(max, size(V.x), size(V.y))
 
-function main()
+function update_particle_grid(particles, grid_vx, grid_vy)
+    grid_vi = grid_vx, grid_vy
+    xci = grid_vy[1], grid_vx[2]
+    xvi = grid_vx[1], grid_vy[2]
+    xci = add_periodic_ghost_nodes.(xci)
+    xvi = add_periodic_ghost_nodes.(xvi)
+    di = (
+        center = map(x -> x[2] - x[1], xci),
+        vertex = map(x -> x[2] - x[1], xvi),
+        velocity = map(grids -> map(x -> x[2] - x[1], grids), grid_vi),
+    )
+    _di = map(values(di)) do spacings
+        map(x -> x isa Tuple ? inv.(x) : inv(x), spacings)
+    end
+    _di = (; center = _di[1], vertex = _di[2], velocity = _di[3])
+
+    return Particles(
+        backend, particles.coords, particles.index, particles.nxcell,
+        particles.max_xcell, particles.min_xcell, particles.np,
+        di, _di, xci, xvi, grid_vi,
+    )
+end
+
+function main(; do_plot = isinteractive())
 
     @printf("Running on %d thread(s)\n", nthreads())
 
@@ -52,7 +74,6 @@ function main()
 
     # Model extent
     verts = (x = LinRange(-L.x / 2, L.x / 2, Nv.x), y = LinRange(-L.y / 2, L.y / 2, Nv.y))
-    cents = (x = LinRange(-Δ.x / 2 + L.x / 2, L.x / 2 - Δ.x / 2, Nc.x), y = LinRange(-Δ.y / 2 + L.y / 2, L.y + Δ.y / 2 - L.y / 2, Nc.y))
     cents_ext = (x = LinRange(-Δ.x / 2 - L.x / 2, L.x / 2 + Δ.x / 2, Nc.x + 2), y = LinRange(-Δ.y / 2 - L.y / 2, L.y + Δ.y / 2 + L.y / 2, Nc.y + 2))
     xlims = [verts.x[1], verts.x[end]]
     ylims = [verts.y[1], verts.y[end]]
@@ -89,8 +110,7 @@ function main()
     )
 
     phase_ratios = JustPIC.PhaseRatios(backend, 2, values(Nc))
-    phase_ratios_vertex!(phase_ratios, particles, values(verts), phases)
-    phase_ratios_center!(phase_ratios, particles, values(verts), phases)
+    update_phase_ratios!(phase_ratios, particles, phases)
 
     println(" 
     it => 0
@@ -103,16 +123,12 @@ function main()
     Δt = C * min(Δ...) / max(maximum(abs.(V.x)), maximum(abs.(V.y)))
     @show Δt
 
-    # Create necessary tuples
-    grid_vx = (verts.x, cents_ext.y)
-    grid_vy = (cents_ext.x, verts.y)
-    Vxc = 0.5 * (V.x[1:(end - 1), 2:(end - 1)] .+ V.x[2:(end - 0), 2:(end - 1)])
-    Vyc = 0.5 * (V.y[2:(end - 1), 1:(end - 1)] .+ V.y[2:(end - 1), 2:(end - 0)])
-    Vmag = sqrt.(Vxc .^ 2 .+ Vyc .^ 2)
-
-    # generate figure
-    f = Figure()
-    ax = Axis(f[1, 1], title = "Particles", aspect = L.x / L.y)
+    # Generate a figure only for interactive runs. GLMakie is an optional script dependency.
+    if do_plot
+        @eval import GLMakie
+        f = GLMakie.Figure()
+        ax = GLMakie.Axis(f[1, 1], title = "Particles", aspect = L.x / L.y)
+    end
 
     for it in 1:Nt
 
@@ -121,10 +137,6 @@ function main()
         # advection!(particles, RungeKutta2(), values(V), Δt)
         # advection_LinP!(particles, RungeKutta2(), values(V), (grid_vx, grid_vy), Δt)
         advection_MQS!(particles, RungeKutta2(), values(V), Δt)
-        move_particles!(particles, particle_args)
-        inject_particles_phase!(particles, phases, (), (), values(verts))
-        phase_ratios_vertex!(phase_ratios, particles, values(verts), phases)
-        phase_ratios_center!(phase_ratios, particles, values(cents), phases)
 
         if ALE
             xlims[1] += xlims[1] * ε̇bg * Δt
@@ -143,11 +155,14 @@ function main()
             )
             grid_vx = (verts.x, cents_ext.y)
             grid_vy = (cents_ext.x, verts.y)
-            Δt = C * min(Δ...) / max(maximum(abs.(V.x)), maximum(abs.(V.y)))
+            particles = update_particle_grid(particles, grid_vx, grid_vy)
             launch!(ka_backend(V.x), SetVelocity, velocity_ndrange(V), V, verts, ε̇bg)
-            move_particles!(particles, (phases,))
-            phase_ratios_vertex!(phase_ratios, particles, values(verts), phases)
+            Δt = C * min(Δ...) / max(maximum(abs.(V.x)), maximum(abs.(V.y)))
         end
+
+        move_particles!(particles, particle_args)
+        inject_particles_phase!(particles, phases, (), ())
+        update_phase_ratios!(phase_ratios, particles, phases)
 
         if mod(it, Nout) == 0 || it == 1
             @show Npart = sum(particles.index.data)
@@ -161,10 +176,13 @@ function main()
             clr = phases.data[:]
             idxv = particles.index.data[:]
 
-            scatter!(ax, Array(pxv[idxv]), Array(pyv[idxv]), color = Array(clr[idxv]), colormap = :roma, markersize = 2)
-            xlims!(ax, verts.x[1], verts.x[end])
-            ylims!(ax, verts.y[1], verts.y[end])
-            display(f)
+            if do_plot
+                empty!(ax)
+                GLMakie.scatter!(ax, Array(pxv[idxv]), Array(pyv[idxv]); color = Array(clr[idxv]), colormap = :roma, markersize = 2)
+                GLMakie.xlims!(ax, verts.x[1], verts.x[end])
+                GLMakie.ylims!(ax, verts.y[1], verts.y[end])
+                display(f)
+            end
         end
     end
 
