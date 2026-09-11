@@ -32,9 +32,9 @@ out/
 *.vti
 *.vtm
 *.jld2
+*.json
 !docs/examples/matterhorn.jld2
 !.zenodo.json
-*.json
 
 # VSCode
 .vscode
