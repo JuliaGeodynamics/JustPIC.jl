@@ -88,12 +88,12 @@ function checkpointing_particles(
         dst,
         particles,
         fname::String;
-        phases = phases,
-        phase_ratios = phase_ratios,
-        chain = chain,
-        t = t,
-        dt = dt,
-        particle_args = particle_args,
+        phases = nothing,
+        phase_ratios = nothing,
+        chain = nothing,
+        t = nothing,
+        dt = nothing,
+        particle_args = nothing,
         kwargs...,
     )
     !isdir(dst) && mkpath(dst) # create folder in case it does not exist
