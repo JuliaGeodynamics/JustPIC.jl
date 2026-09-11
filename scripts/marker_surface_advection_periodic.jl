@@ -23,12 +23,13 @@ Vy = TA(backend)(fill(0.0, length.(grid_vxi[2])))
 Vz = TA(backend)(fill(0.0, length.(grid_vxi[3])))
 V = Vx, Vy, Vz
 
-# Initialize the surface with a small bump
+# Bump placed near the right boundary, so it crosses the periodic seam early on
+wrapped_distance(x, x0, L) = min(abs(x - x0), L - abs(x - x0))
 z_init = [
-    0.5 + 0.05 * exp(-50 * ((x - 0.1)^2 + (y - 0.5)^2))
+    0.5 + 0.05 * exp(-50 * (wrapped_distance(x, 0.9, Lx)^2 + (y - Ly / 2)^2))
         for x in xv, y in yv
 ]
-surf = init_marker_surface(backend, xv, yv, z_init)
+surf = init_marker_surface(backend, xv, yv, z_init; periodic_1 = true)
 
 # Time stepping
 dt = 0.05
@@ -36,7 +37,7 @@ for _ in 1:25
     advect_marker_surface!(surf, V, grid_vxi, dt; max_slope_angle = 45.0)
     f = Figure()
     ax = Axis3(f[1, 1]; aspect = (1, 1, 0.5))
-    surface!(ax, xv, yv, Array(surf.topo); colormap = :terrain)
+    surface!(ax, xv, yv, Array(surf.topo); colormap = :oleron)
     display(f)
     sleep(0.5)
 end
@@ -44,5 +45,5 @@ end
 # Plot the deformed surface
 f = Figure()
 ax = Axis3(f[1, 1]; aspect = (1, 1, 0.5))
-surface!(ax, xv, yv, Array(surf.topo); colormap = :terrain)
+surface!(ax, xv, yv, Array(surf.topo); colormap = :oleron)
 display(f)

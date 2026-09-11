@@ -76,6 +76,7 @@ surf = init_marker_surface(backend, xv, yv, 0.5;
 
 Under periodic boundaries the ghost cells used by the advection stencil wrap to the opposite side instead of being linearly extrapolated, the slope-limiter's neighbour lookups use `mod1` indexing, and the redundant boundary nodes (`topo[1, :]` and `topo[end, :]`) are kept synchronised after every update. This follows the same convention used by `move_particles!(…; periodic_1, periodic_2, periodic_3)` in JustPIC's particle advection.
 
+The periodic figures below translate a Gaussian bump with a uniform `Vx = 0.2` for 25 steps of `dt = 0.05`. Centered at `x = 0.9` to begin with, it crosses the right boundary and re-enters on the left, ending near `x = 0.16` — the rise at both x edges of either figure is the same bump seen across the seam. `scripts/marker_surface_advection_periodic.jl` runs the same setup with a live GLMakie view.
 
 ![Initial periodic surface](assets/initial_condition_surface_periodic.png)
 
