@@ -33,7 +33,7 @@ For coupling with a Stokes solver, the volumetric fraction of each cell that lie
 compute_rock_fraction!(ratios, surf, xvi, dxi)
 ```
 
-`ratios` is a named tuple of arrays sized at cell centres, vertices, faces, and edges. The function evaluates the geometric fraction of every corresponding control volume using the surface's 4-triangle representation.
+`ratios` is a named tuple of arrays sized at cell centres, vertices, faces, and edges. The function evaluates the geometric fraction of every corresponding control volume from a piecewise-planar surface, splitting each cell into eight triangles that meet at the cell center.
 
 ## Examples
 
@@ -44,7 +44,8 @@ grids and regenerate the figures below:
 julia --project=docs docs/examples/marker_surface.jl
 ```
 
-The batch example uses CairoMakie and Makie's `:Greys` colormap. GLMakie 0.13
+The batch example uses CairoMakie, colouring synthetic surfaces with Makie's
+`:oleron` colormap and Matterhorn elevations with `:grayC10`. GLMakie 0.13
 remains available in the docs environment for interactive rendering.
 
 The nonperiodic figures use a 193×193, approximately 8 m sample centered on

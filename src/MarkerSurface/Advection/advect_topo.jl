@@ -29,13 +29,11 @@ the opposite boundary when periodic; otherwise they clamp to the boundary
 node. Matching ghost coordinates come from `_ghost_coord`.
 """
 @inline function _ghost_field(arr, i, j, nx, ny, periodic_1::Bool, periodic_2::Bool)
-    return @inbounds begin
-        ii = i == 0 ? (periodic_1 ? nx - 1 : 1) :
-            i == nx + 1 ? (periodic_1 ? 2 : nx) : i
-        jj = j == 0 ? (periodic_2 ? ny - 1 : 1) :
-            j == ny + 1 ? (periodic_2 ? 2 : ny) : j
-        return arr[ii, jj]
-    end
+    ii = i == 0 ? (periodic_1 ? nx - 1 : 1) :
+        i == nx + 1 ? (periodic_1 ? 2 : nx) : i
+    jj = j == 0 ? (periodic_2 ? ny - 1 : 1) :
+        j == ny + 1 ? (periodic_2 ? 2 : ny) : j
+    return arr[ii, jj]
 end
 
 """

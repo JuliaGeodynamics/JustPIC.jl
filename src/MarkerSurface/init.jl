@@ -98,8 +98,12 @@ function compute_avg_topo(surf::MarkerSurface)
     end
 
     gg = ImplicitGlobalGrid.global_grid()
-    i_end = min(i_end, _owned_surface_extent(nx1, 1, gg))
-    j_end = min(j_end, _owned_surface_extent(ny1, 2, gg))
+    owned_x = _owned_surface_extent(nx1, 1, gg)
+    owned_y = _owned_surface_extent(ny1, 2, gg)
+    _surface_collective_failure(owned_x < 1 || owned_y < 1) &&
+        throw(ArgumentError("MarkerSurface local size is incompatible with the ImplicitGlobalGrid overlap"))
+    i_end = min(i_end, owned_x)
+    j_end = min(j_end, owned_y)
     owns_z_column = gg.coords[3] == 0
     topo = @view surf.topo[1:i_end, 1:j_end]
     local_sum = owns_z_column ? sum(topo) : zero(eltype(surf.topo))
@@ -116,13 +120,15 @@ end
 Number of leading nodes along `dim` that this rank owns exclusively, out of the
 `n` local ones: the trailing `gg.overlaps[dim]` lines are shared with the next
 rank and belong to it, so global reductions count them once.
+
+A local size smaller than the overlap yields a result below one. The caller must
+reduce that condition across the ranks before raising it: only some ranks see it,
+and an unreduced throw would leave the rest blocked in the next collective.
 """
 @inline function _owned_surface_extent(n, dim, gg)
     gg.coords[dim] == gg.dims[dim] - 1 && return n
     overlap = gg.overlaps[dim] + n - gg.nxyz[dim]
-    extent = n - overlap
-    extent > 0 || throw(ArgumentError("MarkerSurface local size is incompatible with ImplicitGlobalGrid overlap"))
-    return extent
+    return n - overlap
 end
 
 """
