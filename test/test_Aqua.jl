@@ -25,12 +25,14 @@ end
 end
 
 @testset "Compats" begin
-    @test !Aqua.test_deps_compat(
+    @test iszero(
+        Aqua.test_deps_compat(
         JustPIC;
         check_julia = true,
         check_extras = false,
         check_weakdeps = true,
-    ).anynonpass
+    ).anynonpass,
+    )
     # GPU stacks are weakdeps that cluster CI may promote to hard deps (see runtests.jl)
     @test Aqua.test_stale_deps(JustPIC; ignore = [:CUDA, :AMDGPU, :Metal]).value
 end
