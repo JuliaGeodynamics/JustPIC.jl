@@ -38,10 +38,19 @@ import KernelAbstractions
 #
 # This is applied where a grid range is passed *directly* into a kernel (marker
 # chains, passive markers). It is a no-op on the `Float64` CPU/CUDA/AMDGPU path
-# (`T === Float64`) so those backends keep their exact grid values, and it leaves
-# non-range grids (device arrays, plain vectors) untouched.
+# (`T === Float64`) so those backends keep their exact grid values.
+#
+# Array grids carry no `TwicePrecision` machinery, but they must still reach the
+# kernel in `T`: an `eltype` that disagrees with the field being computed widens
+# the whole kernel to the coordinates' precision, which a `Float64`-less GPU
+# cannot compile. They are converted only on a mismatch, so the common path
+# returns the caller's own array and allocates nothing.
 @inline recast_grid(x, ::Type{T}) where {T} = x
 @inline recast_grid(x::Tuple, ::Type{T}) where {T} = map(g -> recast_grid(g, T), x)
+@inline function recast_grid(x::AbstractArray, ::Type{T}) where {T}
+    eltype(x) === T && return x
+    return T.(x)
+end
 @inline function recast_grid(x::AbstractRange, ::Type{T}) where {T}
     T === Float64 && return x
     return StepRangeLen(convert(T, first(x)), convert(T, step(x)), length(x))

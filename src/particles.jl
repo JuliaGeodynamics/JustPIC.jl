@@ -102,8 +102,8 @@ struct MarkerChain{Backend, N, I, T1, T2, T3, TV} <: AbstractParticles
             h_vertices0::T2,
             cell_vertices::TV,
             index::T3,
-            min_xcell::I,
             max_xcell::I,
+            min_xcell::I,
         ) where {B, N, I, T1, T2, T3, TV}
         return new{B, N, I, T1, T2, T3, TV}(
             coords,
@@ -131,12 +131,100 @@ function MarkerChain(coords, index::CPUCellArray, cell_vertices, min_xcell, max_
         copy(h_vertices),
         cell_vertices,
         index,
-        min_xcell,
         max_xcell,
+        min_xcell,
     )
     compute_topography_vertex!(chain)
     copyto!(chain.h_vertices0, chain.h_vertices)
     return chain
+end
+
+"""
+    MarkerSurface{Backend, T2, TV, TB, TW} <: AbstractParticles
+
+A 3D free surface tracker using a structured marker grid.
+The surface is represented as a 2D grid of topography values (z-heights) at corner nodes.
+
+# Fields
+- `topo::T2`       — topography (z-elevation) at grid vertices, size `(nx+1, ny+1)`
+- `topo0::T2`      — topography from the previous time step
+- `vx::T2`         — x-velocity interpolated to surface nodes
+- `vy::T2`         — y-velocity interpolated to surface nodes
+- `vz::T2`         — z-velocity interpolated to surface nodes
+- `xv::TV`         — x-coordinates of surface grid vertices
+- `yv::TV`         — y-coordinates of surface grid vertices
+- `periodic_1::Bool` — periodic boundary in x
+- `periodic_2::Bool` — periodic boundary in y
+- `advection_valid::TB` — persistent validity mask for topography advection
+- `smoothing_cell_topo::TW` — persistent cell-centered smoothing workspace
+- `smoothing_steep::TB` — persistent steep-cell mask
+- `z_ownership::TW` — persistent z-column ownership weights
+"""
+struct MarkerSurface{Backend, T2, TV, TB, TW} <: AbstractParticles
+    topo::T2             # topography at grid vertices (nx+1) x (ny+1)
+    topo0::T2            # previous-timestep topography
+    vx::T2               # surface velocity x-component at vertices
+    vy::T2               # surface velocity y-component at vertices
+    vz::T2               # surface velocity z-component at vertices
+    xv::TV               # x vertex coordinates
+    yv::TV               # y vertex coordinates
+    periodic_1::Bool     # periodic BC in x direction
+    periodic_2::Bool     # periodic BC in y direction
+    advection_valid::TB
+    smoothing_cell_topo::TW
+    smoothing_steep::TB
+    z_ownership::TW
+
+    function MarkerSurface(
+            ::Type{B},
+            topo, topo0,
+            vx, vy, vz,
+            xv, yv,
+            periodic_1, periodic_2,
+        ) where {B}
+        nx1, ny1 = size(topo)
+        advection_valid = similar(topo, Bool)
+        smoothing_cell_topo = similar(topo, nx1 - 1, ny1 - 1)
+        smoothing_steep = similar(topo, Bool, nx1 - 1, ny1 - 1)
+        z_ownership = similar(topo)
+        fill!(advection_valid, false)
+        fill!(smoothing_cell_topo, zero(eltype(topo)))
+        fill!(smoothing_steep, false)
+        fill!(z_ownership, zero(eltype(topo)))
+        return MarkerSurface(
+            B,
+            topo, topo0, vx, vy, vz, xv, yv,
+            periodic_1, periodic_2,
+            advection_valid, smoothing_cell_topo, smoothing_steep, z_ownership,
+        )
+    end
+
+    function MarkerSurface(
+            ::Type{B},
+            topo, topo0,
+            vx, vy, vz,
+            xv, yv,
+            periodic_1, periodic_2,
+            advection_valid, smoothing_cell_topo, smoothing_steep, z_ownership,
+        ) where {B}
+        return new{
+            B, typeof(topo), typeof(xv), typeof(advection_valid),
+            typeof(smoothing_cell_topo),
+        }(
+            topo, topo0, vx, vy, vz, xv, yv,
+            periodic_1, periodic_2,
+            advection_valid, smoothing_cell_topo, smoothing_steep, z_ownership,
+        )
+    end
+end
+
+function MarkerSurface(topo, topo0, vx, vy, vz, xv, yv, periodic_1, periodic_2)
+    return MarkerSurface(
+        CPU,
+        topo, topo0, vx, vy, vz,
+        xv, yv,
+        periodic_1, periodic_2,
+    )
 end
 
 """

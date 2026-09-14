@@ -3,8 +3,8 @@ steps:
     matrix:
       setup:
         version:
-          - "1.11"
-          - "1.12"
+          - "lts"
+          - "1"
     plugins:
       - JuliaCI/julia#v1:
           version: "{{matrix.version}}"
@@ -30,8 +30,8 @@ steps:
     matrix:
       setup:
         version:
-          - "1.11"
-          - "1.12"
+          - "lts"
+          - "1"
     plugins:
       - JuliaCI/julia#v1:
           version: "{{matrix.version}}"
@@ -58,8 +58,8 @@ steps:
     matrix:
       setup:
         version:
-          - "1.11"
-          - "1.12"
+          - "lts"
+          - "1"
     plugins:
       - JuliaCI/julia#v1:
           version: "{{matrix.version}}"

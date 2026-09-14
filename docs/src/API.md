@@ -13,6 +13,7 @@ helpers and provides a searchable index of everything.
 | Grid/particle and centroid transfers | [Interpolations](interpolations.md) |
 | Velocity reconstruction schemes | [Velocity interpolation](velocity_interpolation.md) |
 | Marker-chain surface tracking | [Marker chain](marker_chain.md) |
+| Marker-surface (3D free surface) tracking | [Marker surface](marker_surface.md) |
 | Checkpointing and restart | [I/O](IO.md) |
 
 ## Backends
