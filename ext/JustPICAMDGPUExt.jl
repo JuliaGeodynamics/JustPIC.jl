@@ -19,31 +19,28 @@ using AMDGPU: ROCBackend
 # automatically. No `common.jl` re-include and no per-function forwarding layer
 # (`JustPIC.f(::Particles{ROCBackend}, ...) = f(...)`) are needed.
 
-CellArrays.@define_ROCCellArray()
+# `CellArrays.@define_ROCCellArray` is not used: it defines methods on CellArrays-owned
+# types, which clash with identical definitions from any other package calling the
+# same macro (e.g. ParallelStencil). See #306.
+const ROCCellArray{T, N, B, T_elem} = CellArray{T, N, B, ROCArray{T_elem, CellArrays._N}}
+
+# Uninitialized `ROCCellArray` with cell type `T` and array-of-structs layout (`B = 0`).
+@inline function _roccellarray(::Type{T}, dims::NTuple{N, Integer}) where {T, N}
+    return ROCCellArray{T, N, 0, eltype(T)}(undef, Int.(dims))
+end
 
 JustPIC.TA(::Type{ROCBackend}) = ROCArray
-
-function ROCCellArray(
-        ::Type{T}, ::UndefInitializer, dims::NTuple{N, Int}
-    ) where {T <: CellArrays.Cell, N}
-    return CellArrays.CellArray{T, N, 0, AMDGPU.ROCArray{eltype(T), 3}}(undef, dims)
-end
-function ROCCellArray(
-        ::Type{T}, ::UndefInitializer, dims::Int...
-    ) where {T <: CellArrays.Cell}
-    return ROCCellArray(T, undef, dims)
-end
 
 # ---------------------------------------------------------------------------
 # Backend-specific CellArray allocation
 # ---------------------------------------------------------------------------
 
-JustPIC.CA(::Type{ROCBackend}, dims; eltype = Float64) = ROCCellArray{eltype}(undef, dims)
+JustPIC.CA(::Type{ROCBackend}, dims; eltype = Float64) = _roccellarray(eltype, dims)
 
 @inline function JustPIC.undef_cell_array(
         ::Type{ROCBackend}, ::Type{T}, ni::NTuple{N, <:Integer}
     ) where {T, N}
-    return ROCCellArray{T}(undef, Int.(ni))
+    return _roccellarray(T, ni)
 end
 
 # ---------------------------------------------------------------------------
@@ -170,7 +167,7 @@ function AMDGPU.ROCArray(::Type{T}, CA::CellArray) where {T <: Number}
     ni = size(CA)
     # Array initializations
     T_SArray = eltype(CA)
-    CA_ROC = ROCCellArray(SVector{length(T_SArray), T}, undef, ni...)
+    CA_ROC = _roccellarray(SVector{length(T_SArray), T}, ni)
     # copy data to the ROC CellArray
     tmp = if size(CA.data) != size(CA_ROC.data)
         ROCArray(permutedims(CA.data, (3, 2, 1)))

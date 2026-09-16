@@ -27,7 +27,15 @@ using Metal: MetalBackend
 # (untyped) conversions preserve the source eltype and therefore only work for
 # already-`Float32` data.
 
-CellArrays.@define_MtlCellArray()
+# `CellArrays.@define_MtlCellArray` is not used: it defines methods on CellArrays-owned
+# types, which clash with identical definitions from any other package calling the
+# same macro (e.g. ParallelStencil). See #306.
+const MtlCellArray{T, N, B, T_elem} = CellArray{T, N, B, MtlArray{T_elem, CellArrays._N}}
+
+# Uninitialized `MtlCellArray` with cell type `T` and array-of-structs layout (`B = 0`).
+@inline function _mtlcellarray(::Type{T}, dims::NTuple{N, Integer}) where {T, N}
+    return MtlCellArray{T, N, 0, eltype(T)}(undef, Int.(dims))
+end
 
 JustPIC.TA(::Type{MetalBackend}) = MtlArray
 
@@ -35,12 +43,12 @@ JustPIC.TA(::Type{MetalBackend}) = MtlArray
 # Backend-specific CellArray allocation
 # ---------------------------------------------------------------------------
 
-JustPIC.CA(::Type{MetalBackend}, dims; eltype = Float32) = MtlCellArray{eltype}(undef, dims)
+JustPIC.CA(::Type{MetalBackend}, dims; eltype = Float32) = _mtlcellarray(eltype, dims)
 
 @inline function JustPIC.undef_cell_array(
         ::Type{MetalBackend}, ::Type{T}, ni::NTuple{N, <:Integer}
     ) where {T, N}
-    return MtlCellArray{T}(undef, Int.(ni))
+    return _mtlcellarray(T, ni)
 end
 
 # ---------------------------------------------------------------------------
@@ -127,7 +135,7 @@ end
 function Metal.MtlArray(::Type{T}, CA::CellArray) where {T <: Number}
     ni = size(CA)
     T_SArray = eltype(CA)
-    CA_Mtl = MtlCellArray{SVector{length(T_SArray), T}}(undef, ni)
+    CA_Mtl = _mtlcellarray(SVector{length(T_SArray), T}, ni)
     # Narrow the eltype on the host first: Metal has no Float64, so the source
     # Float64 backing array cannot be uploaded as-is (unlike CUDA/AMDGPU).
     host = if size(CA.data) != size(CA_Mtl.data)

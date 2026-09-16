@@ -52,6 +52,28 @@ end
 
 phase_ratio_sums(A) = [sum(A[I]) for I in CartesianIndices(size(A))]
 
+@static if BACKEND_NAME != "CPU"
+    # The GPU extension must not define methods on CellArrays-owned types: packages
+    # such as ParallelStencil define the same methods via `CellArrays.@define_*CellArray`,
+    # and method overwriting breaks precompilation of extensions depending on both (#306).
+    @testset "GPU extension defines no CellArrays methods" begin
+        ext = Base.get_extension(JustPIC, Symbol(:JustPIC, BACKEND_NAME, :Ext))
+        @test ext isa Module
+        owned(f) = filter(m -> m.module === ext, collect(methods(f)))
+        @test isempty(owned(Base.show))
+        @test isempty(owned(Base.getproperty))
+        @test isempty(owned(JustPIC.CellArrays.CellArray))
+
+        A = JustPIC.CA(backend, (3, 4); eltype = SVector{2, FT})
+        @test isconcretetype(typeof(A))
+        @test size(A) == (3, 4)
+        @test A.data isa JustPIC.TA(backend)
+        B = JustPIC.undef_cell_array(backend, SVector{3, Bool}, (3, 4))
+        @test isconcretetype(typeof(B))
+        @test size(B) == (3, 4)
+    end
+end
+
 @testset "CellArrays - 2D" begin
     x = FT(1)
     ni = (2, 2)

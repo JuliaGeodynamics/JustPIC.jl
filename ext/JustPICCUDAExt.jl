@@ -19,29 +19,28 @@ using CUDA: CUDABackend
 # automatically. No `common.jl` re-include and no per-function forwarding layer
 # (`JustPIC.f(::Particles{CUDABackend}, ...) = f(...)`) are needed.
 
-CellArrays.@define_CuCellArray()
+# `CellArrays.@define_CuCellArray` is not used: it defines methods on CellArrays-owned
+# types, which clash with identical definitions from any other package calling the
+# same macro (e.g. ParallelStencil). See #306.
+const CuCellArray{T, N, B, T_elem} = CellArray{T, N, B, CuArray{T_elem, CellArrays._N, CUDA.DeviceMemory}}
+
+# Uninitialized `CuCellArray` with cell type `T` and array-of-structs layout (`B = 0`).
+@inline function _cucellarray(::Type{T}, dims::NTuple{N, Integer}) where {T, N}
+    return CuCellArray{T, N, 0, eltype(T)}(undef, Int.(dims))
+end
 
 JustPIC.TA(::Type{CUDABackend}) = CuArray
-
-function CuCellArray(
-        ::Type{T}, ::UndefInitializer, dims::NTuple{N, Int}
-    ) where {T <: CellArrays.Cell, N}
-    return CellArrays.CellArray{T, N, 0, CUDA.CuArray{eltype(T), 3}}(undef, dims)
-end
-function CuCellArray(::Type{T}, ::UndefInitializer, dims::Int...) where {T <: CellArrays.Cell}
-    return CuCellArray(T, undef, dims)
-end
 
 # ---------------------------------------------------------------------------
 # Backend-specific CellArray allocation
 # ---------------------------------------------------------------------------
 
-JustPIC.CA(::Type{CUDABackend}, dims; eltype = Float64) = CuCellArray{eltype}(undef, dims)
+JustPIC.CA(::Type{CUDABackend}, dims; eltype = Float64) = _cucellarray(eltype, dims)
 
 @inline function JustPIC.undef_cell_array(
         ::Type{CUDABackend}, ::Type{T}, ni::NTuple{N, <:Integer}
     ) where {T, N}
-    return CuCellArray{T}(undef, Int.(ni))
+    return _cucellarray(T, ni)
 end
 
 # ---------------------------------------------------------------------------
@@ -168,7 +167,7 @@ function CUDA.CuArray(::Type{T}, CA::CellArray) where {T <: Number}
     ni = size(CA)
     # Array initializations
     T_SArray = eltype(CA)
-    CA_CUDA = CuCellArray(SVector{length(T_SArray), T}, undef, ni...)
+    CA_CUDA = _cucellarray(SVector{length(T_SArray), T}, ni)
     # copy data to the CUDA CellArray
     tmp = if size(CA.data) != size(CA_CUDA.data)
         CuArray(permutedims(CA.data, (3, 2, 1)))
