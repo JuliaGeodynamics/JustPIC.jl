@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Marker chain · JustPIC.jl</title><meta name="title" content="Marker chain · JustPIC.jl"/><meta property="og:title" content="Marker chain · JustPIC.jl"/><meta property="twitter:title" content="Marker chain · JustPIC.jl"/><meta name="description" content="Documentation for JustPIC.jl."/><meta property="og:description" content="Documentation for JustPIC.jl."/><meta property="twitter:description" content="Documentation for JustPIC.jl."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">JustPIC.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><a class="tocitem" href="../particles/">Particles</a></li><li><a class="tocitem" href="../CellArrays/">CellArrays</a></li><li><span class="tocitem">Interpolations</span><ul><li><a class="tocitem" href="../interpolations/">Particles interpolations</a></li><li><a class="tocitem" href="../velocity_interpolation/">Velocity interpolation</a></li></ul></li><li class="is-active"><a class="tocitem" href>Marker chain</a><ul class="internal"><li><a class="tocitem" href="#Example"><span>Example</span></a></li></ul></li><li><span class="tocitem">Examples</span><ul><li><a class="tocitem" href="../field_advection2D/">Field advection in 2D</a></li><li><a class="tocitem" href="../field_advection2D_MPI/">Field advection in 2D using MPI</a></li><li><a class="tocitem" href="../field_advection3D/">Field advection in 3D</a></li></ul></li><li><a class="tocitem" href="../IO/">I/O</a></li><li><a class="tocitem" href="../mixed_CPU_GPU/">Mixed GPU/CPU</a></li><li><a class="tocitem" href="../API/">Public API</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Marker chain</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Marker chain</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/JuliaGeodynamics/JustPIC.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/JuliaGeodynamics/JustPIC.jl/blob/main/docs/src/marker_chain.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Marker-chain"><a class="docs-heading-anchor" href="#Marker-chain">Marker chain</a><a id="Marker-chain-1"></a><a class="docs-heading-anchor-permalink" href="#Marker-chain" title="Permalink"></a></h1><p>In, e.g., geodynamic modeling is often useful to track interfaces between different materials, such as the topographic profile. We can use the <code>MarkerChain</code> object in JustPIC.jl to define and advect surfaces (not closed-polygons) in two-dimensional models. </p><p>We can instantiate a chain object with a given constant elevation <code>h</code> as:</p><p><code>chain = init_markerchain(backend, nxcell, min_xcell, max_xcell, xv, h)</code></p><p>where <code>backend</code> is the device backend, <code>nxcell</code> is the initial number of makers per cell, <code>min_xcell</code> and <code>max_xcell</code> are the minimum and maximum number of particles allowed per cell, respectively, and <code>xv</code> is the grid corresponding to the vertices of the the grid.</p><p>We can also fill an existing <code>MarkerChain</code> with a given topographic profile:</p><pre><code class="language-julia hljs"># create topographic profile
+x      = LinRange(0, 1, 200)
+topo_x = LinRange(0, 1, 200)
+topo_y = @. sin(2π*topo_x) * 0.1
+
+# fill the chain with the topographic profile` 
+fill_chain!(chain, topo_x, topo_y)</code></pre><p>Finally, the marker chain can be advected as follows:</p><pre><code class="language-julia hljs">advect_markerchain!(chain, method, velocity, grid_vxi, dt)</code></pre><p>where <code>method</code> is the time integration method of the advection equation, <code>velocity</code> is a tuple containing the arrays of the velocity field, <code>grid_vxi</code> is a tuple containing the grids of the velocity components on the staggered grid, and <code>t</code> is the time step.</p><h2 id="Example"><a class="docs-heading-anchor" href="#Example">Example</a><a id="Example-1"></a><a class="docs-heading-anchor-permalink" href="#Example" title="Permalink"></a></h2><pre><code class="language-julia hljs">using JustPIC
+using JustPIC._2D
+using GLMakie
+
+const backend = JustPIC.CPUBackend
+
+function expand_range(x::AbstractRange)
+    dx = x[2] - x[1]
+    n = length(x)
+    x1, x2 = extrema(x)
+    xI = round(x1-dx; sigdigits=5)
+    xF = round(x2+dx; sigdigits=5)
+    LinRange(xI, xF, n+2)
+end
+
+# velocity field
+vi_stream(x) =  π*1e-5 * (x - 0.5)
+
+# Initialize domain &amp; grids
+n        = 51
+Lx       = Ly = 1.0
+# nodal vertices
+xvi      = xv, yv = LinRange(0, Lx, n), LinRange(0, Ly, n)
+dxi      = dx, dy = xv[2] - xv[1], yv[2] - yv[1]
+# nodal centers
+xc, yc   = LinRange(0+dx/2, Lx-dx/2, n-1), LinRange(0+dy/2, Ly-dy/2, n-1)
+# staggered grid velocity nodal locations
+grid_vx  = xv, expand_range(yc)
+grid_vy  = expand_range(xc), yv
+grid_vxi = grid_vx, grid_vy
+
+# Velocity defined on the grid
+Vx       = TA(backend)([-vi_stream(y) for x in grid_vx[1], y in grid_vx[2]]);
+Vy       = TA(backend)([ vi_stream(x) for x in grid_vy[1], y in grid_vy[2]]);
+V        = Vx, Vy;
+
+# Initialize marker chain
+nxcell, min_xcell, max_xcell = 12, 6, 24
+initial_elevation = Ly/2
+chain             = init_markerchain(backend, nxcell, min_xcell, max_xcell, xv, initial_elevation);
+method            = RungeKutta2()
+
+# time stepping
+dt       = 200.0
+
+for _ in 1:25
+    advect_markerchain!(chain, method, V, grid_vxi, dt)
+end
+
+# plotting the chain
+f = Figure()
+ax = Axis(f[1, 1])
+poly!(
+    ax,
+    Rect(0, 0, 1, 1),
+    color=:lightgray,
+)
+px = chain.coords[1].data[:];
+py = chain.coords[2].data[:];
+scatter!(px, py, color=:black)
+display(f)</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../velocity_interpolation/">« Velocity interpolation</a><a class="docs-footer-nextpage" href="../field_advection2D/">Field advection in 2D »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.8.0 on <span class="colophon-date" title="Tuesday 14 January 2025 09:26">Tuesday 14 January 2025</span>. Using Julia version 1.9.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
