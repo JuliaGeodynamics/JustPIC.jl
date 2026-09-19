@@ -202,6 +202,11 @@ end
         α = FT(0.5), ghost_1 = false, ghost_2 = false,
     )
     @test Array(pF_ghost.data)[active] ≈ Array(pF_plain.data)[active]
+
+    Tc_plain = TA(backend)([y for x in xci[1], y in xci[2]])
+    pTc_plain, = JustPIC.init_cell_arrays(particles, Val(1))
+    JustPIC.centroid2particle!(pTc_plain, Tc_plain, particles; ghosted = false)
+    @test Array(pTc_plain.data)[active] ≈ Array(particles.coords[2].data)[active]
 end
 
 @testset "Interpolations 3D" begin
