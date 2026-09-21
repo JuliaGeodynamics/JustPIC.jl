@@ -163,7 +163,7 @@ end
     pT, = JustPIC.init_cell_arrays(particles, Val(1))
     JustPIC.inject_particles!(particles, (pT,))
 
-    index_cpu = Array(particles.index)
+    index_cpu = to_cpu(particles.index)
     ghost_empty = all(
         count(index_cpu[i, j, k]) == 0 for i in axes(index_cpu, 1), j in axes(index_cpu, 2), k in axes(index_cpu, 3)
             if i in (1, size(index_cpu, 1)) || j in (1, size(index_cpu, 2)) || k in (1, size(index_cpu, 3))
@@ -203,7 +203,7 @@ end
     F_center = TA(backend)(fill(FT(7.5), ni))
     JustPIC.inject_particles_phase!(particles, pPhases, (pT,), (F_center,))
 
-    index_cpu, pT_cpu = Array(particles.index), Array(pT)
+    index_cpu, pT_cpu = to_cpu(particles.index), to_cpu(pT)
     injected = [
         pT_cpu[c...][ip] for c in cells for ip in 1:max_xcell if index_cpu[c...][ip]
     ]

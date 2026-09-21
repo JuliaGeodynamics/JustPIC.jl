@@ -69,9 +69,9 @@ end
 
 # Compare the particles stored in `particles` with the `expected` coordinates of every id.
 function audit_jumping_particles(particles, args, expected)
-    index = Array(particles.index)
-    coords = Array.(particles.coords)
-    fields = Array.(args)
+    index = to_cpu(particles.index)
+    coords = to_cpu.(particles.coords)
+    fields = to_cpu.(args)
     xvi = Array.(particles.xvi)
     N = length(coords)
 

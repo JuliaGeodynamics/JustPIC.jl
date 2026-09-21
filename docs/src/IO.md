@@ -12,9 +12,9 @@ At the lowest level, you can serialize arrays manually:
 jldsave(
     "my_file.jld2";
     particles     = Array(particles),
-    phases        = Array(phases),
+    phases        = to_cpu(phases),
     phase_ratios  = Array(phase_ratios),
-    particle_args = Array.(particle_args),
+    particle_args = to_cpu.(particle_args),
 )
 ```
 This saves particle information to `my_file.jld2`, ready to be reloaded later.
@@ -26,9 +26,9 @@ If file size matters more than exact restart reproducibility, you can downcast t
 jldsave(
     "my_file.jld2";
     particles     = Array(Float32, particles),
-    phases        = Array(Float32, phases),
+    phases        = to_cpu(Float32, phases),
     phase_ratios  = Array(Float32, phase_ratios),
-    particle_args = Array.(Float32, particle_args),
+    particle_args = to_cpu.(Float32, particle_args),
 )
 ```
 

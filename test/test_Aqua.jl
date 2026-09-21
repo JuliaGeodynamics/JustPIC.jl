@@ -2,7 +2,10 @@ using Aqua, Test, JustPIC
 
 ## Failing tests: hard to fix in the current state of the pkg
 # Aqua.test_unbound_args(JustPIC)
-# Aqua.test_piracies(JustPIC)
+
+@testset "Piracies" begin
+    @test Aqua.test_piracies(JustPIC).value
+end
 
 @testset "Ambiguities" begin
     @test Aqua.test_ambiguities(

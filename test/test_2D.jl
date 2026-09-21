@@ -207,7 +207,7 @@ end
     pT, = JustPIC.init_cell_arrays(particles, Val(1))
     JustPIC.inject_particles!(particles, (pT,))
 
-    index_cpu = Array(particles.index)
+    index_cpu = to_cpu(particles.index)
     ghost_empty = all(
         count(index_cpu[i, j]) == 0 for i in axes(index_cpu, 1), j in axes(index_cpu, 2)
             if i in (1, size(index_cpu, 1)) || j in (1, size(index_cpu, 2))
@@ -248,9 +248,9 @@ end
     inject_particles!(particles, ())
 
     # every quadrant, not just the one that was already populated, must be filled
-    idx_cell = Array(particles.index)[cell...]
-    px_cell = Array(particles.coords[1])[cell...]
-    py_cell = Array(particles.coords[2])[cell...]
+    idx_cell = to_cpu(particles.index)[cell...]
+    px_cell = to_cpu(particles.coords[1])[cell...]
+    py_cell = to_cpu(particles.coords[2])[cell...]
     min_xquadrant = cld(min_xcell, 4)
     for offset in ((0, 0), (1, 0), (0, 1), (1, 1))
         xlo = x0 + offset[1] * dx / 2
