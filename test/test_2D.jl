@@ -354,6 +354,31 @@ end
     end
 end
 
+include(joinpath(@__DIR__, "helpers_move_particles.jl"))
+
+@testset "Particle movement fills free slots per destination 2D" begin
+    xv = LinRange(FT(0), FT(1), 5)
+    xc = LinRange(FT(0.125), FT(0.875), 4)
+    grid_vx = xv, expand_range(xc)
+    grid_vy = expand_range(xc), xv
+    particles = init_particles(backend, 4, 4, 1, grid_vx, grid_vy)
+    fields = init_cell_arrays(particles, Val(2))
+
+    L, R, D, U = (-1, 0), (1, 0), (0, -1), (0, 1)
+    scenarios = (
+        "two destinations" => ([L, R], Dict(L => [4], R => [1])),
+        "four destinations" => ([L, R, D, U], Dict(L => [4], R => [1], D => [2], U => [3])),
+        "alternating destinations" => ([L, R, L, R], Dict(L => [3, 4], R => [1, 2])),
+        "shared destination and a staying particle" => ([R, L, R, (0, 0)], Dict(R => [2, 3], L => [1])),
+        "diagonal destinations" => ([(1, 1), (-1, -1), R, D], Dict((1, 1) => [4], (-1, -1) => [1], R => [3], D => [2])),
+    )
+    for (name, (leaving, free)) in scenarios
+        @testset "$name" begin
+            check_fragmented_move(backend, particles, fields, (3, 3), leaving, free)
+        end
+    end
+end
+
 @testset "Refined grid advection helpers 2D" begin
     xv = TA(backend)(FT[0.0, 0.1, 0.3, 0.6, 1.0])
     yv = TA(backend)(collect(LinRange(FT(0), FT(1), 5)))
