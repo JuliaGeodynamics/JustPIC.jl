@@ -6,6 +6,12 @@ Semi-Lagrangian advection variant that evaluates backtracked velocities with the
 
 Use this when the advecting velocity should be reconstructed with the `LinP`
 scheme instead of plain linear interpolation.
+
+# Notes
+- `F` is overwritten in place at the interior nodes; boundary nodes are left untouched.
+- `F0` is the source field from the previous step and is only read.
+- `F` and `F0` must not share memory; aliased buffers throw an `ArgumentError`.
+  See [`semilagrangian_advection!`](@ref).
 """
 function semilagrangian_advection_LinP!(
         F,
@@ -16,6 +22,7 @@ function semilagrangian_advection_LinP!(
         grid::NTuple{N, T},
         dt,
     ) where {N, T}
+    check_no_alias(F, F0)
     Fref = F isa Tuple ? first(F) : F
     # recast integrator/timestep/grids to the field precision so Float32 backends
     # (e.g. Metal) don't carry a Float64 value into the kernel; `recast_grid` also
@@ -65,7 +72,7 @@ end
         find_parent_cell_bisection(pᵢ_backtrack[i], grid[i], I[i])
     end
     di_vertex = @dxi(dxi_vertex, I_backtrack...)
-    F[I...] = _grid2particle(pᵢ_backtrack, grid, di_vertex, F, I_backtrack)
+    F[I...] = _grid2particle(pᵢ_backtrack, grid, di_vertex, F0, I_backtrack)
 end
 
 @kernel function backtrack_kernel_LinP!(

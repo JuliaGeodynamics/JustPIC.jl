@@ -52,6 +52,7 @@ function runtests()
             include(joinpath(testdir, "test_refined_grid.jl"))
             include(joinpath(testdir, "test_save_load.jl"))
             include(joinpath(testdir, "test_interpolation_kernels.jl"))
+            include(joinpath(testdir, "test_semilagrangian.jl"))
         catch
             nfail += 1
         end
@@ -77,6 +78,7 @@ function runtests()
             "test_3D.jl",
             "test_CellArrays.jl",
             "test_interpolation_kernels.jl",
+            "test_semilagrangian.jl",
             "test_refined_grid.jl",
             "test_markerchain_2D.jl",
             "test_save_load.jl",
