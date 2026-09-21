@@ -22,6 +22,12 @@ layout.
 - Particles that leave a non-periodic direction are discarded.
 - Periodic directions use the ghost cells created by `add_periodic_ghost_nodes`
   to wrap coordinates and particle fields across opposite domain boundaries.
+  The ghost cells of a periodic direction must be empty on entry, as they are
+  after every call; otherwise an `ArgumentError` is thrown.
+- A particle may cross any number of cells in one call, across periodic seams
+  included. Jumps of more than one cell make the call slower: the cells are then
+  transferred in `(2j₁ + 1) × … × (2jₙ + 1)` concurrent batches, with `jᵢ` the
+  largest jump along direction `i`, so keep the displacement per step small.
 - `args` must use the same cell layout as `particles.coords`.
 - The public entry point uses the vertex grid and spacing stored in `particles`.
 """
@@ -29,33 +35,24 @@ move_particles!(particles::AbstractParticles, args; periodic_1 = false, periodic
 
 function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args, dxi; periodic_1 = false, periodic_2 = false, periodic_3 = false) where {N}
 
-    (; coords, index, max_xcell) = particles
+    (; index) = particles
     N == 2 && periodic_3 && throw(ArgumentError("periodic_3 is only valid for 3D particles"))
-    nxi = size(index)
+    N in (2, 3) || throw(ArgumentError("The dimension of the problem must be either 2 or 3"))
     domain_limits = physical_domain_limits(particles)
-    n_color = ntuple(i -> ceil(Int, nxi[i] / 3), Val(N))
-    periodicity = periodic_1, periodic_2, periodic_3
+    periodicity = ntuple(i -> (periodic_1, periodic_2, periodic_3)[i], Val(N))
     if any(periodicity)
+        periodic_ghost_occupied(index, periodicity) && throw(
+            ArgumentError("particles found in the ghost cells of a periodic direction; they must be empty before `move_particles!`")
+        )
         wrap_particles!(particles, periodicity, domain_limits)
     end
 
-    # move particles
-    if N == 2 # 2D case
-        for offsetᵢ in 1:3, offsetⱼ in 1:3
-            launch!(
-                ka_backend(index), move_particles_ps!, n_color,
-                coords, grid, dxi, index, domain_limits, args, (offsetᵢ, offsetⱼ)
-            )
-        end
-    elseif N == 3 # 3D case
-        for offsetᵢ in 1:3, offsetⱼ in 1:3, offsetₖ in 1:3
-            launch!(
-                ka_backend(index), move_particles_ps!, n_color,
-                coords, grid, dxi, index, domain_limits, args, (offsetᵢ, offsetⱼ, offsetₖ)
-            )
-        end
-    else
-        error(ThrowArgument("The dimension of the problem must be either 2 or 3"))
+    # The first sweep assumes that particles cross at most one cell along each direction, as
+    # CFL-limited advection ensures. Particles that jump farther are left in place and moved by
+    # a second sweep, which is sized to the largest jump along each direction.
+    max_jump = ntuple(_ -> 1, Val(N))
+    while !sweep_cells!(particles, grid, args, dxi, domain_limits, periodicity, max_jump)
+        max_jump = maximum_particle_jump(particles, grid, dxi, domain_limits, periodicity)
     end
 
     return nothing
@@ -65,24 +62,148 @@ function physical_domain_limits(particles::Particles{B, N}) where {B, N}
     return ntuple(i -> extrema(particles.xi_vel[i][i]), Val(N))
 end
 
+# Move the particles that are at most `max_jump[i]` cells away from their parent cell along each
+# direction `i` and leave the others where they are. Return whether there were no others.
+#
+# The source cells are swept in colors: the cells of one color are processed concurrently, one
+# color after the other. This is race free because a source cell only writes to itself and to
+# the destination cells of its particles, which lie at most `max_jump[i]` cells away along
+# direction `i` (cyclically along periodic directions, where the physical cells `2:n - 1` form a
+# ring). Two cells of the same color are more than `2 * max_jump[i]` cells apart along at least
+# one direction `i`, so their write sets are disjoint and no two threads ever search or fill
+# slots in the same cell.
+function sweep_cells!(particles, grid, args, dxi, domain_limits, periodicity, max_jump)
+    (; coords, index) = particles
+    backend = ka_backend(index)
+    deferred = KernelAbstractions.zeros(backend, Int, 1)
+    bound = (; max_jump, periodicity, deferred)
+    layout = map(ColorAxis, size(index), max_jump, periodicity)
+    nblocks = map(axis -> axis.nblocks, layout)
+    for colors in Iterators.product(map(axis -> 1:axis.ncolors, layout)...)
+        launch!(
+            backend, move_particles_ps!, nblocks,
+            coords, grid, dxi, index, domain_limits, args, bound, colors, layout
+        )
+    end
+    return iszero(maximum(deferred))
+end
+
+# Partition of the cells of one direction into colors. The cell of color `k` in block `b` is
+# given by `color_cell`, and cells of the same color in consecutive blocks are at least
+# `2 * max_jump + 1` cells apart. Along a periodic direction the physical cells `2:n - 1` form
+# a ring of `period = n - 2` cells and the blocks tile it, so the last block is also separated
+# from the first one across the seam; the ghost cells are not scheduled.
+struct ColorAxis
+    ncolors::Int
+    nblocks::Int
+    ncells::Int
+    period::Int # 0 unless periodic
+end
+
+function ColorAxis(n::Integer, max_jump::Integer, periodic::Bool)
+    separation = 2 * max_jump + 1
+    if periodic
+        period = n - 2
+        nblocks = max(period ÷ separation, 1)
+        return ColorAxis(cld(period, nblocks), nblocks, n, period)
+    end
+    ncolors = min(separation, n)
+    return ColorAxis(ncolors, cld(n, ncolors), n, 0)
+end
+
+# Cell index of color `k` in block `b`, or 0 if that color has no cell in the block.
+@inline function color_cell(axis::ColorAxis, k::Integer, b::Integer)
+    if iszero(axis.period)
+        i = axis.ncolors * (b - 1) + k
+        return ifelse(i ≤ axis.ncells, i, 0)
+    end
+    first = ((b - 1) * axis.period + axis.nblocks - 1) ÷ axis.nblocks
+    next = (b * axis.period + axis.nblocks - 1) ÷ axis.nblocks
+    return ifelse(k ≤ next - first, 2 + first + k - 1, 0)
+end
+
 @kernel function move_particles_ps!(
-        coords, grid, dxi, index, domain_limits, args, offsets::NTuple{N}
+        coords, grid, dxi, index, domain_limits, args, bound, colors::NTuple{N}, layout::NTuple{N}
     ) where {N}
     I = @index(Global, NTuple)
-    indices = ntuple(Val(N)) do i
-        3 * (I[i] - 1) + offsets[i]
-    end
+    indices = ntuple(i -> color_cell(layout[i], colors[i], I[i]), Val(N))
 
-    if all(indices .≤ size(index))
-        _move_particles!(coords, grid, dxi, index, domain_limits, indices, args)
+    if all(>(0), indices)
+        _move_particles!(coords, grid, dxi, index, domain_limits, indices, args, bound)
     end
 end
 
-function _move_particles!(coords, grid, dxi, index, domain_limits, idx, args)
+# Largest number of cells any particle has to cross along each direction to reach its parent
+# cell. Particles that are outside the domain or already in their parent cell do not count.
+function maximum_particle_jump(particles, grid, dxi, domain_limits, periodicity)
+    (; coords, index) = particles
+    backend = ka_backend(index)
+    max_jumps = map(_ -> KernelAbstractions.zeros(backend, Int, size(index)...), periodicity)
+    launch!(
+        backend, maximum_particle_jump!, size(index),
+        max_jumps, coords, grid, dxi, index, domain_limits, periodicity
+    )
+    return map(maximum, max_jumps)
+end
+
+@kernel function maximum_particle_jump!(
+        max_jumps, coords, grid, di, index, domain_limits, periodicity
+    )
+    I = @index(Global, NTuple)
+    corner_xi = corner_coordinate(grid, I)
+    dxi = @dxi di I...
+
+    max_jump = map(_ -> 0, periodicity)
+    for ip in cellaxes(index)
+        doskip(index, ip, I...) && continue
+        pᵢ = cache_particle(coords, ip, I)
+        isincell(pᵢ, corner_xi, dxi) && continue
+        indomain(pᵢ, domain_limits) || continue
+        new_cell = find_parent_cell_bisection(pᵢ, grid, I)
+        max_jump = max.(max_jump, cell_jump(new_cell, I, size(index), periodicity))
+    end
+
+    for d in eachindex(max_jumps)
+        max_jumps[d][I...] = max_jump[d]
+    end
+end
+
+# The ghost cells of a periodic direction are not swept, so they have to be empty.
+function periodic_ghost_occupied(index, periodicity)
+    backend = ka_backend(index)
+    occupied = KernelAbstractions.zeros(backend, Int, 1)
+    launch!(backend, periodic_ghost_occupied!, size(index), occupied, index, periodicity)
+    return !iszero(maximum(occupied))
+end
+
+@kernel function periodic_ghost_occupied!(occupied, index, periodicity)
+    I = @index(Global, NTuple)
+    if in_periodic_ghost(I, size(index), periodicity)
+        for ip in cellaxes(index)
+            doskip(index, ip, I...) && continue
+            occupied[1] = 1
+        end
+    end
+end
+
+@inline function in_periodic_ghost(I::NTuple{N}, nxi::NTuple{N}, periodicity::NTuple{N}) where {N}
+    return any(ntuple(i -> periodicity[i] & (I[i] == 1 || I[i] == nxi[i]), Val(N)))
+end
+
+@inline function axis_jump(dst, src, n, periodic)
+    jump = abs(dst - src)
+    return ifelse(periodic, min(jump, n - 2 - jump), jump)
+end
+
+@inline function cell_jump(dst::NTuple{N}, src::NTuple{N}, nxi::NTuple{N}, periodicity::NTuple{N}) where {N}
+    return ntuple(i -> axis_jump(dst[i], src[i], nxi[i], periodicity[i]), Val(N))
+end
+
+function _move_particles!(coords, grid, dxi, index, domain_limits, idx, args, bound)
     # coordinate of the lower-most-left coordinate of the parent cell
     corner_xi = corner_coordinate(grid, idx)
     # iterate over neighbouring (child) cells
-    move_kernel!(coords, corner_xi, grid, dxi, index, domain_limits, args, idx)
+    move_kernel!(coords, corner_xi, grid, dxi, index, domain_limits, args, idx, bound)
     return nothing
 end
 
@@ -95,6 +216,7 @@ function move_kernel!(
         domain_limits,
         args::NTuple{N2, T},
         idx::NTuple{N1, Int64},
+        bound,
     ) where {N1, N2, T}
 
     dxi = @dxi di idx...
@@ -118,6 +240,12 @@ function move_kernel!(
         domain_check && continue
 
         new_cell = find_parent_cell_bisection(pᵢ, grid, idx)
+
+        # too far for the cells swept concurrently: leave it for a wider sweep
+        if any(cell_jump(new_cell, idx, size(index), bound.periodicity) .> bound.max_jump)
+            bound.deferred[1] = 1
+            continue
+        end
 
         # hold particle variables
         current_args = cache_args(args, ip, idx)
