@@ -352,6 +352,14 @@ end
             @test CAI.@index(field[1, 2, 3]) == FT(42)
         end
     end
+
+    # the ghost cells of a periodic direction must be empty, but are ordinary cells otherwise
+    reset_particle!((1, 3), (FT(0.6), FT(0.375)))
+    @test_throws ArgumentError move_particles!(particles, (field,); periodic_1 = true)
+    move_particles!(particles, (field,))
+    @test count(Array(particles.index.data)) == 1
+    @test CAI.@index(particles.index[1, 4, 3])
+    @test CAI.@index(field[1, 4, 3]) == FT(42)
 end
 
 include(joinpath(@__DIR__, "helpers_move_particles.jl"))
@@ -376,6 +384,49 @@ include(joinpath(@__DIR__, "helpers_move_particles.jl"))
         @testset "$name" begin
             check_fragmented_move(backend, particles, fields, (3, 3), leaving, free)
         end
+    end
+end
+
+include(joinpath(@__DIR__, "helpers_move_jumps.jl"))
+
+@testset "Particle movement coloring" begin
+    # cells of one color are moved concurrently, so they have to be far enough apart that their
+    # destination cells cannot overlap, also across the seam of a periodic direction
+    for ncells in 3:40, max_jump in 0:6, periodic in (false, true)
+        axis = JustPIC.ColorAxis(ncells, max_jump, periodic)
+        cells_by_color = map(1:axis.ncolors) do color
+            filter(!iszero, [JustPIC.color_cell(axis, color, block) for block in 1:axis.nblocks])
+        end
+        scheduled = sort(reduce(vcat, cells_by_color))
+        @test scheduled == (periodic ? collect(2:(ncells - 1)) : collect(1:ncells))
+
+        separation = 2 * max_jump + 1
+        ring = ncells - 2
+        for cells in cells_by_color
+            gaps = diff(sort(cells))
+            periodic && length(cells) > 1 && push!(gaps, minimum(cells) + ring - maximum(cells))
+            @test all(≥(separation), gaps)
+        end
+    end
+end
+
+@testset "Particle movement with converging jumps 2D" begin
+    ncells = (30, 26)
+    xv, yv = LinRange(FT(0), FT(1), ncells[1] + 1), LinRange(FT(0), FT(1), ncells[2] + 1)
+    xc = LinRange(xv[1] + step(xv) / 2, xv[end] - step(xv) / 2, ncells[1])
+    yc = LinRange(yv[1] + step(yv) / 2, yv[end] - step(yv) / 2, ncells[2])
+    grid_vx = xv, expand_range(yc)
+    grid_vy = expand_range(xc), yv
+
+    for max_jump in (1, 2, 3, (3, 0), (0, 2)), periodicity in ((false, false), (true, false), (true, true))
+        particles = init_particles(backend, 4, 40, 2, grid_vx, grid_vy)
+        args = init_cell_arrays(particles, Val(2))
+        expected = load_jumping_particles!(particles, args, max_jump, periodicity)
+
+        move_particles!(particles, args; periodic_1 = periodicity[1], periodic_2 = periodicity[2])
+
+        report = audit_jumping_particles(particles, args, expected)
+        @test report == (; found = length(expected), duplicated = 0, misplaced = 0, corrupted = 0, lost = 0)
     end
 end
 

@@ -384,6 +384,34 @@ include(joinpath(@__DIR__, "helpers_move_particles.jl"))
     end
 end
 
+include(joinpath(@__DIR__, "helpers_move_jumps.jl"))
+
+@testset "Particle movement with converging jumps 3D" begin
+    ncells = (14, 12, 10)
+    xv, yv, zv = ntuple(d -> LinRange(FT(0), FT(1), ncells[d] + 1), Val(3))
+    xc, yc, zc = ntuple(Val(3)) do d
+        v = (xv, yv, zv)[d]
+        LinRange(v[1] + step(v) / 2, v[end] - step(v) / 2, ncells[d])
+    end
+    grid_vx = xv, expand_range(yc), expand_range(zc)
+    grid_vy = expand_range(xc), yv, expand_range(zc)
+    grid_vz = expand_range(xc), expand_range(yc), zv
+
+    for max_jump in (1, 2, (2, 0, 1)), periodicity in ((false, false, false), (true, false, true), (true, true, true))
+        particles = init_particles(backend, 8, 40, 4, grid_vx, grid_vy, grid_vz)
+        args = init_cell_arrays(particles, Val(2))
+        expected = load_jumping_particles!(particles, args, max_jump, periodicity)
+
+        move_particles!(
+            particles, args;
+            periodic_1 = periodicity[1], periodic_2 = periodicity[2], periodic_3 = periodicity[3],
+        )
+
+        report = audit_jumping_particles(particles, args, expected)
+        @test report == (; found = length(expected), duplicated = 0, misplaced = 0, corrupted = 0, lost = 0)
+    end
+end
+
 @testset "Refined grid particle initialization 3D" begin
     xv = FT[0.0, 0.1, 0.25, 0.55, 1.0]
     yv = FT[0.0, 0.2, 0.45, 0.8, 1.0]
