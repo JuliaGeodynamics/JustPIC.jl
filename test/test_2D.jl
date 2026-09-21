@@ -11,7 +11,7 @@ elseif BACKEND_NAME == "Metal"
     Metal.allowscalar(true)
 end
 
-using JustPIC, CellArrays, Test, LinearAlgebra
+using JustPIC, CellArrays, Test, LinearAlgebra, Statistics
 import CellArraysIndexing as CAI
 import KernelAbstractions: @kernel, @index, CPU
 
@@ -51,6 +51,22 @@ function expand_range(x::AbstractVector)
     xI = x1 - dx_left
     xF = x2 + dx_right
     return vcat(xI, x, xF)
+end
+
+function _nodal_weights(x)
+    weights = Vector{eltype(x)}(undef, length(x))
+    weights[1] = (x[2] - x[1]) / 2
+    weights[end] = (x[end] - x[end - 1]) / 2
+    for i in 2:(length(x) - 1)
+        weights[i] = (x[i + 1] - x[i - 1]) / 2
+    end
+    return weights
+end
+
+function _weighted_integral_2D(field, xvi)
+    values = Array(field)[2:(end - 1), 2:(end - 1)]
+    wx, wy = _nodal_weights.(xvi)
+    return sum(values .* reshape(wx, :, 1) .* reshape(wy, 1, :))
 end
 
 # Analytical flow solution
@@ -805,7 +821,8 @@ function advection_test_2D()
     particle_args = pT, = init_cell_arrays(particles, Val(1))
     JustPIC.grid2particle!(pT, xvi_p, T, particles, diff.(xvi_p))
 
-    sumT = sum(T)
+    # Particle-to-grid interpolation is nonconservative; weighted integral checks bounded drift.
+    sumT = _weighted_integral_2D(T, xvi)
 
     niter = 25
     for it in 1:niter
@@ -817,7 +834,7 @@ function advection_test_2D()
         JustPIC.grid2particle!(pT, xvi_p, T, particles, diff.(xvi_p))
     end
 
-    sumT_final = sum(T)
+    sumT_final = _weighted_integral_2D(T, xvi)
 
     return abs(sumT - sumT_final) / sumT
 
@@ -859,7 +876,8 @@ function advection_test_2D_refined()
     particle_args = pT, = init_cell_arrays(particles, Val(1))
     JustPIC.grid2particle!(pT, T, particles)
 
-    sumT = sum(T)
+    # Refined-grid check remains a bounded-drift check for nonconservative interpolation.
+    sumT = _weighted_integral_2D(T, xvi)
 
     niter = 25
     for _ in 1:niter
@@ -871,7 +889,7 @@ function advection_test_2D_refined()
         JustPIC.grid2particle!(pT, T, particles)
     end
 
-    sumT_final = sum(T)
+    sumT_final = _weighted_integral_2D(T, xvi)
 
     return abs(sumT - sumT_final) / sumT
 end
@@ -884,68 +902,71 @@ function test_advection_2D_refined()
     return passed
 end
 
-function test_rotating_circle()
-    # Initialize particles -------------------------------
-    nxcell, max_xcell, min_xcell = 25, 50, 10
-    n = 256
-    nx = ny = n - 1
-    Lx = Ly = FT(1)
-    # nodal vertices
-    xvi = xv, yv = LinRange(0, Lx, n), LinRange(0, Ly, n)
-    dxi = dx, dy = xv[2] - xv[1], yv[2] - yv[1]
-    # nodal centers
-    xc, yc = LinRange(0 + dx / 2, Lx - dx / 2, n - 1), LinRange(0 + dy / 2, Ly - dy / 2, n - 1)
-    # staggered grid velocity nodal locations
+function test_rotating_circle(; dt = FT(200), period_fraction = 1)
+    n = 64
+    xv = yv = LinRange(FT(0), FT(1), n)
+    xc = yc = LinRange(FT(0.5) / (n - 1), FT(1) - FT(0.5) / (n - 1), n - 1)
     grid_vx = xv, expand_range(yc)
     grid_vy = expand_range(xc), yv
-
-    particles = JustPIC.init_particles(
-        backend, nxcell, max_xcell, min_xcell, (grid_vx, grid_vy)...,
-    )
-
-    # Cell fields -------------------------------
     Vx = TA(backend)([-vi_stream(y) for x in grid_vx[1], y in grid_vx[2]])
-    Vy = TA(backend)([ vi_stream(x) for x in grid_vy[1], y in grid_vy[2]])
-    xc0 = yc0 = FT(0.25)
-    R = 6 * dx
-    xvi_p = JustPIC.add_periodic_ghost_nodes.(xvi)
-    T = TA(backend)([((x - xc0)^2 + (y - yc0)^2 ≤ R^2) * FT(1) for x in xvi_p[1], y in xvi_p[2]])
-    T0 = deepcopy(T)
+    Vy = TA(backend)([vi_stream(x) for x in grid_vy[1], y in grid_vy[2]])
     V = Vx, Vy
 
-    w = π * 1.0e-5  # angular velocity
-    period = 1  # revolution number
-    tmax = period / (w / (2 * π)) / 10
-    dt = FT(200)
+    center = FT(0.25), FT(0.5)
+    radius = FT(0.12)
+    nmarker = 64
+    θ = LinRange(FT(0), FT(2π) * (FT(1) - FT(1) / FT(nmarker)), nmarker)
+    initial = (center[1] .+ radius .* cos.(θ), center[2] .+ radius .* sin.(θ))
+    markers = init_passive_markers(backend, TA(backend).(initial))
 
-    particle_args = pT, = init_cell_arrays(particles, Val(1))
-    JustPIC.grid2particle!(pT, xvi_p, T, particles, diff.(xvi_p))
-
-    t = 0
+    w = FT(π) * FT(1.0e-5)
+    tmax = FT(period_fraction) * 2 * FT(π) / w
+    t = zero(FT)
     it = 0
-    sumT = sum(T)
-    while t ≤ tmax
-        JustPIC.particle2grid!(T, pT, particles)
-        copyto!(T0, T)
-        JustPIC.advection!(particles, JustPIC.RungeKutta2(), V, dt)
-        JustPIC.move_particles!(particles, particle_args)
-        JustPIC.inject_particles!(particles, (pT,))
-        JustPIC.grid2particle!(pT, xvi_p, T, particles, diff.(xvi_p))
-        t += dt
+    while t < tmax
+        step_dt = min(dt, tmax - t)
+        JustPIC.advection!(markers, JustPIC.RungeKutta2(), V, (grid_vx, grid_vy), step_dt)
+        t += step_dt
         it += 1
     end
 
-    sumT_final = sum(T)
-
-    return abs(sumT - sumT_final) / sumT
+    final = Array.(markers.coords)
+    angle = w * tmax
+    target = ntuple(Val(2)) do dim
+        if dim == 1
+            FT(0.5) .+ (initial[1] .- FT(0.5)) .* cos(angle) .-
+                (initial[2] .- FT(0.5)) .* sin(angle)
+        else
+            FT(0.5) .+ (initial[1] .- FT(0.5)) .* sin(angle) .+
+                (initial[2] .- FT(0.5)) .* cos(angle)
+        end
+    end
+    trajectory_error = maximum(hypot.(final[1] .- target[1], final[2] .- target[2]))
+    target_radius = hypot.(target[1] .- FT(0.5), target[2] .- FT(0.5))
+    final_radius = hypot.(final[1] .- FT(0.5), final[2] .- FT(0.5))
+    shape_error = maximum(abs.(final_radius .- target_radius))
+    centroid_error = hypot(mean(final[1]) - mean(target[1]), mean(final[2]) - mean(target[2]))
+    radius_error = maximum(abs.(final_radius .- target_radius)) / radius
+    return (; trajectory_error, shape_error, centroid_error, radius_error, grid_spacing = xv[2] - xv[1], it)
 end
 
 function test_rotation_2D()
-    err = test_rotating_circle()
-    tol = 1.0e-1
-    passed = err < tol
+    result = test_rotating_circle()
+    tol = FT(4) * result.grid_spacing
+    @test result.trajectory_error < tol
+    @test result.shape_error < tol
+    @test result.centroid_error < tol
+    @test result.radius_error < tol / FT(0.12)
+    return true
+end
 
-    return passed
+function test_rotation_timestep_refinement_2D()
+    coarse = test_rotating_circle(; dt = FT(400), period_fraction = FT(0.1))
+    fine = test_rotating_circle(; dt = FT(200), period_fraction = FT(0.1))
+    observed_order = log2(coarse.centroid_error / fine.centroid_error)
+    @test fine.centroid_error < coarse.centroid_error
+    @test observed_order > FT(0.5)
+    return true
 end
 
 @testset "Miniapps" begin
@@ -959,5 +980,9 @@ end
 
     @testset "2. Rotating circle 2D" begin
         @test test_rotation_2D()
+    end
+
+    @testset "2b. Rotating circle timestep refinement" begin
+        @test test_rotation_timestep_refinement_2D()
     end
 end
