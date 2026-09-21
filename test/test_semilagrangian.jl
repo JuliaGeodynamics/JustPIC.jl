@@ -103,8 +103,7 @@ const SML_SCHEMES = (
     "MQS" => semilagrangian_advection_MQS!,
 )
 
-# RungeKutta4 backtracking fails to compile on GPU: the `@.` broadcast in `advect_particle_SML` is dynamic
-const SML_METHODS = backend === CPU ? (RungeKutta2(), RungeKutta4()) : (RungeKutta2(),)
+const SML_METHODS = (RungeKutta2(), RungeKutta4())
 
 @testset "Semi-Lagrangian $(scheme) $(nameof(typeof(method))) $(N)D" for N in (2, 3),
         (scheme, advect!) in SML_SCHEMES,
