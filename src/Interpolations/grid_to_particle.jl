@@ -141,6 +141,7 @@ function grid2particle_flip!(Fp, xvi, F, F0, particles; α = 0.0, ghost_1 = true
     Tc = eltype(eltype(coords[1]))
     xvi = recast_grid(xvi, Tc)
     di = grid_size(xvi)
+    di = backend_grid(ka_backend(particles), di, Tc)
     ni = inner_size(index)
     # blend factor must match the field precision (Float64 breaks Metal)
     αT = convert(Tc, α)

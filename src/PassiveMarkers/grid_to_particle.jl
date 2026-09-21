@@ -19,6 +19,7 @@ function grid2particle!(Fp, xvi, F, particles::PassiveMarkers)
     # backends (they are indexed directly inside the kernel; see advection!)
     xvi = recast_grid(xvi, eltype(coords[1]))
     dxi = grid_size(xvi)
+    dxi = backend_grid(ka_backend(particles), dxi, eltype(coords[1]))
 
     launch!(ka_backend(particles), grid2particle_passive_marker!, np, Fp, F, xvi, dxi, coords)
 
@@ -44,20 +45,21 @@ end
 
     I = ntuple(Val(N)) do i
         Base.@_inline_meta
-        cell_index(pᵢ[i], xvi[i], dxi[i])
+        parent_cell_index(pᵢ[i], xvi[i], midpoint_seed(xvi[i]))
     end
 
     Fi = field_corners(F, I)
+    di = local_grid_spacing(dxi, I)
 
     # Interpolate field F onto particle
-    Fp[ip] = _grid2particle(pᵢ, xvi, dxi, Fi, I)
+    Fp[ip] = _grid2particle(pᵢ, xvi, di, Fi, I)
 
     return nothing
 end
 
-@inline function _grid2particle!(Fp, ip, pᵢ, xvi, dxi, Fi, I)
+@inline function _grid2particle!(Fp, ip, pᵢ, xvi, di, Fi, I)
     # Interpolate field F onto particle
-    return Fp[ip] = _grid2particle(pᵢ, xvi, dxi, Fi, I)
+    return Fp[ip] = _grid2particle(pᵢ, xvi, di, Fi, I)
 end
 
 @inline function _grid2particle_passive_marker!(
@@ -69,13 +71,14 @@ end
 
     I = ntuple(Val(N2)) do i
         Base.@_inline_meta
-        cell_index(pᵢ[i], xvi[i], dxi[i])
+        parent_cell_index(pᵢ[i], xvi[i], midpoint_seed(xvi[i]))
     end
 
+    di = local_grid_spacing(dxi, I)
     ntuple(Val(N1)) do i
         Fi = field_corners(F[i], I)
         # Interpolate field F onto particle
-        Fp[i][ip] = _grid2particle(pᵢ, xvi, dxi, Fi, I)
+        Fp[i][ip] = _grid2particle(pᵢ, xvi, di, Fi, I)
     end
 
     return nothing
