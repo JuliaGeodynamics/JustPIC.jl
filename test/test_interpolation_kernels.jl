@@ -46,6 +46,13 @@ function expand_range(x::AbstractRange)
     return LinRange(xI, xF, n + 2)
 end
 
+function interior_support(A)
+    mask = falses(size(A))
+    ranges = ntuple(i -> 2:(size(A, i) - 1), ndims(A))
+    mask[ranges...] .= true
+    return mask
+end
+
 @testset "Interpolation kernels" begin
     @testset "lerp" begin
         t1D = (0.5,)
@@ -117,8 +124,10 @@ end
     fill!(T2, NaN)
     JustPIC.particle2grid!(T2, pT, particles)
     # norm(T2 .- T) / length(T)
-    finite_mask = isfinite.(T2)
-    @test norm(T2[finite_mask] .- T[finite_mask]) / count(finite_mask) < 1.0e-1
+    support = interior_support(T2)
+    @test all(isfinite.(T2[support]))
+    @test all(isnan.(T2[.!support]))
+    @test norm(T2[support] .- T[support]) / count(support) < 1.0e-1
 
     # Grid to centroid test
     JustPIC.centroid2particle!(pT, xci_p, Tc, particles, diff.(xci_p))
@@ -131,8 +140,10 @@ end
     fill!(Tc2, NaN)
     JustPIC.particle2centroid!(Tc2, pT, xci_p, particles, diff.(xci_p))
     # norm(T2 .- T) / length(T)
-    finite_mask_c = isfinite.(Tc2)
-    @test norm(Tc2[finite_mask_c] .- Tc[finite_mask_c]) / count(finite_mask_c) < 1.0e-1
+    support_c = interior_support(Tc2)
+    @test all(isfinite.(Tc2[support_c]))
+    @test all(isnan.(Tc2[.!support_c]))
+    @test norm(Tc2[support_c] .- Tc[support_c]) / count(support_c) < 1.0e-1
 
     # test copy function
     particles_copy = copy(particles)
@@ -273,8 +284,10 @@ end
     T2 = similar(T)
     fill!(T2, NaN)
     JustPIC.particle2grid!(T2, pT, particles)
-    finite_mask = isfinite.(T2)
-    @test norm(T2[finite_mask] .- T[finite_mask]) / count(finite_mask) < 1.0e-1
+    support = interior_support(T2)
+    @test all(isfinite.(T2[support]))
+    @test all(isnan.(T2[.!support]))
+    @test norm(T2[support] .- T[support]) / count(support) < 1.0e-1
 
     # Grid to centroid test
     JustPIC.centroid2particle!(pT, xci_p, Tc, particles, diff.(xci_p))
@@ -285,12 +298,74 @@ end
     fill!(Tc2, NaN)
     JustPIC.particle2centroid!(Tc2, pT, xci_p, particles, diff.(xci_p))
     # norm(T2 .- T) / length(T)
-    finite_mask_c = isfinite.(Tc2)
-    @test norm(Tc2[finite_mask_c] .- Tc[finite_mask_c]) / count(finite_mask_c) < 1.0e-1
+    support_c = interior_support(Tc2)
+    @test all(isfinite.(Tc2[support_c]))
+    @test all(isnan.(Tc2[.!support_c]))
+    @test norm(Tc2[support_c] .- Tc[support_c]) / count(support_c) < 1.0e-1
 
     # test copy function
     particles_copy = copy(particles)
     pT_copy = copy(pT)
     @test particles_copy.index.data[:] == particles.index.data[:]
     @test pT_copy.data[:] == pT.data[:]
+end
+
+@testset "Refined-grid PIC/FLIP equivalence" begin
+    if BACKEND_NAME == "CPU"
+
+        xv = FT[0, 0.1, 0.3, 0.7, 1]
+        yv = FT[0, 0.2, 0.5, 0.8, 1]
+        xc = (xv[1:(end - 1)] .+ xv[2:end]) ./ 2
+        yc = (yv[1:(end - 1)] .+ yv[2:end]) ./ 2
+        grid_vx = xv, JustPIC.add_periodic_ghost_nodes(yc)
+        grid_vy = JustPIC.add_periodic_ghost_nodes(xc), yv
+        particles = JustPIC.init_particles(CPU, 4, 4, 1, grid_vx, grid_vy)
+        p_pic, = JustPIC.init_cell_arrays(particles, Val(1))
+        p_flip, = JustPIC.init_cell_arrays(particles, Val(1))
+        xvi = particles.xvi
+        T = [x + y for x in xvi[1], y in xvi[2]]
+
+        JustPIC.grid2particle!(p_pic, T, particles)
+        JustPIC.grid2particle_flip!(p_flip, xvi, T, T, particles; α = FT(1))
+
+        @test p_flip.data == p_pic.data
+    end
+end
+
+@testset "Passive markers on refined grids" begin
+    if BACKEND_NAME == "CPU"
+        xv = FT[0, 0.1, 0.3, 0.7, 1]
+        yv = FT[0, 0.2, 0.5, 0.8, 1]
+        markers = JustPIC.init_passive_markers(CPU, (FT[0.15, 0.65], FT[0.25, 0.7]))
+        field = [x + y for x in xv, y in yv]
+        values = similar(markers.coords[1])
+
+        JustPIC.grid2particle!(values, (xv, yv), field, markers)
+
+        @test values ≈ markers.coords[1] .+ markers.coords[2]
+    end
+end
+
+@testset "3D MQS stencil consistency" begin
+    F = [FT(i + 10j + 100k) for i in 1:6, j in 1:6, k in 1:6]
+    idx = (2, 2, 2)
+    t = (FT(0.3), FT(0.4), FT(0.6))
+    v = JustPIC.field_corners(F, idx)
+
+    bottom = JustPIC.MQS(view(F, :, :, 2), v[1:4], t[1:2], 2, 2, Val(1))
+    top = JustPIC.MQS(view(F, :, :, 3), v[5:8], t[1:2], 2, 2, Val(1))
+    expected_x = lerp((bottom, top), (t[3],))
+    @test JustPIC.MQS(F, v, t, idx..., Val(1)) ≈ expected_x
+
+    F_y = [FT(j) for i in 1:6, j in 1:6, k in 1:6]
+    v_y = JustPIC.field_corners(F_y, idx)
+    @test JustPIC.MQS(F_y, v_y, t, idx..., Val(3)) ≈ FT(2) + t[2]
+
+    F_z = [FT(k)^2 for i in 1:6, j in 1:6, k in 1:6]
+    v_z = JustPIC.field_corners(F_z, idx)
+    F_xz = F_z[:, 2, :]
+    expected_z = JustPIC.MQS(
+        F_xz, (v_z[1], v_z[2], v_z[5], v_z[6]), (t[1], t[3]), 2, 2, Val(2)
+    )
+    @test JustPIC.MQS(F_z, v_z, t, idx..., Val(3)) ≈ expected_z
 end

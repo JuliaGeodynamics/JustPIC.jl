@@ -25,6 +25,7 @@ function particle2grid!(F, Fp, buffer, xi, particles::PassiveMarkers)
     xi = recast_grid(xi, eltype(coords[1]))
     ni = size(F)
     dxi = grid_size(xi)
+    dxi = backend_grid(ka_backend(F), dxi, eltype(coords[1]))
 
     launch!(ka_backend(F), reset_arrays!, ni, F, buffer)
     # accumulate weights on F and buffer arrays
@@ -50,9 +51,10 @@ end
 
     inode, jnode = ntuple(Val(2)) do i
         Base.@_inline_meta
-        @inbounds cell_index(pᵢ[i], xi[i], dxi[i])
+        @inbounds parent_cell_index(pᵢ[i], xi[i], midpoint_seed(xi[i]))
     end
     # iterate over cells around i-th node
+    di = local_grid_spacing(dxi, (inode, jnode))
     Fp_ipart = Fp[ipart]
 
     xv, yv = xi
@@ -64,7 +66,7 @@ end
             xvertex = xv[ivertex], yv[jvertex] # cell lower-left coordinates
             # F acting as buffer here
             # ω_i = distance_weight(xvertex, pᵢ; order=4)
-            ω_i = bilinear_weight(xvertex, pᵢ, dxi)
+            ω_i = bilinear_weight(xvertex, pᵢ, di)
             KernelAbstractions.@atomic F[ivertex, jvertex] += ω_i
             KernelAbstractions.@atomic buffer[ivertex, jvertex] += Fp_ipart * ω_i
         end

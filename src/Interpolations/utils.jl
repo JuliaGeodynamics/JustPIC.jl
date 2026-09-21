@@ -57,10 +57,15 @@ end
     return ntuple(i -> (p[i] - xci[i]) * inv(di[i]), Val(N))
 end
 
-# compute grid size
-function grid_size(x::NTuple{N, T}) where {T, N}
-    return ntuple(i -> abs(minimum(diff(x[i]))), Val(N))
+# Compute every local cell width along each grid axis.
+@inline function grid_size(x::NTuple{N}) where {N}
+    return ntuple(i -> diff(x[i]), Val(N))
 end
+
+@inline function local_grid_spacing(dxi::NTuple{N}, idx::NTuple{N}) where {N}
+    return ntuple(i -> dxi[i][idx[i]], Val(N))
+end
+
 
 # Get field F at the corners of a given cell
 @inline function field_corners(F::AbstractArray{T, 2}, idx::NTuple{2, Int64}) where {T}
