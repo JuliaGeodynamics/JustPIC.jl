@@ -37,8 +37,8 @@ const TEST_PRECISIONS = FT === Float32 ? (Float32,) : (Float64, Float32)
 include(joinpath(@__DIR__, "helpers_backend.jl"))
 check_backend(BACKEND_NAME, backend, FT)
 
-host_data(A) = dropdims(Array(A).data; dims = 1)
-host_grid(x) = Array(x)
+host_data(A) = dropdims(to_cpu(A).data; dims = 1)
+host_grid(x) = to_cpu(x)
 
 function host_chain(chain)
     px = host_data(chain.coords[1])
@@ -48,14 +48,14 @@ function host_chain(chain)
     return px, py, index, cell_vertices
 end
 
-chain_tol(chain) = eltype(Array(chain.h_vertices)) <: Float32 ? 1.0f-5 : 1.0e-10
+chain_tol(chain) = eltype(to_cpu(chain.h_vertices)) <: Float32 ? 1.0f-5 : 1.0e-10
 chain_mean(h) = (sum(h) - (first(h) + last(h)) / 2) / (length(h) - 1)
 chain_mean(h, x) = sum(diff(x) .* (h[1:(end - 1)] .+ h[2:end])) / (2 * (last(x) - first(x)))
 
 # set slot `ip` of cell `cell` without assuming the backend's CellArray data layout
 function set_cell_slot!(A, ip, cell, val)
     f = field(A, ip)
-    h = Array(f)
+    h = to_cpu(f)
     h[cell] = val
     copyto!(f, h)
     return nothing
@@ -153,8 +153,8 @@ end
         @test eltype(chain.h_vertices) === T
         @test active_counts(index) == fill(nxcell, length(xv_cpu) - 1)
         @test count(index) == nxcell * (length(xv_cpu) - 1)
-        @test all(Array(chain.h_vertices) .≈ elevation)
-        @test Array(chain.h_vertices0) == Array(chain.h_vertices)
+        @test all(to_cpu(chain.h_vertices) .≈ elevation)
+        @test to_cpu(chain.h_vertices0) == to_cpu(chain.h_vertices)
         @test chain.coords0[1].data !== chain.coords[1].data
         @test chain.coords0[2].data !== chain.coords[2].data
         previous_x = host_data(chain.coords0[1])
@@ -173,13 +173,13 @@ end
         topo_y = collect(range(T(0.1), T(0.3); length = length(xv_cpu)))
         chain = init_markerchain(backend, nxcell, min_xcell, max_xcell, xv, TA(backend)(topo_y))
         _, py, index, _ = host_chain(chain)
-        @test isapprox(Array(chain.h_vertices), topo_y; atol = chain_tol(chain), rtol = chain_tol(chain))
+        @test isapprox(to_cpu(chain.h_vertices), topo_y; atol = chain_tol(chain), rtol = chain_tol(chain))
         for i in axes(index, 2)
             expected_y = range(topo_y[i], topo_y[i + 1]; length = nxcell + 2)[2:(end - 1)]
             @test py[1:nxcell, i] ≈ expected_y
         end
         compute_topography_vertex!(chain)
-        @test isapprox(Array(chain.h_vertices), topo_y; atol = chain_tol(chain), rtol = chain_tol(chain))
+        @test isapprox(to_cpu(chain.h_vertices), topo_y; atol = chain_tol(chain), rtol = chain_tol(chain))
         assert_chain_invariants(chain)
     end
 
@@ -192,7 +192,7 @@ end
     @test chain.h_vertices isa TA(backend)
     @test chain.h_vertices !== chain.h_vertices0
     @test isapprox(
-        Array(chain.h_vertices), host_elevation; atol = chain_tol(chain), rtol = chain_tol(chain)
+        to_cpu(chain.h_vertices), host_elevation; atol = chain_tol(chain), rtol = chain_tol(chain)
     )
     assert_chain_invariants(chain)
 
@@ -200,7 +200,7 @@ end
         xv = collect(range(0.0, 1.0; length = 6))
         original = init_markerchain(CPU, 3, 2, 5, xv, 0.4)
         reconstructed = MarkerChain(original.coords, original.index, xv, 2, 5)
-        @test Array(reconstructed.h_vertices) ≈ fill(0.4, length(xv))
+        @test to_cpu(reconstructed.h_vertices) ≈ fill(0.4, length(xv))
         @test reconstructed.coords0[1].data !== reconstructed.coords[1].data
         @test reconstructed.min_xcell == 2
         @test reconstructed.max_xcell == 5
@@ -229,21 +229,21 @@ end
     chain = init_markerchain(backend, nxcell, min_xcell, max_xcell, xv, flat_y)
 
     compute_topography_vertex!(chain)
-    @test all(Array(chain.h_vertices) .≈ flat_y)
+    @test all(to_cpu(chain.h_vertices) .≈ flat_y)
     assert_chain_invariants(chain)
 
     a, b = FT(0.2), FT(0.15)
     topo_y = a .* xv_cpu .+ b
     fill_chain_from_vertices!(chain, TA(backend)(topo_y))
-    @test isapprox(Array(chain.h_vertices), topo_y; atol = chain_tol(chain), rtol = chain_tol(chain))
-    @test Array(chain.h_vertices0) == Array(chain.h_vertices)
+    @test isapprox(to_cpu(chain.h_vertices), topo_y; atol = chain_tol(chain), rtol = chain_tol(chain))
+    @test to_cpu(chain.h_vertices0) == to_cpu(chain.h_vertices)
     @test isequal(host_data(chain.coords0[1]), host_data(chain.coords[1]))
     @test isequal(host_data(chain.coords0[2]), host_data(chain.coords[2]))
     assert_chain_invariants(chain)
     assert_markers_on_line(chain, a, b)
 
     compute_topography_vertex!(chain)
-    h_vertices = Array(chain.h_vertices)
+    h_vertices = to_cpu(chain.h_vertices)
     @test isapprox(h_vertices, topo_y; atol = chain_tol(chain), rtol = chain_tol(chain))
 end
 
@@ -308,7 +308,7 @@ end
     fill_chain_from_chain!(chain, TA(backend)(topo_x), TA(backend)(topo_y))
     px, py, index, _ = host_chain(chain)
     @test active_counts(index) == fill(2, length(xv_cpu) - 1)
-    @test all(Array(chain.h_vertices) .≈ flat_y)
+    @test all(to_cpu(chain.h_vertices) .≈ flat_y)
     assert_chain_invariants(chain)
 
     for i in axes(index, 2)
@@ -405,21 +405,21 @@ end
     assert_chain_invariants(chain)
 
     chain = init_markerchain(backend, nxcell, min_xcell, max_xcell, xv, elevation)
-    h0 = copy(Array(chain.h_vertices))
+    h0 = copy(to_cpu(chain.h_vertices))
     V = constant_markerchain_velocity(grid_vx, grid_vy, FT(0), vy)
     advect_markerchain!(chain, Euler(), V, grid_vi, dt)
-    @test chain_mean(Array(chain.h_vertices)) ≈ chain_mean(h0)
+    @test chain_mean(to_cpu(chain.h_vertices)) ≈ chain_mean(h0)
     assert_chain_invariants(chain)
 
     profile = @. FT(0.35) + FT(0.08) * sin(FT(2pi) * xv) + FT(0.03) * xv^2
     chain = init_markerchain(backend, 4, 2, 8, xv, FT(0))
     fill_chain_from_vertices!(chain, TA(backend)(collect(profile)))
-    h0 = copy(Array(chain.h_vertices))
+    h0 = copy(to_cpu(chain.h_vertices))
     V0 = constant_markerchain_velocity(grid_vx, grid_vy, FT(0), FT(0))
     for _ in 1:20
         advect_markerchain!(chain, RungeKutta2(), V0, grid_vi, dt)
     end
-    h = Array(chain.h_vertices)
+    h = to_cpu(chain.h_vertices)
     tol = FT === Float32 ? 2.0f-4 : 1.0e-9
     @test isapprox(h, h0; atol = tol, rtol = tol)
     @test isapprox(chain_mean(h), chain_mean(h0); atol = tol, rtol = tol)
@@ -466,7 +466,7 @@ end
             semilagrangian_advection!(chain, method, Vstretch, grid_vi, grid, dt)
             R = 1 - dt + dt^2 / 2
             method isa RungeKutta4 && (R += -dt^3 / 6 + dt^4 / 24)
-            @test all(isapprox.(Array(chain.h_vertices), elevation / R; atol = chain_tol(chain)))
+            @test all(isapprox.(to_cpu(chain.h_vertices), elevation / R; atol = chain_tol(chain)))
 
             profile = @. elevation + slope * xv
             fill_chain_from_vertices!(chain, TA(backend)(collect(profile)))
@@ -474,7 +474,7 @@ end
             # Exclude inflow vertices, where the boundary height is extended constantly.
             inside = findall(x -> x > elevation * dt, xv)
             @test isapprox(
-                Array(chain.h_vertices)[inside], profile[inside] ./ (1 + slope * dt);
+                to_cpu(chain.h_vertices)[inside], profile[inside] ./ (1 + slope * dt);
                 atol = chain_tol(chain), rtol = chain_tol(chain)
             )
         end
@@ -497,7 +497,7 @@ end
                 for _ in 1:nsteps
                     semilagrangian_advection!(chain, method, V, grid_vi, grid, FT(0.8 / nsteps))
                 end
-                maximum(abs.(Array(chain.h_vertices) .- FT(0.2) * exp(FT(0.8))))
+                maximum(abs.(to_cpu(chain.h_vertices) .- FT(0.2) * exp(FT(0.8))))
             end
             @test all(errors[1:2] ./ errors[2:3] .> minimum_ratio)
         end
@@ -511,9 +511,9 @@ end
             conserve_mean = false, max_slope_angle = nothing
         )
     end
-    @test all(isapprox.(Array(chain.h_vertices), FT(0.3) * exp(FT(0.2)); atol = FT(1.0e-5)))
+    @test all(isapprox.(to_cpu(chain.h_vertices), FT(0.3) * exp(FT(0.2)); atol = FT(1.0e-5)))
     @test active_counts(host_data(chain.index)) == counts
-    @test Array(chain.h_vertices0) == Array(chain.h_vertices)
+    @test to_cpu(chain.h_vertices0) == to_cpu(chain.h_vertices)
     for d in 1:2
         @test isequal(host_data(chain.coords0[d]), host_data(chain.coords[d]))
     end
@@ -522,23 +522,23 @@ end
     # A low-level step intentionally leaves the cached old state untouched. The
     # next wrapper must conserve its input surface, not revert to that stale cache.
     semilagrangian_advection!(chain, RungeKutta2(), V, grid_vi, grid, FT(0.1))
-    before = copy(Array(chain.h_vertices))
+    before = copy(to_cpu(chain.h_vertices))
     V0 = constant_markerchain_velocity(grid_vx, grid_vy, FT(0), FT(0))
     semilagrangian_advection_markerchain!(chain, RungeKutta2(), V0, grid_vi, grid, FT(0.1))
-    @test Array(chain.h_vertices) ≈ before
+    @test to_cpu(chain.h_vertices) ≈ before
 
     @test_throws ArgumentError semilagrangian_advection!(chain, Euler(), V, grid_vi, grid, FT(0.1))
     @test_throws DimensionMismatch semilagrangian_advection!(chain, RungeKutta2(), V, grid_vi, (xv[1:3], yv), FT(0.1))
-    @test Array(chain.h_vertices) ≈ before
+    @test to_cpu(chain.h_vertices) ≈ before
 
     # A non-finite trajectory must not partially overwrite the chain.
     Vbad = constant_markerchain_velocity(grid_vx, grid_vy, FT(0), FT(NaN))
     @test_throws ErrorException semilagrangian_advection_markerchain!(chain, RungeKutta2(), Vbad, grid_vi, grid, FT(0.1))
-    @test Array(chain.h_vertices) ≈ before
-    @test Array(chain.h_vertices0) ≈ before
+    @test to_cpu(chain.h_vertices) ≈ before
+    @test to_cpu(chain.h_vertices0) ≈ before
 
     @test_throws ArgumentError semilagrangian_advection_markerchain!(chain, RungeKutta2(), V, grid_vi, grid, FT(0.1); max_slope_angle = -1)
-    @test Array(chain.h_vertices) ≈ before
+    @test to_cpu(chain.h_vertices) ≈ before
 end
 
 @testset "MarkerChain refined topography corrections" begin
@@ -548,7 +548,7 @@ end
     profile = @. FT(0.2) + FT(2) * xv
     fill_chain_from_vertices!(chain, TA(backend)(profile))
     JustPIC.smooth_slopes!(chain, FT(deg2rad(5)))
-    @test isapprox(Array(chain.h_vertices), profile; atol = chain_tol(chain))
+    @test isapprox(to_cpu(chain.h_vertices), profile; atol = chain_tol(chain))
 
     profile = FT[0.2, 0.2, 0.5, 0.2, 0.2, 0.2, 0.2]
     fill_chain_from_vertices!(chain, TA(backend)(profile))
@@ -556,9 +556,9 @@ end
     V = constant_markerchain_velocity(grid_vx, grid_vy, FT(0), FT(0))
     # 90 degrees disables smoothing even when Float32 pi/2 rounds upward.
     semilagrangian_advection_markerchain!(chain, RungeKutta2(), V, grid_vi, grid, FT(0.1); max_slope_angle = FT(90))
-    @test Array(chain.h_vertices) ≈ profile
+    @test to_cpu(chain.h_vertices) ≈ profile
     semilagrangian_advection_markerchain!(chain, RungeKutta2(), V, grid_vi, grid, FT(0.1))
-    @test isapprox(chain_mean(Array(chain.h_vertices), xv), chain_mean(profile, xv); atol = chain_tol(chain))
+    @test isapprox(chain_mean(to_cpu(chain.h_vertices), xv), chain_mean(profile, xv); atol = chain_tol(chain))
 end
 
 @testset "MarkerChain semi-Lagrangian advection 2D" begin
@@ -571,10 +571,10 @@ end
 
     # zero velocity leaves the topography untouched
     chain = init_markerchain(backend, nxcell, min_xcell, max_xcell, xv, elevation)
-    h0 = copy(Array(chain.h_vertices))
+    h0 = copy(to_cpu(chain.h_vertices))
     V0 = constant_markerchain_velocity(grid_vx, grid_vy, FT(0), FT(0))
     semilagrangian_advection_markerchain!(chain, RungeKutta2(), V0, grid_vi, grid, dt)
-    @test isapprox(Array(chain.h_vertices), h0; atol = chain_tol(chain), rtol = chain_tol(chain))
+    @test isapprox(to_cpu(chain.h_vertices), h0; atol = chain_tol(chain), rtol = chain_tol(chain))
     assert_chain_invariants(chain)
 
     # low-level backtracking step: a uniform vertical velocity lifts a flat surface by vy*dt
@@ -582,13 +582,13 @@ end
     chain = init_markerchain(backend, nxcell, min_xcell, max_xcell, xv, elevation)
     Vup = constant_markerchain_velocity(grid_vx, grid_vy, FT(0), vy)
     JustPIC.semilagrangian_advection!(chain, RungeKutta2(), Vup, grid_vi, grid, dt)
-    @test isapprox(Array(chain.h_vertices), fill(elevation + vy * dt, length(xv)); atol = (FT === Float32 ? 1.0f-5 : 1.0e-6))
+    @test isapprox(to_cpu(chain.h_vertices), fill(elevation + vy * dt, length(xv)); atol = (FT === Float32 ? 1.0f-5 : 1.0e-6))
 
     # the full wrapper reapplies mass conservation, so the mean height is preserved
     chain = init_markerchain(backend, nxcell, min_xcell, max_xcell, xv, elevation)
-    h0 = copy(Array(chain.h_vertices))
+    h0 = copy(to_cpu(chain.h_vertices))
     semilagrangian_advection_markerchain!(chain, RungeKutta2(), Vup, grid_vi, grid, dt)
-    @test chain_mean(Array(chain.h_vertices)) ≈ chain_mean(h0)
+    @test chain_mean(to_cpu(chain.h_vertices)) ≈ chain_mean(h0)
     assert_chain_invariants(chain)
 
     slope = FT(0.1)
@@ -600,7 +600,7 @@ end
     JustPIC.semilagrangian_advection!(chain, RungeKutta2(), Vright, grid_vi, grid, dt)
     expected = @. profile - slope * vx * dt
     @test isapprox(
-        Array(chain.h_vertices)[2:(end - 1)], expected[2:(end - 1)];
+        to_cpu(chain.h_vertices)[2:(end - 1)], expected[2:(end - 1)];
         atol = (FT === Float32 ? 1.0f-5 : 1.0e-12), rtol = chain_tol(chain)
     )
 
@@ -613,7 +613,7 @@ end
         chain, RungeKutta2(), V0, grid_vi, grid, dt; max_slope_angle = 5
     )
     @test isapprox(
-        chain_mean(Array(chain.h_vertices)), mean0;
+        chain_mean(to_cpu(chain.h_vertices)), mean0;
         atol = (FT === Float32 ? 1.0f-5 : 1.0e-12), rtol = chain_tol(chain)
     )
 
@@ -633,7 +633,7 @@ end
     Vup32 = constant_markerchain_velocity(grid_vx32, grid_vy32, 0.0f0, Float32(vy))
     chain = init_markerchain(backend, nxcell, min_xcell, max_xcell, xv32, 0.5f0)
     JustPIC.semilagrangian_advection!(chain, RungeKutta2(), Vup32, grid_vi32, grid32, 0.1f0)
-    h32 = Array(chain.h_vertices)
+    h32 = to_cpu(chain.h_vertices)
     @test eltype(h32) === Float32
     @test all(isapprox.(h32[2:(end - 1)], 0.5f0 + Float32(vy) * 0.1f0; atol = 1.0f-5))
 end
@@ -649,12 +649,12 @@ end
     V = constant_markerchain_velocity(grid_vx, grid_vy, FT(0.05), FT(0))
 
     chain = init_markerchain(backend, 6, 3, 12, xv, elevation)
-    h0 = copy(Array(chain.h_vertices))
+    h0 = copy(to_cpu(chain.h_vertices))
     for _ in 1:50
         advect_markerchain!(chain, RungeKutta2(), V, grid_vi, FT(0.1))
     end
 
-    h = Array(chain.h_vertices)
+    h = to_cpu(chain.h_vertices)
     @test all(isfinite, h)
     @test all(h .≈ elevation)
     @test chain_mean(h) ≈ chain_mean(h0)
@@ -734,7 +734,7 @@ end
     ratios = make_ratios()
     compute_rock_fraction!(ratios, chain, xvi, dxi)
     for field in (ratios.center, ratios.vertex, ratios.Vx, ratios.Vy)
-        @test all(Array(field) .≈ 1)
+        @test all(to_cpu(field) .≈ 1)
     end
 
     # chain below the whole domain: every control volume is fully air
@@ -742,7 +742,7 @@ end
     ratios = make_ratios()
     compute_rock_fraction!(ratios, chain, xvi, dxi)
     for field in (ratios.center, ratios.vertex, ratios.Vx, ratios.Vy)
-        @test all(Array(field) .≈ 0)
+        @test all(to_cpu(field) .≈ 0)
     end
 
     # flat interface straddling one row of cell centres: exact area fraction
@@ -754,20 +754,20 @@ end
         (h - y_bottom) / height, zero(FT), one(FT)
     )
 
-    center = Array(ratios.center)
+    center = to_cpu(ratios.center)
     for j in axes(center, 2)
         expected = rock_fraction(yv[j], dy)
         @test all(center[:, j] .≈ expected)
     end
 
-    vx = Array(ratios.Vx)
+    vx = to_cpu(ratios.Vx)
     for j in axes(vx, 2)
         expected = rock_fraction(yv[j], dy)
         @test all(vx[:, j] .≈ expected)
     end
 
-    vertex = Array(ratios.vertex)
-    vy = Array(ratios.Vy)
+    vertex = to_cpu(ratios.vertex)
+    vy = to_cpu(ratios.Vy)
     for j in axes(vertex, 2)
         expected = if j == firstindex(yv)
             rock_fraction(yv[j], dy / 2)
@@ -784,7 +784,7 @@ end
     end
 
     for field in (ratios.center, ratios.vertex, ratios.Vx, ratios.Vy)
-        data = Array(field)
+        data = to_cpu(field)
         @test all(0 .≤ data .≤ 1)
     end
 
@@ -792,7 +792,7 @@ end
     copyto!(chain.h_vertices, TA(backend)(collect(topo)))
     ratios = make_ratios()
     compute_rock_fraction!(ratios, chain, xvi, dxi)
-    @test isapprox(Array(ratios.vertex)[2, 3], FT(0.8); atol = (FT === Float32 ? 1.0f-5 : 1.0e-12))
+    @test isapprox(to_cpu(ratios.vertex)[2, 3], FT(0.8); atol = (FT === Float32 ? 1.0f-5 : 1.0e-12))
 
     # the same flat interface on a grid sitting hundreds of cell widths from the origin
     shift = FT(500)
@@ -801,14 +801,14 @@ end
     chain_far = init_markerchain(backend, 3, 2, 6, xv_far, shift + FT(0.42))
     ratios = make_ratios()
     compute_rock_fraction!(ratios, chain_far, xvi_far, dxi)
-    center = Array(ratios.center)
+    center = to_cpu(ratios.center)
     for j in axes(center, 2)
         y_bottom = xv_far[j]
         expected = clamp((shift + FT(0.42) - y_bottom) / dy, FT(0), FT(1))
         @test all(isapprox.(center[:, j], expected; atol = (FT === Float32 ? 1.0f-2 : 1.0e-6)))
     end
     for field in (ratios.center, ratios.vertex, ratios.Vx, ratios.Vy)
-        data = Array(field)
+        data = to_cpu(field)
         @test all(isfinite, data)
         @test all(0 .≤ data .≤ 1)
     end
@@ -826,21 +826,21 @@ end
     copyto!(chain.h_vertices, TA(backend)(spike))
     JustPIC.smooth_slopes!(chain, FT(deg2rad(5)))
     expected = FT[0, 0, 0.25H, 0.5H, 0.25H, 0, 0]
-    @test isapprox(Array(chain.h_vertices), expected; atol = (FT === Float32 ? 1.0f-6 : 1.0e-12))
+    @test isapprox(to_cpu(chain.h_vertices), expected; atol = (FT === Float32 ? 1.0f-6 : 1.0e-12))
 
     # a gentle slope stays below the limiter and is left untouched
     a = FT(0.05)
     linear = a .* collect(range(FT(0), FT(1); length = n))
     copyto!(chain.h_vertices, TA(backend)(linear))
     JustPIC.smooth_slopes!(chain, FT(deg2rad(45)))
-    @test Array(chain.h_vertices) ≈ linear
+    @test to_cpu(chain.h_vertices) ≈ linear
 
     # fewer than three vertices: no-op
     xv2 = TA(backend)(collect(range(FT(0), FT(1); length = 2)))
     chain2 = init_markerchain(backend, 1, 1, 2, xv2, FT(0))
     copyto!(chain2.h_vertices, TA(backend)(FT[0.1, 0.9]))
     JustPIC.smooth_slopes!(chain2, FT(deg2rad(5)))
-    @test Array(chain2.h_vertices) == FT[0.1, 0.9]
+    @test to_cpu(chain2.h_vertices) == FT[0.1, 0.9]
 end
 
 @testset "MarkerChain interpolation helpers 2D" begin
@@ -1000,7 +1000,7 @@ end
     Vup = constant_markerchain_velocity(grid_vx, grid_vy, FT(0), vy)
     JustPIC.semilagrangian_advection!(chain, RungeKutta2(), Vup, grid_vi, grid, dt)
     @test isapprox(
-        Array(chain.h_vertices), fill(elevation + vy * dt, length(xv));
+        to_cpu(chain.h_vertices), fill(elevation + vy * dt, length(xv));
         atol = (FT === Float32 ? 1.0f-5 : 1.0e-6)
     )
 
@@ -1011,11 +1011,11 @@ end
             (c) -> semilagrangian_advection_markerchain!(c, RungeKutta2(), Vright, grid_vi, grid, FT(0.05)),
         )
         chain = init_markerchain(backend, nxcell, min_xcell, max_xcell, TA(backend)(xv), elevation)
-        h0 = chain_mean(Array(chain.h_vertices))
+        h0 = chain_mean(to_cpu(chain.h_vertices))
         for _ in 1:10
             advect!(chain)
         end
-        h = Array(chain.h_vertices)
+        h = to_cpu(chain.h_vertices)
         @test all(isfinite, h)
         @test isapprox(chain_mean(h), h0; atol = chain_tol(chain), rtol = chain_tol(chain))
         assert_chain_invariants(chain)
@@ -1044,14 +1044,14 @@ end
     ratios = make_ratios()
     compute_rock_fraction!(ratios, chain, xvi, dxi)
     for field in (ratios.center, ratios.vertex, ratios.Vx, ratios.Vy)
-        @test all(Array(field) .≈ 1)
+        @test all(to_cpu(field) .≈ 1)
     end
 
     copyto!(chain.h_vertices, TA(backend)(fill(FT(-1), n)))
     ratios = make_ratios()
     compute_rock_fraction!(ratios, chain, xvi, dxi)
     for field in (ratios.center, ratios.vertex, ratios.Vx, ratios.Vy)
-        @test all(Array(field) .≈ 0)
+        @test all(to_cpu(field) .≈ 0)
     end
 
     # flat interface: every control volume gets the fraction of its own height below `h`
@@ -1061,18 +1061,18 @@ end
     compute_rock_fraction!(ratios, chain, xvi, dxi)
     rock_fraction(y_bottom, height) = clamp((h - y_bottom) / height, zero(FT), one(FT))
 
-    center = Array(ratios.center)
+    center = to_cpu(ratios.center)
     for j in axes(center, 2)
         @test all(center[:, j] .≈ rock_fraction(yv[j], dy[j]))
     end
 
-    vx = Array(ratios.Vx)
+    vx = to_cpu(ratios.Vx)
     for j in axes(vx, 2)
         @test all(vx[:, j] .≈ rock_fraction(yv[j], dy[j]))
     end
 
-    vertex = Array(ratios.vertex)
-    vy = Array(ratios.Vy)
+    vertex = to_cpu(ratios.vertex)
+    vy = to_cpu(ratios.Vy)
     for j in axes(vertex, 2)
         # the two halves straddling vertex `j` are cut from rows of different height, so
         # the control-volume fraction weights them by area, not by count
@@ -1091,7 +1091,7 @@ end
     end
 
     for field in (ratios.center, ratios.vertex, ratios.Vx, ratios.Vy)
-        data = Array(field)
+        data = to_cpu(field)
         @test all(isfinite, data)
         @test all(0 .≤ data .≤ 1)
     end
@@ -1142,25 +1142,25 @@ end
 
     atol = FT === Float32 ? 1.0f-4 : 1.0e-9
 
-    center = Array(ratios.center)
+    center = to_cpu(ratios.center)
     for j in axes(center, 2), i in axes(center, 1)
         expected = markerchain_rock_fraction(h0, slope, xv[i], xv[i + 1], yv[j], yv[j + 1])
         @test isapprox(center[i, j], expected; atol, rtol = atol)
     end
 
-    vertex = Array(ratios.vertex)
+    vertex = to_cpu(ratios.vertex)
     for j in axes(vertex, 2), i in axes(vertex, 1)
         expected = markerchain_rock_fraction(h0, slope, left(i), right(i), bottom(j), top(j))
         @test isapprox(vertex[i, j], expected; atol, rtol = atol)
     end
 
-    vx = Array(ratios.Vx)
+    vx = to_cpu(ratios.Vx)
     for j in axes(vx, 2), i in axes(vx, 1)
         expected = markerchain_rock_fraction(h0, slope, left(i), right(i), yv[j], yv[j + 1])
         @test isapprox(vx[i, j], expected; atol, rtol = atol)
     end
 
-    vy = Array(ratios.Vy)
+    vy = to_cpu(ratios.Vy)
     for j in axes(vy, 2), i in axes(vy, 1)
         expected = markerchain_rock_fraction(h0, slope, xv[i], xv[i + 1], bottom(j), top(j))
         @test isapprox(vy[i, j], expected; atol, rtol = atol)

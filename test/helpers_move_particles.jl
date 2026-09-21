@@ -73,9 +73,9 @@ function check_fragmented_move(
     )
     move_particles!(particles, fields)
 
-    index_h = Array(particles.index)
-    coords_h = Array.(particles.coords)
-    fields_h = Array.(fields)
+    index_h = to_cpu(particles.index)
+    coords_h = to_cpu.(particles.coords)
+    fields_h = to_cpu.(fields)
     found = NamedTuple[]
     for I in CartesianIndices(size(index_h)), ip in 1:JustPIC.cellnum(index_h)
         cell = Tuple(I)

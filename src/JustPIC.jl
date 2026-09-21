@@ -56,6 +56,6 @@ export AbstractAdvectionIntegrator, Euler, RungeKutta2, RungeKutta4, set_precisi
 include("common.jl")
 
 include("CellArrays/conversion.jl")
-export Array, copy
+export Array, copy, to_cpu
 
 end # module

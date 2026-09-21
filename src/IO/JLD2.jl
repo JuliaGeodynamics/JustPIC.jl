@@ -105,19 +105,19 @@ function checkpointing_particles(
         # Build args dict dynamically
         args = Dict(
             :particles => Array(particles),
-            :phases => isnothing(phases) ? nothing : Array(phases),
+            :phases => isnothing(phases) ? nothing : to_cpu(phases),
             :phase_ratios => isnothing(phase_ratios) ? nothing : Array(phase_ratios),
             :chain => isnothing(chain) ? nothing : Array(chain),
             :time => t,
             :timestep => dt,
-            :particle_args => isnothing(particle_args) ? nothing : Array.(particle_args),
+            :particle_args => isnothing(particle_args) ? nothing : to_cpu.(particle_args),
         )
 
         # Add any additional kwargs dynamically using their names as keys
         for (key, value) in pairs(kwargs)
             args[key] = isnothing(value) ? nothing :
-                isa(value, AbstractArray) ? Array(value) :
-                isa(value, Tuple) ? Array.(value) : value
+                isa(value, AbstractArray) ? to_cpu(value) :
+                isa(value, Tuple) ? to_cpu(value) : value
         end
 
         try

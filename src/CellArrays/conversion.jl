@@ -15,21 +15,35 @@ import Base: Array, copy
     ::Type{T}, ::UndefInitializer, dims::Int...
 ) where {T <: CellArrays.Cell} = CPU_CellArray(T, undef, dims)
 
-# Copies CellArray to CPU if it is on a GPU device
-Array(CA::CellArray) = Array(eltype(eltype(CA)), CA)
-function Array(::Type{T}, CA::CellArray) where {T <: Number}
-    return Array(isdevice(typeof(CA).parameters[end]), T, CA)
+# Copies CellArray to CPU if it is on a GPU device.
+to_cpu(CA::CellArray) = to_cpu(eltype(eltype(CA)), CA)
+to_cpu(A::AbstractArray) = Array(A)
+to_cpu(::Type{T}, A::AbstractArray) where {T <: Number} = Array{T}(A)
+to_cpu(x::NTuple{N}) where {N} = ntuple(i -> to_cpu(x[i]), Val(N))
+to_cpu(::Type{T}, x::NTuple{N}) where {T <: Number, N} =
+    ntuple(i -> to_cpu(T, x[i]), Val(N))
+function to_cpu(::Type{T}, CA::CellArray) where {T <: Number}
+    return _to_cpu_cellarray(isdevice(typeof(CA).parameters[end]), T, CA)
 end
-Array(::Type{T}, A::AbstractArray) where {T <: Number} = Array(A)
-Array(::Val{false}, ::Type{T}, CA::CellArray) where {T <: Number} = Array(Val(true), T, CA)
-function Array(
-        ::Val{false}, ::Type{T}, CA::CellArray{CPUCellArray{SVector{N, T}}}
-    ) where {N, T <: Number}
-    return CA
+function _to_cpu(::Type{T}, CA::CellArray) where {T <: Number}
+    return to_cpu(T, CA)
+end
+function _to_cpu(::Type{T}, A::AbstractArray) where {T <: Number}
+    return Array{T}(A)
+end
+function _to_cpu(CA::CellArray)
+    return to_cpu(CA)
+end
+function _to_cpu(A::AbstractArray)
+    return Array(A)
+end
+function _to_cpu_cellarray(::Val{false}, ::Type{T}, CA::CellArray) where {T <: Number}
+    T === eltype(eltype(CA)) && return CA
+    return _to_cpu_cellarray(Val(true), T, CA)
 end
 
 # inner kernel doing the actual copy of the `CellArray`
-function Array(::Val{true}, ::Type{T}, CA::CellArray) where {T <: Number}
+function _to_cpu_cellarray(::Val{true}, ::Type{T}, CA::CellArray) where {T <: Number}
     dims = size(CA)
     T_SArray = eltype(CA)
     CA_cpu = CPU_CellArray(SVector{length(T_SArray), T}, undef, dims)
@@ -38,7 +52,7 @@ function Array(::Val{true}, ::Type{T}, CA::CellArray) where {T <: Number}
     else
         Array(CA.data)
     end
-    copyto!(CA_cpu.data, tmp)
+    copyto!(CA_cpu.data, T.(tmp))
     return CA_cpu
 end
 
@@ -48,13 +62,17 @@ function Array(::Type{T}, x::P) where {T <: Number, P <: AbstractParticles}
     cpu_fields = ntuple(Val(nfields)) do i
         Base.@_inline_meta
         if fieldname(P, i) === :index
-            _Array(Bool, getfield(x, i))
+            _to_cpu(Bool, getfield(x, i))
         else
-            _Array(T, getfield(x, i))
+            _to_cpu(T, getfield(x, i))
         end
     end
     T_clean = remove_parameters(x)
     return T_clean(CPU, cpu_fields...)
+end
+
+function Array(::Type{T}, x::PassiveMarkers) where {T <: Number}
+    return PassiveMarkers(CPU, _to_cpu(T, x.coords))
 end
 
 function Array(x::P) where {P <: AbstractParticles}
@@ -62,22 +80,24 @@ function Array(x::P) where {P <: AbstractParticles}
     cpu_fields = ntuple(Val(nfields)) do i
         Base.@_inline_meta
         A = getfield(x, i)
-        _Array(A)
+        _to_cpu(A)
     end
     T_clean = remove_parameters(x)
     return T_clean(CPU, cpu_fields...)
 end
+
+function Array(x::PassiveMarkers)
+    return PassiveMarkers(CPU, _to_cpu(x.coords))
+end
 # Array(x::T) where {T<:AbstractParticles} = Array(Float64, x)
 
-_Array(x) = x
-_Array(::Nothing) = nothing
-_Array(x::AbstractArray) = Array(x)
-_Array(x::NTuple{N, T}) where {N, T} = ntuple(i -> _Array(x[i]), Val(N))
-_Array(::Type{T}, ::Nothing) where {T <: Number} = nothing
-_Array(::Type{T}, x) where {T <: Number} = x
-_Array(::Type{T}, x::AbstractArray{TA, N}) where {T <: Number, N, TA} = Array(T, x)
-function _Array(::Type{T}, x::NTuple{N, TA}) where {T <: Number, N, TA}
-    return ntuple(i -> _Array(T, x[i]), Val(N))
+_to_cpu(x) = x
+_to_cpu(::Nothing) = nothing
+_to_cpu(x::NTuple{N, T}) where {N, T} = ntuple(i -> _to_cpu(x[i]), Val(N))
+_to_cpu(::Type{T}, ::Nothing) where {T <: Number} = nothing
+_to_cpu(::Type{T}, x) where {T <: Number} = x
+function _to_cpu(::Type{T}, x::NTuple{N, TA}) where {T <: Number, N, TA}
+    return ntuple(i -> _to_cpu(T, x[i]), Val(N))
 end
 
 # recursively deep-copy an `AbstractParticles`, keeping every field on its current
@@ -92,6 +112,10 @@ function copy(x::T) where {T <: AbstractParticles}
     end
     T_clean = remove_parameters(x)
     return T_clean(T.parameters[1], copied_fields...)
+end
+
+function copy(x::PassiveMarkers{B}) where {B}
+    return PassiveMarkers(B, _copy(x.coords))
 end
 
 _copy(::Nothing) = nothing

@@ -37,6 +37,16 @@ launch!
 add_periodic_ghost_nodes
 ```
 
+## Container conversion
+
+`to_cpu` copies arrays and JustPIC cell arrays to CPU storage. Pass a numeric
+type to convert the stored values during the copy; tuples are converted
+recursively.
+
+```@docs
+to_cpu
+```
+
 ## Index
 
 ```@index
