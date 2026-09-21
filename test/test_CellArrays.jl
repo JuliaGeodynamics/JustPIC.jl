@@ -32,6 +32,9 @@ else
     Float64
 end
 
+include(joinpath(@__DIR__, "helpers_backend.jl"))
+check_backend(BACKEND_NAME, backend, FT)
+
 function expand_range(x::AbstractRange)
     dx = x[2] - x[1]
     n = length(x)

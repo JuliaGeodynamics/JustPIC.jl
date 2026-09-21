@@ -31,6 +31,9 @@ else
     Float64
 end
 
+include(joinpath(@__DIR__, "helpers_backend.jl"))
+check_backend(BACKEND_NAME, backend, FT)
+
 function make_grid(;
         nx = 8, ny = 8, nz = 8,
         Lx = FT(1), Ly = FT(1), Lz = FT(1)
