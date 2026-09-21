@@ -148,7 +148,7 @@ end
     nxcell, max_xcell, min_xcell = 8, 12, 8
     n = 5
     nx = ny = nz = n - 1
-    Lx = Ly = Lz = 1.0
+    Lx = Ly = Lz = FT(1)
     Li = Lx, Ly, Lz
     xvi = xv, yv, zv = ntuple(i -> LinRange(0, Li[i], n), Val(3))
     dxi = dx, dy, dz = ntuple(i -> xvi[i][2] - xvi[i][1], Val(3))
@@ -176,7 +176,7 @@ end
     nxcell, max_xcell, min_xcell = 12, 24, 6
     nx, ny, nz = 8, 6, 10
     ni = nx, ny, nz
-    Li = 1.0, 1.0, 1.0
+    Li = FT(1), FT(1), FT(1)
     xvi = ntuple(i -> LinRange(0, Li[i], ni[i] + 1), Val(3))
     dxi = ntuple(i -> xvi[i][2] - xvi[i][1], Val(3))
     xci = ntuple(i -> LinRange(dxi[i] / 2, Li[i] - dxi[i] / 2, ni[i]), Val(3))
@@ -554,6 +554,52 @@ end
     @test !any(Array(particles_skip.index.data))
 end
 
+function _assert_finite_advection_3D!(particles, field, step, layout)
+    active = Array(particles.index.data)
+    for (dim, coords) in enumerate(particles.coords)
+        values = Array(coords.data)
+        bad = findfirst(I -> active[I] && !isfinite(values[I]), CartesianIndices(values))
+        isnothing(bad) || error(
+            "3D advection produced invalid particle coordinate: " *
+                "backend=$(BACKEND_NAME), precision=$(FT), seed=0, " *
+                "layout=$layout, step=$step, dimension=$dim, index=$bad",
+        )
+    end
+    values = Array(field)
+    bad = findfirst(x -> !isfinite(x), values)
+    isnothing(bad) || error(
+        "3D advection produced invalid field value: " *
+            "backend=$(BACKEND_NAME), precision=$(FT), seed=0, " *
+            "layout=$layout, step=$step, index=$bad",
+    )
+    return nothing
+end
+
+function _particle_layout_signature_3D(particles, label)
+    active = Array(particles.index.data)
+    first_active = findfirst(identity, active)
+    first_point = ntuple(dim -> Array(particles.coords[dim].data)[first_active], Val(3))
+    return "$label, active_count=$(count(active)), first_active=$first_active, first_point=$first_point"
+end
+
+function _nodal_weights_3D(x)
+    weights = Vector{eltype(x)}(undef, length(x))
+    weights[1] = (x[2] - x[1]) / 2
+    weights[end] = (x[end] - x[end - 1]) / 2
+    for i in 2:(length(x) - 1)
+        weights[i] = (x[i + 1] - x[i - 1]) / 2
+    end
+    return weights
+end
+
+function _weighted_integral_3D(field, xvi)
+    values = Array(field)[2:(end - 1), 2:(end - 1), 2:(end - 1)]
+    wx, wy, wz = _nodal_weights_3D.(xvi)
+    return sum(
+        values .* reshape(wx, :, 1, 1) .* reshape(wy, 1, :, 1) .* reshape(wz, 1, 1, :),
+    )
+end
+
 function test_advection_3D()
 
     n = 64
@@ -593,14 +639,18 @@ function test_advection_3D()
     particles = JustPIC.init_particles(
         backend, nxcell, max_xcell, min_xcell, grid_vel...
     )
+    layout = _particle_layout_signature_3D(
+        particles, "regular(n=$n, nxcell=$nxcell, max_xcell=$max_xcell, min_xcell=$min_xcell)",
+    )
 
     # Advection test
     particle_args = pT, = JustPIC.init_cell_arrays(particles, Val(1))
     JustPIC.grid2particle!(pT, xvi_p, T, particles, diff.(xvi_p))
-    sumT = sum(T)
+    # Particle-to-grid interpolation is nonconservative; weighted integral checks bounded drift.
+    sumT = _weighted_integral_3D(T, xvi)
 
     niter = 5
-    for _ in 1:niter
+    for step in 1:niter
         JustPIC.particle2grid!(T, pT, particles)
         copyto!(T0, T)
         JustPIC.advection!(particles, JustPIC.RungeKutta2(), V, dt)
@@ -608,8 +658,11 @@ function test_advection_3D()
         # reseed
         JustPIC.inject_particles!(particles, (pT,))
         JustPIC.grid2particle!(pT, xvi_p, T, particles, diff.(xvi_p))
+        _assert_finite_advection_3D!(
+            particles, T, step, layout,
+        )
     end
-    sumT_final = sum(T)
+    sumT_final = _weighted_integral_3D(T, xvi)
     err = abs(sumT - sumT_final) / sumT
     println(err)
     return err
@@ -649,44 +702,43 @@ function test_advection_3D_refined()
     particles = JustPIC.init_particles(
         backend, nxcell, max_xcell, min_xcell, grid_vx, grid_vy, grid_vz,
     )
+    layout = _particle_layout_signature_3D(
+        particles, "refined(nxcell=$nxcell, max_xcell=$max_xcell, min_xcell=$min_xcell)",
+    )
 
     particle_args = pT, = JustPIC.init_cell_arrays(particles, Val(1))
     JustPIC.grid2particle!(pT, xvi_p, T, particles, diff.(xvi_p))
-    sumT = sum(T)
+    # Refined-grid check remains a bounded-drift check for nonconservative interpolation.
+    sumT = _weighted_integral_3D(T, xvi)
 
     niter = 5
-    for _ in 1:niter
+    for step in 1:niter
         JustPIC.particle2grid!(T, pT, particles)
         copyto!(T0, T)
         JustPIC.advection!(particles, JustPIC.RungeKutta2(), V, dt)
         JustPIC.move_particles!(particles, particle_args)
         JustPIC.inject_particles!(particles, (pT,))
         JustPIC.grid2particle!(pT, xvi_p, T, particles, diff.(xvi_p))
+        _assert_finite_advection_3D!(
+            particles, T, step, layout,
+        )
     end
 
-    sumT_final = sum(T)
+    sumT_final = _weighted_integral_3D(T, xvi)
     err = abs(sumT - sumT_final) / sumT
     println(err)
     return err
 end
 
 function test_advection()
-    err = 0.0e0
-    for _ in 1:5
-        err = test_advection_3D()
-        !isnan(err) && break
-    end
+    err = test_advection_3D()
     tol = 1.0e-1
     passed = err < tol
     return passed
 end
 
 function test_advection_refined()
-    err = 0.0e0
-    for _ in 1:5
-        err = test_advection_3D_refined()
-        !isnan(err) && break
-    end
+    err = test_advection_3D_refined()
     tol = 1.0e-1
     passed = err < tol
     return passed
