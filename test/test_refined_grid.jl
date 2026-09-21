@@ -1,10 +1,35 @@
+const BACKEND_NAME = get(ENV, "JULIA_JUSTPIC_BACKEND", "CPU")
+
+@static if BACKEND_NAME == "AMDGPU"
+    using AMDGPU
+elseif BACKEND_NAME == "CUDA"
+    using CUDA
+elseif BACKEND_NAME == "Metal"
+    using Metal
+end
+
 using Test
 using JustPIC
 using LinearAlgebra
 import JustPIC: lerp
 import KernelAbstractions: CPU
 
-const backend = CPU
+const backend = @static if BACKEND_NAME == "AMDGPU"
+    AMDGPU.ROCBackend
+elseif BACKEND_NAME == "CUDA"
+    CUDA.CUDABackend
+elseif BACKEND_NAME == "Metal"
+    Metal.MetalBackend
+else
+    CPU
+end
+const FT = if BACKEND_NAME == "Metal" || get(ENV, "JULIA_JUSTPIC_PRECISION", "") == "Float32"
+    Float32
+else
+    Float64
+end
+include("helpers_backend.jl")
+check_backend(BACKEND_NAME, backend, FT)
 
 function expand_range(x::AbstractVector)
     dx_left = x[2] - x[1]
@@ -49,7 +74,7 @@ end
 
 # make exponential grid
 function makeExpoGrid(L, n, d0, x0)
-    dx = zeros(n)
+    dx = zeros(FT, n)
     if mod(n, 2) == 0
         L2 = L / 2.0
         n2 = Int64(n / 2)
@@ -73,8 +98,8 @@ function makeExpoGrid(L, n, d0, x0)
     dx[1] = (L - sum(dx)) / 2.0
     dx[end] = dx[1]
 
-    xn = zeros(n + 1)
-    xc = zeros(n + 2) # with ghost cells
+    xn = zeros(FT, n + 1)
+    xc = zeros(FT, n + 2) # with ghost cells
     xn[1] = x0
     xc[1] = x0 - dx[1] / 2.0
     xc[end] = x0 + L + dx[end] / 2.0

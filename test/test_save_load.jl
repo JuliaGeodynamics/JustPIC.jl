@@ -12,7 +12,22 @@ using JLD2, JustPIC, Test
 import CellArraysIndexing as CAI
 import KernelAbstractions: CPU
 
-const backend = CPU
+const backend = @static if BACKEND_NAME == "AMDGPU"
+    AMDGPU.ROCBackend
+elseif BACKEND_NAME == "CUDA"
+    CUDA.CUDABackend
+elseif BACKEND_NAME == "Metal"
+    Metal.MetalBackend
+else
+    CPU
+end
+const FT = if BACKEND_NAME == "Metal" || get(ENV, "JULIA_JUSTPIC_PRECISION", "") == "Float32"
+    Float32
+else
+    Float64
+end
+include("helpers_backend.jl")
+check_backend(BACKEND_NAME, backend, FT)
 
 function expand_range(x::AbstractRange)
     dx = x[2] - x[1]
@@ -35,7 +50,7 @@ end
 same_values(a, b) = size(a) == size(b) && all(isequal.(a, b))
 
 @testset "Passive marker conversions" begin
-    markers = init_passive_markers(CPU, (collect(1.0:4.0), collect(5.0:8.0)))
+    markers = init_passive_markers(backend, (collect(1.0:4.0), collect(5.0:8.0)))
     markers_copy = copy(markers)
     markers_cpu = Array(markers)
     markers_f32 = Array(Float32, markers)
@@ -54,7 +69,7 @@ end
     xc = LinRange(0.125, 0.875, 4)
     grid_vx = xv, expand_range(xc)
     grid_vy = expand_range(xc), xv
-    particles = init_particles(CPU, 4, 8, 2, grid_vx, grid_vy)
+    particles = init_particles(backend, 4, 8, 2, grid_vx, grid_vy)
     field, = init_cell_arrays(particles, Val(1))
 
     fill!(particles.index.data, false)
@@ -163,7 +178,7 @@ end
     particle_args_reduced3 = data1["particle_args_reduced"]
     particle_args_kwarg3 = data1["particle_args_kwarg"]
 
-    @test chain3 isa JustPIC.MarkerChain{CPU}
+    @test chain3 isa JustPIC.MarkerChain{backend}
     @test particle_args3 isa Tuple
     @test particle_args_reduced3 isa Tuple
     @test particle_args_kwarg3 isa Tuple

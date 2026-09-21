@@ -1,125 +1,63 @@
 pushfirst!(LOAD_PATH, dirname(@__DIR__))
 
 using JustPIC
-
 using Pkg
 
-istest(f) = endswith(f, ".jl") && startswith(basename(f), "test_")
-
-function parse_flags!(args, flag; default = nothing, type = typeof(default))
-    for f in args
-        startswith(f, flag) || continue
-
-        if f != flag
-            val = split(f, '=')[2]
-            if !(type ≡ nothing || type <: AbstractString)
-                @show type val
-                val = parse(type, val)
-            end
-        else
-            val = default
-        end
-
-        filter!(x -> x != f, args)
-        return true, val
+function parse_flags!(args, flag; default = nothing)
+    for (i, value) in pairs(args)
+        startswith(value, flag) || continue
+        parsed = value == flag ? default : split(value, "="; limit = 2)[2]
+        deleteat!(args, i)
+        return true, parsed
     end
     return false, default
 end
 
-function runtests()
-    testdir = @__DIR__
-    projectdir = dirname(testdir)
-    test_project = dirname(Base.active_project())
-    load_path = join(("@", projectdir, "@v#.#", "@stdlib"), Sys.iswindows() ? ';' : ':')
-    testfiles = sort(
-        filter(
-            istest,
-            vcat([joinpath.(root, files) for (root, dirs, files) in walkdir(testdir)]...),
-        ),
+const FAST_SUITES = ("test_fast.jl",)
+const FULL_SUITES = (
+    "test_Aqua.jl", "test_2D.jl", "test_3D.jl", "test_integrators.jl",
+    "test_CellArrays.jl", "test_markerchain_2D.jl", "test_refined_grid.jl",
+    "test_save_load.jl", "test_interpolation_kernels.jl", "test_semilagrangian.jl",
+    "test_marker_surface.jl",
+)
+
+function run_suite(testdir, test_project, load_path, filename)
+    path = joinpath(testdir, filename)
+    printstyled("\nRunning $filename\n"; bold = true, color = :white)
+    cmd = addenv(
+        `$(Base.julia_cmd()) --project=$(test_project) --startup-file=no $path`,
+        "JULIA_LOAD_PATH" => load_path,
     )
-    nfail = 0
-    printstyled("Testing package JustPIC.jl\n"; bold = true, color = :white)
-
-    if get(ENV, "JULIA_JUSTPIC_BACKEND", "") === "CPU"
-
-        try
-            printstyled("Running 2D tests\n"; bold = true, color = :white)
-            include(joinpath(testdir, "test_Aqua.jl"))
-            include(joinpath(testdir, "test_2D.jl"))
-            include(joinpath(testdir, "test_integrators.jl"))
-            include(joinpath(testdir, "test_CellArrays.jl"))
-            include(joinpath(testdir, "test_markerchain_2D.jl"))
-            include(joinpath(testdir, "test_refined_grid.jl"))
-            include(joinpath(testdir, "test_save_load.jl"))
-            include(joinpath(testdir, "test_interpolation_kernels.jl"))
-            include(joinpath(testdir, "test_semilagrangian.jl"))
-        catch
-            nfail += 1
-        end
-        try
-            printstyled("Running 3D tests\n"; bold = true, color = :white)
-            include(joinpath(testdir, "test_3D.jl"))
-        catch
-            nfail += 1
-        end
-        try
-            printstyled("Running MarkerSurface tests\n"; bold = true, color = :white)
-            cmd = addenv(
-                `$(Base.julia_cmd()) --project=$(test_project) --startup-file=no $(joinpath(testdir, "test_marker_surface.jl"))`,
-                "JULIA_LOAD_PATH" => load_path,
-            )
-            run(cmd)
-        catch
-            nfail += 1
-        end
-    else
-        gpu_testfiles = (
-            "test_2D.jl",
-            "test_3D.jl",
-            "test_CellArrays.jl",
-            "test_interpolation_kernels.jl",
-            "test_semilagrangian.jl",
-            "test_refined_grid.jl",
-            "test_markerchain_2D.jl",
-            "test_save_load.jl",
-            "test_marker_surface.jl",
-        )
-        for f in gpu_testfiles
-            println("\n Running tests from $f")
-            try
-                cmd = addenv(
-                    `$(Base.julia_cmd()) --project=$(test_project) --startup-file=no $(joinpath(testdir, f))`,
-                    "JULIA_LOAD_PATH" => load_path,
-                )
-                run(cmd)
-            catch ex
-                nfail += 1
-            end
-        end
+    try
+        run(cmd)
+        printstyled("PASS $filename\n"; color = :green)
+        return true
+    catch ex
+        printstyled("FAIL $filename\n"; color = :red)
+        showerror(stderr, ex, catch_backtrace())
+        println(stderr)
+        return false
     end
-
-    return nfail
 end
 
-_, backend_name = parse_flags!(ARGS, "--backend"; default = "CPU", type = String)
+function runtests(tier)
+    testdir = @__DIR__
+    test_project = dirname(Base.active_project())
+    load_path = join(("@", test_project, "@v#.#", "@stdlib"), Sys.iswindows() ? ';' : ':')
+    suites = tier == "fast" ? FAST_SUITES : tier == "full" ? FULL_SUITES : (FAST_SUITES..., FULL_SUITES...)
+    failures = count(!run_suite(testdir, test_project, load_path, suite) for suite in suites)
+    println("\n$(length(suites) - failures)/$(length(suites)) test suites passed")
+    return failures
+end
 
-# An unrecognised backend must fail here: the suites default to CPU when
-# JULIA_JUSTPIC_BACKEND is unset, so a typo would pass a GPU job on the CPU.
+_, backend_name = parse_flags!(ARGS, "--backend"; default = "CPU")
+_, tier = parse_flags!(ARGS, "--tier"; default = "full")
 backend_name in ("CPU", "CUDA", "AMDGPU", "Metal") ||
     error("Unknown backend $(repr(backend_name)); use --backend=CPU|CUDA|AMDGPU|Metal")
-isempty(ARGS) || error("Unrecognised test arguments $(ARGS); use --backend=<name>")
+tier in ("fast", "full", "all") || error("Unknown tier $(repr(tier)); use --tier=fast|full|all")
+isempty(ARGS) || error("Unrecognised test arguments $(ARGS)")
 
-@static if backend_name == "AMDGPU"
-    Pkg.add("AMDGPU")
-    ENV["JULIA_JUSTPIC_BACKEND"] = "AMDGPU"
-elseif backend_name == "CUDA"
-    Pkg.add("CUDA")
-    ENV["JULIA_JUSTPIC_BACKEND"] = "CUDA"
-elseif backend_name == "Metal"
-    Pkg.add("Metal")
-    ENV["JULIA_JUSTPIC_BACKEND"] = "Metal"
-elseif backend_name == "CPU"
-    ENV["JULIA_JUSTPIC_BACKEND"] = "CPU"
-end
+backend_name == "CPU" || Pkg.add(backend_name)
+ENV["JULIA_JUSTPIC_BACKEND"] = backend_name
 
-exit(runtests())
+exit(runtests(tier))

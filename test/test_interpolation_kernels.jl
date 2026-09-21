@@ -2,13 +2,10 @@ const BACKEND_NAME = get(ENV, "JULIA_JUSTPIC_BACKEND", "CPU")
 
 @static if BACKEND_NAME == "AMDGPU"
     using AMDGPU
-    AMDGPU.allowscalar(true)
 elseif BACKEND_NAME == "CUDA"
     using CUDA
-    CUDA.allowscalar(true)
 elseif BACKEND_NAME == "Metal"
     using Metal
-    Metal.allowscalar(true)
 end
 
 using Test
