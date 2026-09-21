@@ -52,6 +52,7 @@ function runtests()
             include(joinpath(testdir, "test_refined_grid.jl"))
             include(joinpath(testdir, "test_save_load.jl"))
             include(joinpath(testdir, "test_interpolation_kernels.jl"))
+            include(joinpath(testdir, "test_semilagrangian.jl"))
         catch
             nfail += 1
         end
@@ -77,6 +78,7 @@ function runtests()
             "test_3D.jl",
             "test_CellArrays.jl",
             "test_interpolation_kernels.jl",
+            "test_semilagrangian.jl",
             "test_refined_grid.jl",
             "test_markerchain_2D.jl",
             "test_save_load.jl",
@@ -100,6 +102,12 @@ function runtests()
 end
 
 _, backend_name = parse_flags!(ARGS, "--backend"; default = "CPU", type = String)
+
+# An unrecognised backend must fail here: the suites default to CPU when
+# JULIA_JUSTPIC_BACKEND is unset, so a typo would pass a GPU job on the CPU.
+backend_name in ("CPU", "CUDA", "AMDGPU", "Metal") ||
+    error("Unknown backend $(repr(backend_name)); use --backend=CPU|CUDA|AMDGPU|Metal")
+isempty(ARGS) || error("Unrecognised test arguments $(ARGS); use --backend=<name>")
 
 @static if backend_name == "AMDGPU"
     Pkg.add("AMDGPU")

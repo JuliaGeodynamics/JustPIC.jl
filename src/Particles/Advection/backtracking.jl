@@ -8,8 +8,11 @@ then sampled from `F0` on the vertex grid `grid`. `grid_vi` contains the
 staggered coordinates associated with the velocity components.
 
 # Notes
-- `F` is overwritten in place.
-- `F0` is the source field from the previous step.
+- `F` is overwritten in place at the interior nodes; boundary nodes are left untouched.
+- `F0` is the source field from the previous step and is only read.
+- `F` and `F0` must not share memory, otherwise nodes read values already overwritten
+  by their neighbours. Aliased buffers throw an `ArgumentError`; pass a separate copy
+  of the previous step instead.
 - For tuple-valued fields, each component is backtracked independently.
 """
 function semilagrangian_advection!(
@@ -21,6 +24,7 @@ function semilagrangian_advection!(
         grid::NTuple{N, T},
         dt,
     ) where {N, T}
+    check_no_alias(F, F0)
     Fref = F isa Tuple ? first(F) : F
     # recast integrator/timestep/grids to the field precision so Float32 backends
     # (e.g. Metal) don't carry a Float64 value into the kernel; `recast_grid` also
@@ -41,6 +45,17 @@ function semilagrangian_advection!(
         F, F0, method, V, grid_vi, grid, dxi_velocity, dxi_vertex, dt
     )
 
+    return nothing
+end
+
+# Each kernel writes F[I...] while other nodes still read F0, so shared memory is a race
+function check_no_alias(F, F0)
+    Fs = F isa Tuple ? F : (F,)
+    F0s = F0 isa Tuple ? F0 : (F0,)
+    for f in Fs, f0 in F0s
+        Base.mightalias(f, f0) &&
+            throw(ArgumentError("destination `F` and source `F0` must not share memory"))
+    end
     return nothing
 end
 
@@ -71,7 +86,7 @@ end
         find_parent_cell_bisection(pᵢ_backtrack[i], grid[i], I[i])
     end
     di_vertex = @dxi(dxi_vertex, I_backtrack...)
-    F[I...] = _grid2particle(pᵢ_backtrack, grid, di_vertex, F, I_backtrack)
+    F[I...] = _grid2particle(pᵢ_backtrack, grid, di_vertex, F0, I_backtrack)
 end
 
 @kernel function backtrack_kernel!(
@@ -88,7 +103,6 @@ end
     I0 = @index(Global, NTuple)
     I = I0 .+ 1
 
-    di_vertex = @dxi(dxi_vertex, I...)
     # extract particle coordinates
     pᵢ = ntuple(Val(N)) do i
         @inline
@@ -99,6 +113,7 @@ end
     I_backtrack = ntuple(Val(N)) do i
         find_parent_cell_bisection(pᵢ_backtrack[i], grid[i], I[i])
     end
+    di_vertex = @dxi(dxi_vertex, I_backtrack...)
     ntuple(Val(NF)) do i
         @inline
         # interpolate field F onto particle

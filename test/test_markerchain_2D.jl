@@ -34,6 +34,9 @@ else
 end
 const TEST_PRECISIONS = FT === Float32 ? (Float32,) : (Float64, Float32)
 
+include(joinpath(@__DIR__, "helpers_backend.jl"))
+check_backend(BACKEND_NAME, backend, FT)
+
 host_data(A) = dropdims(Array(A).data; dims = 1)
 host_grid(x) = Array(x)
 

@@ -52,7 +52,7 @@ end
 
 
 @inline function advect_particle_SML(
-        ::RungeKutta4,
+        method::RungeKutta4,
         p0::NTuple{N},
         V::NTuple{N},
         grid_vi,
@@ -61,18 +61,10 @@ end
         idx::NTuple{N};
         backtracking::Bool = false
     ) where {N}
-
-    backtracking_sign = 1 - 2 * backtracking # flip sign if backtracking is true, used for backtracking particles during Semi-Lagrangian advection
-    k1 = interp_velocity2particle(p0, grid_vi, dxi, V, idx)
-    k2 = interp_velocity2particle(p0 .+ backtracking_sign .* dt .* k1 ./ 2, grid_vi, dxi, V, idx)
-    k3 = interp_velocity2particle(p0 .+ backtracking_sign .* dt .* k2 ./ 2, grid_vi, dxi, V, idx)
-    k4 = interp_velocity2particle(p0 .+ backtracking_sign .* dt .* k3, grid_vi, dxi, V, idx)
-
-    p = @. p0 + backtracking_sign * dt * (k1 + 2 * k2 + 2 * k3 + k4) / 6
-
-    return p
+    return advect_particle_SML(method, p0, V, grid_vi, dxi, dt, interp_velocity2particle, idx; backtracking = backtracking)
 end
 
+# `@.` over the stage tuples lowers to a dynamic `combine_axes` call, which does not compile on GPU
 @inline function advect_particle_SML(
         ::RungeKutta4,
         p0::NTuple{N},
@@ -86,12 +78,23 @@ end
     ) where {N, F}
 
     backtracking_sign = 1 - 2 * backtracking # flip sign if backtracking is true, used for backtracking particles during Semi-Lagrangian advection
+    step = backtracking_sign * dt
+    half_step = step / 2
     k1 = interpolation_fn(p0, grid_vi, dxi, V, idx)
-    k2 = interpolation_fn(p0 .+ backtracking_sign .* dt .* k1 ./ 2, grid_vi, dxi, V, idx)
-    k3 = interpolation_fn(p0 .+ backtracking_sign .* dt .* k2 ./ 2, grid_vi, dxi, V, idx)
-    k4 = interpolation_fn(p0 .+ backtracking_sign .* dt .* k3, grid_vi, dxi, V, idx)
+    p1 = ntuple(Val(N)) do i
+        p0[i] + half_step * k1[i]
+    end
+    k2 = interpolation_fn(p1, grid_vi, dxi, V, idx)
+    p2 = ntuple(Val(N)) do i
+        p0[i] + half_step * k2[i]
+    end
+    k3 = interpolation_fn(p2, grid_vi, dxi, V, idx)
+    p3 = ntuple(Val(N)) do i
+        p0[i] + step * k3[i]
+    end
+    k4 = interpolation_fn(p3, grid_vi, dxi, V, idx)
 
-    p = @. p0 + backtracking_sign * dt * (k1 + 2 * k2 + 2 * k3 + k4) / 6
-
-    return p
+    return ntuple(Val(N)) do i
+        p0[i] + step * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i]) / 6
+    end
 end

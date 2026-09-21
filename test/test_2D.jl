@@ -32,6 +32,9 @@ else
     Float64
 end
 
+include(joinpath(@__DIR__, "helpers_backend.jl"))
+check_backend(BACKEND_NAME, backend, FT)
+
 function expand_range(x::LinRange)
     dx = x[2] - x[1]
     n = length(x)
@@ -461,8 +464,10 @@ end
     @test all(v_mqs .≈ v_mqs_corrected)
 
     F0 = TA(backend)([x + FT(2) * y for x in Array(xv), y in Array(yv)])
+    F_tuple = similar(F0)
     F_linp = similar(F0)
     F_mqs = similar(F0)
+    copyto!(F_tuple, F0)
     copyto!(F_linp, F0)
     copyto!(F_mqs, F0)
 
@@ -470,6 +475,7 @@ end
     Vy_const = TA(backend)(fill(FT(0.02), size(Vy)))
     dt = FT(1)
 
+    semilagrangian_advection!((F_tuple,), (F0,), RungeKutta2(), (Vx_const, Vy_const), grid_vi, (xv, yv), dt)
     semilagrangian_advection_LinP!((F_linp,), (F0,), RungeKutta2(), (Vx_const, Vy_const), grid_vi, (xv, yv), dt)
     semilagrangian_advection_MQS!((F_mqs,), (F0,), RungeKutta2(), (Vx_const, Vy_const), grid_vi, (xv, yv), dt)
 
@@ -483,10 +489,34 @@ end
         p_backtrack, (xv, yv), di_backtrack, F0, I_backtrack
     )
     tol = FT === Float32 ? 1.0f-5 : 1.0e-12
+    @test F_tuple[3, 3] ≈ expected atol = tol rtol = tol
     @test F_linp[3, 3] ≈ expected atol = tol rtol = tol
     @test F_mqs[3, 3] ≈ expected atol = tol rtol = tol
+    @test F_tuple[3, 3] ≈ F_linp[3, 3] atol = tol rtol = tol
     @test F_linp[3, 3] ≈ F_mqs[3, 3] atol = tol rtol = tol
     @test F_linp[3, 3] != F0[3, 3]
+end
+
+@testset "Semi-Lagrangian tuple backtracking translates affine field on refined grid 2D" begin
+    xv = TA(backend)(FT[-1, 0, 1, 3, 6, 10])
+    yv = TA(backend)(FT[-1, 0, 1, 3, 6, 10])
+    xc = TA(backend)([(xv[i] + xv[i + 1]) / 2 for i in 1:(length(xv) - 1)])
+    yc = TA(backend)([(yv[i] + yv[i + 1]) / 2 for i in 1:(length(yv) - 1)])
+    grid_vi = (xv, TA(backend)(expand_range(Array(yc)))), (TA(backend)(expand_range(Array(xc))), yv)
+
+    vx, vy, dt = FT(1), FT(1 // 4), FT(1 // 2)
+    Vx = TA(backend)(fill(vx, length(xv), length(yv) + 1))
+    Vy = TA(backend)(fill(vy, length(xv) + 1, length(yv)))
+    F0 = TA(backend)([x + 2y for x in Array(xv), y in Array(yv)])
+    F = similar(F0)
+    fill!(F, zero(FT))
+
+    semilagrangian_advection!((F,), (F0,), RungeKutta2(), (Vx, Vy), grid_vi, (xv, yv), dt)
+
+    inner = 2:(length(xv) - 1)
+    expected = [(x - vx * dt) + 2 * (y - vy * dt) for x in Array(xv)[inner], y in Array(yv)[inner]]
+    tol = FT === Float32 ? 1.0f-5 : 1.0e-12
+    @test Array(F)[inner, inner] ≈ expected atol = tol rtol = tol
 end
 
 @testset "Refined grid particle initialization 2D" begin
