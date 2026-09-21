@@ -88,7 +88,6 @@ end
     I0 = @index(Global, NTuple)
     I = I0 .+ 1
 
-    di_vertex = @dxi(dxi_vertex, I...)
     # extract particle coordinates
     pᵢ = ntuple(Val(N)) do i
         @inline
@@ -99,6 +98,7 @@ end
     I_backtrack = ntuple(Val(N)) do i
         find_parent_cell_bisection(pᵢ_backtrack[i], grid[i], I[i])
     end
+    di_vertex = @dxi(dxi_vertex, I_backtrack...)
     ntuple(Val(NF)) do i
         @inline
         # interpolate field F onto particle
