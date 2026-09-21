@@ -19,7 +19,7 @@ steps:
     matrix:
       setup:
         version:
-          - "lts"
+          - "1.10"
           - "1"
     plugins:
       - JuliaCI/julia#v1:
