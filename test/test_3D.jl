@@ -352,6 +352,38 @@ end
     end
 end
 
+include(joinpath(@__DIR__, "helpers_move_particles.jl"))
+
+@testset "Particle movement fills free slots per destination 3D" begin
+    xv = LinRange(FT(0), FT(1), 5)
+    xc = LinRange(FT(0.125), FT(0.875), 4)
+    grid_vx = xv, expand_range(xc), expand_range(xc)
+    grid_vy = expand_range(xc), xv, expand_range(xc)
+    grid_vz = expand_range(xc), expand_range(xc), xv
+    particles = init_particles(backend, 8, 8, 1, grid_vx, grid_vy, grid_vz)
+    fields = init_cell_arrays(particles, Val(2))
+
+    xm, xp, ym, yp, zm, zp = (-1, 0, 0), (1, 0, 0), (0, -1, 0), (0, 1, 0), (0, 0, -1), (0, 0, 1)
+    scenarios = (
+        "two destinations" => ([xm, xp], Dict(xm => [8], xp => [1])),
+        "six destinations" => (
+            [xm, xp, ym, yp, zm, zp],
+            Dict(xm => [8], xp => [1], ym => [2], yp => [7], zm => [3], zp => [6]),
+        ),
+        "alternating destinations" => ([xm, xp, xm, xp], Dict(xm => [7, 8], xp => [1, 2])),
+        "shared destination and a staying particle" => ([xp, xm, xp, (0, 0, 0)], Dict(xp => [2, 3], xm => [1])),
+        "corner destinations" => (
+            [(1, 1, 1), (-1, -1, -1), (1, -1, 1), (-1, 1, -1)],
+            Dict((1, 1, 1) => [8], (-1, -1, -1) => [1], (1, -1, 1) => [4], (-1, 1, -1) => [5]),
+        ),
+    )
+    for (name, (leaving, free)) in scenarios
+        @testset "$name" begin
+            check_fragmented_move(backend, particles, fields, (3, 3, 3), leaving, free)
+        end
+    end
+end
+
 @testset "Refined grid particle initialization 3D" begin
     xv = FT[0.0, 0.1, 0.25, 0.55, 1.0]
     yv = FT[0.0, 0.2, 0.45, 0.8, 1.0]

@@ -97,7 +97,6 @@ function move_kernel!(
         idx::NTuple{N1, Int64},
     ) where {N1, N2, T}
 
-    starting_point = 1
     dxi = @dxi di idx...
 
     # iterate over particles in child cell
@@ -129,9 +128,8 @@ function move_kernel!(
         empty_particle!(args, ip, idx)
 
         # check whether there's empty space in parent cell
-        free_idx = find_free_memory(starting_point, index, new_cell...)
+        free_idx = find_free_memory(index, new_cell...)
         iszero(free_idx) && continue
-        starting_point = free_idx
 
         # move particle and its fields to the first free memory location
         CAI.@index index[free_idx, new_cell...] = true
@@ -201,13 +199,6 @@ end
 
 function find_free_memory(index, I::Vararg{Int, N}) where {N}
     for i in cellaxes(index)
-        (CAI.@index(index[i, I...])) || return i
-    end
-    return 0
-end
-
-function find_free_memory(initial_index::Integer, index::CellArray, I::Vararg{Int, N}) where {N}
-    for i in initial_index:cellnum(index)
         (CAI.@index(index[i, I...])) || return i
     end
     return 0
