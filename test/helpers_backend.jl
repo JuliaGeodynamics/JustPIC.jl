@@ -26,3 +26,15 @@ function check_backend(name::AbstractString, backend, ::Type{FT}) where {FT}
     end
     return nothing
 end
+
+# Full legacy suites inspect device arrays on host. Allow scalar access only
+# inside isolated full-suite processes; fast tier keeps it forbidden.
+if get(ENV, "JULIA_JUSTPIC_ALLOW_SCALAR", "false") == "true"
+    @static if isdefined(Main, :AMDGPU) && get(ENV, "JULIA_JUSTPIC_BACKEND", "CPU") == "AMDGPU"
+        AMDGPU.allowscalar(true)
+    elseif isdefined(Main, :CUDA) && get(ENV, "JULIA_JUSTPIC_BACKEND", "CPU") == "CUDA"
+        CUDA.allowscalar(true)
+    elseif isdefined(Main, :Metal) && get(ENV, "JULIA_JUSTPIC_BACKEND", "CPU") == "Metal"
+        Metal.allowscalar(true)
+    end
+end

@@ -21,12 +21,13 @@ const FULL_SUITES = (
     "test_marker_surface.jl",
 )
 
-function run_suite(testdir, test_project, load_path, filename)
+function run_suite(testdir, test_project, load_path, filename, tier)
     path = joinpath(testdir, filename)
     printstyled("\nRunning $filename\n"; bold = true, color = :white)
     cmd = addenv(
         `$(Base.julia_cmd()) --project=$(test_project) --startup-file=no $path`,
         "JULIA_LOAD_PATH" => load_path,
+        "JULIA_JUSTPIC_ALLOW_SCALAR" => tier == "full" ? "true" : "false",
     )
     try
         run(cmd)
@@ -45,7 +46,7 @@ function runtests(tier)
     test_project = dirname(Base.active_project())
     load_path = join(("@", test_project, "@v#.#", "@stdlib"), Sys.iswindows() ? ';' : ':')
     suites = tier == "fast" ? FAST_SUITES : tier == "full" ? FULL_SUITES : (FAST_SUITES..., FULL_SUITES...)
-    failures = count(!run_suite(testdir, test_project, load_path, suite) for suite in suites)
+    failures = count(!run_suite(testdir, test_project, load_path, suite, tier) for suite in suites)
     println("\n$(length(suites) - failures)/$(length(suites)) test suites passed")
     return failures
 end
