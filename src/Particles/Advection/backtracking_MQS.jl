@@ -22,6 +22,7 @@ function semilagrangian_advection_MQS!(
         grid::NTuple{N, T},
         dt,
     ) where {N, T}
+    check_semilagrangian_integrator(method)
     check_no_alias(F, F0)
     Fref = F isa Tuple ? first(F) : F
     # recast integrator/timestep/grids to the field precision so Float32 backends
