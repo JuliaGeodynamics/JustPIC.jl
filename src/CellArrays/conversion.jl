@@ -43,11 +43,15 @@ function _to_cpu_cellarray(::Val{false}, ::Type{T}, CA::CellArray) where {T <: N
 end
 
 # inner kernel doing the actual copy of the `CellArray`
-function _to_cpu_cellarray(::Val{true}, ::Type{T}, CA::CellArray) where {T <: Number}
+function _to_cpu_cellarray(
+        ::Val{true}, ::Type{T}, CA::CellArray{S, N, B}
+    ) where {T <: Number, S, N, B}
     dims = size(CA)
     T_SArray = eltype(CA)
     CA_cpu = CPU_CellArray(SVector{length(T_SArray), T}, undef, dims)
-    tmp = if size(CA.data) != size(CA_cpu.data)
+    # GPU CellArrays use B=0; CPU particle fields use B=1. Dimensions alone do
+    # not identify layout when a grid dimension is one.
+    tmp = if B == 0
         Array(permutedims(CA.data, (3, 2, 1)))
     else
         Array(CA.data)
