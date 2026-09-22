@@ -1,12 +1,16 @@
 pushfirst!(LOAD_PATH, joinpath(@__DIR__, ".."))
-using Documenter, JustPIC
+using Documenter, DocumenterVitepress, JustPIC
 
 @info "Making documentation..."
 makedocs(;
     sitename = "JustPIC.jl",
     authors = "Albert de Montserrat and contributors",
     modules = [JustPIC],
-    format = Documenter.HTML(; prettyurls = get(ENV, "CI", nothing) == "true"), # easier local build
+    format = DocumenterVitepress.MarkdownVitepress(
+        repo = "github.com/JuliaGeodynamics/JustPIC.jl",
+        devbranch = "main",
+        devurl = "dev",
+    ),
     warnonly = Documenter.except(:footnote),
     checkdocs = :exports,
     pages = [
@@ -28,7 +32,14 @@ makedocs(;
         "I/O" => "IO.md",
         "Mixed GPU/CPU" => "mixed_CPU_GPU.md",
         "Public API" => "API.md",
+        "Performance" => "performance.md",
     ],
 )
 
-deploydocs(; repo = "github.com/JuliaGeodynamics/JustPIC.jl", devbranch = "main")
+DocumenterVitepress.deploydocs(;
+    repo = "github.com/JuliaGeodynamics/JustPIC.jl",
+    target = joinpath(@__DIR__, "build"),
+    branch = "gh-pages",
+    devbranch = "main",
+    push_preview = true,
+)

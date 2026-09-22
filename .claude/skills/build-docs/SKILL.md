@@ -24,7 +24,7 @@ description: Build JustPIC documentation locally, full or fast
 5. Preview:
    ```julia
    using LiveServer
-   serve(dir = "docs/build")
+   LiveServer.serve(dir = "docs/build/1")
    ```
 6. Report warnings/errors, especially missing docstrings and broken cross-references
 

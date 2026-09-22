@@ -22,7 +22,7 @@ For prose/cross-reference checks, temporarily:
 
 ```julia
 using LiveServer
-serve(dir = "docs/build")
+LiveServer.serve(dir = "docs/build/1")
 ```
 
 ## Structure
@@ -31,6 +31,8 @@ serve(dir = "docs/build")
   (`field_advection2D.md` etc.) with fenced julia blocks
 - The public API page is `docs/src/API.md` — update it when exports change
 - Example scripts referenced by the docs live in `docs/examples/`
+- The site is built with DocumenterVitepress: `pages` in `docs/make.jl` sets the sidebar;
+  the top navigation bar is fixed in `docs/src/.vitepress/config.mts`
 
 ## Docstring Style
 

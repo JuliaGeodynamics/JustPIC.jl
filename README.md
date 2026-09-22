@@ -1,3 +1,5 @@
+<h1><img src="./docs/src/assets/logo.svg" alt="JustPIC.jl" width="50"> JustPIC.jl</h1>
+
 [![Stable docs](https://img.shields.io/badge/docs-stable-blue.svg)](https://juliageodynamics.github.io/JustPIC.jl/stable/)
 [![Dev docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://juliageodynamics.github.io/JustPIC.jl/dev/)
 [![Julia tests](https://github.com/JuliaGeodynamics/JustPIC.jl/actions/workflows/UnitTests.yml/badge.svg)](https://github.com/JuliaGeodynamics/JustPIC.jl/actions/workflows/UnitTests.yml)
@@ -5,8 +7,6 @@
 [![codecov](https://codecov.io/gh/JuliaGeodynamics/JustPIC.jl/graph/badge.svg?token=PN0AJZXK13)](https://codecov.io/gh/JuliaGeodynamics/JustPIC.jl)
 [![Aqua QA](https://raw.githubusercontent.com/JuliaTesting/Aqua.jl/master/badge.svg)](https://github.com/JuliaTesting/Aqua.jl)
 [![Version](https://juliahub.com/docs/General/JustPIC/stable/version.svg)](https://juliahub.com/ui/Packages/General/JustPIC)
-
-# JustPIC.jl
 
 JustPIC.jl is a backend-generic Julia library for Particle-in-Cell (PIC)
 advection and particle/grid interpolation. It is designed for large-scale
@@ -94,6 +94,16 @@ Build the documentation locally with:
 ```sh
 julia --project=docs docs/make.jl
 ```
+
+Run the isolated performance suite with:
+
+```sh
+julia --project=benchmarking benchmarking/setup.jl
+julia --project=benchmarking benchmarking/run_benchmarks.jl
+```
+
+See [benchmarking/README.md](benchmarking/README.md) for the benchmark contract and
+available groups.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution requirements.
 

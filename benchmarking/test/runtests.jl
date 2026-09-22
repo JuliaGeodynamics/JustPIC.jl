@@ -1,0 +1,56 @@
+using JSON: JSON
+using JustPIC
+using JustPICBenchmarks
+using Test
+
+@testset "benchmark harness" begin
+    cases = benchmark_cases(; particle_size = 8, surface_size = 8)
+    results = run_benchmarks(; samples = 1, cases)
+
+    @test length(results) == 3
+    @test all(result -> result["value"] > 0, results)
+    @test all(result -> result["sanity_check"] == "passed", results)
+    @test all(result -> result["samples"] == 1, results)
+    @test all(result -> result["modeled_flops"] > 0, results)
+    @test all(result -> result["modeled_memory_bytes"] > 0, results)
+    @test all(result -> result["arithmetic_intensity_flops_per_byte"] > 0, results)
+    @test all(result -> result["effective_gflops_per_second"] > 0, results)
+    @test all(result -> result["performance_metric_source"] == "algorithmic_model", results)
+    @test all(
+        result -> isapprox(
+            result["effective_flops_per_second"],
+            result["modeled_flops"] / result["time_median_seconds"],
+        ),
+        results,
+    )
+    @test all(
+        result -> result["metadata"]["justpic_source"] == ".",
+        results,
+    )
+    @test all(result -> !occursin(".local", result["metadata"]["hardware_fingerprint"]), results)
+    @test all(result -> haskey(result["metadata"], "commit_subject"), results)
+    @test all(result -> result["metadata"]["backend"] == "CPU", results)
+    @test results[1]["metadata"]["peak_memory_bandwidth_gb_per_second"] > 0
+    @test results[1]["metadata"]["peak_compute_gflops"] > 0
+    @test_throws "device description is required" run_benchmarks(;
+        backend_name = "CUDA", samples = 1, cases,
+    )
+
+    mktempdir() do dir
+        path = write_results(joinpath(dir, "results.json"), results)
+        decoded = JSON.parsefile(path)
+        @test getindex.(decoded, "name") == collect(getindex.(results, "name"))
+
+        history = write_dashboard_data(joinpath(dir, "history.json"), [path])
+        payload = JSON.parsefile(history)
+        @test payload["schema_version"] == 1
+        @test payload["repository_url"] == "https://github.com/JuliaGeodynamics/JustPIC.jl"
+        @test length(payload["runs"]) == 1
+        @test length(only(payload["runs"])["benchmarks"]) == 3
+        @test only(payload["runs"])["source"] == "results.json"
+        @test_throws "more than one run for the same commit" write_dashboard_data(
+            joinpath(dir, "duplicate-history.json"),
+            [path, path],
+        )
+    end
+end
