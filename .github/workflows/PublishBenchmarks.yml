@@ -108,5 +108,5 @@ jobs:
           git -C history add results benchmark_history.json
           git -C history -c user.name="github-actions[bot]" \
               -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
-              commit -m "Benchmark results for $COMMIT"
+              commit -m "Benchmark results for $COMMIT [skip ci]"
           git -C history push origin benchmark-data
