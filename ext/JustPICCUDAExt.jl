@@ -163,16 +163,19 @@ function CUDA.CuArray(chain::JustPIC.MarkerChain)
     )
 end
 
-function CUDA.CuArray(::Type{T}, CA::CellArray) where {T <: Number}
+function CUDA.CuArray(
+        ::Type{T}, CA::CellArray{S, N, B}
+    ) where {T <: Number, S, N, B}
     ni = size(CA)
     # Array initializations
     T_SArray = eltype(CA)
     CA_CUDA = _cucellarray(SVector{length(T_SArray), T}, ni)
     # copy data to the CUDA CellArray
-    tmp = if size(CA.data) != size(CA_CUDA.data)
-        CuArray(permutedims(CA.data, (3, 2, 1)))
-    else
+    # CPU particle fields use B=1; CUDA fields use B=0.
+    tmp = if B == 0
         CuArray(CA.data)
+    else
+        CuArray(permutedims(CA.data, (3, 2, 1)))
     end
     copyto!(CA_CUDA.data, tmp)
     return CA_CUDA

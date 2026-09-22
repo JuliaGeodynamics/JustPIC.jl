@@ -132,17 +132,20 @@ function Metal.MtlArray(::Type{T}, phase_ratios::JustPIC.PhaseRatios) where {T <
     )
 end
 
-function Metal.MtlArray(::Type{T}, CA::CellArray) where {T <: Number}
+function Metal.MtlArray(
+        ::Type{T}, CA::CellArray{S, N, B}
+    ) where {T <: Number, S, N, B}
     ni = size(CA)
     T_SArray = eltype(CA)
     CA_Mtl = _mtlcellarray(SVector{length(T_SArray), T}, ni)
     # Narrow the eltype on the host first: Metal has no Float64, so the source
     # Float64 backing array cannot be uploaded as-is (unlike CUDA/AMDGPU).
-    host = if size(CA.data) != size(CA_Mtl.data)
+    # CPU particle fields use B=1; Metal fields use B=0.
+    host = if B == 0
+        CA.data
+    else
         # transpose array-of-struct (CPU) layout to struct-of-array (GPU) layout
         permutedims(CA.data, (3, 2, 1))
-    else
-        CA.data
     end
     copyto!(CA_Mtl.data, MtlArray(T.(host)))
     return CA_Mtl

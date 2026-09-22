@@ -163,16 +163,19 @@ function AMDGPU.ROCArray(chain::JustPIC.MarkerChain)
     )
 end
 
-function AMDGPU.ROCArray(::Type{T}, CA::CellArray) where {T <: Number}
+function AMDGPU.ROCArray(
+        ::Type{T}, CA::CellArray{S, N, B}
+    ) where {T <: Number, S, N, B}
     ni = size(CA)
     # Array initializations
     T_SArray = eltype(CA)
     CA_ROC = _roccellarray(SVector{length(T_SArray), T}, ni)
     # copy data to the ROC CellArray
-    tmp = if size(CA.data) != size(CA_ROC.data)
-        ROCArray(permutedims(CA.data, (3, 2, 1)))
-    else
+    # CPU particle fields use B=1; ROC fields use B=0.
+    tmp = if B == 0
         ROCArray(CA.data)
+    else
+        ROCArray(permutedims(CA.data, (3, 2, 1)))
     end
     copyto!(CA_ROC.data, tmp)
     return CA_ROC
