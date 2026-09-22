@@ -13,34 +13,37 @@ function resample!(chain::MarkerChain)
 
     # sort marker chain
     sort_chain!(chain)
+    # Snapshot reads so neighboring cells never observe coordinates being overwritten.
+    coords_read = map(copy, coords)
 
     # call kernel
     launch!(
         ka_backend(index), resample_kernel!, nx,
-        coords, cell_vertices, h_vertices, index, min_xcell, max_xcell
+        coords, coords_read, cell_vertices, h_vertices, index, min_xcell, max_xcell
     )
     return nothing
 end
 
 @kernel function resample_kernel!(
-        coords, cell_vertices, h_vertices, index, min_xcell, max_xcell
+        coords, coords_read, cell_vertices, h_vertices, index, min_xcell, max_xcell
     )
     i = @index(Global)
     resample_cell!(
-        coords, cell_vertices, h_vertices, index, min_xcell, max_xcell, i
+        coords, coords_read, cell_vertices, h_vertices, index, min_xcell, max_xcell, i
     )
 end
 
 function resample_cell!(
-        coords::NTuple{2, T}, cell_vertices, h_vertices, index,
+        coords::NTuple{2, T}, coords_read, cell_vertices, h_vertices, index,
         min_xcell, max_xcell, I
     ) where {T}
 
     # cell particles coordinates
     index_I = @cell index[I]
     px, py = coords[1], coords[2]
-    x_cell = @cell px[I]
-    y_cell = @cell py[I]
+    px_read, py_read = coords_read
+    x_cell = @cell px_read[I]
+    y_cell = @cell py_read[I]
 
     # lower-left corner of the cell
     cell_vertex = cell_vertices[I]
@@ -68,7 +71,7 @@ function resample_cell!(
                 )
             elseif 1 < I < length(index)
                 # inner cells; this is true (ncells-2) consecutive times
-                interp1D_inner(xq, x_cell, y_cell, coords, I)
+                interp1D_inner(xq, x_cell, y_cell, coords_read, I)
             else
                 # first and last cells
                 interp1D_extremas(xq, x_cell, y_cell)
