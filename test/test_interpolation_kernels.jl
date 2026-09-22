@@ -121,7 +121,7 @@ end
 
     # Particle to grid test
     T2 = similar(T)
-    fill!(T2, NaN)
+    fill!(T2, eltype(T2)(NaN))
     JustPIC.particle2grid!(T2, pT, particles)
     # norm(T2 .- T) / length(T)
     support = interior_support(T2)
@@ -137,7 +137,7 @@ end
     # Particle to centroid test
     Tc2 = similar(Tc)
     JustPIC.particle2centroid!(Tc2, pT, particles)
-    fill!(Tc2, NaN)
+    fill!(Tc2, eltype(Tc2)(NaN))
     JustPIC.particle2centroid!(Tc2, pT, xci_p, particles, diff.(xci_p))
     # norm(T2 .- T) / length(T)
     support_c = interior_support(Tc2)
@@ -282,7 +282,7 @@ end
 
     # Particle to grid test
     T2 = similar(T)
-    fill!(T2, NaN)
+    fill!(T2, eltype(T2)(NaN))
     JustPIC.particle2grid!(T2, pT, particles)
     support = interior_support(T2)
     @test all(isfinite.(T2[support]))
@@ -295,7 +295,7 @@ end
 
     # Particle to centroid test
     Tc2 = similar(Tc)
-    fill!(Tc2, NaN)
+    fill!(Tc2, eltype(Tc2)(NaN))
     JustPIC.particle2centroid!(Tc2, pT, xci_p, particles, diff.(xci_p))
     # norm(T2 .- T) / length(T)
     support_c = interior_support(Tc2)

@@ -39,6 +39,10 @@ For grid size `n`, let `Np = 4n²` particles, `Ns = 8n²` particle slots,
 | Interpolation round-trip | `54Np + Nv` | `76Np + 4Nv + 40Nc` |
 | MarkerSurface update | `317Nv + 14Nc` | `294Nv + 37Nc` |
 
+The byte counts hold for `Float32` fields and scale with the element size, so a `Float64` run
+models twice the traffic. The `2Ns` particle-index bytes are the one exception: they are
+`Bool` slots and stay fixed. FLOP counts are independent of the element type.
+
 Each JSON record reports `arithmetic_intensity_flops_per_byte`,
 `effective_flops_per_second`, `effective_gflops_per_second`, and
 `effective_bandwidth_gb_per_second`. These are effective application metrics derived from the
@@ -52,11 +56,18 @@ julia --project=benchmarking benchmarking/run_benchmarks.jl --samples=20
 julia --project=benchmarking benchmarking/run_benchmarks.jl --group=MarkerSurface
 julia --project=benchmarking benchmarking/run_benchmarks.jl --output=out/results.json
 julia --project=benchmarking benchmarking/run_benchmarks.jl --backend=CUDA
+julia --project=benchmarking benchmarking/run_benchmarks.jl --precision=Float32
 ```
 
 `--backend` accepts `CPU` (default), `CUDA`, `AMDGPU`, or `Metal`. GPU cases use the same
-problem sizes and `Float32` data, synchronize the device before each timing ends, and record
-the device name in `metadata.device` and `metadata.hardware_fingerprint`.
+problem sizes as the CPU, synchronize the device before each timing ends, and record the
+device name in `metadata.device` and `metadata.hardware_fingerprint`.
+
+`--precision` accepts `Float64` (default) or `Float32` and sets the element type of every
+field, grid, and velocity array, as well as of the STREAM triad and FMA-chain probes that
+measure the roofline ceilings. Metal has no `Float64` and runs `Float32` unless `--precision`
+says otherwise. The element type is part of each benchmark name (`..._F64`, `..._F32`) and is
+recorded in `metadata.float_type`, so the two precisions form separate dashboard series.
 
 ## Performance dashboard
 

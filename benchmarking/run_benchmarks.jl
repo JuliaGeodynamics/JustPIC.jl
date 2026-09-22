@@ -24,4 +24,9 @@ else
     JustPIC.CPU, nothing
 end
 
-JustPICBenchmarks.main(filter(!startswith("--backend="), ARGS); backend, backend_name = BACKEND, device)
+args = filter(!startswith("--backend="), ARGS)
+# Metal has no Float64, so that backend runs the cases in Float32 unless asked otherwise
+BACKEND == "Metal" && !any(startswith("--precision="), args) &&
+    push!(args, "--precision=Float32")
+
+JustPICBenchmarks.main(args; backend, backend_name = BACKEND, device)

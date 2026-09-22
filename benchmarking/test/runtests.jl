@@ -30,11 +30,24 @@ using Test
     @test all(result -> !occursin(".local", result["metadata"]["hardware_fingerprint"]), results)
     @test all(result -> haskey(result["metadata"], "commit_subject"), results)
     @test all(result -> result["metadata"]["backend"] == "CPU", results)
+    @test all(result -> result["metadata"]["float_type"] == "Float64", results)
+    @test all(result -> result["parameters"]["float_type"] == "Float64", results)
+    @test all(result -> endswith(result["name"], "_F64"), results)
     @test results[1]["metadata"]["peak_memory_bandwidth_gb_per_second"] > 0
     @test results[1]["metadata"]["peak_compute_gflops"] > 0
     @test_throws "device description is required" run_benchmarks(;
         backend_name = "CUDA", samples = 1, cases,
     )
+
+    cases32 = benchmark_cases(; particle_size = 8, surface_size = 8, precision = Float32)
+    results32 = run_benchmarks(; samples = 1, precision = Float32, cases = cases32)
+    @test all(result -> endswith(result["name"], "_F32"), results32)
+    @test all(result -> result["parameters"]["float_type"] == "Float32", results32)
+    @test all(
+        i -> results32[i]["modeled_memory_bytes"] < results[i]["modeled_memory_bytes"],
+        eachindex(results32, results),
+    )
+    @test_throws "unknown precision" JustPICBenchmarks.parse_commandline(["--precision=Float16"])
 
     mktempdir() do dir
         path = write_results(joinpath(dir, "results.json"), results)

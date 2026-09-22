@@ -137,7 +137,7 @@ steps:
       julia --project=benchmarking benchmarking/run_benchmarks.jl --backend=Metal --output=benchmark_results_Metal.json
 
       echo "+++ :stopwatch: host CPU benchmarks"
-      julia --project=benchmarking benchmarking/run_benchmarks.jl --backend=CPU --output=benchmark_results_Metal-host-CPU.json
+      julia --project=benchmarking benchmarking/run_benchmarks.jl --backend=CPU --precision=Float32 --output=benchmark_results_Metal-host-CPU.json
     artifact_paths:
       - "benchmark_results_*.json"
     agents:

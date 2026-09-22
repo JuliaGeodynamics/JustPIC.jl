@@ -39,8 +39,13 @@ end
 
 synchronize(backend) = JustPIC.KernelAbstractions.synchronize(backend())
 
-function particle_state_2d(backend, n)
-    FT = Float32
+float_label(::Type{FT}) where {FT} = "F$(8 * sizeof(FT))"
+
+# Byte counts whose split into field scalars and index/flag bytes is not recorded
+# are treated as `Float32` scalars, so they scale with a wider element type.
+scale_float32_bytes(bytes, ::Type{FT}) where {FT} = bytes * sizeof(FT) ÷ sizeof(Float32)
+
+function particle_state_2d(backend, n, ::Type{FT}) where {FT}
     xv = range(FT(0), FT(1); length = n + 1)
     yv = range(FT(0), FT(1); length = n + 1)
     grid_vx = xv, extended_centers(yv)
@@ -73,8 +78,8 @@ function validate_particle_state(state)
     return nothing
 end
 
-function advection_move_case(backend, n)
-    setup() = particle_state_2d(backend, n)
+function advection_move_case(backend, n, ::Type{FT}) where {FT}
+    setup() = particle_state_2d(backend, n, FT)
     function run(state)
         advection!(
             state.particles, RungeKutta2(), state.V, state.dt;
@@ -91,19 +96,19 @@ function advection_move_case(backend, n)
     slots = 8 * n^2
     performance_model = PerformanceModel(
         54 * work_units,
-        26 * sizeof(Float32) * work_units + 2 * slots,
+        26 * sizeof(FT) * work_units + 2 * slots,
         "two-stage 2D RK2 velocity interpolation and one logical particle-payload movement pass",
     )
     parameters = Dict{String, Any}(
         "dimension" => 2,
-        "float_type" => "Float32",
+        "float_type" => string(FT),
         "grid_cells" => [n, n],
         "particles_per_cell" => 4,
         "periodic" => [true, true],
         "integrator" => "RungeKutta2",
     )
     return BenchmarkCase(
-        "advection_move_2d_$(n)x$(n)_4ppc_F32",
+        "advection_move_2d_$(n)x$(n)_4ppc_$(float_label(FT))",
         "Particle workflow",
         setup,
         run,
@@ -115,8 +120,8 @@ function advection_move_case(backend, n)
     )
 end
 
-function interpolation_case(backend, n)
-    setup() = particle_state_2d(backend, n)
+function interpolation_case(backend, n, ::Type{FT}) where {FT}
+    setup() = particle_state_2d(backend, n, FT)
     function run(state)
         particle2grid!(state.nodal_field, state.particle_field, state.particles)
         grid2particle!(state.particle_field, state.nodal_field, state.particles)
@@ -127,18 +132,18 @@ function interpolation_case(backend, n)
     nodes = (n + 1)^2
     performance_model = PerformanceModel(
         54 * work_units + nodes,
-        19 * sizeof(Float32) * work_units + sizeof(Float32) * nodes + 40 * n^2,
+        19 * sizeof(FT) * work_units + sizeof(FT) * nodes + 10 * sizeof(FT) * n^2,
         "one inverse-distance particle-to-grid pass followed by one bilinear grid-to-particle pass",
     )
     parameters = Dict{String, Any}(
         "dimension" => 2,
-        "float_type" => "Float32",
+        "float_type" => string(FT),
         "grid_cells" => [n, n],
         "particles_per_cell" => 4,
         "directions" => ["particle_to_grid", "grid_to_particle"],
     )
     return BenchmarkCase(
-        "interpolation_roundtrip_2d_$(n)x$(n)_4ppc_F32",
+        "interpolation_roundtrip_2d_$(n)x$(n)_4ppc_$(float_label(FT))",
         "Interpolation",
         setup,
         run,
@@ -150,8 +155,7 @@ function interpolation_case(backend, n)
     )
 end
 
-function marker_surface_state(backend, n)
-    FT = Float32
+function marker_surface_state(backend, n, ::Type{FT}) where {FT}
     xv = range(FT(0), FT(1); length = n + 1)
     yv = range(FT(0), FT(1); length = n + 1)
     zv = range(FT(0), FT(1); length = 3)
@@ -180,8 +184,8 @@ function validate_marker_surface(state)
     return nothing
 end
 
-function marker_surface_case(backend, n)
-    setup() = marker_surface_state(backend, n)
+function marker_surface_case(backend, n, ::Type{FT}) where {FT}
+    setup() = marker_surface_state(backend, n, FT)
     function run(state)
         advect_marker_surface!(state.surface, state.V, state.grid_vxi, state.dt)
         synchronize(backend)
@@ -191,18 +195,18 @@ function marker_surface_case(backend, n)
     cells = n^2
     performance_model = PerformanceModel(
         317 * work_units + 14 * cells,
-        294 * work_units + 37 * cells,
+        scale_float32_bytes(294 * work_units + 37 * cells, FT),
         "trilinear velocity interpolation, fixed-case triangle advection, and flat-surface smoothing scan",
     )
     parameters = Dict{String, Any}(
         "dimension" => 3,
-        "float_type" => "Float32",
+        "float_type" => string(FT),
         "surface_cells" => [n, n],
         "velocity_z_cells" => 2,
         "max_slope_angle_degrees" => 45,
     )
     return BenchmarkCase(
-        "marker_surface_update_$(n)x$(n)_F32",
+        "marker_surface_update_$(n)x$(n)_$(float_label(FT))",
         "MarkerSurface",
         setup,
         run,
@@ -214,11 +218,14 @@ function marker_surface_case(backend, n)
     )
 end
 
-function benchmark_cases(backend = JustPIC.CPU; particle_size = 128, surface_size = 256)
+function benchmark_cases(
+        backend = JustPIC.CPU; particle_size = 128, surface_size = 256,
+        precision::Type = Float64,
+    )
     return (
-        advection_move_case(backend, particle_size),
-        interpolation_case(backend, particle_size),
-        marker_surface_case(backend, surface_size),
+        advection_move_case(backend, particle_size, precision),
+        interpolation_case(backend, particle_size, precision),
+        marker_surface_case(backend, surface_size, precision),
     )
 end
 
@@ -288,15 +295,16 @@ function best_time(backend, kernel!, ndrange, args...; repeats = 5, warmup = 1.0
 end
 
 """
-    measure_peaks(backend; n = 2^26, fma_items = 2^22, fma_iterations = 256)
+    measure_peaks(backend, T; n = 2^26, fma_items = 2^22, fma_iterations = 256)
 
-Attainable Float32 memory bandwidth (STREAM triad over `n` elements, counting
+Attainable `T` memory bandwidth (STREAM triad over `n` elements, counting
 3 transfers per element) and compute rate (8 FMA chains of `fma_iterations`
 per work item), in GB/s and GFLOP/s. Kernels on the CPU backend do not
 vectorize across work items, so the CPU compute rate is a lower bound.
 """
-function measure_peaks(backend; n = 2^26, fma_items = 2^22, fma_iterations = 256)
-    T = Float32
+function measure_peaks(
+        backend, ::Type{T} = Float64; n = 2^26, fma_items = 2^22, fma_iterations = 256
+    ) where {T}
     be = backend()
     a, b, c = (fill!(allocate(be, T, n), one(T)) for _ in 1:3)
     bandwidth = 3 * n * sizeof(T) / best_time(be, triad!, n, a, b, c, T(3)) / 1.0e9
@@ -308,7 +316,7 @@ function measure_peaks(backend; n = 2^26, fma_items = 2^22, fma_iterations = 256
     return (; bandwidth, compute)
 end
 
-function benchmark_metadata(backend, backend_name, device)
+function benchmark_metadata(backend, backend_name, device, ::Type{FT}) where {FT}
     backend_name == "CPU" || !isnothing(device) ||
         throw(ArgumentError("a device description is required for the $backend_name backend"))
     git = git_metadata()
@@ -316,7 +324,7 @@ function benchmark_metadata(backend, backend_name, device)
     cpu = first(Sys.cpu_info())
     cpu_model = "$(cpu.model) ($(Sys.CPU_NAME))"
     device = something(device, cpu_model)
-    peaks = measure_peaks(backend)
+    peaks = measure_peaks(backend, FT)
     return Dict{String, Any}(
         "timestamp_utc" => string(now(UTC)),
         "commit" => git.commit,
@@ -327,6 +335,7 @@ function benchmark_metadata(backend, backend_name, device)
         "justpic_version" => string(pkgversion(JustPIC)),
         "justpic_source" => relpath(source, REPOSITORY_ROOT),
         "backend" => backend_name,
+        "float_type" => string(FT),
         "device" => device,
         "cpu_model" => cpu_model,
         "hardware_fingerprint" =>
@@ -335,7 +344,7 @@ function benchmark_metadata(backend, backend_name, device)
         "package_versions" => loaded_package_versions(),
         "peak_memory_bandwidth_gb_per_second" => peaks.bandwidth,
         "peak_compute_gflops" => peaks.compute,
-        "peak_source" => "measured: Float32 STREAM triad and FMA-chain kernels",
+        "peak_source" => "measured: $FT STREAM triad and FMA-chain kernels",
     )
 end
 
@@ -386,12 +395,13 @@ end
 
 function run_benchmarks(;
         backend = JustPIC.CPU, backend_name = "CPU", device = nothing,
-        samples = 10, group = "all", cases = benchmark_cases(backend),
+        samples = 10, group = "all", precision::Type = Float64,
+        cases = benchmark_cases(backend; precision),
     )
     samples > 0 || throw(ArgumentError("samples must be positive"))
     selected = group == "all" ? cases : filter(case -> case.group == group, cases)
     isempty(selected) && throw(ArgumentError("unknown or empty benchmark group: $group"))
-    metadata = benchmark_metadata(backend, backend_name, device)
+    metadata = benchmark_metadata(backend, backend_name, device, precision)
     return map(selected) do case
         @info "Benchmarking $(case.name)" samples
         measure(case, samples, metadata)
@@ -454,10 +464,13 @@ end
 
 write_dashboard_data(path, inputs) = write_results(path, dashboard_data(inputs))
 
+const PRECISIONS = Dict("Float64" => Float64, "Float32" => Float32)
+
 function parse_commandline(args)
     output = "benchmark_results.json"
     samples = 10
     group = "all"
+    precision = Float64
     for arg in args
         if startswith(arg, "--output=")
             output = split(arg, '='; limit = 2)[2]
@@ -465,16 +478,27 @@ function parse_commandline(args)
             samples = parse(Int, split(arg, '='; limit = 2)[2])
         elseif startswith(arg, "--group=")
             group = split(arg, '='; limit = 2)[2]
+        elseif startswith(arg, "--precision=")
+            name = split(arg, '='; limit = 2)[2]
+            precision = get(PRECISIONS, name) do
+                throw(ArgumentError("unknown precision $(repr(name)); use --precision=Float64|Float32"))
+            end
         else
-            throw(ArgumentError("unknown argument $arg; use --output=PATH, --samples=N, or --group=NAME"))
+            throw(
+                ArgumentError(
+                    "unknown argument $arg; use --output=PATH, --samples=N, --group=NAME, or --precision=TYPE"
+                )
+            )
         end
     end
-    return (; output, samples, group)
+    return (; output, samples, group, precision)
 end
 
 function main(args = ARGS; backend = JustPIC.CPU, backend_name = "CPU", device = nothing)
     options = parse_commandline(args)
-    results = run_benchmarks(; backend, backend_name, device, options.samples, options.group)
+    results = run_benchmarks(;
+        backend, backend_name, device, options.samples, options.group, options.precision
+    )
     output = write_results(options.output, results)
     @info "Wrote benchmark results" output
     return results
