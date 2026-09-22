@@ -1,6 +1,6 @@
 name = "JustPIC"
 uuid = "10dc771f-8528-4cd9-9d3b-b21b2e693339"
-version = "0.7.8"
+version = "0.7.9"
 authors = ["Albert De Montserrat <albertdemontserratnavarro@eaps.ethz.ch>"]
 
 [deps]

@@ -141,6 +141,44 @@ end
     GC.gc()
 end
 
+@testset "Regularly spaced particles initialization 3D" begin
+    nxdim, max_xcell, min_xcell = (2, 3, 2), 4, 2
+    n = 5 # number of vertices
+    ni = ntuple(_ -> n - 1, Val(3))
+    Li = ntuple(_ -> FT(1), Val(3))
+    xvi = xv, yv, zv = ntuple(i -> LinRange(0, Li[i], n), Val(3))
+    dxi = ntuple(i -> xvi[i][2] - xvi[i][1], Val(3))
+    xc, yc, zc = ntuple(i -> LinRange(dxi[i] / 2, Li[i] - dxi[i] / 2, ni[i]), Val(3))
+    grid_vx = xv, expand_range(yc), expand_range(zc)
+    grid_vy = expand_range(xc), yv, expand_range(zc)
+    grid_vz = expand_range(xc), expand_range(yc), zv
+
+    particles = JustPIC.init_particles(
+        backend, nxdim, max_xcell, min_xcell, grid_vx, grid_vy, grid_vz,
+    )
+
+    @test particles.nxcell == prod(nxdim)
+    # `max_xcell` is raised to fit the requested layout
+    @test particles.max_xcell == prod(nxdim)
+
+    index = to_cpu(particles.index)
+    coords = to_cpu.(particles.coords)
+    nc = size(index)
+
+    for I in CartesianIndices(nc)
+        interior = all(i -> 1 < I[i] < nc[i], 1:3)
+        @test count(index[I]) == (interior ? prod(nxdim) : 0)
+    end
+
+    # first physical cell: its lower-left corner is the first non-ghost node
+    I = CartesianIndex(2, 2, 2)
+    for d in 1:3
+        @test sort(unique(coords[d][I])) ≈
+            [xvi[d][1] + (i - FT(0.5)) * dxi[d] / nxdim[d] for i in 1:nxdim[d]]
+    end
+    GC.gc()
+end
+
 @testset "Particle injection skips ghost cells 3D" begin
     nxcell, max_xcell, min_xcell = 8, 12, 8
     n = 5

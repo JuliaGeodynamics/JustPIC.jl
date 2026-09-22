@@ -26,10 +26,19 @@ extra fields are what let helpers such as `move_particles!`, `grid2particle!`,
 `init_particles` accepts either:
 
 - a scalar `nxcell` for random, quadrant-balanced seeding inside each cell, or
-- a tuple `nxcell` for a regular per-dimension layout.
+- a tuple `nxcell` for a regular per-dimension layout, where `nxcell[d]`
+  particles are placed at the centers of a uniform sub-grid of spacing
+  `dx[d] / nxcell[d]` along dimension `d`.
+
+If `max_xcell` is smaller than the resulting number of particles per cell, it is
+raised to match.
 
 After construction, the returned `Particles` object already contains the center,
 vertex, and staggered velocity grids needed by the higher-level APIs.
+
+The two layouts on a 4x4 grid with 16 particles per cell:
+
+![Random and regular particle initialization](assets/particle_initialization.png)
 
 ### Randomly distributed particles
 
@@ -58,7 +67,7 @@ backend   = JustPIC.CPU # device backend
 nxcell    = (5, 5)  # number of evenly spaced particles in each cell dimension
 max_xcell = 48      # maximum number of particles per cell
 min_xcell = 12      # minimum number of particles per cell
-n         = 32      # number of cells per dimension
+n         = 32      # number of vertices per dimension
 Lx   = Ly = 1.0     # domain size
 xvi       = xv, yv = LinRange(0, Lx, n), LinRange(0, Ly, n) # nodal vertices
 dxi       = dx, dy = xv[2] - xv[1], yv[2] - yv[1]

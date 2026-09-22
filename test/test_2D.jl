@@ -188,6 +188,55 @@ end
     @test particles1.np == particles2.np
 end
 
+@testset "Regularly spaced particles initialization 2D" begin
+    nxdim, max_xcell, min_xcell = (3, 2), 4, 2
+    n = 5 # number of vertices
+    Lx = Ly = FT(1)
+    xv, yv = LinRange(0, Lx, n), LinRange(0, Ly, n)
+    dx, dy = xv[2] - xv[1], yv[2] - yv[1]
+    xc, yc = LinRange(dx / 2, Lx - dx / 2, n - 1), LinRange(dy / 2, Ly - dy / 2, n - 1)
+    grid_vx = xv, expand_range(yc)
+    grid_vy = expand_range(xc), yv
+
+    particles = JustPIC.init_particles(
+        backend, nxdim, max_xcell, min_xcell, grid_vx, grid_vy,
+    )
+
+    @test particles.nxcell == prod(nxdim)
+    # `max_xcell` is raised to fit the requested layout
+    @test particles.max_xcell == prod(nxdim)
+    @test particles.np == prod(nxdim) * prod(size(particles.index))
+
+    index = to_cpu(particles.index)
+    px, py = to_cpu.(particles.coords)
+    ni = size(index)
+
+    for I in CartesianIndices(ni)
+        interior = all(i -> 1 < I[i] < ni[i], 1:2)
+        @test count(index[I]) == (interior ? prod(nxdim) : 0)
+    end
+
+    # first physical cell: its lower-left vertex is the first non-ghost node
+    I = CartesianIndex(2, 2)
+    @test sort(unique(px[I])) ≈ [xv[1] + (i - FT(0.5)) * dx / nxdim[1] for i in 1:nxdim[1]]
+    @test sort(unique(py[I])) ≈ [yv[1] + (j - FT(0.5)) * dy / nxdim[2] for j in 1:nxdim[2]]
+
+    # the sub-grid spacing carries across cell boundaries
+    J = CartesianIndex(3, 2)
+    @test minimum(px[J]) ≈ maximum(px[I]) + dx / nxdim[1]
+
+    # the velocity grids may also be given as plain vectors
+    particles_vec = JustPIC.init_particles(
+        backend, nxdim, max_xcell, min_xcell, collect.(grid_vx), collect.(grid_vy),
+    )
+    @test to_cpu(particles_vec.coords[1])[I] ≈ px[I]
+    @test to_cpu(particles_vec.coords[2])[I] ≈ py[I]
+
+    @test_throws "number of particles per cell direction must be positive" JustPIC.init_particles(
+        backend, (nxdim[1], 0), max_xcell, min_xcell, grid_vx, grid_vy,
+    )
+end
+
 @testset "Particle injection skips ghost cells 2D" begin
     nxcell, max_xcell, min_xcell = 8, 12, 8
     n = 5
