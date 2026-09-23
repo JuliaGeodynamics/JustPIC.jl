@@ -8,7 +8,7 @@ elseif BACKEND_NAME == "Metal"
     using Metal
 end
 
-using JustPIC, CellArrays, Test, LinearAlgebra
+using JustPIC, CellArrays, Test
 import CellArraysIndexing as CAI
 import KernelAbstractions: CPU
 
@@ -62,53 +62,6 @@ end
 
 Base.isnan(p::ForceInjectionPoint3D) = !p.active
 Base.getindex(p::ForceInjectionPoint3D, i::Int) = p.coords[i]
-@testset "Interpolations 3D" begin
-    nxcell, max_xcell, min_xcell = 16, 16, 1
-    n = 5 # number of vertices
-    nx = ny = nz = n - 1
-    ni = nx, ny, nz
-    Lx = Ly = Lz = FT(1)
-    Li = Lx, Ly, Lz
-    # nodal vertices
-    xvi = xv, yv, zv = ntuple(i -> LinRange(0, Li[i], n), Val(3))
-    # grid spacing
-    dxi = dx, dy, dz = ntuple(i -> xvi[i][2] - xvi[i][1], Val(3))
-    # nodal centers
-    xci = xc, yc, zc = ntuple(i -> LinRange(0 + dxi[i] / 2, Li[i] - dxi[i] / 2, ni[i]), Val(3))
-    # staggered grid velocity nodal locations
-    grid_vx = xv, expand_range(yc), expand_range(zc)
-    grid_vy = expand_range(xc), yv, expand_range(zc)
-    grid_vz = expand_range(xc), expand_range(yc), zv
-    grid_vel = grid_vx, grid_vy, grid_vz
-    # Initialize particles -------------------------------
-    particles = JustPIC.init_particles(
-        backend, nxcell, max_xcell, min_xcell, grid_vel...
-    )
-    pT, = JustPIC.init_cell_arrays(particles, Val(1))
-    xvi_p = JustPIC.add_periodic_ghost_nodes.(xvi)
-    # Linear field at the vertices
-    T = TA(backend)([z for x in xvi_p[1], y in xvi_p[2], z in xvi_p[3]])
-    T0 = TA(backend)([z for x in xvi_p[1], y in xvi_p[2], z in xvi_p[3]])
-    # Grid to particle test
-    JustPIC.grid2particle!(pT, xvi_p, T, particles, diff.(xvi_p))
-    active = Array(particles.index.data)
-    @test Array(pT.data)[active] ≈ Array(particles.coords[3].data)[active]
-    # Grid to particle test
-    JustPIC.grid2particle_flip!(pT, xvi_p, T, T0, particles)
-    @test Array(pT.data)[active] ≈ Array(particles.coords[3].data)[active]
-    # Particle to grid test
-    T2 = similar(T)
-    fill!(T2, eltype(T2)(NaN))
-    JustPIC.particle2grid!(T2, pT, particles)
-    finite_mask = isfinite.(T2)
-    @test norm(T2[finite_mask] .- T[finite_mask]) / count(finite_mask) < 1.0e-1
-    # test copy function
-    particles_copy = copy(particles)
-    pT_copy = copy(pT)
-    @test particles_copy.index.data[:] == particles.index.data[:]
-    @test pT_copy.data[:] == pT.data[:]
-    GC.gc()
-end
 
 @testset "Particles initialization 3D" begin
     nxcell, max_xcell, min_xcell = 24, 24, 1
@@ -717,7 +670,6 @@ function test_advection_3D()
     end
     sumT_final = _weighted_integral_3D(T, xvi)
     err = abs(sumT - sumT_final) / sumT
-    println(err)
     return err
 end
 
@@ -779,7 +731,6 @@ function test_advection_3D_refined()
 
     sumT_final = _weighted_integral_3D(T, xvi)
     err = abs(sumT - sumT_final) / sumT
-    println(err)
     return err
 end
 

@@ -51,7 +51,6 @@ export init_particles, init_cell_arrays
 
 include("Particles/utils.jl")
 
-# include("Particles/move.jl")
 include("Particles/move_safe.jl")
 export move_particles!
 

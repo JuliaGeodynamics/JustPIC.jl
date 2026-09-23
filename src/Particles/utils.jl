@@ -14,24 +14,6 @@
 end
 @inline isincell(px::T, xv::T, dx::T) where {T <: Real} = xv < px < xv + dx
 
-@inline function isemptycell(
-        index::AbstractArray, min_xcell::Integer, cell_indices::Vararg{Int, N}
-    ) where {N}
-    # first min_xcell particles
-    val = 0
-    for i in 1:min_xcell
-        val += @inbounds CAI.@index(index[i, cell_indices...])
-    end
-    # early escape
-    val ≥ min_xcell && return false
-    # tail
-    n = cellnum(index)
-    for i in (min_xcell + 1):n
-        val += @inbounds CAI.@index(index[i, cell_indices...])
-    end
-    return !(val ≥ min_xcell)
-end
-
 @kernel function copy_vectors!(
         dest::NTuple{N, T}, src::NTuple{N, T}
     ) where {N, T <: AbstractArray}
@@ -56,21 +38,4 @@ function compute_dx(xi::NTuple{N, AbstractVector}, I) where {N}
         x[ii + 1] - x[ii]
     end
     return di
-end
-
-@inline function clamp_grid_lims(grid_lims::NTuple{N}, dxi::NTuple{N}) where {N}
-    clamped_limits = ntuple(Val(N)) do i
-        @inline
-        min_L, max_L = grid_lims[i]
-        (min_L + dxi[i] / 100, max_L - dxi[i] / 100)
-    end
-    return clamped_limits
-end
-
-function augment_lazy_grid(grid::NTuple{N}, dxi::NTuple{N}) where {N}
-    xci_augmented = ntuple(Val(N)) do i
-        @inline
-        (grid[i][1] - dxi[i]):dxi[i]:(grid[i][end] + dxi[i])
-    end
-    return xci_augmented
 end

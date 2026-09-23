@@ -28,11 +28,11 @@ agnostic while staying friendly to compiler specialization.
 
 We can interpolate an arbitrary field `F` onto particles with `grid2particle!`:
 
-```julia
+```jldoctest
 using JustPIC
 # define model domain
 nxcell, max_xcell, min_xcell = 24, 30, 12
-n = 129
+n = 9
 Lx  = Ly = 1.0
 xvi = xv, yv = range(0, Lx, length=n), range(0, Ly, length=n)
 dx, dy = step(xv), step(yv)
@@ -49,6 +49,13 @@ F = [y for x in particles.xvi[1], y in particles.xvi[2]]
 Fp, = init_cell_arrays(particles, Val(1));
 # interpolate F onto Fp
 grid2particle!(Fp, F, particles);
+# F is linear in y, so each active particle recovers its own y coordinate
+active = particles.index.data
+all(Fp.data[active] .≈ particles.coords[2].data[active])
+
+# output
+
+true
 ```
 
 `particles.xvi` includes one ghost node on each side, so the compact call above
