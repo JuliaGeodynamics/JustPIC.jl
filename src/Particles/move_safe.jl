@@ -30,12 +30,13 @@ layout.
   largest jump along direction `i`, so keep the displacement per step small.
 - `args` must use the same cell layout as `particles.coords`.
 - The public entry point uses the vertex grid and spacing stored in `particles`.
-- If a destination cell is full, the particle is dropped and the number of
-  dropped particles is returned. Companion fields are dropped with the particle.
+- If a destination cell is full, the particle is dropped. With `verbose=true`,
+  the number of dropped particles is printed. Companion fields are dropped with
+  the particle.
 """
-move_particles!(particles::AbstractParticles, args; periodic_1 = false, periodic_2 = false, periodic_3 = false) = move_particles!(particles, particles.xvi, args, particles.di.vertex; periodic_1 = periodic_1, periodic_2 = periodic_2, periodic_3 = periodic_3)
+move_particles!(particles::AbstractParticles, args; periodic_1 = false, periodic_2 = false, periodic_3 = false, verbose = false) = move_particles!(particles, particles.xvi, args, particles.di.vertex; periodic_1 = periodic_1, periodic_2 = periodic_2, periodic_3 = periodic_3, verbose = verbose)
 
-function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args, dxi; periodic_1 = false, periodic_2 = false, periodic_3 = false) where {N}
+function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args, dxi; periodic_1 = false, periodic_2 = false, periodic_3 = false, verbose = false) where {N}
 
     (; index) = particles
     N == 2 && periodic_3 && throw(ArgumentError("periodic_3 is only valid for 3D particles"))
@@ -62,7 +63,8 @@ function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args, dx
         overflow += dropped
     end
 
-    return overflow
+    verbose && println("move_particles!: dropped $overflow particles because destination cells were full")
+    return nothing
 end
 
 function physical_domain_limits(particles::Particles{B, N}) where {B, N}

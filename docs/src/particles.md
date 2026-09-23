@@ -138,11 +138,11 @@ semilagrangian_advection_MQS!
 
 ### Maintenance
 
-`move_particles!` returns the number of particles dropped because their
-destination cell was full. Overflow removes the particle and its companion
-fields together. `clean_particles!` removes active particles outside their
-stored cell; it does not compact slots. Injection with companion fields
-requires a live neighboring particle from which to copy field values.
+`move_particles!` drops particles whose destination cell is full; pass
+`verbose=true` to print the number dropped. Overflow removes the particle and
+its companion fields together. `clean_particles!` removes active particles
+outside their stored cell; it does not compact slots. Injection with companion
+fields requires a live neighboring particle from which to copy field values.
 
 ```@docs
 move_particles!

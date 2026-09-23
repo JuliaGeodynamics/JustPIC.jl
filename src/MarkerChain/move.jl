@@ -10,10 +10,10 @@ mask. A marker may cross any number of columns in one call. Markers whose update
 coordinates are not finite, or which left the horizontal extent of
 `chain.cell_vertices`, are deleted.
 
-If a destination column is full, the marker is dropped and the number of such
-overflows is returned.
+If a destination column is full, the marker is dropped. With `verbose=true`,
+the number of such overflows is printed.
 """
-function move_particles!(chain::MarkerChain)
+function move_particles!(chain::MarkerChain; verbose = false)
     (; coords, index, cell_vertices) = chain
     nxi = size(index, 1)
     grid = cell_vertices
@@ -38,7 +38,9 @@ function move_particles!(chain::MarkerChain)
         )
     end
 
-    return maximum(overflow)
+    dropped = maximum(overflow)
+    verbose && println("move_particles!: dropped $dropped markers because destination columns were full")
+    return nothing
 end
 
 @inline in_column(x, grid, i::Integer) = grid[i] ≤ x < grid[i + 1]
