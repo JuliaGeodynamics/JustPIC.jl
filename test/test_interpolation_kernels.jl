@@ -351,6 +351,26 @@ end
     end
 end
 
+@testset "Passive markers 3D scatter" begin
+    if BACKEND_NAME == "CPU"
+        xv = FT[0, 0.1, 0.3, 0.7, 1]
+        yv = FT[0, 0.2, 0.5, 0.8, 1]
+        zv = FT[0, 0.15, 0.4, 0.75, 1]
+        coords = (FT[0.1, 0.3, 0.7, 1], FT[0.2, 0.5, 0.8, 1], FT[0.15, 0.4, 0.75, 1])
+        markers = JustPIC.init_passive_markers(CPU, coords)
+        field = [x + 2y + 3z for x in xv, y in yv, z in zv]
+        values = similar(coords[1])
+        output = zeros(FT, length(xv), length(yv), length(zv))
+        buffer = similar(output)
+
+        JustPIC.grid2particle!(values, (xv, yv, zv), field, markers)
+        JustPIC.particle2grid!(output, values, buffer, (xv, yv, zv), markers)
+
+        @test all(isfinite, output)
+        @test output[2, 2, 2] ≈ 0.1 + 2 * 0.2 + 3 * 0.15
+    end
+end
+
 @testset "3D MQS stencil consistency" begin
     F = [FT(i + 10j + 100k) for i in 1:6, j in 1:6, k in 1:6]
     idx = (2, 2, 2)
