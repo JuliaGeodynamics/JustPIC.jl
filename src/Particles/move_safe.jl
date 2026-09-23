@@ -364,14 +364,6 @@ end
     end
 end
 
-@generated function isparticleempty(p::NTuple{N, T}) where {N, T}
-    return quote
-        Base.@_inline_meta
-        Base.Cartesian.@nexprs $N i -> isnan(p[i]) && return true
-        return false
-    end
-end
-
 @inline function cache_args(args::NTuple{N1, T}, ip, I::NTuple{N2, Int64}) where {T, N1, N2}
     return ntuple(i -> (CAI.@index(args[i][ip, I...])), Val(N1))
 end
@@ -384,10 +376,6 @@ end
         p::NTuple{N1, T}, ip, I::Union{Integer, NTuple{N2, Integer}}
     ) where {T, N1, N2}
     return cache_args(p, ip, I)
-end
-
-@inline function child_index(parent_cell::NTuple{N, Int64}, I::NTuple{N, Int64}) where {N}
-    return ntuple(i -> parent_cell[i] + I[i], Val(N))
 end
 
 @generated function empty_particle!(
@@ -470,17 +458,6 @@ function clean_kernel!(
     return nothing
 end
 
-function global_domain_limits(origin::NTuple{N, Any}, dxi::NTuple{N, Any}) where {N}
-    fn = nx_g, ny_g, nz_g
-
-    lims = ntuple(Val(N)) do i
-        Base.@_inline_meta
-        origin[i], (fn[i]() - 1) * dxi[i]
-    end
-
-    return lims
-end
-
 # The following kernels are used in the `move_particles!` function
 # to remove a random particle from the memory location so that the
 # cell capacity is always below 80% of its maximum.
@@ -524,7 +501,6 @@ function count_particles(index, I::Vararg{Int, N}) where {N}
     end
     return count
 end
-
 
 ######
 

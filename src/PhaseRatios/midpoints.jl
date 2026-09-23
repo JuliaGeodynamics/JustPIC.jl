@@ -215,16 +215,3 @@ function lastboundary_offset(offsets::NTuple{3}, I::NTuple{3}, ni::NTuple{3})
     @inline
     return Base.@ntuple 3 i -> @inbounds Int(ni[i] == (offsets[i] * I[i]))
 end
-
-@inline function midpoint_grid_spacing(di, dimension::Symbol)
-    (; center, vertex) = di
-    return di_midpoint = if dimension === :xy
-        (vertex[1], vertex[2], center[3])
-    elseif dimension === :yz
-        (center[1], vertex[2], vertex[3])
-    elseif dimension === :xz
-        (vertex[1], center[2], vertex[3])
-    else
-        throw("Unknown dimensions. Valid dimensions are :xy, :yz, :xz")
-    end
-end

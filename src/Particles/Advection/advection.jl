@@ -171,8 +171,3 @@ end
         return Fi, xci, indices
     end
 end
-
-@inline function vertex_offset(xi, pxi, di)
-    dist = normalised_distance(xi, pxi, di)
-    return (dist > 2) * 2 + (2 > dist > 1) * 1 + (-1 < dist < 0) * -1 + (dist < -1) * -2
-end
