@@ -103,7 +103,7 @@ const SML_SCHEMES = (
     "MQS" => semilagrangian_advection_MQS!,
 )
 
-const SML_METHODS = (RungeKutta2(), RungeKutta4())
+const SML_METHODS = (Euler(), RungeKutta2(), RungeKutta4())
 
 @testset "Semi-Lagrangian $(scheme) $(nameof(typeof(method))) $(N)D" for N in (2, 3),
         (scheme, advect!) in SML_SCHEMES,

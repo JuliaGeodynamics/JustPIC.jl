@@ -24,6 +24,7 @@ function semilagrangian_advection!(
         grid::NTuple{N, T},
         dt,
     ) where {N, T}
+    check_semilagrangian_integrator(method)
     check_no_alias(F, F0)
     Fref = F isa Tuple ? first(F) : F
     # recast integrator/timestep/grids to the field precision so Float32 backends
@@ -45,6 +46,12 @@ function semilagrangian_advection!(
         F, F0, method, V, grid_vi, grid, dxi_velocity, dxi_vertex, dt
     )
 
+    return nothing
+end
+
+@inline function check_semilagrangian_integrator(method)
+    method isa Euler || method isa RungeKutta2 || method isa RungeKutta4 ||
+        throw(ArgumentError("unsupported semi-Lagrangian integrator: $(typeof(method)); use Euler, RungeKutta2, or RungeKutta4"))
     return nothing
 end
 
