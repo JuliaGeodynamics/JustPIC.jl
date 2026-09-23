@@ -32,15 +32,14 @@ force_injection!(particles::Particles{Backend}, p_new) where {Backend} = force_i
 @kernel function force_injection_kernel!(coords::NTuple{2}, index, p_new, fields::NTuple{N, Any}, values::NTuple{N, Any}) where {N}
     I = @index(Global, NTuple)
 
-    # check whether there are new particles to inject in the ij-th cell
-    if !isnan(p_new[I..., begin])
-        c = 0 # helper counter
-        # iterate over particles in the cell
-        for ip in cellaxes(index)
-            c += 1
-            c > cellnum(index)  && continue
-            doskip(index, ip, I...) || continue
-            pᵢ = p_new[I..., c]
+    c = 0 # helper counter
+    # iterate over particles in the cell
+    for ip in cellaxes(index)
+        c += 1
+        c > cellnum(index) && continue
+        doskip(index, ip, I...) || continue
+        pᵢ = p_new[I..., c]
+        if !isnan(pᵢ)
             CAI.@index coords[1][ip, I...] = pᵢ[1]
             CAI.@index coords[2][ip, I...] = pᵢ[2]
             CAI.@index index[ip, I...] = true
@@ -56,15 +55,14 @@ end
 @kernel function force_injection_kernel!(coords::NTuple{3}, index, p_new, fields::NTuple{N, Any}, values::NTuple{N, Any}) where {N}
     I = @index(Global, NTuple)
 
-    # check whether there are new particles to inject in the ij-th cell
-    if !isnan(p_new[I..., begin])
-        c = 0 # helper counter
-        # iterate over particles in the cell
-        for ip in cellaxes(index)
-            c += 1
-            c > cellnum(index)  && continue
-            doskip(index, ip, I...) || continue
-            pᵢ = p_new[I..., c]
+    c = 0 # helper counter
+    # iterate over particles in the cell
+    for ip in cellaxes(index)
+        c += 1
+        c > cellnum(index) && continue
+        doskip(index, ip, I...) || continue
+        pᵢ = p_new[I..., c]
+        if !isnan(pᵢ)
             CAI.@index coords[1][ip, I...] = pᵢ[1]
             CAI.@index coords[2][ip, I...] = pᵢ[2]
             CAI.@index coords[3][ip, I...] = pᵢ[3]
