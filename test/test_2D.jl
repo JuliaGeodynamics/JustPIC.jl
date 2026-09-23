@@ -450,6 +450,14 @@ include(joinpath(@__DIR__, "helpers_move_particles.jl"))
             check_fragmented_move(backend, particles, fields, (3, 3), leaving, free)
         end
     end
+
+    @testset "full destination reports overflow" begin
+        check_full_destination_overflow(particles, fields)
+    end
+
+    @testset "clean removes out-of-cell particles without compaction" begin
+        check_clean_particles(particles, fields)
+    end
 end
 
 include(joinpath(@__DIR__, "helpers_move_jumps.jl"))
@@ -737,6 +745,14 @@ end
     p_empty = TA(backend)(fill(p_invalid, ni..., nslots))
     JustPIC.force_injection!(particles_skip, p_empty)
     @test count(vec(Array(particles_skip.index.data))) == n_circle
+
+    particles_partial = JustPIC.init_particles(backend, nxcell, max_xcell, min_xcell, grid_vel...)
+    p_partial = TA(backend)(fill(p_invalid, ni..., nslots))
+    p_partial[1, 1, 1] = ForceInjectionPoint2D((FT(0.2), FT(0.3)), true)
+    JustPIC.force_injection!(particles_partial, p_partial)
+    @test count(vec(Array(particles_partial.index.data))) == 1
+    @test all(isfinite, Array(particles_partial.coords[1].data)[Array(particles_partial.index.data)])
+    @test all(isfinite, Array(particles_partial.coords[2].data)[Array(particles_partial.index.data)])
 end
 
 @testset "Pure shear 2D" begin

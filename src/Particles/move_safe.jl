@@ -30,10 +30,13 @@ layout.
   largest jump along direction `i`, so keep the displacement per step small.
 - `args` must use the same cell layout as `particles.coords`.
 - The public entry point uses the vertex grid and spacing stored in `particles`.
+- If a destination cell is full, the particle is dropped. With `verbose=true`,
+  the number of dropped particles is printed. Companion fields are dropped with
+  the particle.
 """
-move_particles!(particles::AbstractParticles, args; periodic_1 = false, periodic_2 = false, periodic_3 = false) = move_particles!(particles, particles.xvi, args, particles.di.vertex; periodic_1 = periodic_1, periodic_2 = periodic_2, periodic_3 = periodic_3)
+move_particles!(particles::AbstractParticles, args; periodic_1 = false, periodic_2 = false, periodic_3 = false, verbose = false) = move_particles!(particles, particles.xvi, args, particles.di.vertex; periodic_1 = periodic_1, periodic_2 = periodic_2, periodic_3 = periodic_3, verbose = verbose)
 
-function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args, dxi; periodic_1 = false, periodic_2 = false, periodic_3 = false) where {N}
+function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args, dxi; periodic_1 = false, periodic_2 = false, periodic_3 = false, verbose = false) where {N}
 
     (; index) = particles
     N == 2 && periodic_3 && throw(ArgumentError("periodic_3 is only valid for 3D particles"))
@@ -51,10 +54,16 @@ function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args, dx
     # CFL-limited advection ensures. Particles that jump farther are left in place and moved by
     # a second sweep, which is sized to the largest jump along each direction.
     max_jump = ntuple(_ -> 1, Val(N))
-    while !sweep_cells!(particles, grid, args, dxi, domain_limits, periodicity, max_jump)
+    overflow = 0
+    done, dropped = sweep_cells!(particles, grid, args, dxi, domain_limits, periodicity, max_jump)
+    overflow += dropped
+    while !done
         max_jump = maximum_particle_jump(particles, grid, dxi, domain_limits, periodicity)
+        done, dropped = sweep_cells!(particles, grid, args, dxi, domain_limits, periodicity, max_jump)
+        overflow += dropped
     end
 
+    verbose && println("move_particles!: dropped $overflow particles because destination cells were full")
     return nothing
 end
 
@@ -76,7 +85,8 @@ function sweep_cells!(particles, grid, args, dxi, domain_limits, periodicity, ma
     (; coords, index) = particles
     backend = ka_backend(index)
     deferred = KernelAbstractions.zeros(backend, Int, 1)
-    bound = (; max_jump, periodicity, deferred)
+    overflow = KernelAbstractions.zeros(backend, Int, 1)
+    bound = (; max_jump, periodicity, deferred, overflow)
     layout = map(ColorAxis, size(index), max_jump, periodicity)
     nblocks = map(axis -> axis.nblocks, layout)
     for colors in Iterators.product(map(axis -> 1:axis.ncolors, layout)...)
@@ -85,7 +95,7 @@ function sweep_cells!(particles, grid, args, dxi, domain_limits, periodicity, ma
             coords, grid, dxi, index, domain_limits, args, bound, colors, layout
         )
     end
-    return iszero(maximum(deferred))
+    return iszero(maximum(deferred)), maximum(overflow)
 end
 
 # Partition of the cells of one direction into colors. The cell of color `k` in block `b` is
@@ -257,7 +267,10 @@ function move_kernel!(
 
         # check whether there's empty space in parent cell
         free_idx = find_free_memory(index, new_cell...)
-        iszero(free_idx) && continue
+        if iszero(free_idx)
+            KernelAbstractions.@atomic bound.overflow[1] += 1
+            continue
+        end
 
         # move particle and its fields to the first free memory location
         CAI.@index index[free_idx, new_cell...] = true
@@ -417,8 +430,9 @@ end
 """
     clean_particles!(particles, grid, args)
 
-Remove invalid or inactive particle slots and keep particle-associated fields in
-`args` consistent with the particle storage layout.
+Remove active particles that no longer lie in their stored cell and keep
+particle-associated fields in `args` consistent with the particle storage
+layout. This routine does not compact the remaining slots.
 
 This is typically used after particle deletion or reinjection to compact each
 cell's active particle block.

@@ -20,7 +20,7 @@ struct Particles{Backend, N, I, T1, T2, D, V} <: AbstractParticles
     nxcell::I                          # initial particles per cell
     max_xcell::I                       # max particles per cell
     min_xcell::I                       # min particles per cell
-    np::I                              # total number of particles
+    np::I                              # initial storage capacity, not live occupancy
     di::D                              # grid spacing
     _di::D                             # inverse grid spacing
     xci::NTuple{N, V}                  # cell-centered grid
