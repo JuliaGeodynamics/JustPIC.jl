@@ -30,14 +30,35 @@ An FMA counts as two FLOPs; add, subtract, multiply, divide, square root, and re
 count as one. Integer arithmetic, comparisons, indexing, and control flow are excluded.
 Modeled bytes are logical scalar reads and writes, not cache- or DRAM-counter measurements.
 
-For grid size `n`, let `Np = 4n²` particles, `Ns = 8n²` particle slots,
-`Nv = (n + 1)²` surface or grid vertices, and `Nc = n²` cells. The `justpic_cpu_v1` model is:
+For a grid of `n` cells per direction in `D` dimensions, let `Np = 2ᴰnᴰ` particles
+(`2ᴰ` per cell), `Ns = 2Np` particle slots, `Nv = (n + 1)ᴰ` surface or grid vertices, and
+`Nc = nᴰ` cells. The `justpic_cpu_v2` model is:
 
 | Benchmark | Modeled FLOPs | Modeled bytes |
 | --- | ---: | ---: |
-| Particle workflow | `54Np` | `104Np + 2Ns` |
-| Interpolation round-trip | `54Np + Nv` | `76Np + 4Nv + 40Nc` |
-| MarkerSurface update | `317Nv + 14Nc` | `294Nv + 37Nc` |
+| Particle workflow (2D) | `80Np` | `104Np + 2Ns` |
+| Particle workflow (3D) | `234Np` | `248Np + 2Ns` |
+| Interpolation round-trip (2D) | `62Np + Nv` | `60Np + 4Nv + 32Nc` |
+| Interpolation round-trip (3D) | `149Np + 2Nv` | `144Np + 4Nv + 56Nc` |
+| MarkerSurface update (`D = 2` surface) | `317Nv + 14Nc` | `294Nv + 37Nc` |
+
+Interpolating one scalar at a particle costs `3D` FLOPs to normalize the coordinates
+(subtract, reciprocal, multiply per direction) plus `2ᴰ - 1` lerps of two FMAs each: 18
+FLOPs in 2D and 37 in 3D.
+
+The particle workflow counts, per particle, two RK2 stages that each interpolate `D` velocity
+components (`2D` interpolations), one FMA per direction for each of the two stage updates,
+and `26` (2D) or `62` (3D) scalars: coordinates read and written, `2ᴰ` velocity corners per
+component and stage, and the particle payload movement (coordinates and field read and
+written).
+
+The interpolation round-trip counts, per particle, one inverse-distance weight for each of
+its `2ᴰ` surrounding vertices (11 FLOPs in 2D, 14 in 3D: the distance, its square and
+reciprocal, and the weight and weighted-value accumulations) and one grid-to-particle
+interpolation; per vertex, the normalization costs a division in 2D and a reciprocal and a
+multiply in 3D. Its bytes are the particle coordinates and value read by each of the `2ᴰ`
+vertices, the interpolated value written, one vertex value written, and `2ᴰ` corner values,
+`D` corner coordinates, and `D` spacings read per cell.
 
 The byte counts hold for `Float32` fields and scale with the element size, so a `Float64` run
 models twice the traffic. The `2Ns` particle-index bytes are the one exception: they are
@@ -137,8 +158,8 @@ arbitrary percentage.
 
 The initial groups are:
 
-- `Particle workflow`: one periodic RK2 advection and movement step;
-- `Interpolation`: particle-to-grid followed by grid-to-particle interpolation;
+- `Particle workflow`: one periodic RK2 advection and movement step, in 2D and 3D;
+- `Interpolation`: particle-to-grid followed by grid-to-particle interpolation, in 2D and 3D;
 - `MarkerSurface`: a complete surface update with interpolation, advection, and smoothing.
 
 MPI and checkpoint benchmarks, automated PR comparisons, and regression thresholds are not

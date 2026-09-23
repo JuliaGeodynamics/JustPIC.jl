@@ -11,7 +11,7 @@ export benchmark_cases, dashboard_main, main, print_comparison, run_benchmarks, 
     write_results
 
 const REPOSITORY_ROOT = normpath(joinpath(@__DIR__, "..", ".."))
-const PERFORMANCE_MODEL_VERSION = "justpic_cpu_v1"
+const PERFORMANCE_MODEL_VERSION = "justpic_cpu_v2"
 const REPOSITORY_URL = "https://github.com/JuliaGeodynamics/JustPIC.jl"
 
 struct PerformanceModel
@@ -44,22 +44,18 @@ synchronize(backend) = JustPIC.KernelAbstractions.synchronize(backend())
 # are treated as `Float32` scalars, so they scale with a wider element type.
 scale_float32_bytes(bytes, ::Type{FT}) where {FT} = bytes * sizeof(FT) ÷ sizeof(Float32)
 
-function particle_state_2d(backend, n, ::Type{FT}) where {FT}
-    xv = range(FT(0), FT(1); length = n + 1)
-    yv = range(FT(0), FT(1); length = n + 1)
-    grid_vx = xv, extended_centers(yv)
-    grid_vy = extended_centers(xv), yv
-    particles = init_particles(backend, (2, 2), 8, 2, grid_vx, grid_vy)
+function particle_state(backend, n, ::Type{FT}, ::Val{D}) where {FT, D}
+    xv = ntuple(_ -> range(FT(0), FT(1); length = n + 1), Val(D))
+    grid_vi = ntuple(i -> ntuple(j -> j == i ? xv[j] : extended_centers(xv[j]), Val(D)), Val(D))
+    particles = init_particles(backend, ntuple(_ -> 2, Val(D)), 2^(D + 1), 2, grid_vi...)
     particle_field, = init_cell_arrays(particles, Val(1))
     xvi = Array.(particles.xvi)
-    nodal_field = TA(backend)(FT[x + y for x in xvi[1], y in xvi[2]])
+    nodal_field = TA(backend)(FT[sum(x) for x in Iterators.product(xvi...)])
     grid2particle!(particle_field, nodal_field, particles)
 
-    V = (
-        TA(backend)(fill(FT(0.1), length.(grid_vx))),
-        TA(backend)(fill(FT(-0.05), length.(grid_vy))),
-    )
-    dt = FT(step(xv) / FT(0.4))
+    velocities = FT.((0.1, -0.05, 0.025))
+    V = ntuple(i -> TA(backend)(fill(velocities[i], length.(grid_vi[i]))), Val(D))
+    dt = FT(step(xv[1]) / FT(0.4))
     initial_count = count(Array(particles.index.data))
     return (; particles, particle_field, nodal_field, V, dt, initial_count)
 end
@@ -77,37 +73,53 @@ function validate_particle_state(state)
     return nothing
 end
 
-function advection_move_case(backend, n, ::Type{FT}) where {FT}
-    setup() = particle_state_2d(backend, n, FT)
+# Performance-model coefficients per particle (`Np`), slot (`Ns`), vertex (`Nv`), and cell
+# (`Nc`); benchmarking/README.md lists them.
+advection_move_model(::Val{2}, Np, Ns, ::Type{FT}) where {FT} = PerformanceModel(
+    80 * Np,
+    26 * sizeof(FT) * Np + 2 * Ns,
+    "two-stage 2D RK2 velocity interpolation and one logical particle-payload movement pass",
+)
+advection_move_model(::Val{3}, Np, Ns, ::Type{FT}) where {FT} = PerformanceModel(
+    234 * Np,
+    62 * sizeof(FT) * Np + 2 * Ns,
+    "two-stage 3D RK2 trilinear velocity interpolation and one logical particle-payload movement pass",
+)
+
+interpolation_model(::Val{2}, Np, Nv, Nc, ::Type{FT}) where {FT} = PerformanceModel(
+    62 * Np + Nv,
+    15 * sizeof(FT) * Np + sizeof(FT) * Nv + 8 * sizeof(FT) * Nc,
+    "one inverse-distance particle-to-grid pass followed by one bilinear grid-to-particle pass",
+)
+interpolation_model(::Val{3}, Np, Nv, Nc, ::Type{FT}) where {FT} = PerformanceModel(
+    149 * Np + 2 * Nv,
+    36 * sizeof(FT) * Np + sizeof(FT) * Nv + 14 * sizeof(FT) * Nc,
+    "one inverse-distance particle-to-grid pass followed by one trilinear grid-to-particle pass",
+)
+
+grid_label(n, D) = join(fill(n, D), "×")
+
+function advection_move_case(backend, n, ::Type{FT}, dims::Val{D} = Val(2)) where {FT, D}
+    setup() = particle_state(backend, n, FT, dims)
+    periodic = (; periodic_1 = true, periodic_2 = true, periodic_3 = D == 3)
     function run(state)
-        advection!(
-            state.particles, RungeKutta2(), state.V, state.dt;
-            periodic_1 = true, periodic_2 = true,
-        )
-        move_particles!(
-            state.particles, (state.particle_field,);
-            periodic_1 = true, periodic_2 = true,
-        )
+        advection!(state.particles, RungeKutta2(), state.V, state.dt; periodic...)
+        move_particles!(state.particles, (state.particle_field,); periodic...)
         synchronize(backend)
         return state
     end
-    work_units = 4 * n^2
-    slots = 8 * n^2
-    performance_model = PerformanceModel(
-        54 * work_units,
-        26 * sizeof(FT) * work_units + 2 * slots,
-        "two-stage 2D RK2 velocity interpolation and one logical particle-payload movement pass",
-    )
+    ppc = 2^D
+    work_units = ppc * n^D
     parameters = Dict{String, Any}(
-        "dimension" => 2,
+        "dimension" => D,
         "float_type" => string(FT),
-        "grid_cells" => [n, n],
-        "particles_per_cell" => 4,
-        "periodic" => [true, true],
+        "grid_cells" => fill(n, D),
+        "particles_per_cell" => ppc,
+        "periodic" => fill(true, D),
         "integrator" => "RungeKutta2",
     )
     return BenchmarkCase(
-        "Particle advection + move (2D, $(n)×$(n), 4 ppc, $FT)",
+        "Particle advection + move ($(D)D, $(grid_label(n, D)), $ppc ppc, $FT)",
         "Particle workflow",
         setup,
         run,
@@ -115,34 +127,29 @@ function advection_move_case(backend, n, ::Type{FT}) where {FT}
         work_units,
         "particles",
         parameters,
-        performance_model,
+        advection_move_model(dims, work_units, 2 * work_units, FT),
     )
 end
 
-function interpolation_case(backend, n, ::Type{FT}) where {FT}
-    setup() = particle_state_2d(backend, n, FT)
+function interpolation_case(backend, n, ::Type{FT}, dims::Val{D} = Val(2)) where {FT, D}
+    setup() = particle_state(backend, n, FT, dims)
     function run(state)
         particle2grid!(state.nodal_field, state.particle_field, state.particles)
         grid2particle!(state.particle_field, state.nodal_field, state.particles)
         synchronize(backend)
         return state
     end
-    work_units = 4 * n^2
-    nodes = (n + 1)^2
-    performance_model = PerformanceModel(
-        54 * work_units + nodes,
-        19 * sizeof(FT) * work_units + sizeof(FT) * nodes + 10 * sizeof(FT) * n^2,
-        "one inverse-distance particle-to-grid pass followed by one bilinear grid-to-particle pass",
-    )
+    ppc = 2^D
+    work_units = ppc * n^D
     parameters = Dict{String, Any}(
-        "dimension" => 2,
+        "dimension" => D,
         "float_type" => string(FT),
-        "grid_cells" => [n, n],
-        "particles_per_cell" => 4,
+        "grid_cells" => fill(n, D),
+        "particles_per_cell" => ppc,
         "directions" => ["particle_to_grid", "grid_to_particle"],
     )
     return BenchmarkCase(
-        "Particle ↔ grid interpolation (2D, $(n)×$(n), 4 ppc, $FT)",
+        "Particle ↔ grid interpolation ($(D)D, $(grid_label(n, D)), $ppc ppc, $FT)",
         "Interpolation",
         setup,
         run,
@@ -150,7 +157,7 @@ function interpolation_case(backend, n, ::Type{FT}) where {FT}
         work_units,
         "particle values",
         parameters,
-        performance_model,
+        interpolation_model(dims, work_units, (n + 1)^D, n^D, FT),
     )
 end
 
@@ -218,12 +225,14 @@ function marker_surface_case(backend, n, ::Type{FT}) where {FT}
 end
 
 function benchmark_cases(
-        backend = JustPIC.CPU; particle_size = 128, surface_size = 256,
+        backend = JustPIC.CPU; particle_size = 128, particle_size_3d = 32, surface_size = 256,
         precision::Type = Float64,
     )
     return (
         advection_move_case(backend, particle_size, precision),
         interpolation_case(backend, particle_size, precision),
+        advection_move_case(backend, particle_size_3d, precision, Val(3)),
+        interpolation_case(backend, particle_size_3d, precision, Val(3)),
         marker_surface_case(backend, surface_size, precision),
     )
 end

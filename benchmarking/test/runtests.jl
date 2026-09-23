@@ -4,10 +4,11 @@ using JustPICBenchmarks
 using Test
 
 @testset "benchmark harness" begin
-    cases = benchmark_cases(; particle_size = 8, surface_size = 8)
+    cases = benchmark_cases(; particle_size = 8, particle_size_3d = 4, surface_size = 8)
     results = run_benchmarks(; samples = 1, cases)
 
-    @test length(results) == 3
+    @test length(results) == 5
+    @test count(result -> result["parameters"]["dimension"] == 3, results) == 3
     @test all(result -> result["value"] > 0, results)
     @test all(result -> result["sanity_check"] == "passed", results)
     @test all(result -> result["samples"] == 1, results)
@@ -39,7 +40,7 @@ using Test
         backend_name = "CUDA", samples = 1, cases,
     )
 
-    cases32 = benchmark_cases(; particle_size = 8, surface_size = 8, precision = Float32)
+    cases32 = benchmark_cases(; particle_size = 8, particle_size_3d = 4, surface_size = 8, precision = Float32)
     results32 = run_benchmarks(; samples = 1, precision = Float32, cases = cases32)
     @test all(result -> endswith(result["name"], "Float32)"), results32)
     @test all(result -> result["parameters"]["float_type"] == "Float32", results32)
@@ -70,7 +71,7 @@ using Test
         @test payload["schema_version"] == 1
         @test payload["repository_url"] == "https://github.com/JuliaGeodynamics/JustPIC.jl"
         @test length(payload["runs"]) == 1
-        @test length(only(payload["runs"])["benchmarks"]) == 3
+        @test length(only(payload["runs"])["benchmarks"]) == 5
         @test only(payload["runs"])["source"] == "results.json"
         @test_throws "more than one run for the same commit" write_dashboard_data(
             joinpath(dir, "duplicate-history.json"),
