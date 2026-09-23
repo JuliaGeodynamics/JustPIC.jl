@@ -66,7 +66,7 @@ device name in `metadata.device` and `metadata.hardware_fingerprint`.
 `--precision` accepts `Float64` (default) or `Float32` and sets the element type of every
 field, grid, and velocity array, as well as of the STREAM triad and FMA-chain probes that
 measure the roofline ceilings. Metal has no `Float64` and runs `Float32` unless `--precision`
-says otherwise. The element type is part of each benchmark name (`..._F64`, `..._F32`) and is
+says otherwise. The element type is part of each benchmark name (`... Float64)`, `... Float32)`) and is
 recorded in `metadata.float_type`, so the two precisions form separate dashboard series.
 
 ## Comparing against a base revision

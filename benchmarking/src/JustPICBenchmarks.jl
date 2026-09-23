@@ -40,8 +40,6 @@ end
 
 synchronize(backend) = JustPIC.KernelAbstractions.synchronize(backend())
 
-float_label(::Type{FT}) where {FT} = "F$(8 * sizeof(FT))"
-
 # Byte counts whose split into field scalars and index/flag bytes is not recorded
 # are treated as `Float32` scalars, so they scale with a wider element type.
 scale_float32_bytes(bytes, ::Type{FT}) where {FT} = bytes * sizeof(FT) ÷ sizeof(Float32)
@@ -109,7 +107,7 @@ function advection_move_case(backend, n, ::Type{FT}) where {FT}
         "integrator" => "RungeKutta2",
     )
     return BenchmarkCase(
-        "advection_move_2d_$(n)x$(n)_4ppc_$(float_label(FT))",
+        "Particle advection + move (2D, $(n)×$(n), 4 ppc, $FT)",
         "Particle workflow",
         setup,
         run,
@@ -144,7 +142,7 @@ function interpolation_case(backend, n, ::Type{FT}) where {FT}
         "directions" => ["particle_to_grid", "grid_to_particle"],
     )
     return BenchmarkCase(
-        "interpolation_roundtrip_2d_$(n)x$(n)_4ppc_$(float_label(FT))",
+        "Particle ↔ grid interpolation (2D, $(n)×$(n), 4 ppc, $FT)",
         "Interpolation",
         setup,
         run,
@@ -207,7 +205,7 @@ function marker_surface_case(backend, n, ::Type{FT}) where {FT}
         "max_slope_angle_degrees" => 45,
     )
     return BenchmarkCase(
-        "marker_surface_update_$(n)x$(n)_$(float_label(FT))",
+        "MarkerSurface update ($(n)×$(n), $FT)",
         "MarkerSurface",
         setup,
         run,
