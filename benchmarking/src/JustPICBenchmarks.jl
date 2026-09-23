@@ -466,18 +466,19 @@ write_dashboard_data(path, inputs) = write_results(path, dashboard_data(inputs))
 format_seconds(t) = t < 1.0e-3 ? "$(round(t * 1.0e6; sigdigits = 3)) μs" :
     t < 1 ? "$(round(t * 1.0e3; sigdigits = 3)) ms" : "$(round(t; sigdigits = 3)) s"
 
-function format_timing(result)
-    median = result["time_median_seconds"]
-    spread = round(Int, 100 * result["time_iqr_seconds"] / median)
-    return "$(format_seconds(median)) ±$spread%"
-end
+relative_spread(result) = result["time_iqr_seconds"] / result["time_median_seconds"]
+
+format_timing(result) =
+    "$(format_seconds(result["time_median_seconds"])) ±$(round(Int, 100 * relative_spread(result)))%"
 
 """
     print_comparison(io, baseline, candidate)
 
-Print the median time of each benchmark in `candidate` relative to `baseline`, both result
-vectors as written by [`write_results`](@ref). The spread is the interquartile range as a
-percentage of the median. Returns the candidate-to-baseline median ratios.
+Print a markdown table of the median time of each benchmark in `candidate` relative to
+`baseline`, both result vectors as written by [`write_results`](@ref). The spread is the
+interquartile range as a percentage of the median. A ratio that differs from 1 by more than
+the two spreads combined is marked 🔴 (slower) or 🟢 (faster). Returns the
+candidate-to-baseline median ratios.
 """
 function print_comparison(io::IO, baseline, candidate)
     base_meta, cand_meta = baseline[1]["metadata"], candidate[1]["metadata"]
@@ -489,19 +490,26 @@ function print_comparison(io::IO, baseline, candidate)
     getindex.(baseline, "name") == getindex.(candidate, "name") ||
         error("baseline and candidate ran different benchmarks")
 
-    label(meta) = first(meta["commit"], 8) * (meta["dirty"] ? " (dirty)" : "")
-    println(io, "baseline $(label(base_meta)) vs candidate $(label(cand_meta)) on $(cand_meta["hardware_fingerprint"])")
-    width = maximum(length ∘ (r -> r["name"]), candidate)
-    println(io, rpad("benchmark", width), "  ", lpad("baseline", 16), "  ", lpad("candidate", 16), "   ratio   allocs")
-    return map(baseline, candidate) do base, cand
-        ratio = cand["time_median_seconds"] / base["time_median_seconds"]
-        println(
-            io, rpad(cand["name"], width), "  ", lpad(format_timing(base), 16), "  ",
-            lpad(format_timing(cand), 16), "  ", lpad(round(ratio; digits = 2), 6),
-            "   ", base["allocations"], " → ", cand["allocations"],
-        )
-        ratio
+    ratios = map((b, c) -> c["time_median_seconds"] / b["time_median_seconds"], baseline, candidate)
+    rows = map(baseline, candidate, ratios) do base, cand, ratio
+        noise = relative_spread(base) + relative_spread(cand)
+        marker = ratio > 1 + noise ? " 🔴" : ratio < 1 - noise ? " 🟢" : ""
+        [
+            cand["name"], format_timing(base), format_timing(cand),
+            "$(base["allocations"]) → $(cand["allocations"])", "$(round(ratio; digits = 2))$marker",
+        ]
     end
+    header = ["Benchmark", "Baseline", "Candidate", "Allocations", "Ratio"]
+    widths = [maximum(length, getindex.([[header]; collect(rows)], j)) for j in eachindex(header)]
+    cells(row) = join((j == 1 ? rpad(x, w) : lpad(x, w) for (j, (x, w)) in enumerate(zip(row, widths))), " | ")
+    label(meta) = "`$(first(meta["commit"], 8))`" * (meta["dirty"] ? " (dirty)" : "")
+
+    println(io, "Baseline $(label(base_meta)) vs candidate $(label(cand_meta)) on `$(cand_meta["hardware_fingerprint"])`")
+    println(io)
+    println(io, "| ", cells(header), " |")
+    println(io, "| :", "-"^(widths[1] - 1), " | ", join(("-"^(w - 1) * ":" for w in widths[2:end]), " | "), " |")
+    foreach(row -> println(io, "| ", cells(row), " |"), rows)
+    return ratios
 end
 
 const PRECISIONS = Dict("Float64" => Float64, "Float32" => Float32)

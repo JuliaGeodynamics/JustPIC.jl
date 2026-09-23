@@ -44,18 +44,16 @@ jobs:
         shell: bash
         run: |
           julia --project=benchmarking benchmarking/compare.jl \
-            --rev=origin/${{ github.base_ref }} | tee comparison.txt
+            --rev=origin/${{ github.base_ref }} | tee "$RUNNER_TEMP/comparison.txt"
           {
             echo '<!-- benchmark-comparison -->'
             echo '### CPU benchmarks: `${{ github.base_ref }}` vs this PR'
             echo
-            echo '```text'
-            cat comparison.txt
-            echo '```'
+            cat "$RUNNER_TEMP/comparison.txt"
             echo
-            echo 'Shared `ubuntu-latest` runner; ratios within the ± spread are noise. GPU performance is not covered.'
-          } > comment.md
-          cat comment.md >> "$GITHUB_STEP_SUMMARY"
+            echo '<sub>Median time ± interquartile spread on a shared `ubuntu-latest` runner. 🔴/🟢 mark ratios outside the combined spread. GPU performance is not covered.</sub>'
+          } > "$RUNNER_TEMP/comment.md"
+          cat "$RUNNER_TEMP/comment.md" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Find comment
         if: github.event.pull_request.head.repo.full_name == github.repository
@@ -72,5 +70,5 @@ jobs:
         with:
           comment-id: ${{ steps.find-comment.outputs.comment-id }}
           issue-number: ${{ github.event.pull_request.number }}
-          body-path: comment.md
+          body-path: ${{ runner.temp }}/comment.md
           edit-mode: replace

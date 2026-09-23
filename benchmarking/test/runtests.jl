@@ -51,6 +51,10 @@ using Test
 
     comparison = sprint(io -> @test all(==(1), print_comparison(io, results, results)))
     @test occursin(results[1]["name"], comparison)
+    @test !occursin("🔴", comparison)
+    slower = deepcopy(results)
+    slower[1]["time_median_seconds"] *= 2
+    @test occursin("🔴", sprint(print_comparison, results, slower))
     elsewhere = deepcopy(results)
     elsewhere[1]["metadata"]["hardware_fingerprint"] = "another machine"
     @test_throws "different hardware_fingerprint" print_comparison(devnull, results, elsewhere)
