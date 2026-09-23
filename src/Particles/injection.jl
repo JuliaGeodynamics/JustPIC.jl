@@ -13,9 +13,9 @@ Inject particles into cells whose occupancy falls below `particles.min_xcell`.
 - New particles are placed quadrant-by-quadrant inside the cell.
 - New field values are copied from the nearest existing particle in the same
   neighborhood.
-- When companion fields are supplied, each target cell must have at least one
-  live particle in its neighboring support region; no synthetic field fallback
-  is invented for an entirely empty neighborhood.
+- When companion fields are supplied, field values are copied from a live
+  particle in the neighboring support region. If none exists, the candidate is
+  skipped; no synthetic field fallback is invented.
 - The public entry point uses the vertex grid and cell spacing stored in
   `particles`.
 """

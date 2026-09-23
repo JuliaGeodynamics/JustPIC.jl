@@ -143,6 +143,8 @@ semilagrangian_advection_MQS!
 its companion fields together. `clean_particles!` removes active particles
 outside their stored cell; it does not compact slots. Injection with companion
 fields requires a live neighboring particle from which to copy field values.
+If that support is absent, the candidate is skipped rather than initialized
+with synthetic field data.
 
 ```@docs
 move_particles!

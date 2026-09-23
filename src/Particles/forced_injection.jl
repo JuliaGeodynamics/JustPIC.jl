@@ -5,7 +5,8 @@ Insert particles from `p_new` directly into free particle slots.
 
 # Arguments
 - `particles`: destination `Particles` container.
-- `p_new`: per-cell collection of coordinates to inject; `NaN` marks empty input slots.
+- `p_new`: slot-aligned per-cell collection of coordinates to inject, with shape
+  `size(particles.index)..., cellnum(particles.index)`; `NaN` marks empty input slots.
 - `fields`: tuple of particle fields to initialize together with the coordinates.
 - `values`: values written into each corresponding entry of `fields`.
 
@@ -15,6 +16,8 @@ Insert particles from `p_new` directly into free particle slots.
 """
 function force_injection!(particles::Particles{Backend}, p_new, fields::NTuple{N, Any}, values::NTuple{N, Any}) where {Backend, N}
     (; coords, index) = particles
+    size(p_new) == (size(index)..., cellnum(index)) || throw(ArgumentError("p_new must be slot-aligned with particles.index"))
+    length(fields) == length(values) || throw(ArgumentError("fields and values must have the same length"))
     ni = size(index)
     launch!(ka_backend(index), force_injection_kernel!, ni, coords, index, p_new, fields, values)
     return nothing
@@ -39,7 +42,7 @@ force_injection!(particles::Particles{Backend}, p_new) where {Backend} = force_i
         c > cellnum(index) && continue
         doskip(index, ip, I...) || continue
         pᵢ = p_new[I..., c]
-        if !isnan(pᵢ)
+        if !isnan(pᵢ) && all(isfinite, ntuple(i -> pᵢ[i], Val(2)))
             CAI.@index coords[1][ip, I...] = pᵢ[1]
             CAI.@index coords[2][ip, I...] = pᵢ[2]
             CAI.@index index[ip, I...] = true
@@ -62,7 +65,7 @@ end
         c > cellnum(index) && continue
         doskip(index, ip, I...) || continue
         pᵢ = p_new[I..., c]
-        if !isnan(pᵢ)
+        if !isnan(pᵢ) && all(isfinite, ntuple(i -> pᵢ[i], Val(3)))
             CAI.@index coords[1][ip, I...] = pᵢ[1]
             CAI.@index coords[2][ip, I...] = pᵢ[2]
             CAI.@index coords[3][ip, I...] = pᵢ[3]
