@@ -2,13 +2,10 @@ const BACKEND_NAME = get(ENV, "JULIA_JUSTPIC_BACKEND", "CPU")
 
 @static if BACKEND_NAME == "AMDGPU"
     using AMDGPU
-    AMDGPU.allowscalar(true)
 elseif BACKEND_NAME == "CUDA"
     using CUDA
-    CUDA.allowscalar(true)
 elseif BACKEND_NAME == "Metal"
     using Metal
-    Metal.allowscalar(true)
 end
 
 using Test
@@ -123,6 +120,8 @@ end
     T2 = similar(T)
     fill!(T2, eltype(T2)(NaN))
     JustPIC.particle2grid!(T2, pT, particles)
+    T2 = Array(T2)
+    T = Array(T)
     # norm(T2 .- T) / length(T)
     support = interior_support(T2)
     @test all(isfinite.(T2[support]))
@@ -139,6 +138,8 @@ end
     JustPIC.particle2centroid!(Tc2, pT, particles)
     fill!(Tc2, eltype(Tc2)(NaN))
     JustPIC.particle2centroid!(Tc2, pT, xci_p, particles, diff.(xci_p))
+    Tc2 = Array(Tc2)
+    Tc = Array(Tc)
     # norm(T2 .- T) / length(T)
     support_c = interior_support(Tc2)
     @test all(isfinite.(Tc2[support_c]))
@@ -284,6 +285,8 @@ end
     T2 = similar(T)
     fill!(T2, eltype(T2)(NaN))
     JustPIC.particle2grid!(T2, pT, particles)
+    T2 = Array(T2)
+    T = Array(T)
     support = interior_support(T2)
     @test all(isfinite.(T2[support]))
     @test all(isnan.(T2[.!support]))
@@ -297,6 +300,8 @@ end
     Tc2 = similar(Tc)
     fill!(Tc2, eltype(Tc2)(NaN))
     JustPIC.particle2centroid!(Tc2, pT, xci_p, particles, diff.(xci_p))
+    Tc2 = Array(Tc2)
+    Tc = Array(Tc)
     # norm(T2 .- T) / length(T)
     support_c = interior_support(Tc2)
     @test all(isfinite.(Tc2[support_c]))

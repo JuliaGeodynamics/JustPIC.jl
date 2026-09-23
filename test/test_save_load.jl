@@ -12,7 +12,22 @@ using JLD2, JustPIC, Test
 import CellArraysIndexing as CAI
 import KernelAbstractions: CPU
 
-const backend = CPU
+const backend = @static if BACKEND_NAME == "AMDGPU"
+    AMDGPU.ROCBackend
+elseif BACKEND_NAME == "CUDA"
+    CUDA.CUDABackend
+elseif BACKEND_NAME == "Metal"
+    Metal.MetalBackend
+else
+    CPU
+end
+const FT = if BACKEND_NAME == "Metal" || get(ENV, "JULIA_JUSTPIC_PRECISION", "") == "Float32"
+    Float32
+else
+    Float64
+end
+include("helpers_backend.jl")
+check_backend(BACKEND_NAME, backend, FT)
 
 function expand_range(x::AbstractRange)
     dx = x[2] - x[1]
@@ -35,7 +50,7 @@ end
 same_values(a, b) = size(a) == size(b) && all(isequal.(a, b))
 
 @testset "Passive marker conversions" begin
-    markers = init_passive_markers(CPU, (collect(1.0:4.0), collect(5.0:8.0)))
+    markers = init_passive_markers(backend, (collect(1.0:4.0), collect(5.0:8.0)))
     markers_copy = copy(markers)
     markers_cpu = Array(markers)
     markers_f32 = Array(Float32, markers)
@@ -54,7 +69,7 @@ end
     xc = LinRange(0.125, 0.875, 4)
     grid_vx = xv, expand_range(xc)
     grid_vy = expand_range(xc), xv
-    particles = init_particles(CPU, 4, 8, 2, grid_vx, grid_vy)
+    particles = init_particles(backend, 4, 8, 2, grid_vx, grid_vy)
     field, = init_cell_arrays(particles, Val(1))
 
     fill!(particles.index.data, false)
@@ -163,6 +178,7 @@ end
     particle_args_reduced3 = data1["particle_args_reduced"]
     particle_args_kwarg3 = data1["particle_args_kwarg"]
 
+    # checkpoints store host containers, whatever backend wrote them
     @test chain3 isa JustPIC.MarkerChain{CPU}
     @test particle_args3 isa Tuple
     @test particle_args_reduced3 isa Tuple
@@ -205,12 +221,14 @@ end
         @test particles_gpu isa JustPIC.Particles{Backend}
         @test phase_ratios_gpu isa JustPIC.PhaseRatios{Backend}
         @test last(typeof(phases_gpu).parameters) <: T{Float64, 3}
-        @test size(particles_gpu.coords[1].data) == size(permutedims(particles.coords[1].data, (3, 2, 1)))
-        @test size(particles_gpu.coords[2].data) == size(permutedims(particles.coords[2].data, (3, 2, 1)))
-        @test size(particles_gpu.index.data) == size(permutedims(particles.index.data, (3, 2, 1)))
-        @test size(phase_ratios_gpu.center.data) == size(permutedims(phase_ratios.center.data, (3, 2, 1)))
-        @test size(phase_ratios_gpu.vertex.data) == size(permutedims(phase_ratios.vertex.data, (3, 2, 1)))
-        @test size(phases_gpu.data) == size(permutedims(phases.data, (3, 2, 1)))
+        # moving a `CellArray` to the device transposes its data layout, so the
+        # reference is the CPU container each device container was built from
+        @test size(particles_gpu.coords[1].data) == size(permutedims(particles2.coords[1].data, (3, 2, 1)))
+        @test size(particles_gpu.coords[2].data) == size(permutedims(particles2.coords[2].data, (3, 2, 1)))
+        @test size(particles_gpu.index.data) == size(permutedims(particles2.index.data, (3, 2, 1)))
+        @test size(phase_ratios_gpu.center.data) == size(permutedims(phase_ratios2.center.data, (3, 2, 1)))
+        @test size(phase_ratios_gpu.vertex.data) == size(permutedims(phase_ratios2.vertex.data, (3, 2, 1)))
+        @test size(phases_gpu.data) == size(permutedims(phases2.data, (3, 2, 1)))
 
         @test particles_gpu2 isa JustPIC.Particles{Backend}
         @test phase_ratios_gpu2 isa JustPIC.PhaseRatios{Backend}
@@ -219,12 +237,12 @@ end
         @test particle_args_reduced_gpu2 isa Tuple
         @test particle_args_kwarg_gpu2 isa Tuple
         @test last(typeof(phases_gpu2).parameters) <: T{Float64, 3}
-        @test size(particles_gpu2.coords[1].data) == size(permutedims(particles.coords[1].data, (3, 2, 1)))
-        @test size(particles_gpu2.coords[2].data) == size(permutedims(particles.coords[2].data, (3, 2, 1)))
-        @test size(particles_gpu2.index.data) == size(permutedims(particles.index.data, (3, 2, 1)))
-        @test size(phase_ratios_gpu2.center.data) == size(permutedims(phase_ratios.center.data, (3, 2, 1)))
-        @test size(phase_ratios_gpu2.vertex.data) == size(permutedims(phase_ratios.vertex.data, (3, 2, 1)))
-        @test size(phases_gpu2.data) == size(permutedims(phases.data, (3, 2, 1)))
+        @test size(particles_gpu2.coords[1].data) == size(permutedims(particles3.coords[1].data, (3, 2, 1)))
+        @test size(particles_gpu2.coords[2].data) == size(permutedims(particles3.coords[2].data, (3, 2, 1)))
+        @test size(particles_gpu2.index.data) == size(permutedims(particles3.index.data, (3, 2, 1)))
+        @test size(phase_ratios_gpu2.center.data) == size(permutedims(phase_ratios3.center.data, (3, 2, 1)))
+        @test size(phase_ratios_gpu2.vertex.data) == size(permutedims(phase_ratios3.vertex.data, (3, 2, 1)))
+        @test size(phases_gpu2.data) == size(permutedims(phases3.data, (3, 2, 1)))
 
         # test type conversion
         @test eltype(eltype(T(phases))) === Float64
@@ -391,24 +409,26 @@ end
         @test particles_gpu isa JustPIC.Particles{Backend}
         @test phase_ratios_gpu isa JustPIC.PhaseRatios{Backend}
         @test last(typeof(phases_gpu).parameters) <: T{Float64, 3}
-        @test size(particles_gpu.coords[1].data) == size(permutedims(particles.coords[1].data, (3, 2, 1)))
-        @test size(particles_gpu.coords[2].data) == size(permutedims(particles.coords[2].data, (3, 2, 1)))
-        @test size(particles_gpu.index.data) == size(permutedims(particles.index.data, (3, 2, 1)))
-        @test size(phase_ratios_gpu.center.data) == size(permutedims(phase_ratios.center.data, (3, 2, 1)))
-        @test size(phase_ratios_gpu.vertex.data) == size(permutedims(phase_ratios.vertex.data, (3, 2, 1)))
-        @test size(phases_gpu.data) == size(permutedims(phases.data, (3, 2, 1)))
+        # moving a `CellArray` to the device transposes its data layout, so the
+        # reference is the CPU container each device container was built from
+        @test size(particles_gpu.coords[1].data) == size(permutedims(particles2.coords[1].data, (3, 2, 1)))
+        @test size(particles_gpu.coords[2].data) == size(permutedims(particles2.coords[2].data, (3, 2, 1)))
+        @test size(particles_gpu.index.data) == size(permutedims(particles2.index.data, (3, 2, 1)))
+        @test size(phase_ratios_gpu.center.data) == size(permutedims(phase_ratios2.center.data, (3, 2, 1)))
+        @test size(phase_ratios_gpu.vertex.data) == size(permutedims(phase_ratios2.vertex.data, (3, 2, 1)))
+        @test size(phases_gpu.data) == size(permutedims(phases2.data, (3, 2, 1)))
 
         @test particles_gpu2 isa JustPIC.Particles{Backend}
         @test phase_ratios_gpu2 isa JustPIC.PhaseRatios{Backend}
         @test particle_args_gpu2 isa Tuple
         @test particle_args_reduced_gpu2 isa Tuple
         @test last(typeof(phases_gpu2).parameters) <: T{Float64, 3}
-        @test size(particles_gpu2.coords[1].data) == size(permutedims(particles.coords[1].data, (3, 2, 1)))
-        @test size(particles_gpu2.coords[2].data) == size(permutedims(particles.coords[2].data, (3, 2, 1)))
-        @test size(particles_gpu2.index.data) == size(permutedims(particles.index.data, (3, 2, 1)))
-        @test size(phase_ratios_gpu2.center.data) == size(permutedims(phase_ratios.center.data, (3, 2, 1)))
-        @test size(phase_ratios_gpu2.vertex.data) == size(permutedims(phase_ratios.vertex.data, (3, 2, 1)))
-        @test size(phases_gpu2.data) == size(permutedims(phases.data, (3, 2, 1)))
+        @test size(particles_gpu2.coords[1].data) == size(permutedims(particles3.coords[1].data, (3, 2, 1)))
+        @test size(particles_gpu2.coords[2].data) == size(permutedims(particles3.coords[2].data, (3, 2, 1)))
+        @test size(particles_gpu2.index.data) == size(permutedims(particles3.index.data, (3, 2, 1)))
+        @test size(phase_ratios_gpu2.center.data) == size(permutedims(phase_ratios3.center.data, (3, 2, 1)))
+        @test size(phase_ratios_gpu2.vertex.data) == size(permutedims(phase_ratios3.vertex.data, (3, 2, 1)))
+        @test size(phases_gpu2.data) == size(permutedims(phases3.data, (3, 2, 1)))
 
         # test type conversion
         @test eltype(eltype(T(phases))) === Float64

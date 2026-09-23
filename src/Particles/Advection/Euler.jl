@@ -21,6 +21,35 @@ function advect_particle(
     return wrap_position(p1, periodicity, domain_limits)
 end
 
+@inline function advect_particle_SML(
+        method::Euler,
+        p0::NTuple{N},
+        V::NTuple{N},
+        grid_vi,
+        dxi,
+        dt,
+        I::NTuple;
+        backtracking::Bool = false
+    ) where {N}
+    vp0 = interp_velocity2particle(p0, grid_vi, dxi, V, I)
+    return first_stage(method, dt, vp0, p0; backtracking = backtracking)
+end
+
+@inline function advect_particle_SML(
+        method::Euler,
+        p0::NTuple{N},
+        V::NTuple{N},
+        grid_vi,
+        dxi,
+        dt,
+        interpolation_fn::F,
+        I::NTuple;
+        backtracking::Bool = false
+    ) where {N, F}
+    vp0 = interpolation_fn(p0, grid_vi, dxi, V, I)
+    return first_stage(method, dt, vp0, p0; backtracking = backtracking)
+end
+
 @inline function advect_particle(
         method::Euler,
         p0::NTuple{N},

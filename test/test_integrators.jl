@@ -1,4 +1,32 @@
+const BACKEND_NAME = get(ENV, "JULIA_JUSTPIC_BACKEND", "CPU")
+
+@static if BACKEND_NAME == "AMDGPU"
+    using AMDGPU
+elseif BACKEND_NAME == "CUDA"
+    using CUDA
+elseif BACKEND_NAME == "Metal"
+    using Metal
+end
+
 using JustPIC, Test
+import KernelAbstractions: CPU
+
+const backend = @static if BACKEND_NAME == "AMDGPU"
+    AMDGPU.ROCBackend
+elseif BACKEND_NAME == "CUDA"
+    CUDA.CUDABackend
+elseif BACKEND_NAME == "Metal"
+    Metal.MetalBackend
+else
+    CPU
+end
+const FT = if BACKEND_NAME == "Metal" || get(ENV, "JULIA_JUSTPIC_PRECISION", "") == "Float32"
+    Float32
+else
+    Float64
+end
+include("helpers_backend.jl")
+check_backend(BACKEND_NAME, backend, FT)
 
 @testset "Runge-Kutta 2 - 2D" begin
     rk2 = JustPIC.RungeKutta2()
