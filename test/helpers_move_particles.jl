@@ -128,5 +128,33 @@ function check_full_destination_overflow(particles, fields)
     @test count(index) == max_xcell
     @test all(CAI.@index(particles.index[slot, destination...]) for slot in 1:max_xcell)
     @test !any(CAI.@index(particles.index[slot, source...]) for slot in 1:max_xcell)
+    for slot in 1:max_xcell, (k, field) in enumerate(fields)
+        @test CAI.@index(field[slot, destination...]) == k * slot
+    end
+    return nothing
+end
+
+function check_clean_particles(particles, fields)
+    T = eltype(eltype(particles.coords[1]))
+    N = length(particles.coords)
+    cell = ntuple(_ -> 3, Val(N))
+    destination = ntuple(_ -> 4, Val(N))
+    xvi = Array.(particles.xvi)
+    position = ntuple(d -> xvi[d][destination[d]] + (xvi[d][destination[d] + 1] - xvi[d][destination[d]]) / 2, Val(N))
+
+    clear_particles!(particles, fields)
+    dev = TA(backend)
+    JustPIC.launch!(
+        JustPIC.ka_backend(particles.index), place_particles_kernel!, 1,
+        particles.index, particles.coords, fields,
+        ntuple(_ -> dev([cell[1]]), Val(N)), dev([1]),
+        ntuple(d -> dev([position[d]]), Val(N)), dev(T[1]),
+    )
+
+    clean_particles!(particles, particles.xvi, fields)
+    @test !any(Array(particles.index.data))
+    for coords in particles.coords
+        @test all(isnan, Array(coords.data))
+    end
     return nothing
 end

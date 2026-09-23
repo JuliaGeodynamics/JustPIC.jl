@@ -454,6 +454,10 @@ include(joinpath(@__DIR__, "helpers_move_particles.jl"))
     @testset "full destination reports overflow" begin
         check_full_destination_overflow(particles, fields)
     end
+
+    @testset "clean removes out-of-cell particles without compaction" begin
+        check_clean_particles(particles, fields)
+    end
 end
 
 include(joinpath(@__DIR__, "helpers_move_jumps.jl"))

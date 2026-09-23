@@ -430,8 +430,9 @@ end
 """
     clean_particles!(particles, grid, args)
 
-Remove invalid or inactive particle slots and keep particle-associated fields in
-`args` consistent with the particle storage layout.
+Remove active particles that no longer lie in their stored cell and keep
+particle-associated fields in `args` consistent with the particle storage
+layout. This routine does not compact the remaining slots.
 
 This is typically used after particle deletion or reinjection to compact each
 cell's active particle block.
