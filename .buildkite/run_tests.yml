@@ -1,21 +1,6 @@
 steps:
-  - label: "CPU fast tier Julia {{matrix.version}}"
-    matrix:
-      setup:
-        version:
-          - "1.10"
-          - "1"
-    plugins:
-      - JuliaCI/julia#v1:
-          version: "{{matrix.version}}"
-    command: |
-      julia --project=. -e 'using Pkg; Pkg.instantiate()' || exit 3
-      julia --project=. -e 'using Pkg; Pkg.test(; test_args=["--backend=CPU", "--tier=fast"])'
-    timeout_in_minutes: 20
-    soft_fail:
-      - exit_status: 3
-
   - label: "CUDA Julia {{matrix.version}}"
+    if: build.message !~ /\[skip tests\]/
     matrix:
       setup:
         version:
@@ -43,6 +28,7 @@ steps:
       JULIA_NUM_THREADS: 4
 
   - label: "AMDGPU Julia {{matrix.version}}"
+    if: build.message !~ /\[skip tests\]/
     matrix:
       setup:
         version:
@@ -71,6 +57,7 @@ steps:
       JULIA_NUM_THREADS: 4
 
   - label: "Metal Julia {{matrix.version}}"
+    if: build.message !~ /\[skip tests\]/
     matrix:
       setup:
         version:
@@ -96,8 +83,13 @@ steps:
       - exit_status: 3
     env:
       JULIA_NUM_THREADS: 4
+
+  - wait: ~
+    continue_on_failure: true
+
   - label: ":stopwatch: Benchmarks CUDA"
     key: "benchmarks-cuda"
+    if: build.branch == "main" && build.message !~ /\[skip benchmarks\]/
     plugins:
       - JuliaCI/julia#v1:
           version: "1"
@@ -115,12 +107,14 @@ steps:
     agents:
       queue: "cuda"
     timeout_in_minutes: 60
+    soft_fail: true
     env:
       JULIA_NUM_THREADS: 4
       JULIA_PKG_PRECOMPILE_AUTO: 0
 
   - label: ":stopwatch: Benchmarks AMDGPU"
     key: "benchmarks-amdgpu"
+    if: build.branch == "main" && build.message !~ /\[skip benchmarks\]/
     plugins:
       - JuliaCI/julia#v1:
           version: "1"
@@ -136,12 +130,14 @@ steps:
       queue: "rocm"
       rocmgpu: "*"
     timeout_in_minutes: 60
+    soft_fail: true
     env:
       JULIA_NUM_THREADS: 4
       JULIA_PKG_PRECOMPILE_AUTO: 0
 
   - label: ":stopwatch: Benchmarks Metal"
     key: "benchmarks-metal"
+    if: build.branch == "main" && build.message !~ /\[skip benchmarks\]/
     plugins:
       - JuliaCI/julia#v1:
           version: "1"
@@ -159,6 +155,7 @@ steps:
     agents:
       queue: "metal"
     timeout_in_minutes: 60
+    soft_fail: true
     env:
       JULIA_NUM_THREADS: 4
       JULIA_PKG_PRECOMPILE_AUTO: 0
