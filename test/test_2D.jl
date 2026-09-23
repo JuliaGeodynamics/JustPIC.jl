@@ -450,6 +450,10 @@ include(joinpath(@__DIR__, "helpers_move_particles.jl"))
             check_fragmented_move(backend, particles, fields, (3, 3), leaving, free)
         end
     end
+
+    @testset "full destination reports overflow" begin
+        check_full_destination_overflow(particles, fields)
+    end
 end
 
 include(joinpath(@__DIR__, "helpers_move_jumps.jl"))
