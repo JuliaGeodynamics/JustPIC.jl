@@ -46,7 +46,8 @@ The two layouts on a 4x4 grid with 16 particles per cell:
 
 ### Randomly distributed particles
 
-```julia
+```jldoctest
+using JustPIC
 backend   = JustPIC.CPU # device backend
 nxcell    = 24  # initial number of randomly distributed particles
 max_xcell = 48  # maximum number of particles per cell
@@ -62,11 +63,17 @@ grid_vy   = LinRange(first(xc) - dx, last(xc) + dx, length(xc) + 2), yv
 particles = init_particles(
     backend, nxcell, max_xcell, min_xcell, grid_vx, grid_vy,
 )
+sum(particles.index.data) # number of active particles
+
+# output
+
+23064
 ```
 
 ### Regularly spaced particles
 
-```julia
+```jldoctest
+using JustPIC
 backend   = JustPIC.CPU # device backend
 nxcell    = (5, 5)  # number of evenly spaced particles in each cell dimension
 max_xcell = 48      # maximum number of particles per cell
@@ -82,6 +89,11 @@ grid_vy   = LinRange(first(xc) - dx, last(xc) + dx, length(xc) + 2), yv
 particles = init_particles(
     backend, nxcell, max_xcell, min_xcell, grid_vx, grid_vy,
 )
+sum(particles.index.data) # number of active particles
+
+# output
+
+24025
 ```
 
 ## Particle maintenance

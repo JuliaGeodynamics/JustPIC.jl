@@ -73,6 +73,7 @@ scheme = RungeKutta2()
 for _ in 1:100
     advection!(particles, scheme, V, dt)
     move_particles!(particles, ())
+    inject_particles!(particles, ())  # refill cells that fall below min_xcell
 end
 ```
 
