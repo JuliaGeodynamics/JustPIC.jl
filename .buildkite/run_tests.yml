@@ -1,5 +1,6 @@
 steps:
   - label: "CUDA Julia {{matrix.version}}"
+    key: "tests-cuda"
     if: build.message !~ /\[skip tests\]/
     matrix:
       setup:
@@ -28,6 +29,7 @@ steps:
       JULIA_NUM_THREADS: 4
 
   - label: "AMDGPU Julia {{matrix.version}}"
+    key: "tests-amdgpu"
     if: build.message !~ /\[skip tests\]/
     matrix:
       setup:
@@ -57,6 +59,7 @@ steps:
       JULIA_NUM_THREADS: 4
 
   - label: "Metal Julia {{matrix.version}}"
+    key: "tests-metal"
     if: build.message !~ /\[skip tests\]/
     matrix:
       setup:
@@ -84,11 +87,11 @@ steps:
     env:
       JULIA_NUM_THREADS: 4
 
-  - wait: ~
-    continue_on_failure: true
-
   - label: ":stopwatch: Benchmarks CUDA"
     key: "benchmarks-cuda"
+    depends_on:
+      - step: "tests-cuda"
+        allow_failure: true
     if: build.branch == "main" && build.message !~ /\[skip benchmarks\]/
     plugins:
       - JuliaCI/julia#v1:
@@ -114,6 +117,9 @@ steps:
 
   - label: ":stopwatch: Benchmarks AMDGPU"
     key: "benchmarks-amdgpu"
+    depends_on:
+      - step: "tests-amdgpu"
+        allow_failure: true
     if: build.branch == "main" && build.message !~ /\[skip benchmarks\]/
     plugins:
       - JuliaCI/julia#v1:
@@ -137,6 +143,9 @@ steps:
 
   - label: ":stopwatch: Benchmarks Metal"
     key: "benchmarks-metal"
+    depends_on:
+      - step: "tests-metal"
+        allow_failure: true
     if: build.branch == "main" && build.message !~ /\[skip benchmarks\]/
     plugins:
       - JuliaCI/julia#v1:
