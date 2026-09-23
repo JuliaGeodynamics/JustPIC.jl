@@ -1,0 +1,112 @@
+# Buildkite reports its final status for a main-branch commit; this workflow downloads that
+# build's public benchmark artifacts and stores them on the `benchmark-data` branch, from
+# which the documentation's Performance page reads `benchmark_history.json`.
+name: Publish benchmarks
+on:
+  status:
+
+concurrency:
+  group: publish-benchmarks
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: >-
+      github.event.context == 'buildkite/justpic-dot-jl' &&
+      github.event.state != 'pending' &&
+      contains(github.event.branches.*.name, 'main')
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.sha }}
+      - uses: actions/checkout@v7
+        with:
+          ref: benchmark-data
+          path: history
+
+      - name: Download benchmark artifacts
+        id: download
+        shell: python3 {0}
+        env:
+          BUILD_URL: ${{ github.event.target_url }}
+          COMMIT: ${{ github.event.sha }}
+        run: |
+          import json, os, urllib.request
+
+          def get(url):
+              request = urllib.request.Request(url, headers={"Accept": "application/json"})
+              with urllib.request.urlopen(request) as response:
+                  return response.read()
+
+          build_url = os.environ["BUILD_URL"].split("#")[0]
+          build = json.loads(get(build_url + ".json"))
+          if build["commit_id"] != os.environ["COMMIT"]:
+              raise SystemExit(f"{build_url} built {build['commit_id']}, not {os.environ['COMMIT']}")
+
+          # Tag and pull-request builds of a main commit report to the same status context.
+          benchmark_jobs = []
+          if build["branch_name"] == "main" and not build["pull_request"]:
+              jobs = json.loads(get(build_url + "/data/jobs.json"))
+              if jobs["has_next_page"]:
+                  raise SystemExit("Buildkite paginated the job list; fetch every page before publishing")
+              benchmark_jobs = [j for j in jobs["records"] if (j.get("name") or "").startswith(":stopwatch: Benchmarks")]
+          else:
+              print(f"skipping {build_url}: branch {build['branch_name']!r}")
+
+          os.makedirs("incoming")
+          for job in benchmark_jobs:
+              artifacts = json.loads(get("https://buildkite.com" + job["base_path"] + "/artifacts"))
+              for artifact in artifacts:
+                  name = artifact["file_name"]
+                  if name.startswith("benchmark_results_") and name.endswith(".json"):
+                      with open(os.path.join("incoming", name), "wb") as io:
+                          io.write(get("https://buildkite.com" + artifact["url"]))
+                      print("downloaded", name, "from", job["name"])
+
+          found = bool(os.listdir("incoming"))
+          if benchmark_jobs and not found:
+              raise SystemExit("benchmark jobs ran but uploaded no benchmark_results_*.json")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as io:
+              io.write(f"found={str(found).lower()}\n")
+
+      - uses: julia-actions/setup-julia@v3
+        if: steps.download.outputs.found == 'true'
+        with:
+          version: '1'
+      - uses: julia-actions/cache@v3
+        if: steps.download.outputs.found == 'true'
+
+      - name: Store results and rebuild the history
+        if: steps.download.outputs.found == 'true'
+        env:
+          COMMIT: ${{ github.event.sha }}
+          JULIA_PKG_PRECOMPILE_AUTO: 0
+        run: |
+          if grep -l '"dirty": true' incoming/*.json; then
+              echo "refusing to publish results measured on a dirty worktree" >&2
+              exit 1
+          fi
+          mkdir -p "history/results/$COMMIT"
+          for result in incoming/*.json; do
+              name=$(basename "$result")
+              cp "$result" "history/results/$COMMIT/${name#benchmark_results_}"
+          done
+          julia --project=benchmarking benchmarking/setup.jl
+          inputs=()
+          for result in history/results/*/*.json; do inputs+=("--input=$result"); done
+          julia --project=benchmarking benchmarking/build_dashboard.jl "${inputs[@]}" \
+              --output=history/benchmark_history.json
+
+      - name: Push history
+        if: steps.download.outputs.found == 'true'
+        env:
+          COMMIT: ${{ github.event.sha }}
+        run: |
+          git -C history add results benchmark_history.json
+          git -C history -c user.name="github-actions[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit -m "Benchmark results for $COMMIT [skip ci]"
+          git -C history push origin benchmark-data

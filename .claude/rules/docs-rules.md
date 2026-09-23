@@ -24,12 +24,14 @@ and/or comment out the heavier `"Examples"` pages. **Revert before committing.**
 
 ```julia
 using LiveServer
-serve(dir = "docs/build")
+LiveServer.serve(dir = "docs/build/1")
 ```
 
 ## Style
 
 - Doc sources are plain markdown in `docs/src/`; example scripts in `docs/examples/`
+- The site is built with DocumenterVitepress: `pages` in `docs/make.jl` sets the sidebar;
+  the top navigation bar is fixed in `docs/src/.vitepress/config.mts`
 - `docs/src/API.md` is the public API page — keep it in sync with exports in
   `src/common.jl` / `src/JustPIC.jl`
 - Prefer `jldoctest` blocks when output is stable and backend-independent; GPU array

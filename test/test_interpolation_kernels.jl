@@ -118,7 +118,7 @@ end
 
     # Particle to grid test
     T2 = similar(T)
-    fill!(T2, NaN)
+    fill!(T2, eltype(T2)(NaN))
     JustPIC.particle2grid!(T2, pT, particles)
     T2 = Array(T2)
     T = Array(T)
@@ -136,7 +136,7 @@ end
     # Particle to centroid test
     Tc2 = similar(Tc)
     JustPIC.particle2centroid!(Tc2, pT, particles)
-    fill!(Tc2, NaN)
+    fill!(Tc2, eltype(Tc2)(NaN))
     JustPIC.particle2centroid!(Tc2, pT, xci_p, particles, diff.(xci_p))
     Tc2 = Array(Tc2)
     Tc = Array(Tc)
@@ -283,7 +283,7 @@ end
 
     # Particle to grid test
     T2 = similar(T)
-    fill!(T2, NaN)
+    fill!(T2, eltype(T2)(NaN))
     JustPIC.particle2grid!(T2, pT, particles)
     T2 = Array(T2)
     T = Array(T)
@@ -298,7 +298,7 @@ end
 
     # Particle to centroid test
     Tc2 = similar(Tc)
-    fill!(Tc2, NaN)
+    fill!(Tc2, eltype(Tc2)(NaN))
     JustPIC.particle2centroid!(Tc2, pT, xci_p, particles, diff.(xci_p))
     Tc2 = Array(Tc2)
     Tc = Array(Tc)

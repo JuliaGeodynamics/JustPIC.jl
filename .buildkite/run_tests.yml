@@ -96,5 +96,72 @@ steps:
       - exit_status: 3
     env:
       JULIA_NUM_THREADS: 4
+  - label: ":stopwatch: Benchmarks CUDA"
+    key: "benchmarks-cuda"
+    plugins:
+      - JuliaCI/julia#v1:
+          version: "1"
+    command: |
+      echo "--- :julia: Instantiating benchmark environment"
+      julia --project=benchmarking benchmarking/setup.jl
+
+      echo "+++ :stopwatch: CUDA benchmarks"
+      julia --project=benchmarking benchmarking/run_benchmarks.jl --backend=CUDA --output=benchmark_results_CUDA.json
+
+      echo "+++ :stopwatch: host CPU benchmarks"
+      julia --project=benchmarking benchmarking/run_benchmarks.jl --backend=CPU --output=benchmark_results_CUDA-host-CPU.json
+    artifact_paths:
+      - "benchmark_results_*.json"
+    agents:
+      queue: "cuda"
+    timeout_in_minutes: 60
+    env:
+      JULIA_NUM_THREADS: 4
+      JULIA_PKG_PRECOMPILE_AUTO: 0
+
+  - label: ":stopwatch: Benchmarks AMDGPU"
+    key: "benchmarks-amdgpu"
+    plugins:
+      - JuliaCI/julia#v1:
+          version: "1"
+    command: |
+      echo "--- :julia: Instantiating benchmark environment"
+      julia --project=benchmarking benchmarking/setup.jl
+
+      echo "+++ :stopwatch: AMDGPU benchmarks"
+      julia --project=benchmarking benchmarking/run_benchmarks.jl --backend=AMDGPU --output=benchmark_results_AMDGPU.json
+    artifact_paths:
+      - "benchmark_results_*.json"
+    agents:
+      queue: "rocm"
+      rocmgpu: "*"
+    timeout_in_minutes: 60
+    env:
+      JULIA_NUM_THREADS: 4
+      JULIA_PKG_PRECOMPILE_AUTO: 0
+
+  - label: ":stopwatch: Benchmarks Metal"
+    key: "benchmarks-metal"
+    plugins:
+      - JuliaCI/julia#v1:
+          version: "1"
+    command: |
+      echo "--- :julia: Instantiating benchmark environment"
+      julia --project=benchmarking benchmarking/setup.jl
+
+      echo "+++ :stopwatch: Metal benchmarks"
+      julia --project=benchmarking benchmarking/run_benchmarks.jl --backend=Metal --output=benchmark_results_Metal.json
+
+      echo "+++ :stopwatch: host CPU benchmarks"
+      julia --project=benchmarking benchmarking/run_benchmarks.jl --backend=CPU --precision=Float32 --output=benchmark_results_Metal-host-CPU.json
+    artifact_paths:
+      - "benchmark_results_*.json"
+    agents:
+      queue: "metal"
+    timeout_in_minutes: 60
+    env:
+      JULIA_NUM_THREADS: 4
+      JULIA_PKG_PRECOMPILE_AUTO: 0
+
 env:
   SECRET_CODECOV_TOKEN: "yiehGQL2F9mR5iMEHZoExVcEq48DRegmiTYcGFPlFUrHoYLzWO+M1CwgVWdg6JNAk3mxUq+bX/lTeV/d5CvgYU6tGkfAZJXyO/u3AZeMnYSrBZFTdLftC7JGmsqIbMzbCpgNNwBs2OyoI0gzvsJ+hvqy1OKLYy+ycPC/WdY5ihMLk6Lb2GAZBEMOftE6twlV0G+dQvwTXUlxM87z+x4807jLXGBWvo/hISSt+7EJy6xPNZkkswdTvoGEh0FcAWW6XpmbgBtTIukJ2NLKXduJcszVP28WdYCNpDi2hx/so+o3txRFMPK2mLQcjnxLxe4cltLT4y5QEDaOD7uf6lCW7A==;U2FsdGVkX1+/Ozl2kXs4hTs2hFIaIUPx7mPw411N+q8="

@@ -1,4 +1,49 @@
-# JustPIC.jl
+```@raw html
+---
+# https://vitepress.dev/reference/default-theme-home-page
+layout: home
+
+hero:
+  name: JustPIC.jl
+  text: Particle-in-Cell advection on CPUs and GPUs
+  tagline: Particle containers, advection, and particle/grid interpolation for large-scale, multi-XPU geodynamics simulations.
+  actions:
+    - theme: brand
+      text: Getting Started
+      link: /particles
+    - theme: alt
+      text: API Reference
+      link: /API
+    - theme: alt
+      text: Performance
+      link: /performance
+    - theme: alt
+      text: View on GitHub
+      link: https://github.com/JuliaGeodynamics/JustPIC.jl
+  image:
+    src: /logo.svg
+    alt: JustPIC.jl
+
+features:
+  - title: Backend agnostic
+    details: The same KernelAbstractions kernels run on CPU, CUDA, AMDGPU, and Metal; the backend is chosen by the array type.
+    link: /mixed_CPU_GPU
+
+  - title: Particles and interpolation
+    details: Cell-local particle storage with injection, advection, and grid-to-particle and particle-to-grid interpolation.
+    link: /particles
+
+  - title: Free surfaces
+    details: Marker chains in 2D and marker surfaces in 3D track topography advected by the flow.
+    link: /marker_surface
+
+  - title: Examples
+    details: Runnable 2D, 3D, periodic, and MPI field-advection examples.
+    link: /field_advection2D
+---
+```
+
+## What is JustPIC.jl?
 
 Particle-in-Cell (PIC) advection for large-scale, multi-XPU simulations. JustPIC
 runs the same code on CPU, CUDA, AMDGPU, and Metal through
@@ -57,9 +102,11 @@ and [Interpolations](interpolations.md) for the full workflow, or the runnable
 - [CellArrays](CellArrays.md) — the cell-local storage layout
 - [Interpolations](interpolations.md) and [Velocity interpolation](velocity_interpolation.md)
 - [Marker chain](marker_chain.md) — free-surface / topography tracking
+- [Marker surface](marker_surface.md) — 3D free-surface / topography tracking
 - [I/O](IO.md) — checkpointing and restart
 - [Mixed CPU/GPU](mixed_CPU_GPU.md)
 - [Public API](API.md)
+- [Performance](performance.md) — benchmark history on CPU and GPU backends
 
 ## Funding
 

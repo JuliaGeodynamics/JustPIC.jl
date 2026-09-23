@@ -240,7 +240,7 @@ end
 @testset "Particle injection skips ghost cells 2D" begin
     nxcell, max_xcell, min_xcell = 8, 12, 8
     n = 5
-    Lx = Ly = 1.0
+    Lx = Ly = FT(1)
     xvi = xv, yv = LinRange(0, Lx, n), LinRange(0, Ly, n)
     dx, dy = xv[2] - xv[1], yv[2] - yv[1]
     xc, yc = LinRange(dx / 2, Lx - dx / 2, n - 1), LinRange(dy / 2, Ly - dy / 2, n - 1)
