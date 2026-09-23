@@ -100,6 +100,60 @@ end
     end
 end
 
+@testset "Checkpoint replacement and compatibility" begin
+    xv = LinRange(0.0, 1.0, 5)
+    xc = LinRange(0.125, 0.875, 4)
+    particles = init_particles(backend, 4, 8, 2, (xv, expand_range(xc)), (expand_range(xc), xv))
+    field, = init_cell_arrays(particles, Val(1))
+    fill!(field.data, 7.0)
+
+    mktempdir() do dir
+        fname = joinpath(dir, "particles_checkpoint.jld2")
+        checkpointing_particles(dir, particles; particle_args = (field,), extra = (; a = field, b = (1.0, "x")), t = 1.5)
+
+        data = load_checkpoint(fname)
+        @test data["checkpoint_schema"] == JustPIC.checkpoint_schema_version()
+        @test data["justpic_version"] == string(pkgversion(JustPIC))
+        @test isnothing(data["partition"])
+        @test data["time"] == 1.5
+        @test data["particle_args"][1].data == to_cpu(field).data
+        @test data["extra"].a.data == to_cpu(field).data
+        @test data["extra"].b == (1.0, "x")
+
+        # a failed write leaves the previous checkpoint and no temporary file behind
+        @test_throws "simulated write failure" JustPIC._replace_atomically(fname) do tmpfname
+            write(tmpfname, "partial checkpoint")
+            error("simulated write failure")
+        end
+        @test readdir(dir) == [basename(fname)]
+        @test load_checkpoint(fname)["time"] == 1.5
+
+        # invalid payloads are rejected before the checkpoint is touched
+        @test_throws "cannot checkpoint a value of type Dict" checkpointing_particles(dir, particles; bad = Dict(1 => 2), t = 2.0)
+        @test_throws "reserved checkpoint key" checkpointing_particles(dir, particles; checkpoint_schema = 2)
+        @test_throws "reserved checkpoint key" checkpointing_particles(dir, particles; time = 2.0)
+        @test readdir(dir) == [basename(fname)]
+        @test load_checkpoint(fname)["time"] == 1.5
+
+        newer = joinpath(dir, "newer.jld2")
+        jldsave(newer; checkpoint_schema = JustPIC.checkpoint_schema_version() + 1, justpic_version = "99.0.0")
+        @test_throws "reads schema versions up to $(JustPIC.checkpoint_schema_version())" load_checkpoint(newer)
+
+        legacy = joinpath(dir, "legacy.jld2")
+        jldsave(legacy; particles = Array(particles))
+        @test (@test_logs (:warn, r"no schema version") load_checkpoint(legacy)) isa Dict
+
+        @test_throws "does not exist" load_checkpoint(joinpath(dir, "missing.jld2"))
+
+        checkpointing_particles(dir, particles, 3; t = 1.0)
+        @test load_checkpoint(dir, 3)["partition"].rank == 3
+        cp(JustPIC.checkpoint_name(dir, 3), JustPIC.checkpoint_name(dir, 2))
+        @test_throws "written by rank 3, not rank 2" load_checkpoint(dir, 2)
+        cp(fname, JustPIC.checkpoint_name(dir, 1))
+        @test_throws "not written as a rank-local checkpoint" load_checkpoint(dir, 1)
+    end
+end
+
 @testset "Save and load 2D" begin
     # Initialize particles -------------------------------
     nxcell, max_xcell, min_xcell = 6, 6, 6
