@@ -21,6 +21,10 @@ extra fields are what let helpers such as `move_particles!`, `grid2particle!`,
 `particle2grid!`, `inject_particles!`, `update_phase_ratios!`, and
 `subgrid_diffusion!` use the compact `(..., particles, ...)` call style.
 
+`particles.np` is the initial storage capacity (`max_xcell * number of cells`),
+not a live-particle count. Reduce the occupancy mask when a live count is
+needed.
+
 ## Initialization
 
 `init_particles` accepts either:
@@ -133,6 +137,12 @@ semilagrangian_advection_MQS!
 ```
 
 ### Maintenance
+
+`move_particles!` returns the number of particles dropped because their
+destination cell was full. Overflow removes the particle and its companion
+fields together. `clean_particles!` removes active particles outside their
+stored cell; it does not compact slots. Injection with companion fields
+requires a live neighboring particle from which to copy field values.
 
 ```@docs
 move_particles!

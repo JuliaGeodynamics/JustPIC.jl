@@ -9,6 +9,9 @@ slots, keeping the coordinate arrays consistent with the per-column occupancy
 mask. A marker may cross any number of columns in one call. Markers whose updated
 coordinates are not finite, or which left the horizontal extent of
 `chain.cell_vertices`, are deleted.
+
+If a destination column is full, the marker is dropped and the number of such
+overflows is returned.
 """
 function move_particles!(chain::MarkerChain)
     (; coords, index, cell_vertices) = chain
@@ -21,6 +24,7 @@ function move_particles!(chain::MarkerChain)
         cell_jumps, coords, grid, index
     )
     max_jump = maximum(cell_jumps)
+    overflow = KernelAbstractions.zeros(ka_backend(index), Int, 1)
 
     # Sources of the same color are farther apart than the diameter of their
     # possible destination intervals. They therefore cannot write to the same
@@ -30,11 +34,11 @@ function move_particles!(chain::MarkerChain)
     for offset in 1:min(ncolors, nxi)
         launch!(
             ka_backend(index), move_particles_launcher!, n_color_cells,
-            coords, grid, index, offset, nxi, ncolors
+            coords, grid, index, offset, nxi, ncolors, overflow
         )
     end
 
-    return nothing
+    return maximum(overflow)
 end
 
 @inline in_column(x, grid, i::Integer) = grid[i] ≤ x < grid[i + 1]
@@ -61,13 +65,13 @@ end
     cell_jumps[i] = max_jump
 end
 
-@kernel function move_particles_launcher!(coords, grid, index, offset, nxi, ncolors)
+@kernel function move_particles_launcher!(coords, grid, index, offset, nxi, ncolors, overflow)
     i0 = @index(Global)
     i = ncolors * (i0 - 1) + offset
-    i ≤ nxi && _move_particles!(coords, grid, index, i)
+    i ≤ nxi && _move_particles!(coords, grid, index, i, overflow)
 end
 
-function _move_particles!(coords, grid, index, idx)
+function _move_particles!(coords, grid, index, idx, overflow)
     # iterate over particles in child cell
     for ip in cellaxes(index)
         doskip(index, ip, idx) && continue
@@ -94,7 +98,10 @@ function _move_particles!(coords, grid, index, idx)
             @inbounds CAI.@index coords[2][ip, idx] = nan
             # check whether there's empty space in parent cell
             free_idx = find_free_memory(index, new_cell...)
-            iszero(free_idx) && continue
+            if iszero(free_idx)
+                KernelAbstractions.@atomic overflow[1] += 1
+                continue
+            end
             # move particle and its fields to the first free memory location
             @inbounds CAI.@index index[free_idx, new_cell] = true
             fill_particle!(coords, pᵢ, free_idx, new_cell)
