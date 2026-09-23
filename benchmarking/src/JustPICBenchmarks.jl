@@ -7,7 +7,8 @@ using JustPIC
 using JustPIC.KernelAbstractions: @Const, @index, @kernel, allocate
 using Statistics: mean, median, quantile
 
-export benchmark_cases, dashboard_main, main, run_benchmarks, write_dashboard_data, write_results
+export benchmark_cases, dashboard_main, main, print_comparison, run_benchmarks, write_dashboard_data,
+    write_results
 
 const REPOSITORY_ROOT = normpath(joinpath(@__DIR__, "..", ".."))
 const PERFORMANCE_MODEL_VERSION = "justpic_cpu_v1"
@@ -463,6 +464,47 @@ function dashboard_data(inputs)
 end
 
 write_dashboard_data(path, inputs) = write_results(path, dashboard_data(inputs))
+
+format_seconds(t) = t < 1.0e-3 ? "$(round(t * 1.0e6; sigdigits = 3)) μs" :
+    t < 1 ? "$(round(t * 1.0e3; sigdigits = 3)) ms" : "$(round(t; sigdigits = 3)) s"
+
+function format_timing(result)
+    median = result["time_median_seconds"]
+    spread = round(Int, 100 * result["time_iqr_seconds"] / median)
+    return "$(format_seconds(median)) ±$spread%"
+end
+
+"""
+    print_comparison(io, baseline, candidate)
+
+Print the median time of each benchmark in `candidate` relative to `baseline`, both result
+vectors as written by [`write_results`](@ref). The spread is the interquartile range as a
+percentage of the median. Returns the candidate-to-baseline median ratios.
+"""
+function print_comparison(io::IO, baseline, candidate)
+    base_meta, cand_meta = baseline[1]["metadata"], candidate[1]["metadata"]
+    for key in ("backend", "float_type", "hardware_fingerprint")
+        base_meta[key] == cand_meta[key] || error(
+            "cannot compare runs with different $key: $(repr(base_meta[key])) vs $(repr(cand_meta[key]))",
+        )
+    end
+    getindex.(baseline, "name") == getindex.(candidate, "name") ||
+        error("baseline and candidate ran different benchmarks")
+
+    label(meta) = first(meta["commit"], 8) * (meta["dirty"] ? " (dirty)" : "")
+    println(io, "baseline $(label(base_meta)) vs candidate $(label(cand_meta)) on $(cand_meta["hardware_fingerprint"])")
+    width = maximum(length ∘ (r -> r["name"]), candidate)
+    println(io, rpad("benchmark", width), "  ", lpad("baseline", 16), "  ", lpad("candidate", 16), "   ratio   allocs")
+    return map(baseline, candidate) do base, cand
+        ratio = cand["time_median_seconds"] / base["time_median_seconds"]
+        println(
+            io, rpad(cand["name"], width), "  ", lpad(format_timing(base), 16), "  ",
+            lpad(format_timing(cand), 16), "  ", lpad(round(ratio; digits = 2), 6),
+            "   ", base["allocations"], " → ", cand["allocations"],
+        )
+        ratio
+    end
+end
 
 const PRECISIONS = Dict("Float64" => Float64, "Float32" => Float32)
 

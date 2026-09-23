@@ -49,6 +49,13 @@ using Test
     )
     @test_throws "unknown precision" JustPICBenchmarks.parse_commandline(["--precision=Float16"])
 
+    comparison = sprint(io -> @test all(==(1), print_comparison(io, results, results)))
+    @test occursin(results[1]["name"], comparison)
+    elsewhere = deepcopy(results)
+    elsewhere[1]["metadata"]["hardware_fingerprint"] = "another machine"
+    @test_throws "different hardware_fingerprint" print_comparison(devnull, results, elsewhere)
+    @test_throws "different float_type" print_comparison(devnull, results, results32)
+
     mktempdir() do dir
         path = write_results(joinpath(dir, "results.json"), results)
         decoded = JSON.parsefile(path)

@@ -69,6 +69,20 @@ measure the roofline ceilings. Metal has no `Float64` and runs `Float32` unless 
 says otherwise. The element type is part of each benchmark name (`..._F64`, `..._F32`) and is
 recorded in `metadata.float_type`, so the two precisions form separate dashboard series.
 
+## Comparing against a base revision
+
+```sh
+julia --project=benchmarking benchmarking/compare.jl --rev=main
+julia --project=benchmarking benchmarking/compare.jl --rev=origin/main --backend=Metal --group=MarkerSurface
+```
+
+The script checks out `--rev` (default `main`) in a temporary git worktree, installs the
+working tree's benchmark harness into it, and runs the suite on that revision and then on the
+working tree, on the same machine and with the same arguments. It prints each benchmark's
+median time, interquartile spread, candidate-to-baseline ratio, and allocations. Both runs
+must share a backend, element type, and hardware fingerprint. A ratio within the printed
+spread is not evidence of a change; repeat the comparison before acting on it.
+
 ## Performance dashboard
 
 The dashboard is the **Performance** page of the documentation (`docs/src/performance.md`,
@@ -127,5 +141,5 @@ The initial groups are:
 - `Interpolation`: particle-to-grid followed by grid-to-particle interpolation;
 - `MarkerSurface`: a complete surface update with interpolation, advection, and smoothing.
 
-MPI and checkpoint benchmarks, PR-versus-main comparisons, and regression thresholds are not
+MPI and checkpoint benchmarks, automated PR comparisons, and regression thresholds are not
 yet covered.
