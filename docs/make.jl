@@ -11,7 +11,6 @@ makedocs(;
         devbranch = "main",
         devurl = "dev",
     ),
-    warnonly = Documenter.except(:footnote),
     checkdocs = :exports,
     pages = [
         "Home" => "index.md",
@@ -31,6 +30,7 @@ makedocs(;
         ],
         "I/O" => "IO.md",
         "Mixed GPU/CPU" => "mixed_CPU_GPU.md",
+        "Support matrix" => "support_matrix.md",
         "Public API" => "API.md",
         "Performance" => "performance.md",
     ],
