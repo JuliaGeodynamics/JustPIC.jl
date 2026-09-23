@@ -239,7 +239,9 @@ end
 
 function git_metadata()
     commit = readchomp(`git -C $REPOSITORY_ROOT rev-parse HEAD`)
-    dirty = !isempty(read(`git -C $REPOSITORY_ROOT status --porcelain`, String))
+    status = read(`git -C $REPOSITORY_ROOT status --porcelain`, String)
+    dirty = !isempty(status)
+    dirty && @warn "benchmarking a dirty worktree; results will not be published" status
     subject = readchomp(`git -C $REPOSITORY_ROOT log -1 --format=%s`)
     author = readchomp(`git -C $REPOSITORY_ROOT log -1 --format=%an`)
     return (; commit, dirty, subject, author)
