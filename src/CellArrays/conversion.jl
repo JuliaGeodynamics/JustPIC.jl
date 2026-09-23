@@ -15,7 +15,13 @@ import Base: Array, copy
     ::Type{T}, ::UndefInitializer, dims::Int...
 ) where {T <: CellArrays.Cell} = CPU_CellArray(T, undef, dims)
 
-# Copies CellArray to CPU if it is on a GPU device.
+"""
+    to_cpu(x)
+    to_cpu(T, x)
+
+Copy arrays, cell arrays, tuples, or particle containers to CPU storage.
+With `T`, convert numeric values to element type `T` during the copy.
+"""
 to_cpu(CA::CellArray) = to_cpu(eltype(eltype(CA)), CA)
 to_cpu(A::AbstractArray) = Array(A)
 to_cpu(::Type{T}, A::AbstractArray) where {T <: Number} = Array{T}(A)
