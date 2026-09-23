@@ -285,6 +285,29 @@ end
     assert_chain_invariants(chain)
 end
 
+@testset "MarkerChain full destination reports overflow" begin
+    xv_cpu = collect(range(FT(0), FT(1); length = 5))
+    chain = init_markerchain(backend, 1, 1, 2, TA(backend)(xv_cpu), FT(0.3))
+    fill!(chain.index.data, false)
+    foreach(coords -> fill!(coords.data, FT(NaN)), chain.coords)
+
+    for slot in 1:2
+        set_cell_slot!(chain.index, slot, 3, true)
+        set_cell_slot!(chain.coords[1], slot, 3, FT(0.56 + 0.02 * slot))
+        set_cell_slot!(chain.coords[2], slot, 3, FT(0.3))
+    end
+    set_cell_slot!(chain.index, 1, 2, true)
+    set_cell_slot!(chain.coords[1], 1, 2, FT(0.56))
+    set_cell_slot!(chain.coords[2], 1, 2, FT(0.3))
+
+    @test isnothing(move_particles!(chain; verbose = true))
+    _, _, index, _ = host_chain(chain)
+    @test count(index) == 2
+    @test all(index[:, 3])
+    @test !any(index[:, 2])
+    assert_chain_invariants(chain)
+end
+
 @testset "MarkerChain fill from chain 2D" begin
     nxcell, min_xcell, max_xcell = 3, 1, 4
     xv_cpu = collect(range(FT(0), FT(1); length = 8))
