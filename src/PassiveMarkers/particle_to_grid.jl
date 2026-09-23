@@ -75,9 +75,40 @@ end
     return nothing
 end
 
+## INTERPOLATION KERNEL 3D
+
+@inbounds function _passivemarker2grid!(
+        F, Fp, buffer, ipart, xi::NTuple{3}, coords, dxi
+    )
+    pᵢ = get_particle_coords(coords, ipart)
+    inode, jnode, knode = ntuple(Val(3)) do i
+        Base.@_inline_meta
+        @inbounds parent_cell_index(pᵢ[i], xi[i], midpoint_seed(xi[i]))
+    end
+    di = local_grid_spacing(dxi, (inode, jnode, knode))
+    Fp_ipart = Fp[ipart]
+    xv, yv, zv = xi
+
+    for koff in 0:1
+        kvertex = koff + knode
+        for joff in 0:1
+            jvertex = joff + jnode
+            for ioff in 0:1
+                ivertex = ioff + inode
+                xvertex = xv[ivertex], yv[jvertex], zv[kvertex]
+                ω_i = bilinear_weight(xvertex, pᵢ, di)
+                KernelAbstractions.@atomic F[ivertex, jvertex, kvertex] += ω_i
+                KernelAbstractions.@atomic buffer[ivertex, jvertex, kvertex] += Fp_ipart * ω_i
+            end
+        end
+    end
+
+    return nothing
+end
+
 @kernel function resolve_particle2grid!(F, buffer)
     I = @index(Global, NTuple)
-    @inbounds F[I...] = buffer[I...] * inv(F[I...])
+    @inbounds F[I...] = ifelse(iszero(F[I...]), zero(eltype(F)), buffer[I...] * inv(F[I...]))
 end
 
 @kernel function reset_arrays!(A, B)
