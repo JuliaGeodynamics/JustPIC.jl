@@ -52,10 +52,3 @@ Use `add_periodic_ghost_nodes` for coordinate vectors that need one periodic
 image at either boundary. Physical-only fields can still be interpolated by
 disabling the relevant `ghost_i` or `ghosted` option; see the interpolation
 pages for complete examples.
-
-## API
-
-```@docs
-add_periodic_ghost_nodes
-init_particles
-```

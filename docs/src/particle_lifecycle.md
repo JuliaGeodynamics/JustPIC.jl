@@ -49,14 +49,3 @@ inject_particles!(particles, (pT,))
 
 For phase-dependent injection, use `inject_particles_phase!`. Use
 `clean_particles!` when coordinates may no longer match their stored cells.
-
-## API
-
-```@docs
-init_particles
-move_particles!
-inject_particles!
-inject_particles_phase!
-clean_particles!
-force_injection!
-```

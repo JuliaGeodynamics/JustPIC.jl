@@ -38,9 +38,3 @@ grid2particle_flip!(Fp, F, F₀, particles; α=0.5)
 
 The source arrays use the same ghost layout rules as `grid2particle!`; pass
 `ghost_1`, `ghost_2`, and `ghost_3` when a direction is physical-only.
-
-## API
-
-```@docs
-grid2particle_flip!
-```

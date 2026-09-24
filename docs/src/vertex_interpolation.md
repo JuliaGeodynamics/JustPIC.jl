@@ -65,11 +65,3 @@ FLIP:
 ```julia
 grid2particle_flip!(pT, T, T_previous, particles; α=0.5)
 ```
-
-## API
-
-```@docs
-grid2particle!
-grid2particle_flip!
-particle2grid!
-```

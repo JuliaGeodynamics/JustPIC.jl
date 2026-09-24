@@ -34,10 +34,3 @@ phase = cell_array(backend, zero(Float32), (nphases,), size(particles.index))
 
 See [CellArrays](CellArrays.md) for halo exchange, indexing, and conversion
 details.
-
-## API
-
-```@docs
-init_cell_arrays
-cell_array
-```

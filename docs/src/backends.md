@@ -29,11 +29,3 @@ not support `Float64` kernels.
 
 For mixed CPU/GPU simulations, keep the JustPIC backend on the CPU and copy
 only the fields needed by GPU calculations. See [Mixed CPU and GPU](mixed_CPU_GPU.md).
-
-## API
-
-```@docs
-TA
-launch!
-to_cpu
-```
