@@ -15,11 +15,18 @@ makedocs(;
     pages = [
         "Home" => "index.md",
         "Particles" => "particles.md",
+        "Particle lifecycle" => "particle_lifecycle.md",
+        "Grid layouts" => "grid_layouts.md",
+        "Backends" => "backends.md",
         "CellArrays" => "CellArrays.md",
         "Interpolations" => [
             "interpolations.md",
+            "vertex_interpolation.md",
+            "centroid_interpolation.md",
+            "pic_flip.md",
             "velocity_interpolation.md",
         ],
+        "Particle fields" => "particle_fields.md",
         "Marker chain" => "marker_chain.md",
         "Marker surface" => "marker_surface.md",
         "Examples" => [
