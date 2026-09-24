@@ -54,3 +54,27 @@ jobs:
           files: lcov.info
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
+
+  release_gate:
+    if: startsWith(github.ref, 'refs/tags/v')
+    name: Release gate - JustRelax.jl
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: '1'
+          arch: x64
+      - uses: julia-actions/julia-buildpkg@latest
+      - name: Clone Downstream
+        uses: actions/checkout@v7
+        with:
+          repository: PTsolvers/JustRelax.jl
+          path: downstream
+      - name: Resolve and run downstream tests
+        shell: julia --color=yes --project=downstream --depwarn=yes {0}
+        run: |
+          using Pkg
+          Pkg.develop(PackageSpec(path="."))
+          Pkg.update()
+          Pkg.test(coverage=true)
