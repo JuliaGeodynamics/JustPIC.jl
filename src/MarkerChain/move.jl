@@ -24,7 +24,8 @@ function move_particles!(chain::MarkerChain; verbose = false)
         cell_jumps, coords, grid, index
     )
     max_jump = maximum(cell_jumps)
-    overflow = KernelAbstractions.zeros(ka_backend(index), Int, 1)
+    # Int32 counter: Metal has no 64-bit integer atomics (see #362)
+    overflow = KernelAbstractions.zeros(ka_backend(index), Int32, 1)
 
     # Sources of the same color are farther apart than the diameter of their
     # possible destination intervals. They therefore cannot write to the same
@@ -38,7 +39,7 @@ function move_particles!(chain::MarkerChain; verbose = false)
         )
     end
 
-    dropped = maximum(overflow)
+    dropped = Int(maximum(overflow))
     verbose && println("move_particles!: dropped $dropped markers because destination columns were full")
     return nothing
 end
@@ -101,7 +102,7 @@ function _move_particles!(coords, grid, index, idx, overflow)
             # check whether there's empty space in parent cell
             free_idx = find_free_memory(index, new_cell...)
             if iszero(free_idx)
-                KernelAbstractions.@atomic overflow[1] += 1
+                KernelAbstractions.@atomic overflow[1] += one(eltype(overflow))
                 continue
             end
             # move particle and its fields to the first free memory location
