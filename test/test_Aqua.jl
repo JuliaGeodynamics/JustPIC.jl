@@ -27,8 +27,9 @@ end
 include("helpers_backend.jl")
 check_backend(BACKEND_NAME, backend, FT)
 
-## Failing tests: hard to fix in the current state of the pkg
-# Aqua.test_unbound_args(JustPIC)
+# NTuple{N,T} permits N == 0, where T cannot be inferred. Aqua reports these
+# intentional dimension-generic signatures as unbound; keep the check visible.
+Aqua.test_unbound_args(JustPIC; broken = true)
 
 @testset "Piracies" begin
     @test Aqua.test_piracies(JustPIC).value
@@ -38,11 +39,6 @@ end
     @test Aqua.test_ambiguities(
         JustPIC,
         color = true,
-        # exclude = [_grid2particle],
-        exclude = [
-            JustPIC._grid2particle,
-            JustPIC._grid2particle,
-        ],
     ).value
 end
 
