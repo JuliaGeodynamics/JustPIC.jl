@@ -96,9 +96,14 @@ jobs:
                       name = artifact["file_name"]
                       if os.path.exists(os.path.join("history", "results", commit, name.removeprefix("benchmark_results_"))):
                           continue
+                      data = get("https://buildkite.com" + artifact["url"])
+                      # A dirty result already failed the run triggered by its own build.
+                      if not os.environ["COMMIT"] and b'"dirty": true' in data:
+                          print(f"skipping {name} from {build_url}: measured on a dirty worktree")
+                          continue
                       os.makedirs(os.path.join("incoming", commit), exist_ok=True)
                       with open(os.path.join("incoming", commit, name), "wb") as io:
-                          io.write(get("https://buildkite.com" + artifact["url"]))
+                          io.write(data)
                       print("downloaded", name, "from", job["name"], "in", build_url)
                       found = True
 
