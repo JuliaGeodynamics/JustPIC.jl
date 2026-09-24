@@ -239,6 +239,8 @@ end
     return Fp
 end
 
+@inline _grid2particle(pᵢ::Union{SVector, NTuple}, xvi::NTuple, di::NTuple, ::Tuple{}, idx) = ()
+
 @inline function _grid2particle(
         pᵢ::Union{SVector, NTuple}, xvi::NTuple, di::NTuple, Fi::NTuple{N, Number}, idx
     ) where {N}
