@@ -75,6 +75,8 @@ Build the manual with:
 julia --project=docs docs/make.jl
 ```
 
+Read `.agents/backends.md` before writing any code: everything must run on
+CUDA, AMDGPU, and Metal, and therefore be generic enough to work in `Float32`.
 Read `.agents/testing.md`, `.agents/documentation.md`, and
 `.agents/validation.md` when the change touches those areas.
 

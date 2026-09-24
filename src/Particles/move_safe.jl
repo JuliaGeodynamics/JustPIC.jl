@@ -84,8 +84,9 @@ end
 function sweep_cells!(particles, grid, args, dxi, domain_limits, periodicity, max_jump)
     (; coords, index) = particles
     backend = ka_backend(index)
-    deferred = KernelAbstractions.zeros(backend, Int, 1)
-    overflow = KernelAbstractions.zeros(backend, Int, 1)
+    # Int32 counters: Metal has no 64-bit integer atomics (see #362)
+    deferred = KernelAbstractions.zeros(backend, Int32, 1)
+    overflow = KernelAbstractions.zeros(backend, Int32, 1)
     bound = (; max_jump, periodicity, deferred, overflow)
     layout = map(ColorAxis, size(index), max_jump, periodicity)
     nblocks = map(axis -> axis.nblocks, layout)
@@ -95,7 +96,7 @@ function sweep_cells!(particles, grid, args, dxi, domain_limits, periodicity, ma
             coords, grid, dxi, index, domain_limits, args, bound, colors, layout
         )
     end
-    return iszero(maximum(deferred)), maximum(overflow)
+    return iszero(maximum(deferred)), Int(maximum(overflow))
 end
 
 # Partition of the cells of one direction into colors. The cell of color `k` in block `b` is
@@ -268,7 +269,7 @@ function move_kernel!(
         # check whether there's empty space in parent cell
         free_idx = find_free_memory(index, new_cell...)
         if iszero(free_idx)
-            KernelAbstractions.@atomic bound.overflow[1] += 1
+            KernelAbstractions.@atomic bound.overflow[1] += one(eltype(bound.overflow))
             continue
         end
 
