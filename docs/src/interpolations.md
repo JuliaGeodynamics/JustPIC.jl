@@ -3,6 +3,13 @@
 The interpolation routines in JustPIC target rectangular 2D and 3D grids and
 support both uniform and coordinate-vector refined grids.
 
+The two standard transfer paths are documented separately:
+
+- [Vertex interpolation](vertex_interpolation.md): vertex → particle → vertex.
+- [Centroid interpolation](centroid_interpolation.md): centroid → particle → centroid.
+
+Both pages show ghosted and physical-only array layouts.
+
 ## Grid to particle
 
 Information is transferred from nodal or staggered grids to particle-carried
