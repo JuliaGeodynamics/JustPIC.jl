@@ -71,6 +71,7 @@ end
 
 @inline function _centroid2particle_classic_ghosted!(Fp, p, xci, di::NTuple{N}, F, I) where {N}
     ni = size(F) .- 1
+    xc = ntuple(i -> xci[i][I[i]], Val(N))
     # iterate over all the particles within the cells of index `idx`
     @inbounds for ip in cellaxes(Fp)
         # cache particle coordinates
@@ -78,7 +79,6 @@ end
         # skip lines below if there is no particle in this piece of memory
         any(isnan, pᵢ) && continue
         # continue the kernel
-        xc = ntuple(i -> xci[i][I[i]], Val(N))
         cell_index = shifted_index(pᵢ, xc, I)
         cell_index = clamp.(cell_index, 1, ni)
         # Interpolate field F onto particle
@@ -90,15 +90,27 @@ end
 
 @inline function _centroid2particle_classic_unghosted!(Fp, p, xci, di::NTuple{N}, F, I_src, I_dst) where {N}
     ni = size(F) .- 1
+    xc = ntuple(i -> xci[i][I_src[i]], Val(N))
     @inbounds for ip in cellaxes(Fp)
         pᵢ = ntuple(i -> (CAI.@index p[i][ip, I_dst...]), Val(N))
         any(isnan, pᵢ) && continue
-        xc = ntuple(i -> xci[i][I_src[i]], Val(N))
         cell_index = shifted_index(pᵢ, xc, I_src)
         cell_index = clamp.(cell_index, 1, ni)
         CAI.@index Fp[ip, I_dst...] = _grid2particle(pᵢ, xci, @dxi(di, cell_index...), F, cell_index)
     end
     return nothing
+end
+
+@generated function _centroid2particle_store!(
+        Fp::NTuple{NF}, F::NTuple{NF}, ip, idx, ti, cell_index
+    ) where {NF}
+    return quote
+        Base.@_inline_meta
+        Base.@nexprs $NF n -> begin
+            CAI.@index Fp[n][ip, idx...] = lerp(field_corners(F[n], cell_index), ti)
+        end
+        nothing
+    end
 end
 
 @inline function _centroid2particle_classic_ghosted!(
@@ -115,10 +127,8 @@ end
         xc = ntuple(i -> xci[i][I[i]], Val(N))
         cell_index = shifted_index(pᵢ, xc, I)
         # cell_index = clamp.(cell_index, 1, ni) # no need with ghost nodes
-        # Interpolate field F onto particle
-        for n in 1:NF # should be unrolled
-            CAI.@index Fp[n][ip, I...] = _grid2particle(pᵢ, xci, @dxi(di, cell_index...), F[n], cell_index)
-        end
+        ti = normalize_coordinates(pᵢ, xc, @dxi(di, cell_index...))
+        _centroid2particle_store!(Fp, F, ip, I, ti, cell_index)
     end
     return nothing
 end
@@ -133,9 +143,8 @@ end
         xc = ntuple(i -> xci[i][I_src[i]], Val(N))
         cell_index = shifted_index(pᵢ, xc, I_src)
         cell_index = clamp.(cell_index, 1, ni)
-        for n in 1:NF
-            CAI.@index Fp[n][ip, I_dst...] = _grid2particle(pᵢ, xci, @dxi(di, cell_index...), F[n], cell_index)
-        end
+        ti = normalize_coordinates(pᵢ, xc, @dxi(di, cell_index...))
+        _centroid2particle_store!(Fp, F, ip, I_dst, ti, cell_index)
     end
     return nothing
 end
