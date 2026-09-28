@@ -32,7 +32,8 @@ provided.
 - `min_xcell`: minimum occupancy used by reinjection routines.
 - `grid_vx`, `grid_vy`, `grid_vz`: staggered velocity-grid coordinate tuples.
   Omit `grid_vz` for a 2D simulation. Each tuple must contain one coordinate
-  vector per spatial dimension.
+  vector per spatial dimension. Coordinate vectors may live on any backend;
+  they are copied to the host to build the grids.
 
 # Returns
 - A `Particles` object whose coordinates and occupancy arrays are ready for
@@ -106,6 +107,9 @@ end
     xi_vel[1][3][2:(end - 1)],
 )
 
+host_vector(x::AbstractRange) = x
+host_vector(x::AbstractVector) = Array(x)
+
 @inline function inverse_spacing(di)
     return (;
         center = map(x -> inv.(x), di.center),
@@ -115,14 +119,17 @@ end
 end
 
 """
-    staggered_grids(backend, xi_vel_cpu)
+    staggered_grids(backend, xi_vel_any)
 
 Build the device-resident grids carried by a [`Particles`](@ref) container from
 the staggered velocity grids: the velocity grids themselves, the cell-center and
 vertex grids extended with one periodic ghost node on each side, and the cell
-spacings together with their reciprocals.
+spacings together with their reciprocals. The velocity grids may live on any
+backend.
 """
-function staggered_grids(backend, xi_vel_cpu::NTuple{N, NTuple{N, AbstractVector}}) where {N}
+function staggered_grids(backend, xi_vel_any::NTuple{N, NTuple{N, AbstractVector}}) where {N}
+    # Grid construction indexes individual coordinates, which device arrays disallow.
+    xi_vel_cpu = map(x -> map(host_vector, x), xi_vel_any)
     xci_cpu = center_coordinates(xi_vel_cpu)
     xvi_cpu = ntuple(i -> xi_vel_cpu[i][i], Val(N))
     xi_vel = ntuple(i -> TA(backend).(xi_vel_cpu[i]), Val(N))

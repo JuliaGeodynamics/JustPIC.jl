@@ -130,5 +130,7 @@ end
 
 _copy(::Nothing) = nothing
 _copy(x::AbstractArray) = copy(x)
+# Copy the backing array in bulk: Base `copy` of a device `CellArray` indexes cell by cell.
+_copy(x::CellArray) = typeof(x)(copy(x.data), size(x))
 _copy(x::NTuple{N, T}) where {N, T} = ntuple(i -> _copy(x[i]), Val(N))
 _copy(x::T) where {T} = x

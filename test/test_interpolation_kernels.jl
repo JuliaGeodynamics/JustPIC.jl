@@ -166,9 +166,9 @@ end
 
     # test copy function
     particles_copy = copy(particles)
-    pT_copy = copy(pT)
     @test particles_copy.index.data[:] == particles.index.data[:]
-    @test pT_copy.data[:] == pT.data[:]
+    @test isequal(Array(particles_copy.coords[1].data), Array(particles.coords[1].data))
+    @test particles_copy.coords[1].data !== particles.coords[1].data
 end
 
 @testset "Ghost-node opt-out 2D" begin
@@ -346,9 +346,9 @@ end
 
     # test copy function
     particles_copy = copy(particles)
-    pT_copy = copy(pT)
     @test particles_copy.index.data[:] == particles.index.data[:]
-    @test pT_copy.data[:] == pT.data[:]
+    @test isequal(Array(particles_copy.coords[1].data), Array(particles.coords[1].data))
+    @test particles_copy.coords[1].data !== particles.coords[1].data
 end
 
 @testset "Refined-grid PIC/FLIP equivalence" begin
