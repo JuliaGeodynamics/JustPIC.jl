@@ -60,6 +60,23 @@ using Test
 
     comparison = sprint(io -> @test all(==(1), print_comparison(io, results, results)))
     @test occursin(results[1]["name"], comparison)
+
+    # a baseline case that failed is reported without a ratio; a failed candidate is fatal
+    failing = JustPICBenchmarks.BenchmarkCase(
+        "failing case", "Interpolation", () -> error("baseline lacks this API"), identity, identity,
+        1, "unit", Dict{String, Any}(), cases[1].performance_model,
+    )
+    @test_throws "baseline lacks this API" run_benchmarks(; samples = 1, cases = (failing,))
+    failed = only(run_benchmarks(; samples = 1, cases = (failing,), allow_case_errors = true))
+    @test failed["error"] == "baseline lacks this API"
+    baseline = [failed; collect(results[2:end])]
+    candidate = [merge(results[1], Dict("name" => "failing case")); collect(results[2:end])]
+    partial = sprint() do io
+        @test length(print_comparison(io, baseline, candidate)) == length(results) - 1
+    end
+    @test occursin("Baseline failed failing case: `baseline lacks this API`", partial)
+    @test_throws "candidate benchmarks failed: failing case" print_comparison(stdout, candidate, baseline)
+    @test JustPICBenchmarks.parse_commandline(["--allow-case-errors"]).allow_case_errors
     @test !occursin("🔴", comparison)
     slower = deepcopy(results)
     slower[1]["time_median_seconds"] *= 2

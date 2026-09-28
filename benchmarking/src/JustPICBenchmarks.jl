@@ -491,7 +491,7 @@ end
 function run_benchmarks(;
         backend = JustPIC.CPU, backend_name = "CPU", device = nothing,
         samples = 10, group = "all", precision::Type = Float64,
-        particle_size = 128, particle_size_3d = 32,
+        particle_size = 128, particle_size_3d = 32, allow_case_errors = false,
         cases = benchmark_cases(backend; precision, particle_size, particle_size_3d),
     )
     samples > 0 || throw(ArgumentError("samples must be positive"))
@@ -500,7 +500,19 @@ function run_benchmarks(;
     metadata = benchmark_metadata(backend, backend_name, device, precision)
     return map(selected) do case
         @info "Benchmarking $(case.name)" samples
-        measure(case, samples, metadata)
+        allow_case_errors || return measure(case, samples, metadata)
+        try
+            measure(case, samples, metadata)
+        catch err
+            # A base revision can lack API that newer cases call; record the failure so
+            # the comparison reports it instead of aborting.
+            @error "Benchmark $(case.name) failed" exception = (err, catch_backtrace())
+            Dict{String, Any}(
+                "name" => case.name,
+                "error" => first(split(sprint(showerror, err), '\n')),
+                "metadata" => metadata,
+            )
+        end
     end
 end
 
@@ -574,8 +586,10 @@ format_timing(result) =
 Print a markdown table of the median time of each benchmark in `candidate` relative to
 `baseline`, both result vectors as written by [`write_results`](@ref). The spread is the
 interquartile range as a percentage of the median. A ratio that differs from 1 by more than
-the two spreads combined is marked 🔴 (slower) or 🟢 (faster). Returns the
-candidate-to-baseline median ratios.
+the two spreads combined is marked 🔴 (slower) or 🟢 (faster). Baseline cases that failed
+(recorded with `--allow-case-errors`) are listed with their error and no ratio; a failed
+candidate case is an error. Returns the candidate-to-baseline median ratios of the compared
+cases.
 """
 function print_comparison(io::IO, baseline, candidate)
     base_meta, cand_meta = baseline[1]["metadata"], candidate[1]["metadata"]
@@ -586,9 +600,16 @@ function print_comparison(io::IO, baseline, candidate)
     end
     getindex.(baseline, "name") == getindex.(candidate, "name") ||
         error("baseline and candidate ran different benchmarks")
+    failed = [cand["name"] for cand in candidate if haskey(cand, "error")]
+    isempty(failed) || error("candidate benchmarks failed: $(join(failed, ", "))")
 
-    ratios = map((b, c) -> c["time_median_seconds"] / b["time_median_seconds"], baseline, candidate)
-    rows = map(baseline, candidate, ratios) do base, cand, ratio
+    compared = [(b, c) for (b, c) in zip(baseline, candidate) if !haskey(b, "error")]
+    ratios = [c["time_median_seconds"] / b["time_median_seconds"] for (b, c) in compared]
+    rows = map(baseline, candidate) do base, cand
+        haskey(base, "error") && return [
+            cand["name"], "failed", format_timing(cand), "— → $(cand["allocations"])", "—",
+        ]
+        ratio = cand["time_median_seconds"] / base["time_median_seconds"]
         noise = relative_spread(base) + relative_spread(cand)
         marker = ratio > 1 + noise ? " 🔴" : ratio < 1 - noise ? " 🟢" : ""
         [
@@ -606,6 +627,11 @@ function print_comparison(io::IO, baseline, candidate)
     println(io, "| ", cells(header), " |")
     println(io, "| :", "-"^(widths[1] - 1), " | ", join(("-"^(w - 1) * ":" for w in widths[2:end]), " | "), " |")
     foreach(row -> println(io, "| ", cells(row), " |"), rows)
+    for base in baseline
+        haskey(base, "error") || continue
+        println(io)
+        println(io, "Baseline failed $(base["name"]): `$(base["error"])`")
+    end
     return ratios
 end
 
@@ -618,6 +644,7 @@ function parse_commandline(args)
     precision = Float64
     particle_size = 128
     particle_size_3d = 32
+    allow_case_errors = false
     for arg in args
         if startswith(arg, "--output=")
             output = split(arg, '='; limit = 2)[2]
@@ -625,6 +652,8 @@ function parse_commandline(args)
             samples = parse(Int, split(arg, '='; limit = 2)[2])
         elseif startswith(arg, "--group=")
             group = split(arg, '='; limit = 2)[2]
+        elseif arg == "--allow-case-errors"
+            allow_case_errors = true
         elseif startswith(arg, "--size=")
             particle_size = parse(Int, split(arg, '='; limit = 2)[2])
         elseif startswith(arg, "--size-3d=")
@@ -637,21 +666,21 @@ function parse_commandline(args)
         else
             throw(
                 ArgumentError(
-                    "unknown argument $arg; use --output=PATH, --samples=N, --group=NAME, --precision=TYPE, --size=N, or --size-3d=N"
+                    "unknown argument $arg; use --output=PATH, --samples=N, --group=NAME, --precision=TYPE, --size=N, --size-3d=N, or --allow-case-errors"
                 )
             )
         end
     end
     particle_size > 0 && particle_size_3d > 0 ||
         throw(ArgumentError("--size and --size-3d must be positive"))
-    return (; output, samples, group, precision, particle_size, particle_size_3d)
+    return (; output, samples, group, precision, particle_size, particle_size_3d, allow_case_errors)
 end
 
 function main(args = ARGS; backend = JustPIC.CPU, backend_name = "CPU", device = nothing)
     options = parse_commandline(args)
     results = run_benchmarks(;
         backend, backend_name, device, options.samples, options.group, options.precision,
-        options.particle_size, options.particle_size_3d,
+        options.particle_size, options.particle_size_3d, options.allow_case_errors,
     )
     output = write_results(options.output, results)
     @info "Wrote benchmark results" output

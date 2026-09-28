@@ -23,12 +23,14 @@ mktempdir() do dir
         cp(joinpath(ROOT, "benchmarking"), harness)
         run(`$JULIA --project=$harness $harness/setup.jl`)
 
-        function run_suite(project, name)
+        function run_suite(project, name, extra = ())
             output = joinpath(dir, "$name.json")
-            run(`$JULIA --project=$project $project/run_benchmarks.jl $RUN_ARGS --output=$output`)
+            run(`$JULIA --project=$project $project/run_benchmarks.jl $RUN_ARGS $extra --output=$output`)
             return JSON.parsefile(output)
         end
-        baseline = run_suite(harness, "baseline")
+        # Cases added after the base revision may call API it lacks; they are reported
+        # as failed on the baseline instead of aborting the comparison.
+        baseline = run_suite(harness, "baseline", ("--allow-case-errors",))
         candidate = run_suite(joinpath(ROOT, "benchmarking"), "candidate")
         print_comparison(stdout, baseline, candidate)
     finally
