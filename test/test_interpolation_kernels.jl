@@ -153,6 +153,17 @@ end
     @test all(isnan.(Tc2[.!support_c]))
     @test norm(Tc2[support_c] .- Tc[support_c]) / count(support_c) < 1.0e-1
 
+    # Tuple particle to centroid: weighted averages of constant fields are exact
+    pT_tuple = JustPIC.init_cell_arrays(particles, Val(3))
+    for i in 1:3
+        fill!(pT_tuple[i].data, i)
+    end
+    Tc_tuple = ntuple(_ -> TA(backend)(fill(FT(NaN), size(Tc2))), Val(3))
+    JustPIC.particle2centroid!(Tc_tuple, pT_tuple, particles)
+    for i in 1:3
+        @test Array(Tc_tuple[i])[support_c] ≈ fill(FT(i), count(support_c))
+    end
+
     # test copy function
     particles_copy = copy(particles)
     pT_copy = copy(pT)
@@ -321,6 +332,17 @@ end
     @test all(isfinite.(Tc2[support_c]))
     @test all(isnan.(Tc2[.!support_c]))
     @test norm(Tc2[support_c] .- Tc[support_c]) / count(support_c) < 1.0e-1
+
+    # Tuple particle to centroid: weighted averages of constant fields are exact
+    pT_tuple = JustPIC.init_cell_arrays(particles, Val(3))
+    for i in 1:3
+        fill!(pT_tuple[i].data, i)
+    end
+    Tc_tuple = ntuple(_ -> TA(backend)(fill(FT(NaN), size(Tc2))), Val(3))
+    JustPIC.particle2centroid!(Tc_tuple, pT_tuple, particles)
+    for i in 1:3
+        @test Array(Tc_tuple[i])[support_c] ≈ fill(FT(i), count(support_c))
+    end
 
     # test copy function
     particles_copy = copy(particles)

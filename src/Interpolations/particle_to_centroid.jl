@@ -91,9 +91,13 @@ end
     end
 
     _ω = inv(ω)
-    return ntuple(Val(N)) do i
-        Base.@_inline_meta
-        F[i][(inode, jnode) .+ mask...] = ωxF[i] * _ω
+    # `let` stops the closure from boxing the loop-reassigned `ωxF`; boxing allocates,
+    # which GPU kernels cannot compile.
+    return let ωxF = ωxF
+        ntuple(Val(N)) do i
+            Base.@_inline_meta
+            F[i][(inode, jnode) .+ mask...] = ωxF[i] * _ω
+        end
     end
 end
 
@@ -151,8 +155,12 @@ end
     end
 
     _ω = inv(ω)
-    return ntuple(Val(N)) do i
-        Base.@_inline_meta
-        F[i][(inode, jnode, knode) .+ mask...] = ωxF[i] * _ω
+    # `let` stops the closure from boxing the loop-reassigned `ωxF`; boxing allocates,
+    # which GPU kernels cannot compile.
+    return let ωxF = ωxF
+        ntuple(Val(N)) do i
+            Base.@_inline_meta
+            F[i][(inode, jnode, knode) .+ mask...] = ωxF[i] * _ω
+        end
     end
 end
