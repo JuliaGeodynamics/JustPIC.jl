@@ -104,6 +104,7 @@ function get_particle_coords(p::NTuple{N}, ip) where {N}
 end
 
 @inline inner_size(A::AbstractArray) = size(A) .- 2
+@inline inner_size(A::Tuple) = inner_size(first(A))
 @inline function inner_ranges(A::AbstractArray{T, N}) where {T, N}
     return ntuple(i -> 1:(size(A, i) - 1), Val(N))
 end

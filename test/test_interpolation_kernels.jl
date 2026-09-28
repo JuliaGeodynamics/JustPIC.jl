@@ -133,6 +133,13 @@ end
 
     @test Array(pT.data)[active] ≈ Array(particles.coords[2].data)[active]
 
+    pT_tuple = JustPIC.init_cell_arrays(particles, Val(3))
+    Tc_tuple = ntuple(_ -> TA(backend)(Array(Tc)), Val(3))
+    JustPIC.centroid2particle!(pT_tuple, xci_p, Tc_tuple, particles, diff.(xci_p))
+    for i in 2:3
+        @test Array(pT_tuple[i].data)[active] ≈ Array(pT_tuple[1].data)[active]
+    end
+
     # Particle to centroid test
     Tc2 = similar(Tc)
     JustPIC.particle2centroid!(Tc2, pT, particles)
@@ -295,6 +302,13 @@ end
     # Grid to centroid test
     JustPIC.centroid2particle!(pT, xci_p, Tc, particles, diff.(xci_p))
     @test Array(pT.data)[active] ≈ Array(particles.coords[3].data)[active]
+
+    pT_tuple = JustPIC.init_cell_arrays(particles, Val(3))
+    Tc_tuple = ntuple(_ -> TA(backend)(Array(Tc)), Val(3))
+    JustPIC.centroid2particle!(pT_tuple, xci_p, Tc_tuple, particles, diff.(xci_p))
+    for i in 2:3
+        @test Array(pT_tuple[i].data)[active] ≈ Array(pT_tuple[1].data)[active]
+    end
 
     # Particle to centroid test
     Tc2 = similar(Tc)
