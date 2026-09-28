@@ -251,8 +251,8 @@ end
     @test size(to_cpu(phases).data) == size(phases3.data)
 
     # Test on GPU card, if available
-    isCUDA = isdefined(Main, :CUDA)
-    isAMDGPU = isdefined(Main, :AMDGPU)
+    isCUDA = BACKEND_NAME == "CUDA"
+    isAMDGPU = BACKEND_NAME == "AMDGPU"
 
     if isCUDA || isAMDGPU
         T = isCUDA ? CuArray : ROCArray
@@ -314,7 +314,7 @@ end
     end
 
     # Metal has no Float64: only the eltype-typed Float32 conversions apply
-    if isdefined(Main, :Metal)
+    if BACKEND_NAME == "Metal"
         particles_gpu = MtlArray(Float32, particles)
         phase_ratios_gpu = MtlArray(Float32, phase_ratios)
         phases_gpu = MtlArray(Float32, phases)
@@ -441,8 +441,8 @@ end
     @test size(to_cpu(phases).data) == size(phases3.data)
 
     # Test on GPU card, if available
-    isCUDA = isdefined(Main, :CUDA)
-    isAMDGPU = isdefined(Main, :AMDGPU)
+    isCUDA = BACKEND_NAME == "CUDA"
+    isAMDGPU = BACKEND_NAME == "AMDGPU"
 
     if isCUDA || isAMDGPU
         T = isCUDA ? CuArray : ROCArray
@@ -500,7 +500,7 @@ end
     end
 
     # Metal has no Float64: only the eltype-typed Float32 conversions apply
-    if isdefined(Main, :Metal)
+    if BACKEND_NAME == "Metal"
         particles_gpu = MtlArray(Float32, particles)
         phase_ratios_gpu = MtlArray(Float32, phase_ratios)
         phases_gpu = MtlArray(Float32, phases)
