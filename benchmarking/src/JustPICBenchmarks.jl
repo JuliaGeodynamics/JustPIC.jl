@@ -11,7 +11,7 @@ export benchmark_cases, dashboard_main, main, print_comparison, run_benchmarks, 
     write_results
 
 const REPOSITORY_ROOT = normpath(joinpath(@__DIR__, "..", ".."))
-const PERFORMANCE_MODEL_VERSION = "justpic_cpu_v2"
+const PERFORMANCE_MODEL_VERSION = "justpic_cpu_v3"
 const REPOSITORY_URL = "https://github.com/JuliaGeodynamics/JustPIC.jl"
 
 struct PerformanceModel
@@ -51,13 +51,19 @@ function particle_state(backend, n, ::Type{FT}, ::Val{D}) where {FT, D}
     particle_field, = init_cell_arrays(particles, Val(1))
     xvi = Array.(particles.xvi)
     nodal_field = TA(backend)(FT[sum(x) for x in Iterators.product(xvi...)])
+    xci = Array.(particles.xci)
+    centroid_field = TA(backend)(FT[sum(x) for x in Iterators.product(xci...)])
+    particle_fields = init_cell_arrays(particles, Val(3))
+    nodal_fields = ntuple(i -> TA(backend)(FT[i * sum(x) for x in Iterators.product(xvi...)]), Val(3))
+    centroid_fields = ntuple(i -> TA(backend)(FT[i * sum(x) for x in Iterators.product(xci...)]), Val(3))
     grid2particle!(particle_field, nodal_field, particles)
+    grid2particle!(particle_fields, nodal_fields, particles)
 
     velocities = FT.((0.1, -0.05, 0.025))
     V = ntuple(i -> TA(backend)(fill(velocities[i], length.(grid_vi[i]))), Val(D))
     dt = FT(step(xv[1]) / FT(0.4))
     initial_count = count(Array(particles.index.data))
-    return (; particles, particle_field, nodal_field, V, dt, initial_count)
+    return (; particles, particle_field, nodal_field, centroid_field, particle_fields, nodal_fields, centroid_fields, V, dt, initial_count)
 end
 
 function validate_particle_state(state)
@@ -87,15 +93,30 @@ advection_move_model(::Val{3}, Np, Ns, ::Type{FT}) where {FT} = PerformanceModel
 )
 
 interpolation_model(::Val{2}, Np, Nv, Nc, ::Type{FT}) where {FT} = PerformanceModel(
-    62 * Np + Nv,
+    54 * Np + Nv,
     15 * sizeof(FT) * Np + sizeof(FT) * Nv + 8 * sizeof(FT) * Nc,
     "one inverse-distance particle-to-grid pass followed by one bilinear grid-to-particle pass",
 )
 interpolation_model(::Val{3}, Np, Nv, Nc, ::Type{FT}) where {FT} = PerformanceModel(
-    149 * Np + 2 * Nv,
+    133 * Np + 2 * Nv,
     36 * sizeof(FT) * Np + sizeof(FT) * Nv + 14 * sizeof(FT) * Nc,
     "one inverse-distance particle-to-grid pass followed by one trilinear grid-to-particle pass",
 )
+
+function interpolation_direction_model(direction, ::Val{D}, Np, Nv, Nc, ::Type{FT}, fields = 1) where {D, FT}
+    # The directional models split the round-trip model: particle-to-grid/centroid
+    # carries the gather and weighting, the reverse direction one interpolation per
+    # particle. Particle-to-centroid reuses the inverse-distance weight count.
+    if direction in (:particle_to_grid, :particle_to_centroid)
+        flops = (D == 2 ? 36 : 96) * Np * fields
+        grid_values = direction == :particle_to_grid ? Nv : Nc
+        bytes = ((D == 2 ? 11 : 36) * Np + grid_values) * sizeof(FT) * fields
+    else
+        flops = (D == 2 ? 18 : 37) * Np * fields
+        bytes = ((D == 2 ? 4 : 8) * Np + (D == 2 ? 8 : 14) * Nc) * sizeof(FT) * fields
+    end
+    return PerformanceModel(flops, bytes, string(direction, " interpolation"))
+end
 
 grid_label(n, D) = join(fill(n, D), "×")
 
@@ -158,6 +179,54 @@ function interpolation_case(backend, n, ::Type{FT}, dims::Val{D} = Val(2)) where
         "particle values",
         parameters,
         interpolation_model(dims, work_units, (n + 1)^D, n^D, FT),
+    )
+end
+
+function interpolation_direction_case(
+        backend, n, ::Type{FT}, direction, dims::Val{D} = Val(2), components::Val{NF} = Val(1)
+    ) where {FT, D, NF}
+    setup() = particle_state(backend, n, FT, dims)
+    run = if direction == :particle_to_grid && NF == 1
+        state -> (particle2grid!(state.nodal_field, state.particle_field, state.particles); state)
+    elseif direction == :grid_to_particle && NF == 1
+        state -> (grid2particle!(state.particle_field, state.nodal_field, state.particles); state)
+    elseif direction == :particle_to_centroid && NF == 1
+        state -> (particle2centroid!(state.centroid_field, state.particle_field, state.particles); state)
+    elseif direction == :centroid_to_particle && NF == 1
+        state -> (centroid2particle!(state.particle_field, state.centroid_field, state.particles); state)
+    elseif direction == :grid_to_particle && NF > 1
+        state -> (grid2particle!(state.particle_fields, state.nodal_fields, state.particles); state)
+    elseif direction == :centroid_to_particle && NF > 1
+        state -> (centroid2particle!(state.particle_fields, state.centroid_fields, state.particles); state)
+    elseif direction == :particle_to_grid && NF > 1
+        state -> (particle2grid!(state.nodal_fields, state.particle_fields, state.particles); state)
+    elseif direction == :particle_to_centroid && NF > 1
+        state -> (particle2centroid!(state.centroid_fields, state.particle_fields, state.particles); state)
+    else
+        throw(ArgumentError("unknown interpolation direction $direction"))
+    end
+    ppc = 2^D
+    work_units = ppc * n^D
+    parameters = Dict{String, Any}(
+        "dimension" => D,
+        "float_type" => string(FT),
+        "grid_cells" => fill(n, D),
+        "particles_per_cell" => ppc,
+        "direction" => string(direction),
+        "fields" => NF,
+    )
+    label = replace(string(direction), '_' => ' ')
+    fields_label = NF == 1 ? "" : ", $NF fields"
+    return BenchmarkCase(
+        "$(label) ($(D)D, $(grid_label(n, D)), $ppc ppc$(fields_label), $FT)",
+        "Interpolation",
+        setup,
+        run,
+        validate_particle_state,
+        work_units,
+        "particle values",
+        parameters,
+        interpolation_direction_model(direction, dims, work_units, (n + 1)^D, n^D, FT, NF),
     )
 end
 
@@ -231,8 +300,24 @@ function benchmark_cases(
     return (
         advection_move_case(backend, particle_size, precision),
         interpolation_case(backend, particle_size, precision),
+        interpolation_direction_case(backend, particle_size, precision, :particle_to_grid),
+        interpolation_direction_case(backend, particle_size, precision, :grid_to_particle),
+        interpolation_direction_case(backend, particle_size, precision, :particle_to_centroid),
+        interpolation_direction_case(backend, particle_size, precision, :centroid_to_particle),
+        interpolation_direction_case(backend, particle_size, precision, :grid_to_particle, Val(2), Val(3)),
+        interpolation_direction_case(backend, particle_size, precision, :centroid_to_particle, Val(2), Val(3)),
+        interpolation_direction_case(backend, particle_size, precision, :particle_to_grid, Val(2), Val(3)),
+        interpolation_direction_case(backend, particle_size, precision, :particle_to_centroid, Val(2), Val(3)),
         advection_move_case(backend, particle_size_3d, precision, Val(3)),
         interpolation_case(backend, particle_size_3d, precision, Val(3)),
+        interpolation_direction_case(backend, particle_size_3d, precision, :particle_to_grid, Val(3)),
+        interpolation_direction_case(backend, particle_size_3d, precision, :grid_to_particle, Val(3)),
+        interpolation_direction_case(backend, particle_size_3d, precision, :particle_to_centroid, Val(3)),
+        interpolation_direction_case(backend, particle_size_3d, precision, :centroid_to_particle, Val(3)),
+        interpolation_direction_case(backend, particle_size_3d, precision, :grid_to_particle, Val(3), Val(3)),
+        interpolation_direction_case(backend, particle_size_3d, precision, :centroid_to_particle, Val(3), Val(3)),
+        interpolation_direction_case(backend, particle_size_3d, precision, :particle_to_grid, Val(3), Val(3)),
+        interpolation_direction_case(backend, particle_size_3d, precision, :particle_to_centroid, Val(3), Val(3)),
         marker_surface_case(backend, surface_size, precision),
     )
 end
@@ -406,7 +491,8 @@ end
 function run_benchmarks(;
         backend = JustPIC.CPU, backend_name = "CPU", device = nothing,
         samples = 10, group = "all", precision::Type = Float64,
-        cases = benchmark_cases(backend; precision),
+        particle_size = 128, particle_size_3d = 32,
+        cases = benchmark_cases(backend; precision, particle_size, particle_size_3d),
     )
     samples > 0 || throw(ArgumentError("samples must be positive"))
     selected = group == "all" ? cases : filter(case -> case.group == group, cases)
@@ -530,6 +616,8 @@ function parse_commandline(args)
     samples = 10
     group = "all"
     precision = Float64
+    particle_size = 128
+    particle_size_3d = 32
     for arg in args
         if startswith(arg, "--output=")
             output = split(arg, '='; limit = 2)[2]
@@ -537,6 +625,10 @@ function parse_commandline(args)
             samples = parse(Int, split(arg, '='; limit = 2)[2])
         elseif startswith(arg, "--group=")
             group = split(arg, '='; limit = 2)[2]
+        elseif startswith(arg, "--size=")
+            particle_size = parse(Int, split(arg, '='; limit = 2)[2])
+        elseif startswith(arg, "--size-3d=")
+            particle_size_3d = parse(Int, split(arg, '='; limit = 2)[2])
         elseif startswith(arg, "--precision=")
             name = split(arg, '='; limit = 2)[2]
             precision = get(PRECISIONS, name) do
@@ -545,18 +637,21 @@ function parse_commandline(args)
         else
             throw(
                 ArgumentError(
-                    "unknown argument $arg; use --output=PATH, --samples=N, --group=NAME, or --precision=TYPE"
+                    "unknown argument $arg; use --output=PATH, --samples=N, --group=NAME, --precision=TYPE, --size=N, or --size-3d=N"
                 )
             )
         end
     end
-    return (; output, samples, group, precision)
+    particle_size > 0 && particle_size_3d > 0 ||
+        throw(ArgumentError("--size and --size-3d must be positive"))
+    return (; output, samples, group, precision, particle_size, particle_size_3d)
 end
 
 function main(args = ARGS; backend = JustPIC.CPU, backend_name = "CPU", device = nothing)
     options = parse_commandline(args)
     results = run_benchmarks(;
-        backend, backend_name, device, options.samples, options.group, options.precision
+        backend, backend_name, device, options.samples, options.group, options.precision,
+        options.particle_size, options.particle_size_3d,
     )
     output = write_results(options.output, results)
     @info "Wrote benchmark results" output

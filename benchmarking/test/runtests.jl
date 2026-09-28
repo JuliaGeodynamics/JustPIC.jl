@@ -7,8 +7,13 @@ using Test
     cases = benchmark_cases(; particle_size = 8, particle_size_3d = 4, surface_size = 8)
     results = run_benchmarks(; samples = 1, cases)
 
-    @test length(results) == 5
-    @test count(result -> result["parameters"]["dimension"] == 3, results) == 3
+    @test length(results) == 21
+    @test count(result -> result["parameters"]["dimension"] == 3, results) == 11
+    directional = filter(result -> haskey(result["parameters"], "direction"), results)
+    @test length(directional) == 16
+    @test sort(unique(result["parameters"]["direction"] for result in directional)) == [
+        "centroid_to_particle", "grid_to_particle", "particle_to_centroid", "particle_to_grid",
+    ]
     @test all(result -> result["value"] > 0, results)
     @test all(result -> result["sanity_check"] == "passed", results)
     @test all(result -> result["samples"] == 1, results)
@@ -49,6 +54,9 @@ using Test
         eachindex(results32, results),
     )
     @test_throws "unknown precision" JustPICBenchmarks.parse_commandline(["--precision=Float16"])
+    sized = JustPICBenchmarks.parse_commandline(["--size=64", "--size-3d=16"])
+    @test (sized.particle_size, sized.particle_size_3d) == (64, 16)
+    @test_throws "must be positive" JustPICBenchmarks.parse_commandline(["--size=0"])
 
     comparison = sprint(io -> @test all(==(1), print_comparison(io, results, results)))
     @test occursin(results[1]["name"], comparison)
@@ -71,7 +79,7 @@ using Test
         @test payload["schema_version"] == 1
         @test payload["repository_url"] == "https://github.com/JuliaGeodynamics/JustPIC.jl"
         @test length(payload["runs"]) == 1
-        @test length(only(payload["runs"])["benchmarks"]) == 5
+        @test length(only(payload["runs"])["benchmarks"]) == 21
         @test only(payload["runs"])["source"] == "results.json"
         @test_throws "more than one run for the same commit" write_dashboard_data(
             joinpath(dir, "duplicate-history.json"),
