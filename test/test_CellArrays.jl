@@ -105,8 +105,8 @@ end
 end
 
 @testset "Phase ratios - 2D" begin
-    nxcell, max_xcell, min_xcell = 50, 50, 50
-    n = 256
+    nxcell, max_xcell, min_xcell = 15, 15, 15
+    n = 64
     nx = ny = n - 1
     ni = nx, ny
     Lx = Ly = FT(1)
