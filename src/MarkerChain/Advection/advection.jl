@@ -37,9 +37,9 @@ function advection!(
         chain::MarkerChain,
         method::AbstractAdvectionIntegrator,
         V,
-        grid_vi::NTuple{N, NTuple{N, T}},
+        grid_vi::NTuple{N, NTuple{N, Any}},
         dt,
-    ) where {N, T}
+    ) where {N}
     (; coords, index) = chain
 
     # recast integrator/timestep/grid to the marker precision (see particle advection!);
@@ -70,12 +70,12 @@ end
 @kernel function advection_markerchain_kernel!(
         p,
         method::AbstractAdvectionIntegrator,
-        V::NTuple{N, T},
+        V::NTuple{N, Any},
         index,
         grid,
         local_limits,
         dt,
-    ) where {N, T}
+    ) where {N}
     i = @index(Global)
 
     for ipart in cellaxes(index)

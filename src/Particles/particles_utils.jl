@@ -54,8 +54,8 @@ particles = init_particles(CPU, (5, 5), 48, 12, grid_vx, grid_vy)
 ```
 """
 function init_particles(
-        backend, nxcell, max_xcell, min_xcell, xi_vel::Vararg{NTuple{N2, AbstractVector}, N1}
-    ) where {N1, N2}
+        backend, nxcell, max_xcell, min_xcell, xi_vel::Vararg{Tuple{Vararg{AbstractVector}}, N1}
+    ) where {N1}
 
     return init_particles(backend, nxcell, max_xcell, min_xcell, xi_vel)
 end
@@ -86,8 +86,8 @@ function init_particles(
         nxcell::Union{Number, NTuple{N, Integer}},
         max_xcell,
         min_xcell,
-        xi_vel_cpu::NTuple{N, NTuple{N, R}},
-    ) where {N, R <: AbstractRange}
+        xi_vel_cpu::NTuple{N, NTuple{N, AbstractRange}},
+    ) where {N}
 
     xi_vel, xci, xvi, di, _di = staggered_grids(backend, xi_vel_cpu)
     return _init_particles(backend, nxcell, max_xcell, min_xcell, xi_vel, xci, xvi, di, _di)
@@ -137,7 +137,7 @@ function staggered_grids(backend, xi_vel_cpu::NTuple{N, NTuple{N, AbstractVector
     return xi_vel, xci, xvi, di, inverse_spacing(di)
 end
 
-function staggered_grids(backend, xi_vel_cpu::NTuple{N, NTuple{N, R}}) where {N, R <: AbstractRange}
+function staggered_grids(backend, xi_vel_cpu::NTuple{N, NTuple{N, AbstractRange}}) where {N}
     T = eltype(first(first(xi_vel_cpu)))
     xi_vel = recast_grid(xi_vel_cpu, T)
     xci = center_coordinates(xi_vel)
@@ -208,8 +208,8 @@ function allocate_particle_storage(backend, xvi::NTuple{N}, max_xcell, nᵢ) whe
 end
 
 @kernel function fill_coords_index!(
-        pxᵢ::NTuple{N, T}, index, coords, di::NTuple{N}, np_quadrant
-    ) where {N, T}
+        pxᵢ::NTuple{N, Any}, index, coords, di::NTuple{N}, np_quadrant
+    ) where {N}
     I0 = @index(Global, NTuple)
     I = I0 .+ 1 # shift by one to skip the periodic ghost node
     # lower-left corner of the cell
@@ -254,8 +254,8 @@ end
 )
 
 @kernel function fill_regular_coords_index!(
-        pxᵢ::NTuple{N, T}, index, coords, di::NTuple{N}, nxdim::NTuple{N}
-    ) where {N, T}
+        pxᵢ::NTuple{N, Any}, index, coords, di::NTuple{N}, nxdim::NTuple{N}
+    ) where {N}
     I0 = @index(Global, NTuple)
     I = I0 .+ 1 # shift by one to skip the periodic ghost node
     # lower-left corner of the cell

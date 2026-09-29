@@ -18,10 +18,10 @@ function semilagrangian_advection_MQS!(
         F0,
         method::AbstractAdvectionIntegrator,
         V,
-        grid_vi::NTuple{N, NTuple{N, T}},
-        grid::NTuple{N, T},
+        grid_vi::NTuple{N, NTuple{N, Any}},
+        grid::NTuple{N, Any},
         dt,
-    ) where {N, T}
+    ) where {N}
     check_semilagrangian_integrator(method)
     check_no_alias(F, F0)
     Fref = F isa Tuple ? first(F) : F
@@ -53,13 +53,13 @@ end
         F::AbstractArray,
         F0::AbstractArray,
         method::AbstractAdvectionIntegrator,
-        V::NTuple{N, T},
+        V::NTuple{N, Any},
         grid_vi,
         grid,
         dxi_velocity,
         dxi_vertex,
         dt,
-    ) where {N, T}
+    ) where {N}
     I0 = @index(Global, NTuple)
     I = I0 .+ 1
 
@@ -81,13 +81,13 @@ end
         F::NTuple{NF, AbstractArray},
         F0::NTuple{NF, AbstractArray},
         method::AbstractAdvectionIntegrator,
-        V::NTuple{N, T},
+        V::NTuple{N, Any},
         grid_vi,
         grid,
         dxi_velocity,
         dxi_vertex,
         dt,
-    ) where {NF, N, T}
+    ) where {NF, N}
     I0 = @index(Global, NTuple)
     I = I0 .+ 1
 

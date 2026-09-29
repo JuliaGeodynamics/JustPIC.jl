@@ -1,12 +1,13 @@
 @inline function first_stage(
         integrator::RungeKutta2,
         dt,
-        particle_velocity::NTuple{N, T},
-        particle_coordinate::NTuple{N, T};
+        particle_velocity::NTuple{N, Any},
+        particle_coordinate::NTuple{N, Any};
         backtracking::Bool = false
-    ) where {N, T}
+    ) where {N}
     # work in the particle-coordinate precision T so Float32 backends (e.g. Metal,
     # which has no Float64) are not silently promoted by a Float64 α / dt / literal.
+    T = eltype(particle_coordinate)
     α = convert(T, integrator.α)
     dt = convert(T, dt)
     backtracking_sign = convert(T, 1 - 2 * backtracking) # flip sign if backtracking is true, used for backtracking particles during Semi-Lagrangian advection
@@ -16,12 +17,13 @@ end
 @inline function second_stage(
         integrator::RungeKutta2,
         dt,
-        particle_velocity0::NTuple{N, T},
-        particle_velocity1::NTuple{N, T},
-        particle_coordinate::NTuple{N, T};
+        particle_velocity0::NTuple{N, Any},
+        particle_velocity1::NTuple{N, Any},
+        particle_coordinate::NTuple{N, Any};
         backtracking::Bool = false
-    ) where {N, T}
+    ) where {N}
     # work in the particle-coordinate precision T (see first_stage).
+    T = eltype(particle_coordinate)
     α = convert(T, integrator.α)
     dt = convert(T, dt)
     backtracking_sign = convert(T, 1 - 2 * backtracking) # flip sign if backtracking is true, used for backtracking particles during Semi-Lagrangian advection

@@ -49,10 +49,10 @@ function semilagrangian_advection!(
         chain::MarkerChain,
         method::Union{RungeKutta2, RungeKutta4},
         V,
-        grid_vxi::NTuple{N, NTuple{N, T}},
+        grid_vxi::NTuple{N, NTuple{N, Any}},
         grid,
         dt,
-    ) where {N, T}
+    ) where {N}
     (; h_vertices) = chain
     length(grid[1]) == length(h_vertices) ||
         throw(DimensionMismatch("The horizontal grid must match the chain vertices"))

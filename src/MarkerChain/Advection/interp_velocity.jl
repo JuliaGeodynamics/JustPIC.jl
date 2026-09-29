@@ -1,5 +1,5 @@
 """
-    interpolate_velocity_to_markerchain!(chain::MarkerChain, chain_V::NTuple{N, CellArray}, V, grid_vi::NTuple{N, NTuple{N, T}}) where {N, T}
+    interpolate_velocity_to_markerchain!(chain::MarkerChain, chain_V::NTuple{N, CellArray}, V, grid_vi::NTuple{N, NTuple{N, Any}}) where {N}
 
 Interpolate the staggered velocity field `V` to the current marker positions in
 `chain` and store the result in `chain_V`.
@@ -11,8 +11,8 @@ function interpolate_velocity_to_markerchain!(
         chain::MarkerChain,
         chain_V,
         V,
-        grid_vi::NTuple{N, NTuple{N, T}},
-    ) where {N, T}
+        grid_vi::NTuple{N, NTuple{N, Any}},
+    ) where {N}
     (; coords, index) = chain
 
     # make the grid GPU-safe: it is indexed directly inside the kernel (see advection!)
@@ -37,11 +37,11 @@ end
 @kernel function interpolate_velocity_to_markerchain_kernel!(
         p,
         chain_V,
-        V::NTuple{N, T},
+        V::NTuple{N, Any},
         index,
         grid,
         local_limits,
-    ) where {N, T}
+    ) where {N}
     i = @index(Global)
 
     for ipart in cellaxes(index)
