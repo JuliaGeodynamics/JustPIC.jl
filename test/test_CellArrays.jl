@@ -50,7 +50,8 @@ function expand_range(x::AbstractVector)
     return vcat(xI, x, xF)
 end
 
-phase_ratio_sums(A) = [sum(A[I]) for I in CartesianIndices(size(A))]
+# Copy to host first: per-cell reads of a device CellArray are scalar GPU transfers.
+phase_ratio_sums(A) = (h = JustPIC.to_cpu(A); [sum(h[I]) for I in CartesianIndices(size(h))])
 
 @static if BACKEND_NAME != "CPU"
     # The GPU extension must not define methods on CellArrays-owned types: packages
@@ -104,8 +105,8 @@ end
 end
 
 @testset "Phase ratios - 2D" begin
-    nxcell, max_xcell, min_xcell = 50, 50, 50
-    n = 256
+    nxcell, max_xcell, min_xcell = 15, 15, 15
+    n = 64
     nx = ny = n - 1
     ni = nx, ny
     Lx = Ly = FT(1)

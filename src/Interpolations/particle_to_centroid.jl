@@ -65,8 +65,8 @@ end
 end
 
 @inbounds function _particle2centroid!(
-        F::NTuple{N, T1}, Fp::NTuple{N, T2}, idx, xci::NTuple{2, T3}, p, di, mask
-    ) where {N, T1, T2, T3}
+        F::NTuple{N, Any}, Fp::NTuple{N, Any}, idx, xci::NTuple{2, T3}, p, di, mask
+    ) where {N, T3}
     inode, jnode = idx
     px, py = p # particle coordinates
     xcenter = xci[1][inode], xci[2][jnode] # centroid coordinates
@@ -128,8 +128,8 @@ end
 end
 
 @inbounds function _particle2centroid!(
-        F::NTuple{N, T1}, Fp::NTuple{N, T2}, idx, xci::NTuple{3, T3}, p, di, mask
-    ) where {N, T1, T2, T3}
+        F::NTuple{N, Any}, Fp::NTuple{N, Any}, idx, xci::NTuple{3, T3}, p, di, mask
+    ) where {N, T3}
     inode, jnode, knode = idx
     px, py, pz = p # particle coordinates
     xcenter = xci[1][inode], xci[2][jnode], xci[3][knode] # centroid coordinates

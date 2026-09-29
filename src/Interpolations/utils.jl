@@ -1,21 +1,21 @@
 # dimension-agnostic fully unrolled euclidean distance
-@inline function distance(a::NTuple{N, T}, b::NTuple{N, T}) where {N, T}
+@inline function distance(a::NTuple{N, Any}, b::NTuple{N, Any}) where {N}
     return distance((a[1] - b[1])^2, Base.tail(a), Base.tail(b))
 end
 
-@inline function squared_distance(a::NTuple{N, T}, b::NTuple{N, T}) where {N, T}
-    return squared_distance(zero(T), a, b)
+@inline function squared_distance(a::NTuple{N, Any}, b::NTuple{N, Any}) where {N}
+    return squared_distance((a[1] - b[1])^2, Base.tail(a), Base.tail(b))
 end
 
-@inline function squared_distance(s::T, a::NTuple{N, T}, b::NTuple{N, T}) where {N, T}
+@inline function squared_distance(s::Number, a::NTuple{N, Any}, b::NTuple{N, Any}) where {N}
     return squared_distance(s + (a[1] - b[1])^2, Base.tail(a), Base.tail(b))
 end
 
-@inline function squared_distance(s::T, a::NTuple{1, T}, b::NTuple{1, T}) where {T}
+@inline function squared_distance(s::Number, a::NTuple{1, T}, b::NTuple{1, T}) where {T}
     return s + (a[1] - b[1])^2
 end
 
-@inline function distance(s::Number, a::NTuple{N, T}, b::NTuple{N, T}) where {N, T}
+@inline function distance(s::Number, a::NTuple{N, Any}, b::NTuple{N, Any}) where {N}
     return distance(s + (a[1] - b[1])^2, Base.tail(a), Base.tail(b))
 end
 
@@ -50,15 +50,15 @@ end
 
 # normalize coordinates
 @inline function normalize_coordinates(
-        p::NTuple{N, A}, xi::NTuple{N, B}, di::NTuple{N, C}, idx::NTuple{N, D}
-    ) where {N, A, B, C, D}
+        p::NTuple{N, Any}, xi::NTuple{N, Any}, di::NTuple{N, Any}, idx::NTuple{N, Any}
+    ) where {N}
     return ntuple(i -> (p[i] - xi[i][idx[i]]) * inv(di[i]), Val(N))
 end
 
 # normalize coordinates
 @inline function normalize_coordinates(
-        p::NTuple{N, A}, xci::NTuple{N, B}, di::NTuple{N, C}
-    ) where {N, A, B, C}
+        p::NTuple{N, Any}, xci::NTuple{N, Any}, di::NTuple{N, Any}
+    ) where {N}
     return ntuple(i -> (p[i] - xci[i]) * inv(di[i]), Val(N))
 end
 

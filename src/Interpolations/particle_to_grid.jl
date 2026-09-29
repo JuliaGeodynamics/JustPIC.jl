@@ -122,8 +122,8 @@ function _particle2grid!(F, Fp, inode, jnode, xi::NTuple{2, T}, p, index, mask) 
 end
 
 function _particle2grid!(
-        F::NTuple{N, T1}, Fp::NTuple{N, T2}, inode, jnode, xi::NTuple{2, T3}, p, index, mask
-    ) where {N, T1, T2, T3}
+        F::NTuple{N, Any}, Fp::NTuple{N, Any}, inode, jnode, xi::NTuple{2, T3}, p, index, mask
+    ) where {N, T3}
     px, py = p # particle coordinates
     xvertex = xi[1][inode], xi[2][jnode] # cell lower-left coordinates
     ω = zero(eltype(F[1])) # init weights
@@ -202,8 +202,8 @@ function _particle2grid!(
 end
 
 function _particle2grid!(
-        F::NTuple{N, T1}, Fp::NTuple{N, T2}, inode, jnode, knode, xi::NTuple{3, T3}, p, index, mask
-    ) where {N, T1, T2, T3}
+        F::NTuple{N, Any}, Fp::NTuple{N, Any}, inode, jnode, knode, xi::NTuple{3, T3}, p, index, mask
+    ) where {N, T3}
     px, py, pz = p # particle coordinates
     xvertex = xi[1][inode], xi[2][jnode], xi[3][knode] # cell lower-left coordinates
     ω = zero(eltype(F[1])) # init weights
@@ -253,8 +253,8 @@ end
 end
 
 @inline function distance_weight(
-        a::NTuple{N, T}, b::NTuple{N, T}; order::Int64 = 1
-    ) where {N, T}
+        a::NTuple{N, Any}, b::NTuple{N, Any}; order::Int64 = 1
+    ) where {N}
     return order == 2 ? inv(squared_distance(a, b)) : inv(distance(a, b)^order)
 end
 
@@ -263,13 +263,14 @@ end
 end
 
 @generated function bilinear_weight(
-        a::Union{NTuple{N, T}, SVector{N, T}},
-        b::Union{NTuple{N, T}, SVector{N, T}},
-        di::Union{NTuple{N, T}, SVector{N, T}},
-    ) where {N, T}
+        a::Union{NTuple{N, Any}, SVector{N}},
+        b::Union{NTuple{N, Any}, SVector{N}},
+        di::Union{NTuple{N, Any}, SVector{N}},
+    ) where {N}
+    T = eltype(a)
     return quote
         Base.@_inline_meta
-        one_T = val = one(T)
+        one_T = val = one($T)
         Base.Cartesian.@nexprs $N i ->
         val *= muladd(-abs(a[i] - b[i]), inv(di[i]), one_T)
         return val

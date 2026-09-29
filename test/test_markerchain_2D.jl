@@ -687,7 +687,7 @@ end
         di = T(4), T(2)
         r = JustPIC.rectangle_from_min_corner(min_corner, di)
 
-        @test r.origin == JustPIC.Point(T(4), T(0))
+        @test r.center == JustPIC.Point(T(4), T(0))
 
         horizontal(y) = JustPIC.Segment(
             JustPIC.Point(T(2), T(y)), JustPIC.Point(T(6), T(y))

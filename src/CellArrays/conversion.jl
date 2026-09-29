@@ -103,10 +103,10 @@ end
 
 _to_cpu(x) = x
 _to_cpu(::Nothing) = nothing
-_to_cpu(x::NTuple{N, T}) where {N, T} = ntuple(i -> _to_cpu(x[i]), Val(N))
+_to_cpu(x::NTuple{N, Any}) where {N} = ntuple(i -> _to_cpu(x[i]), Val(N))
 _to_cpu(::Type{T}, ::Nothing) where {T <: Number} = nothing
 _to_cpu(::Type{T}, x) where {T <: Number} = x
-function _to_cpu(::Type{T}, x::NTuple{N, TA}) where {T <: Number, N, TA}
+function _to_cpu(::Type{T}, x::NTuple{N, Any}) where {T <: Number, N}
     return ntuple(i -> _to_cpu(T, x[i]), Val(N))
 end
 
@@ -132,5 +132,5 @@ _copy(::Nothing) = nothing
 _copy(x::AbstractArray) = copy(x)
 # Copy the backing array in bulk: Base `copy` of a device `CellArray` indexes cell by cell.
 _copy(x::CellArray) = typeof(x)(copy(x.data), size(x))
-_copy(x::NTuple{N, T}) where {N, T} = ntuple(i -> _copy(x[i]), Val(N))
+_copy(x::NTuple{N, Any}) where {N} = ntuple(i -> _copy(x[i]), Val(N))
 _copy(x::T) where {T} = x

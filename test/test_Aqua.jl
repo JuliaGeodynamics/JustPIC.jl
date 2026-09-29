@@ -27,9 +27,9 @@ end
 include("helpers_backend.jl")
 check_backend(BACKEND_NAME, backend, FT)
 
-# NTuple{N,T} permits N == 0, where T cannot be inferred. Aqua reports these
-# intentional dimension-generic signatures as unbound; keep the check visible.
-Aqua.test_unbound_args(JustPIC; broken = true)
+@testset "Unbound args" begin
+    @test Aqua.test_unbound_args(JustPIC).value
+end
 
 @testset "Piracies" begin
     @test Aqua.test_piracies(JustPIC).value

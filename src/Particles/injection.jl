@@ -105,8 +105,8 @@ end
 end
 
 @inline function _inject_particles!(
-        args::NTuple{N, T}, coords, index, grid, di_quadrant, min_xcell, idx_cell
-    ) where {N, T}
+        args::NTuple{N, Any}, coords, index, grid, di_quadrant, min_xcell, idx_cell
+    ) where {N}
 
     # coordinates of the lower-left corner of the cell
     xvi = corner_coordinate(grid, idx_cell)

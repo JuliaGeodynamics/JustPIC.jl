@@ -130,7 +130,10 @@ range clamp to the boundary cell.
 @inline function _uniform_cell_weight(coords::AbstractRange{T}, val) where {T}
     q = (convert(T, val) - convert(T, first(coords))) / convert(T, step(coords))
     q = clamp(q, zero(T), convert(T, length(coords) - 1))
-    i = clamp(floor(Int, q) + 1, 1, length(coords) - 1)
+    # `floor(Int, ·)` has a throwing path that boxes the float into an
+    # `InexactError`, which Metal cannot compile; `q` is already clamped to the
+    # index range, so the unchecked conversion is exact.
+    i = clamp(unsafe_trunc(Int, floor(q)) + 1, 1, length(coords) - 1)
     return i, clamp(q - convert(T, i - 1), zero(T), one(T))
 end
 
@@ -168,7 +171,9 @@ end
     val < x0 && return 0
     val >= last(coords) && return n
 
-    i = clamp(floor(Int, (val - x0) / dx) + 1, 1, n - 1)
+    # `x0 <= val < last(coords)`, so the quotient is in range for the unchecked
+    # conversion (see `_uniform_cell_weight`)
+    i = clamp(unsafe_trunc(Int, floor((val - x0) / dx)) + 1, 1, n - 1)
     i = ifelse(val < coords[i], i - 1, i)
     i = ifelse(val >= coords[i + 1], i + 1, i)
     return i

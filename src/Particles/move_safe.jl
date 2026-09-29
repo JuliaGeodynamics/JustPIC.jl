@@ -225,10 +225,10 @@ function move_kernel!(
         di,
         index,
         domain_limits,
-        args::NTuple{N2, T},
+        args::NTuple{N2, Any},
         idx::NTuple{N1, Int64},
         bound,
-    ) where {N1, N2, T}
+    ) where {N1, N2}
 
     dxi = @dxi di idx...
 
@@ -347,7 +347,7 @@ function find_free_memory(index, I::Vararg{Int, N}) where {N}
 end
 
 # half-open `[xmin, xmax)`, matching `isincell` and the interval `wrap_coordinate` maps into
-@generated function indomain(p::NTuple{N, T1}, domain_limits::NTuple{N, T2}) where {N, T1, T2}
+@generated function indomain(p::NTuple{N, Any}, domain_limits::NTuple{N, Any}) where {N}
     return quote
         Base.@_inline_meta
         Base.Cartesian.@nexprs $N i ->
@@ -365,7 +365,7 @@ end
     end
 end
 
-@inline function cache_args(args::NTuple{N1, T}, ip, I::NTuple{N2, Int64}) where {T, N1, N2}
+@inline function cache_args(args::NTuple{N1, Any}, ip, I::NTuple{N2, Int64}) where {N1, N2}
     return ntuple(i -> (CAI.@index(args[i][ip, I...])), Val(N1))
 end
 
@@ -374,14 +374,14 @@ end
 end
 
 @inline function cache_particle(
-        p::NTuple{N1, T}, ip, I::Union{Integer, NTuple{N2, Integer}}
-    ) where {T, N1, N2}
+        p::NTuple{N1, Any}, ip, I::Union{Integer, Tuple{Vararg{Integer}}}
+    ) where {N1}
     return cache_args(p, ip, I)
 end
 
 @generated function empty_particle!(
-        p::NTuple{N1, T}, ip, I::NTuple{N2, Int64}
-    ) where {N1, N2, T}
+        p::NTuple{N1, Any}, ip, I::NTuple{N2, Int64}
+    ) where {N1, N2}
     return quote
         Base.@_inline_meta
         Base.Cartesian.@nexprs $N1 i ->
@@ -398,14 +398,14 @@ end
 end
 
 @inline function fill_particle!(
-        p::NTuple{N, T1}, field::NTuple{N, T2}, ip, I::Int64
-    ) where {N, T1, T2}
+        p::NTuple{N, Any}, field::NTuple{N, Any}, ip, I::Int64
+    ) where {N}
     return fill_particle!(p, field, ip, (I,))
 end
 
 @generated function fill_particle!(
-        p::NTuple{N1, T1}, field::NTuple{N1, T2}, ip, I::NTuple{N2, Int64}
-    ) where {N1, N2, T1, T2}
+        p::NTuple{N1, Any}, field::NTuple{N1, Any}, ip, I::NTuple{N2, Int64}
+    ) where {N1, N2}
     return quote
         Base.Cartesian.@nexprs $N1 i -> begin
             Base.@_inline_meta
