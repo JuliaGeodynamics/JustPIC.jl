@@ -520,19 +520,20 @@ end
     ni = size(particles.index)
     nslots = JustPIC.cellnum(particles.index)
     p_invalid = ForceInjectionPoint3D((FT(0), FT(0), FT(0)), false)
-    p_new = TA(backend)(fill(p_invalid, ni..., nslots))
+    p_new_host = fill(p_invalid, ni..., nslots)
     for i in 1:ni[1], j in 1:ni[2], k in 1:ni[3], c in 1:nslots
-        p_new[i, j, k, c] = ForceInjectionPoint3D((FT(0.1) * c + FT(0.01) * i, FT(0.1) * c + FT(0.01) * j, FT(0.1) * c + FT(0.01) * k), true)
+        p_new_host[i, j, k, c] = ForceInjectionPoint3D((FT(0.1) * c + FT(0.01) * i, FT(0.1) * c + FT(0.01) * j, FT(0.1) * c + FT(0.01) * k), true)
     end
 
+    p_new = TA(backend)(p_new_host)
     JustPIC.force_injection!(particles, p_new, (pphase,), (FT(5),))
 
     x_data = vec(Array(particles.coords[1].data))
     y_data = vec(Array(particles.coords[2].data))
     z_data = vec(Array(particles.coords[3].data))
-    x_expected = vec([p_new[i, j, k, c][1] for i in 1:ni[1], j in 1:ni[2], k in 1:ni[3], c in 1:nslots])
-    y_expected = vec([p_new[i, j, k, c][2] for i in 1:ni[1], j in 1:ni[2], k in 1:ni[3], c in 1:nslots])
-    z_expected = vec([p_new[i, j, k, c][3] for i in 1:ni[1], j in 1:ni[2], k in 1:ni[3], c in 1:nslots])
+    x_expected = vec([p_new_host[i, j, k, c][1] for i in 1:ni[1], j in 1:ni[2], k in 1:ni[3], c in 1:nslots])
+    y_expected = vec([p_new_host[i, j, k, c][2] for i in 1:ni[1], j in 1:ni[2], k in 1:ni[3], c in 1:nslots])
+    z_expected = vec([p_new_host[i, j, k, c][3] for i in 1:ni[1], j in 1:ni[2], k in 1:ni[3], c in 1:nslots])
 
     @test all(Array(particles.index.data))
     @test all(Array(pphase.data) .== 5.0)
@@ -550,9 +551,9 @@ end
     @test !any(Array(particles_skip.index.data))
 
     particles_partial = JustPIC.init_particles(backend, nxcell, max_xcell, min_xcell, grid_vel...)
-    p_partial = TA(backend)(fill(p_invalid, ni..., nslots))
+    p_partial = fill(p_invalid, ni..., nslots)
     p_partial[1, 1, 1, 1] = ForceInjectionPoint3D((FT(0.2), FT(0.3), FT(0.4)), true)
-    JustPIC.force_injection!(particles_partial, p_partial)
+    JustPIC.force_injection!(particles_partial, TA(backend)(p_partial))
     active = Array(particles_partial.index.data)
     @test count(active) == 1
     @test all(isfinite, Array(particles_partial.coords[1].data)[active])
@@ -608,7 +609,8 @@ end
 
 function test_advection_3D()
 
-    n = 64
+    # Small integration grid; retain particle density and all five advection steps.
+    n = 16
     nx = ny = nz = n - 1
     Lx = Ly = Lz = FT(1)
     ni = nx, ny, nz
@@ -632,7 +634,6 @@ function test_advection_3D()
     Vz = TA(backend)([vz_stream_3D(x, z) for x in grid_vz[1], y in grid_vz[2], z in grid_vz[3]])
     xvi_p = JustPIC.add_periodic_ghost_nodes.(xvi)
     T = TA(backend)([z for x in xvi_p[1], y in xvi_p[2], z in xvi_p[3]])
-    T0 = deepcopy(T)
     V = Vx, Vy, Vz
     dt = min(
         dx / maximum(abs.(Vx)),
@@ -658,7 +659,6 @@ function test_advection_3D()
     niter = 5
     for step in 1:niter
         JustPIC.particle2grid!(T, pT, particles)
-        copyto!(T0, T)
         JustPIC.advection!(particles, JustPIC.RungeKutta2(), V, dt)
         JustPIC.move_particles!(particles, particle_args)
         # reseed
@@ -691,7 +691,6 @@ function test_advection_3D_refined()
     Vz = TA(backend)([vz_stream_3D(x, z) for x in grid_vz[1], y in grid_vz[2], z in grid_vz[3]])
     xvi_p = JustPIC.add_periodic_ghost_nodes.(xvi)
     T = TA(backend)([z for x in xvi_p[1], y in xvi_p[2], z in xvi_p[3]])
-    T0 = deepcopy(T)
     V = Vx, Vy, Vz
 
     dx_min = minimum(diff(xv))
@@ -719,7 +718,6 @@ function test_advection_3D_refined()
     niter = 5
     for step in 1:niter
         JustPIC.particle2grid!(T, pT, particles)
-        copyto!(T0, T)
         JustPIC.advection!(particles, JustPIC.RungeKutta2(), V, dt)
         JustPIC.move_particles!(particles, particle_args)
         JustPIC.inject_particles!(particles, (pT,))
@@ -749,6 +747,8 @@ function test_advection_refined()
 end
 
 @testset "Miniapps" begin
+    @info "Running 3D advection miniapp (uniform grid)"
     @test test_advection()
+    @info "Running 3D advection miniapp (refined grid)"
     @test test_advection_refined()
 end
