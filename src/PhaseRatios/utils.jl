@@ -43,8 +43,8 @@ end
 ## interpolation kernels
 
 function phase_ratio_weights(
-        pxi::NTuple{NP, C}, ph::SVector{N1, T}, cell_center, di, ::Val{NC}
-    ) where {N1, NC, NP, T, C}
+        pxi::NTuple{NP, Any}, ph::SVector{N1, T}, cell_center, di, ::Val{NC}
+    ) where {N1, NC, NP, T}
 
     # Initialize phase ratio weights
     w = ntuple(_ -> zero(T), Val(NC))
@@ -62,8 +62,9 @@ function phase_ratio_weights(
 end
 
 @generated function bilinear_weight(
-        a::NTuple{N, T}, b::NTuple{N, T}, di::NTuple{N, T}
-    ) where {N, T}
+        a::NTuple{N, Any}, b::NTuple{N, Any}, di::NTuple{N, Any}
+    ) where {N}
+    T = eltype(a)
     return quote
         Base.@_inline_meta
         val = one($T)

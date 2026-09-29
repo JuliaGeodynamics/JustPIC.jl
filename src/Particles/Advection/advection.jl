@@ -50,13 +50,13 @@ function advection!(
         particles::Particles,
         method::AbstractAdvectionIntegrator,
         V,
-        grid_vi::NTuple{N, NTuple{N, T}},
+        grid_vi::NTuple{N, NTuple{N, Any}},
         dt,
         dxi;
         periodic_1 = false,
         periodic_2 = false,
         periodic_3 = false,
-    ) where {N, T}
+    ) where {N}
     (; coords, index) = particles
     N == 2 && periodic_3 && throw(ArgumentError("periodic_3 is only valid for 3D particles"))
     # compute some basic stuff
@@ -86,7 +86,7 @@ end
 @kernel function advection_kernel!(
         p,
         method::AbstractAdvectionIntegrator,
-        V::NTuple{N, T},
+        V::NTuple{N, Any},
         index,
         grid_vi,
         local_limits,
@@ -94,7 +94,7 @@ end
         dt,
         periodicity,
         domain_limits,
-    ) where {N, T}
+    ) where {N}
     I = @index(Global, NTuple)
     I_inner = I .+ 1
 

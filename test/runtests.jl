@@ -1,7 +1,4 @@
-pushfirst!(LOAD_PATH, dirname(@__DIR__))
-
 using JustPIC
-using Pkg
 
 function parse_flags!(args, flag; default = nothing)
     for (i, value) in pairs(args)
@@ -24,8 +21,9 @@ const FULL_SUITES = (
 function run_suite(testdir, load_path, filename, tier)
     path = joinpath(testdir, filename)
     printstyled("\nRunning $filename\n"; bold = true, color = :white)
+    # Keep Pkg.test's resolved environment, including its GPU test dependencies.
     cmd = addenv(
-        `$(Base.julia_cmd()) --startup-file=no $path`,
+        `$(Base.julia_cmd()) --startup-file=no --project=$(dirname(Base.active_project())) $path`,
         "JULIA_LOAD_PATH" => load_path,
         "JULIA_JUSTPIC_ALLOW_SCALAR" => tier == "full" ? "true" : "false",
     )
@@ -57,7 +55,6 @@ backend_name in ("CPU", "CUDA", "AMDGPU", "Metal") ||
 tier in ("fast", "full", "all") || error("Unknown tier $(repr(tier)); use --tier=fast|full|all")
 isempty(ARGS) || error("Unrecognised test arguments $(ARGS)")
 
-backend_name == "CPU" || Pkg.add(backend_name)
 ENV["JULIA_JUSTPIC_BACKEND"] = backend_name
 
 exit(runtests(tier))
