@@ -252,6 +252,12 @@ end
     return inv(distance(a, b)^order)
 end
 
+@inline function distance_weight(
+        a::NTuple{N, Any}, b::NTuple{N, Any}; order::Int64 = 1
+    ) where {N}
+    return order == 2 ? inv(squared_distance(a, b)) : inv(distance(a, b)^order)
+end
+
 @inline function distance_weight(x, y, b; order::Int64 = 1)
     return inv(distance((x, y), b)^order)
 end

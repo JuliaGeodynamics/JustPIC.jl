@@ -7,6 +7,7 @@ For particle containers this is the number of particle slots reserved per grid
 cell, including inactive slots.
 """
 @inline cellnum(A::CellArray) = prod(cellsize(A))
+@inline cellnum(A::Tuple) = cellnum(first(A))
 
 """
     cellaxes(A)

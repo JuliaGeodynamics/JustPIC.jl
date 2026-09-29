@@ -133,6 +133,13 @@ end
 
     @test Array(pT.data)[active] ≈ Array(particles.coords[2].data)[active]
 
+    pT_tuple = JustPIC.init_cell_arrays(particles, Val(3))
+    Tc_tuple = ntuple(_ -> TA(backend)(Array(Tc)), Val(3))
+    JustPIC.centroid2particle!(pT_tuple, xci_p, Tc_tuple, particles, diff.(xci_p))
+    for i in 2:3
+        @test Array(pT_tuple[i].data)[active] ≈ Array(pT_tuple[1].data)[active]
+    end
+
     # Particle to centroid test
     Tc2 = similar(Tc)
     JustPIC.particle2centroid!(Tc2, pT, particles)
@@ -146,11 +153,22 @@ end
     @test all(isnan.(Tc2[.!support_c]))
     @test norm(Tc2[support_c] .- Tc[support_c]) / count(support_c) < 1.0e-1
 
+    # Tuple particle to centroid: weighted averages of constant fields are exact
+    pT_tuple = JustPIC.init_cell_arrays(particles, Val(3))
+    for i in 1:3
+        fill!(pT_tuple[i].data, i)
+    end
+    Tc_tuple = ntuple(_ -> TA(backend)(fill(FT(NaN), size(Tc2))), Val(3))
+    JustPIC.particle2centroid!(Tc_tuple, pT_tuple, particles)
+    for i in 1:3
+        @test Array(Tc_tuple[i])[support_c] ≈ fill(FT(i), count(support_c))
+    end
+
     # test copy function
     particles_copy = copy(particles)
-    pT_copy = copy(pT)
     @test particles_copy.index.data[:] == particles.index.data[:]
-    @test pT_copy.data[:] == pT.data[:]
+    @test isequal(Array(particles_copy.coords[1].data), Array(particles.coords[1].data))
+    @test particles_copy.coords[1].data !== particles.coords[1].data
 end
 
 @testset "Ghost-node opt-out 2D" begin
@@ -296,6 +314,13 @@ end
     JustPIC.centroid2particle!(pT, xci_p, Tc, particles, diff.(xci_p))
     @test Array(pT.data)[active] ≈ Array(particles.coords[3].data)[active]
 
+    pT_tuple = JustPIC.init_cell_arrays(particles, Val(3))
+    Tc_tuple = ntuple(_ -> TA(backend)(Array(Tc)), Val(3))
+    JustPIC.centroid2particle!(pT_tuple, xci_p, Tc_tuple, particles, diff.(xci_p))
+    for i in 2:3
+        @test Array(pT_tuple[i].data)[active] ≈ Array(pT_tuple[1].data)[active]
+    end
+
     # Particle to centroid test
     Tc2 = similar(Tc)
     fill!(Tc2, eltype(Tc2)(NaN))
@@ -308,11 +333,22 @@ end
     @test all(isnan.(Tc2[.!support_c]))
     @test norm(Tc2[support_c] .- Tc[support_c]) / count(support_c) < 1.0e-1
 
+    # Tuple particle to centroid: weighted averages of constant fields are exact
+    pT_tuple = JustPIC.init_cell_arrays(particles, Val(3))
+    for i in 1:3
+        fill!(pT_tuple[i].data, i)
+    end
+    Tc_tuple = ntuple(_ -> TA(backend)(fill(FT(NaN), size(Tc2))), Val(3))
+    JustPIC.particle2centroid!(Tc_tuple, pT_tuple, particles)
+    for i in 1:3
+        @test Array(Tc_tuple[i])[support_c] ≈ fill(FT(i), count(support_c))
+    end
+
     # test copy function
     particles_copy = copy(particles)
-    pT_copy = copy(pT)
     @test particles_copy.index.data[:] == particles.index.data[:]
-    @test pT_copy.data[:] == pT.data[:]
+    @test isequal(Array(particles_copy.coords[1].data), Array(particles.coords[1].data))
+    @test particles_copy.coords[1].data !== particles.coords[1].data
 end
 
 @testset "Refined-grid PIC/FLIP equivalence" begin

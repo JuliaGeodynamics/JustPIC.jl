@@ -3,6 +3,18 @@
     return distance((a[1] - b[1])^2, Base.tail(a), Base.tail(b))
 end
 
+@inline function squared_distance(a::NTuple{N, Any}, b::NTuple{N, Any}) where {N}
+    return squared_distance((a[1] - b[1])^2, Base.tail(a), Base.tail(b))
+end
+
+@inline function squared_distance(s::Number, a::NTuple{N, Any}, b::NTuple{N, Any}) where {N}
+    return squared_distance(s + (a[1] - b[1])^2, Base.tail(a), Base.tail(b))
+end
+
+@inline function squared_distance(s::Number, a::NTuple{1, T}, b::NTuple{1, T}) where {T}
+    return s + (a[1] - b[1])^2
+end
+
 @inline function distance(s::Number, a::NTuple{N, Any}, b::NTuple{N, Any}) where {N}
     return distance(s + (a[1] - b[1])^2, Base.tail(a), Base.tail(b))
 end

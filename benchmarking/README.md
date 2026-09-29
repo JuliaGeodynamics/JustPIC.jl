@@ -32,14 +32,18 @@ Modeled bytes are logical scalar reads and writes, not cache- or DRAM-counter me
 
 For a grid of `n` cells per direction in `D` dimensions, let `Np = 2ᴰnᴰ` particles
 (`2ᴰ` per cell), `Ns = 2Np` particle slots, `Nv = (n + 1)ᴰ` surface or grid vertices, and
-`Nc = nᴰ` cells. The `justpic_cpu_v2` model is:
+`Nc = nᴰ` cells. The `justpic_cpu_v3` model is:
 
 | Benchmark | Modeled FLOPs | Modeled bytes |
 | --- | ---: | ---: |
 | Particle workflow (2D) | `80Np` | `104Np + 2Ns` |
 | Particle workflow (3D) | `234Np` | `248Np + 2Ns` |
-| Interpolation round-trip (2D) | `62Np + Nv` | `60Np + 4Nv + 32Nc` |
-| Interpolation round-trip (3D) | `149Np + 2Nv` | `144Np + 4Nv + 56Nc` |
+| Interpolation round-trip (2D) | `54Np + Nv` | `60Np + 4Nv + 32Nc` |
+| Interpolation round-trip (3D) | `133Np + 2Nv` | `144Np + 4Nv + 56Nc` |
+| Particle → vertex or centroid, per field (2D) | `36Np` | `11Np + G` |
+| Particle → vertex or centroid, per field (3D) | `96Np` | `36Np + G` |
+| Vertex or centroid → particle, per field (2D) | `18Np` | `4Np + 8Nc` |
+| Vertex or centroid → particle, per field (3D) | `37Np` | `8Np + 14Nc` |
 | MarkerSurface update (`D = 2` surface) | `317Nv + 14Nc` | `294Nv + 37Nc` |
 
 Interpolating one scalar at a particle costs `3D` FLOPs to normalize the coordinates
@@ -53,12 +57,18 @@ component and stage, and the particle payload movement (coordinates and field re
 written).
 
 The interpolation round-trip counts, per particle, one inverse-distance weight for each of
-its `2ᴰ` surrounding vertices (11 FLOPs in 2D, 14 in 3D: the distance, its square and
+its `2ᴰ` surrounding vertices (9 FLOPs in 2D, 12 in 3D: the squared distance, its
 reciprocal, and the weight and weighted-value accumulations) and one grid-to-particle
 interpolation; per vertex, the normalization costs a division in 2D and a reciprocal and a
 multiply in 3D. Its bytes are the particle coordinates and value read by each of the `2ᴰ`
 vertices, the interpolated value written, one vertex value written, and `2ᴰ` corner values,
 `D` corner coordinates, and `D` spacings read per cell.
+
+The directional cases split the round-trip model: the particle-to-grid direction carries the
+weighting and gather, and the grid-to-particle direction one interpolation per particle. `G`
+is `Nv` for vertex output and `Nc` for centroid output. Particle-to-centroid reuses the
+inverse-distance weight count for its bilinear weights. Multi-field cases scale both columns
+by the number of fields.
 
 The byte counts hold for `Float32` fields and scale with the element size, so a `Float64` run
 models twice the traffic. The `2Ns` particle-index bytes are the one exception: they are
@@ -78,11 +88,17 @@ julia --project=benchmarking benchmarking/run_benchmarks.jl --group=MarkerSurfac
 julia --project=benchmarking benchmarking/run_benchmarks.jl --output=out/results.json
 julia --project=benchmarking benchmarking/run_benchmarks.jl --backend=CUDA
 julia --project=benchmarking benchmarking/run_benchmarks.jl --precision=Float32
+julia --project=benchmarking benchmarking/run_benchmarks.jl --size=512 --size-3d=96
 ```
 
 `--backend` accepts `CPU` (default), `CUDA`, `AMDGPU`, or `Metal`. GPU cases use the same
 problem sizes as the CPU, synchronize the device before each timing ends, and record the
 device name in `metadata.device` and `metadata.hardware_fingerprint`.
+
+`--size` and `--size-3d` set the cells per side of the 2D (default 128) and 3D (default 32)
+particle cases; the marker-surface case keeps its size. The size is part of each benchmark
+name, so different sizes form separate dashboard series. GPU timings at the default sizes are
+dominated by launch and synchronization; use larger sizes to compare kernel throughput.
 
 `--precision` accepts `Float64` (default) or `Float32` and sets the element type of every
 field, grid, and velocity array, as well as of the STREAM triad and FMA-chain probes that
@@ -159,7 +175,8 @@ arbitrary percentage.
 The initial groups are:
 
 - `Particle workflow`: one periodic RK2 advection and movement step, in 2D and 3D;
-- `Interpolation`: particle-to-grid followed by grid-to-particle interpolation, in 2D and 3D;
+- `Interpolation`: the particle↔vertex and particle↔centroid directions, their round-trips,
+  and 3-field transfer cases, in 2D and 3D;
 - `MarkerSurface`: a complete surface update with interpolation, advection, and smoothing.
 
 MPI and checkpoint benchmarks, automated PR comparisons, and regression thresholds are not
