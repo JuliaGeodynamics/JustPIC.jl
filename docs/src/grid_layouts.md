@@ -44,7 +44,7 @@ The resulting layouts are:
 
 | Layout | Coordinates | Typical use |
 | --- | --- | --- |
-| `particles.xvi` | vertices, ghosted | vertex fields and `grid2particle!` |
+| `particles.xvi` | vertices, ghosted | vertex fields and `vertex2particle!` |
 | `particles.xci` | centroids, ghosted | centroid fields and `centroid2particle!` |
 | `particles.xi_vel` | staggered component grids | velocity advection |
 

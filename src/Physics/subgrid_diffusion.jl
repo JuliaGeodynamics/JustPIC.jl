@@ -67,13 +67,13 @@ function subgrid_diffusion!(
     d, dt = convert.(eltype(eltype(pT)), (d, dt))
 
     launch!(ka_backend(pT), memcopy_cellarray_kernel!, ni, pT0, pT)
-    grid2particle!(pT, T_grid, particles)
+    vertex2particle!(pT, T_grid, particles)
 
     launch!(ka_backend(pT), subgrid_diffusion_kernel!, ni, pT, pT0, pΔT, dt₀, particles.index, d, dt)
-    particle2grid!(subgrid_arrays.ΔT_subgrid, pΔT, particles)
+    particle2vertex!(subgrid_arrays.ΔT_subgrid, pΔT, particles)
 
     launch!(ka_backend(subgrid_arrays.ΔT_subgrid), update_ΔT_subgrid_kernel!, size(ΔT_grid), subgrid_arrays.ΔT_subgrid, ΔT_grid)
-    grid2particle!(pΔT, subgrid_arrays.ΔT_subgrid, particles)
+    vertex2particle!(pΔT, subgrid_arrays.ΔT_subgrid, particles)
 
     launch!(ka_backend(pT), update_particle_temperature_kernel!, ni, pT, pT0, pΔT)
 

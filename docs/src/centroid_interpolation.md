@@ -36,7 +36,7 @@ particle2centroid!(C, pC, particles)
 ```
 
 `particle2centroid!` accepts `ghost_1`, `ghost_2`, and `ghost_3` to control the
-destination layout, just like `particle2grid!`.
+destination layout, just like `particle2vertex!`.
 
 ## Physical-only centroid arrays
 
@@ -54,5 +54,5 @@ particle2centroid!(C_out, pC, particles; ghost_1=false, ghost_2=false)
 ```
 
 Use the ghosted layout for boundary-sensitive calculations unless the physical
-only behavior is intentional. Unlike `grid2particle!`, centroid interpolation
+only behavior is intentional. Unlike `vertex2particle!`, centroid interpolation
 uses the `ghosted` keyword rather than per-direction `ghost_i` keywords.

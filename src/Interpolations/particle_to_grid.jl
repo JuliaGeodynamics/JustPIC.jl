@@ -1,7 +1,7 @@
 ## LAUNCHERS
 
 """
-    particle2grid!(F, Fp, particles)
+    particle2vertex!(F, Fp, particles)
 
 Interpolate particle-centered values `Fp` onto the grid nodes `F`.
 
@@ -23,7 +23,7 @@ of component arrays.
   the particles themselves.
 """
 
-function particle2grid!(F, Fp, particles; ghost_1 = true, ghost_2 = true, ghost_3 = true)
+function particle2vertex!(F, Fp, particles; ghost_1 = true, ghost_2 = true, ghost_3 = true)
     (; coords, index, xvi) = particles
 
     # mask shift in case `F` has ghost nodes only in some dimensions, or non at all
@@ -31,21 +31,21 @@ function particle2grid!(F, Fp, particles; ghost_1 = true, ghost_2 = true, ghost_
 
     # `index` carries the cell layout for both scalar and tuple-valued `Fp`
     ndrange = length.(inner_ranges(index))
-    launch!(ka_backend(particles), particle2grid_kernel!, ndrange, F, Fp, xvi, coords, index, mask)
+    launch!(ka_backend(particles), particle2vertex_kernel!, ndrange, F, Fp, xvi, coords, index, mask)
     return nothing
 end
 
-@kernel function particle2grid_kernel!(F, Fp, xi, particle_coords, index, mask)
+@kernel function particle2vertex_kernel!(F, Fp, xi, particle_coords, index, mask)
     I = @index(Global, NTuple)
     I_inner = I .+ 1
-    _particle2grid!(F, Fp, I_inner..., xi, particle_coords, index, mask)
+    _particle2vertex!(F, Fp, I_inner..., xi, particle_coords, index, mask)
 end
 
-@generated function _particle2grid_zero(::Val{N}, F) where {N}
+@generated function _particle2vertex_zero(::Val{N}, F) where {N}
     return :(Base.@ntuple $N i -> zero(eltype(F[1])))
 end
 
-@generated function _particle2grid_accumulate(
+@generated function _particle2vertex_accumulate(
         ωxF::NTuple{N}, ω_i, Fp::NTuple{N}, ip, ivertex, jvertex
     ) where {N}
     return quote
@@ -55,7 +55,7 @@ end
     end
 end
 
-@generated function _particle2grid_accumulate(
+@generated function _particle2vertex_accumulate(
         ωxF::NTuple{N}, ω_i, Fp::NTuple{N}, ip, ivertex, jvertex, kvertex
     ) where {N}
     return quote
@@ -65,7 +65,7 @@ end
     end
 end
 
-@generated function _particle2grid_store!(
+@generated function _particle2vertex_store!(
         F::NTuple{N}, ωxF::NTuple{N}, _ω, inode, jnode, mask
     ) where {N}
     return quote
@@ -74,7 +74,7 @@ end
     end
 end
 
-@generated function _particle2grid_store!(
+@generated function _particle2vertex_store!(
         F::NTuple{N}, ωxF::NTuple{N}, _ω, inode, jnode, knode, mask
     ) where {N}
     return quote
@@ -85,7 +85,7 @@ end
 
 ## INTERPOLATION KERNEL 2D
 
-function _particle2grid!(F, Fp, inode, jnode, xi::NTuple{2, T}, p, index, mask) where {T}
+function _particle2vertex!(F, Fp, inode, jnode, xi::NTuple{2, T}, p, index, mask) where {T}
     px, py = p # particle coordinates
     xvertex = xi[1][inode], xi[2][jnode] # cell lower-left coordinates
     ω, ωxF = zero(eltype(F)), zero(eltype(F)) # init weights
@@ -121,13 +121,13 @@ function _particle2grid!(F, Fp, inode, jnode, xi::NTuple{2, T}, p, index, mask) 
     return nothing
 end
 
-function _particle2grid!(
+function _particle2vertex!(
         F::NTuple{N, Any}, Fp::NTuple{N, Any}, inode, jnode, xi::NTuple{2, T3}, p, index, mask
     ) where {N, T3}
     px, py = p # particle coordinates
     xvertex = xi[1][inode], xi[2][jnode] # cell lower-left coordinates
     ω = zero(eltype(F[1])) # init weights
-    ωxF = _particle2grid_zero(Val(N), F) # init weights
+    ωxF = _particle2vertex_zero(Val(N), F) # init weights
 
     # iterate over cells around i-th node
     for joffset in -1:0
@@ -147,20 +147,20 @@ function _particle2grid!(
                 ω_i = distance_weight(xvertex, p_i; order = 2)
                 # ω_i = bilinear_weight(xvertex, p_i, di)
                 ω += ω_i
-                ωxF = _particle2grid_accumulate(ωxF, ω_i, Fp, i, ivertex, jvertex)
+                ωxF = _particle2vertex_accumulate(ωxF, ω_i, Fp, i, ivertex, jvertex)
             end
             # end
         end
     end
 
     _ω = iszero(ω) ? zero(ω) : inv(ω)
-    _particle2grid_store!(F, ωxF, _ω, inode, jnode, mask)
+    _particle2vertex_store!(F, ωxF, _ω, inode, jnode, mask)
     return nothing
 end
 
 ## INTERPOLATION KERNEL 3D
 
-function _particle2grid!(
+function _particle2vertex!(
         F, Fp, inode, jnode, knode, xi::NTuple{3, T}, p, index, mask
     ) where {T}
     px, py, pz = p # particle coordinates
@@ -201,13 +201,13 @@ function _particle2grid!(
     return F[inode + mask[1], jnode + mask[2], knode + mask[3]] = iszero(ω) ? zero(ωF) : ωF * inv(ω)
 end
 
-function _particle2grid!(
+function _particle2vertex!(
         F::NTuple{N, Any}, Fp::NTuple{N, Any}, inode, jnode, knode, xi::NTuple{3, T3}, p, index, mask
     ) where {N, T3}
     px, py, pz = p # particle coordinates
     xvertex = xi[1][inode], xi[2][jnode], xi[3][knode] # cell lower-left coordinates
     ω = zero(eltype(F[1])) # init weights
-    ωxF = _particle2grid_zero(Val(N), F) # init weights
+    ωxF = _particle2vertex_zero(Val(N), F) # init weights
 
     # iterate over cells around i-th node
     for koffset in -1:0
@@ -232,7 +232,7 @@ function _particle2grid!(
                     ω_i = distance_weight(xvertex, p_i; order = 2)
                     # ω_i = bilinear_weight(xvertex, p_i, di)
                     ω += ω_i
-                    ωxF = _particle2grid_accumulate(
+                    ωxF = _particle2vertex_accumulate(
                         ωxF, ω_i, Fp, ip, ivertex, jvertex, kvertex
                     )
                 end
@@ -242,7 +242,7 @@ function _particle2grid!(
     end
 
     _ω = iszero(ω) ? zero(ω) : inv(ω)
-    _particle2grid_store!(F, ωxF, _ω, inode, jnode, knode, mask)
+    _particle2vertex_store!(F, ωxF, _ω, inode, jnode, knode, mask)
     return nothing
 end
 

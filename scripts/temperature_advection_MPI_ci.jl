@@ -90,7 +90,7 @@ function main()
 
     # Advection test
     particle_args = pT, = init_cell_arrays(particles, Val(1))
-    grid2particle!(pT, T, particles)
+    vertex2particle!(pT, T, particles)
 
     niter = parse(Int, get(ENV, "JUSTPIC_MPI_CI_NITER", "250"))
     for iter in 1:niter
@@ -104,10 +104,10 @@ function main()
         # shuffle particles
         move_particles!(particles, particle_args)
         inject_particles!(particles, ())
-        grid2particle!(pT, T, particles)
+        vertex2particle!(pT, T, particles)
         update_cell_halo!(particles.coords..., particle_args..., particles.index)
         # interpolate T from particle to grid
-        particle2grid!(T, pT, particles)
+        particle2vertex!(T, pT, particles)
 
         @views T_nohalo .= T[2:(end - 1), 2:(end - 1)]
         all(isfinite, Array(T_nohalo)) || error("Non-finite reconstructed field on rank $me")

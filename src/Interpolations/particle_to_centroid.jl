@@ -6,7 +6,7 @@
 Interpolate particle-centered values `Fp` to cell centers `F`.
 
 `xci` contains the 1D coordinate arrays of the cell centers. This is the
-cell-centered counterpart to `particle2grid!` and mutates `F` in place.
+cell-centered counterpart to `particle2vertex!` and mutates `F` in place.
 
 # Arguments
 - `F`: destination centroid array, or tuple of centroid arrays.

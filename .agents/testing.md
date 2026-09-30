@@ -56,7 +56,7 @@ to `gpu_testfiles` (if it should run on GPU). Orphaned test files are a recurrin
   fields, sum of phase ratios == 1, particle counts conserved)
 - Use minimal grid sizes to keep CI time down
 - `test_Aqua.jl` runs Aqua.jl package hygiene plus a migration lint testset; two
-  `_grid2particle` ambiguities are deliberately excluded there
+  `_vertex2particle` ambiguities are deliberately excluded there
 
 ## Debugging
 

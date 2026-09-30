@@ -137,7 +137,7 @@ Base.getindex(p::ForceInjectionPoint2D, i::Int) = p.coords[i]
 
     T_vertex = TA(backend)([y for x in xvi_p[1], y in xvi_p[2]])
     pT, = JustPIC.init_cell_arrays(particles, Val(1))
-    JustPIC.grid2particle!(pT, T_vertex, particles)
+    JustPIC.vertex2particle!(pT, T_vertex, particles)
     pT_before = copy(Array(pT.data))
     subgrid_diffusion!(pT, T_vertex, ΔT_grid, arrays, particles, FT(1); d = FT(0))
     @test Array(pT.data)[active] ≈ (pT_before .+ ΔT_const)[active]
@@ -555,7 +555,7 @@ end
         JustPIC.find_parent_cell_bisection(p_backtrack[2], yv, 3),
     )
     di_backtrack = (dxi_vertex[1][I_backtrack[1]], dxi_vertex[2][I_backtrack[2]])
-    expected = JustPIC._grid2particle(
+    expected = JustPIC._vertex2particle(
         p_backtrack, (xv, yv), di_backtrack, F0, I_backtrack
     )
     tol = FT === Float32 ? 1.0f-5 : 1.0e-12
@@ -653,7 +653,7 @@ end
     end
 
     # interpolate grid fields T and P onto the marker locations
-    JustPIC.grid2particle!((T_marker, P_marker), xvi, (T, P), passive_markers)
+    JustPIC.vertex2particle!((T_marker, P_marker), xvi, (T, P), passive_markers)
     x_marker = passive_markers.coords[1]
     y_marker = passive_markers.coords[2]
 
@@ -881,19 +881,19 @@ function advection_test_2D()
 
     # Advection test
     particle_args = pT, = init_cell_arrays(particles, Val(1))
-    JustPIC.grid2particle!(pT, xvi_p, T, particles, diff.(xvi_p))
+    JustPIC.vertex2particle!(pT, xvi_p, T, particles, diff.(xvi_p))
 
     # Particle-to-grid interpolation is nonconservative; weighted integral checks bounded drift.
     sumT = _weighted_integral_2D(T, xvi)
 
     niter = 25
     for it in 1:niter
-        JustPIC.particle2grid!(T, pT, particles)
+        JustPIC.particle2vertex!(T, pT, particles)
         copyto!(T0, T)
         JustPIC.advection!(particles, RungeKutta2(2 / 3), V, dt)
         JustPIC.move_particles!(particles, particle_args)
         JustPIC.inject_particles!(particles, (pT,))
-        JustPIC.grid2particle!(pT, xvi_p, T, particles, diff.(xvi_p))
+        JustPIC.vertex2particle!(pT, xvi_p, T, particles, diff.(xvi_p))
     end
 
     sumT_final = _weighted_integral_2D(T, xvi)
@@ -936,19 +936,19 @@ function advection_test_2D_refined()
     dt = min(dx_min / maximum(abs.(Array(Vx))), dy_min / maximum(abs.(Array(Vy)))) / 2
 
     particle_args = pT, = init_cell_arrays(particles, Val(1))
-    JustPIC.grid2particle!(pT, T, particles)
+    JustPIC.vertex2particle!(pT, T, particles)
 
     # Refined-grid check remains a bounded-drift check for nonconservative interpolation.
     sumT = _weighted_integral_2D(T, xvi)
 
     niter = 25
     for _ in 1:niter
-        JustPIC.particle2grid!(T, pT, particles)
+        JustPIC.particle2vertex!(T, pT, particles)
         copyto!(T0, T)
         JustPIC.advection!(particles, RungeKutta2(2 / 3), V, dt)
         JustPIC.move_particles!(particles, particle_args)
         JustPIC.inject_particles!(particles, (pT,))
-        JustPIC.grid2particle!(pT, T, particles)
+        JustPIC.vertex2particle!(pT, T, particles)
     end
 
     sumT_final = _weighted_integral_2D(T, xvi)

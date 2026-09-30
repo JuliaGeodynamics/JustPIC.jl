@@ -20,7 +20,7 @@ each rank.
 - With periodic boundary conditions, `update_cell_halo!` exchanges the overlap
   across the periodic domain boundaries as configured in `init_global_grid`.
 - If particles are reinjected with `inject_particles!`, refresh the halos again
-  before reconstructing grid fields with `particle2grid!`.
+  before reconstructing grid fields with `particle2vertex!`.
 
 # Example
 ```julia
@@ -30,7 +30,7 @@ update_cell_halo!(particle_args...)
 update_cell_halo!(particles.index)
 move_particles!(particles, particle_args)
 inject_particles!(particles, particle_args)
-particle2grid!(T, pT, particles)
+particle2vertex!(T, pT, particles)
 ```
 """
 function update_cell_halo!(

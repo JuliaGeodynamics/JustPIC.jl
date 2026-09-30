@@ -17,8 +17,8 @@ JustPIC exposes three concrete `AbstractParticles` containers:
 
 `Particles` stores coordinates, active-slot masks, occupancy thresholds, and the
 derived center, vertex, and velocity grids used by the high-level APIs. Those
-extra fields are what let helpers such as `move_particles!`, `grid2particle!`,
-`particle2grid!`, `inject_particles!`, `update_phase_ratios!`, and
+extra fields are what let helpers such as `move_particles!`, `vertex2particle!`,
+`particle2vertex!`, `inject_particles!`, `update_phase_ratios!`, and
 `subgrid_diffusion!` use the compact `(..., particles, ...)` call style.
 
 `particles.np` is the initial storage capacity (`max_xcell * number of cells`),
@@ -106,8 +106,8 @@ Once `particles` has been initialized, most transfer and maintenance routines
 use the geometry stored in the container directly:
 
 ```julia
-grid2particle!(Fp, F, particles)
-particle2grid!(F, Fp, particles)
+vertex2particle!(Fp, F, particles)
+particle2vertex!(F, Fp, particles)
 move_particles!(particles, particle_args)
 inject_particles!(particles, particle_args)
 update_phase_ratios!(phase_ratios, particles, phases)

@@ -6,8 +6,8 @@ Vertex interpolation transfers a field between grid vertices and particles:
 vertex grid → particles → vertex grid
 ```
 
-Use `grid2particle!` to interpolate a vertex field to particles and
-`particle2grid!` to accumulate particle values back to vertices.
+Use `vertex2particle!` to interpolate a vertex field to particles and
+`particle2vertex!` to accumulate particle values back to vertices.
 
 ## Ghosted vertex arrays
 
@@ -31,8 +31,8 @@ particles = init_particles(JustPIC.CPU, 16, 24, 8, grid_vx, grid_vy)
 T = [y for x in particles.xvi[1], y in particles.xvi[2]]
 pT, = init_cell_arrays(particles, Val(1))
 
-grid2particle!(pT, T, particles)
-particle2grid!(T, pT, particles)
+vertex2particle!(pT, T, particles)
+particle2vertex!(T, pT, particles)
 ```
 
 For staggered fields, create one coordinate tuple per component. For example,
@@ -47,10 +47,10 @@ uses an unghosted field in both directions:
 
 ```julia
 T_physical = [y for x in xv, y in yv]
-grid2particle!(pT, T_physical, particles; ghost_1=false, ghost_2=false)
+vertex2particle!(pT, T_physical, particles; ghost_1=false, ghost_2=false)
 
 T_out = similar(T_physical)
-particle2grid!(T_out, pT, particles; ghost_1=false, ghost_2=false)
+particle2vertex!(T_out, pT, particles; ghost_1=false, ghost_2=false)
 ```
 
 Set each `ghost_i` keyword independently when only some directions are padded.
@@ -59,9 +59,9 @@ The keywords default to `true`.
 ## PIC/FLIP update
 
 When both the current and previous vertex fields are available,
-`grid2particle_flip!` applies a PIC/FLIP blend. `α = 1` is PIC and `α = 0` is
+`vertex2particle_flip!` applies a PIC/FLIP blend. `α = 1` is PIC and `α = 0` is
 FLIP:
 
 ```julia
-grid2particle_flip!(pT, T, T_previous, particles; α=0.5)
+vertex2particle_flip!(pT, T, T_previous, particles; α=0.5)
 ```

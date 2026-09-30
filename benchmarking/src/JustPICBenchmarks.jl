@@ -56,8 +56,8 @@ function particle_state(backend, n, ::Type{FT}, ::Val{D}) where {FT, D}
     particle_fields = init_cell_arrays(particles, Val(3))
     nodal_fields = ntuple(i -> TA(backend)(FT[i * sum(x) for x in Iterators.product(xvi...)]), Val(3))
     centroid_fields = ntuple(i -> TA(backend)(FT[i * sum(x) for x in Iterators.product(xci...)]), Val(3))
-    grid2particle!(particle_field, nodal_field, particles)
-    grid2particle!(particle_fields, nodal_fields, particles)
+    vertex2particle!(particle_field, nodal_field, particles)
+    vertex2particle!(particle_fields, nodal_fields, particles)
 
     velocities = FT.((0.1, -0.05, 0.025))
     V = ntuple(i -> TA(backend)(fill(velocities[i], length.(grid_vi[i]))), Val(D))
@@ -155,8 +155,8 @@ end
 function interpolation_case(backend, n, ::Type{FT}, dims::Val{D} = Val(2)) where {FT, D}
     setup() = particle_state(backend, n, FT, dims)
     function run(state)
-        particle2grid!(state.nodal_field, state.particle_field, state.particles)
-        grid2particle!(state.particle_field, state.nodal_field, state.particles)
+        particle2vertex!(state.nodal_field, state.particle_field, state.particles)
+        vertex2particle!(state.particle_field, state.nodal_field, state.particles)
         synchronize(backend)
         return state
     end
@@ -187,19 +187,19 @@ function interpolation_direction_case(
     ) where {FT, D, NF}
     setup() = particle_state(backend, n, FT, dims)
     run = if direction == :particle_to_grid && NF == 1
-        state -> (particle2grid!(state.nodal_field, state.particle_field, state.particles); state)
+        state -> (particle2vertex!(state.nodal_field, state.particle_field, state.particles); state)
     elseif direction == :grid_to_particle && NF == 1
-        state -> (grid2particle!(state.particle_field, state.nodal_field, state.particles); state)
+        state -> (vertex2particle!(state.particle_field, state.nodal_field, state.particles); state)
     elseif direction == :particle_to_centroid && NF == 1
         state -> (particle2centroid!(state.centroid_field, state.particle_field, state.particles); state)
     elseif direction == :centroid_to_particle && NF == 1
         state -> (centroid2particle!(state.particle_field, state.centroid_field, state.particles); state)
     elseif direction == :grid_to_particle && NF > 1
-        state -> (grid2particle!(state.particle_fields, state.nodal_fields, state.particles); state)
+        state -> (vertex2particle!(state.particle_fields, state.nodal_fields, state.particles); state)
     elseif direction == :centroid_to_particle && NF > 1
         state -> (centroid2particle!(state.particle_fields, state.centroid_fields, state.particles); state)
     elseif direction == :particle_to_grid && NF > 1
-        state -> (particle2grid!(state.nodal_fields, state.particle_fields, state.particles); state)
+        state -> (particle2vertex!(state.nodal_fields, state.particle_fields, state.particles); state)
     elseif direction == :particle_to_centroid && NF > 1
         state -> (particle2centroid!(state.centroid_fields, state.particle_fields, state.particles); state)
     else

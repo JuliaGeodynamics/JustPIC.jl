@@ -347,13 +347,13 @@ function _inject_particles_phase!(
                     idx_center = shifted_index(p_new, xci, idx_cell)
                     idx_center = clamp.(idx_center, 1, sz .- 1)
                     di_center = @dxi(dxi_center, idx_center...)
-                    tmp = _grid2particle(p_new, grid_center, di_center, fields[j], idx_center)
+                    tmp = _vertex2particle(p_new, grid_center, di_center, fields[j], idx_center)
                     local_field = cell_field(fields[j], idx_center...)
                     lower, upper = extrema(local_field)
                     CAI.@index args[j][i, idx_cell...] = clamp(tmp, lower, upper)
 
                 else
-                    tmp = _grid2particle(p_new, grid, di, fields[j], idx_cell)
+                    tmp = _vertex2particle(p_new, grid, di, fields[j], idx_cell)
                     local_field = cell_field(fields[j], idx_cell...)
                     lower, upper = extrema(local_field)
                     CAI.@index args[j][i, idx_cell...] = clamp(tmp, lower, upper)

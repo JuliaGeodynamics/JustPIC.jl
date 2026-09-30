@@ -57,7 +57,7 @@ function main()
 
     # Advection test
     particle_args = pT, = init_cell_arrays(particles, Val(1))
-    grid2particle!(pT, T, particles)
+    vertex2particle!(pT, T, particles)
 
     niter = parse(Int, get(ENV, "JUSTPIC_TIMER_NITER", "5"))
     for it in 1:niter
@@ -65,8 +65,8 @@ function main()
         @timeit to "advect" advection!(particles, RungeKutta2(2 / 3), V, dt)
         @timeit to "move" move_particles!(particles, particle_args)
         @timeit to "injection" inject_particles!(particles, (pT,))
-        @timeit to "p2g" particle2grid!(T, pT, particles)
-        @timeit to "g2p" grid2particle!(pT, T, particles)
+        @timeit to "p2g" particle2vertex!(T, pT, particles)
+        @timeit to "g2p" vertex2particle!(pT, T, particles)
         @show to
 
         if rem(it, 10) == 0

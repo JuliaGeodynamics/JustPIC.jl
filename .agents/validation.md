@@ -30,7 +30,7 @@ After every advection + `move_particles!` (+ injection) cycle, check:
 
 - grid → particle → grid of a smooth field must reproduce the field to interpolation
   order; linear fields must be reproduced *exactly* by linear kernels (lerp, LinP)
-- Check both `grid2particle!`/`particle2grid!` (vertices) and the centroid variants
+- Check both `vertex2particle!`/`particle2vertex!` (vertices) and the centroid variants
 - MQS kernels: verify against the plain scheme on a refined grid — differences should be
   small and localized to sharp gradients
 

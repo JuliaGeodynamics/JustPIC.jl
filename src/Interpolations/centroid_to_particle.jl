@@ -12,7 +12,7 @@ particle fields.
 
 Particles lying between a domain boundary and the first centroid are
 interpolated from the ghost centroids, so `F` must always use the ghosted
-`particles.xci` layout — unlike `grid2particle!`, there is no opt-out.
+`particles.xci` layout — unlike `vertex2particle!`, there is no opt-out.
 """
 function centroid2particle!(Fp, F, particles; ghosted = true)
     if ghosted
@@ -83,7 +83,7 @@ end
         cell_index = clamp.(cell_index, 1, ni)
         # Interpolate field F onto particle
         # @show @dxi(di, cell_index...)
-        CAI.@index Fp[ip, I...] = _grid2particle(pᵢ, xci, @dxi(di, cell_index...), F, cell_index)
+        CAI.@index Fp[ip, I...] = _vertex2particle(pᵢ, xci, @dxi(di, cell_index...), F, cell_index)
     end
     return nothing
 end
@@ -96,7 +96,7 @@ end
         any(isnan, pᵢ) && continue
         cell_index = shifted_index(pᵢ, xc, I_src)
         cell_index = clamp.(cell_index, 1, ni)
-        CAI.@index Fp[ip, I_dst...] = _grid2particle(pᵢ, xci, @dxi(di, cell_index...), F, cell_index)
+        CAI.@index Fp[ip, I_dst...] = _vertex2particle(pᵢ, xci, @dxi(di, cell_index...), F, cell_index)
     end
     return nothing
 end

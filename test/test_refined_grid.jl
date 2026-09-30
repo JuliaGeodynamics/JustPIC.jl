@@ -162,17 +162,17 @@ active = Array(particles.index.data)
 @testset "Interpolations 2D on refined grid" begin
 
     # Grid to particle test
-    JustPIC.grid2particle!(pT, T, particles)
+    JustPIC.vertex2particle!(pT, T, particles)
     @test Array(pT.data)[active] ≈ Array(particles.coords[2].data)[active]
 
     # Grid to particle test
-    JustPIC.grid2particle_flip!(pT, xvi_p, T, T0, particles)
+    JustPIC.vertex2particle_flip!(pT, xvi_p, T, T0, particles)
     @test Array(pT.data)[active] ≈ Array(particles.coords[2].data)[active]
 
     # Particle to grid test
     T2 = similar(T)
     fill!(T2, FT(NaN))
-    JustPIC.particle2grid!(T2, pT, particles)
+    JustPIC.particle2vertex!(T2, pT, particles)
     finite_mask = isfinite.(T2)
     @test norm(T2[finite_mask] .- T[finite_mask]) / count(finite_mask) < 1.0e-1
 
