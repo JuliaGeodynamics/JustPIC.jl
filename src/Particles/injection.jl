@@ -22,8 +22,7 @@ Inject particles into cells whose occupancy falls below `particles.min_xcell`.
 inject_particles!(particles::Particles, args) = inject_particles!(particles, args, particles.xvi, particles.di.vertex)
 
 function inject_particles!(particles::Particles, args, grid::NTuple{N}, di) where {N}
-    # function implementation goes here
-    # unpack
+    check_particle_fields(particles, args)
     (; coords, index, min_xcell) = particles
     ni = inner_size(index)
     n_color = ntuple(i -> ceil(Int, ni[i] * 0.5), Val(N))
@@ -188,7 +187,7 @@ inject_particles_phase!(
 function inject_particles_phase!(
         particles::Particles, particles_phases, args, fields, grid::NTuple{N}, grid_center, di, di_center
     ) where {N}
-    # unpack
+    check_phase_injection_inputs(particles, particles_phases, args, fields, grid)
     (; coords, index, min_xcell) = particles
     ni = inner_size(index)
     n_color = ntuple(i -> ceil(Int, ni[i] * 0.5), Val(N))

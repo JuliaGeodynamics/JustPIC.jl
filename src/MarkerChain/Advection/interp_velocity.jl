@@ -14,6 +14,12 @@ function interpolate_velocity_to_markerchain!(
         grid_vi::NTuple{N, NTuple{N, Any}},
     ) where {N}
     (; coords, index) = chain
+    Tc = scalar_eltype(coords[1])
+    check_velocity(V, grid_vi, ka_backend(chain), Tc)
+    check_field_pairing("chain_V", chain_V, "V", V)
+    check_cell_layout("chain_V", chain_V, index)
+    check_backend("chain_V", chain_V, ka_backend(chain))
+    check_precision("chain_V", chain_V, Tc)
 
     # make the grid GPU-safe: it is indexed directly inside the kernel (see advection!)
     Tc = eltype(eltype(coords[1]))

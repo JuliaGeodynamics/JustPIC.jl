@@ -39,6 +39,8 @@ end
 
 JustPIC.TA(::Type{MetalBackend}) = MtlArray
 
+JustPIC.supports_float64(::Union{MetalBackend, Type{MetalBackend}}) = false
+
 # ---------------------------------------------------------------------------
 # Backend-specific CellArray allocation
 # ---------------------------------------------------------------------------

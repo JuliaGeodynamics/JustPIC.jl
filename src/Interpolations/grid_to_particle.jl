@@ -29,6 +29,7 @@ grid2particle!(Fp, F, particles; ghost_1 = true, ghost_2 = true, ghost_3 = true)
 
 function grid2particle!(Fp, xvi, F, particles, di; ghost_1 = true, ghost_2 = true, ghost_3 = true)
     (; coords, index) = particles
+    check_transfer(Fp, F, ghosted_size(xvi, (ghost_1, ghost_2, ghost_3)), particles)
     ni = inner_size(index)
     backend = ka_backend(particles)
     Tc = eltype(eltype(coords[1]))
@@ -136,6 +137,12 @@ between the two updates.
 """
 function grid2particle_flip!(Fp, xvi, F, F0, particles; α = 0.0, ghost_1 = true, ghost_2 = true, ghost_3 = true)
     (; coords, index) = particles
+    0 ≤ α ≤ 1 || throw(ArgumentError("the PIC fraction `α` must lie in [0, 1], got $α"))
+    dims = ghosted_size(xvi, (ghost_1, ghost_2, ghost_3))
+    check_transfer(Fp, F, dims, particles)
+    check_field_pairing("F", F, "F0", F0)
+    check_grid_field("F0", F0, dims, particles)
+    check_distinct("Fp" => Fp, "F0" => F0)
     # recast the grid to the particle precision so the ranges are GPU-safe on Float32
     # backends (they are indexed directly inside the kernel; see advection!)
     Tc = eltype(eltype(coords[1]))

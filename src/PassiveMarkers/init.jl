@@ -12,5 +12,6 @@ initial marker positions: marker `k` sits at `(coords[1][k], …, coords[N][k])`
 - `coords`: tuple of coordinate vectors, one per dimension.
 """
 function init_passive_markers(backend, coords::NTuple{N, AbstractArray}) where {N}
+    check_marker_coordinates(backend, coords)
     return PassiveMarkers(backend, coords)
 end

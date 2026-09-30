@@ -18,6 +18,7 @@ KernelAbstractions' `CPU`.
 function PhaseRatios(
         ::Type{T}, ::Type{B}, nphases::Integer, ni::NTuple{2, Integer}
     ) where {T, B}
+    check_phase_ratio_allocation(T, B, nphases, ni)
     nx, ny = ni
 
     center = cell_array(B, zero(T), (nphases,), ni)
@@ -32,6 +33,7 @@ end
 function PhaseRatios(
         ::Type{T}, ::Type{B}, nphases::Integer, ni::NTuple{3, Integer}
     ) where {T, B}
+    check_phase_ratio_allocation(T, B, nphases, ni)
     nx, ny, nz = ni
 
     center = cell_array(B, zero(T), (nphases,), ni)

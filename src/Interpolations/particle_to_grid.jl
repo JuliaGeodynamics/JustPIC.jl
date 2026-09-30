@@ -25,6 +25,7 @@ of component arrays.
 
 function particle2grid!(F, Fp, particles; ghost_1 = true, ghost_2 = true, ghost_3 = true)
     (; coords, index, xvi) = particles
+    check_transfer(Fp, F, ghosted_size(xvi, (ghost_1, ghost_2, ghost_3)), particles)
 
     # mask shift in case `F` has ghost nodes only in some dimensions, or non at all
     mask = inner_mask(particles, ghost_1, ghost_2, ghost_3)
@@ -117,7 +118,7 @@ function _particle2grid!(F, Fp, inode, jnode, xi::NTuple{2, T}, p, index, mask) 
         end
     end
 
-    F[inode + mask[1], jnode + mask[2]] = iszero(ω) ? zero(ωxF) : ωxF / ω
+    F[inode + mask[1], jnode + mask[2]] = ωxF * support_inverse(ω)
     return nothing
 end
 
@@ -153,7 +154,7 @@ function _particle2grid!(
         end
     end
 
-    _ω = iszero(ω) ? zero(ω) : inv(ω)
+    _ω = support_inverse(ω)
     _particle2grid_store!(F, ωxF, _ω, inode, jnode, mask)
     return nothing
 end
@@ -198,7 +199,7 @@ function _particle2grid!(
         end
     end
 
-    return F[inode + mask[1], jnode + mask[2], knode + mask[3]] = iszero(ω) ? zero(ωF) : ωF * inv(ω)
+    return F[inode + mask[1], jnode + mask[2], knode + mask[3]] = ωF * support_inverse(ω)
 end
 
 function _particle2grid!(
@@ -241,7 +242,7 @@ function _particle2grid!(
         end
     end
 
-    _ω = iszero(ω) ? zero(ω) : inv(ω)
+    _ω = support_inverse(ω)
     _particle2grid_store!(F, ωxF, _ω, inode, jnode, knode, mask)
     return nothing
 end

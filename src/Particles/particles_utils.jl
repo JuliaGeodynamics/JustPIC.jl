@@ -78,6 +78,8 @@ function init_particles(
         xi_vel_cpu::NTuple{N, NTuple{N, AbstractVector}},
     ) where {N}
 
+    check_particle_capacity(nxcell, max_xcell, min_xcell)
+    check_staggered_grids(backend, xi_vel_cpu)
     xi_vel, xci, xvi, di, _di = staggered_grids(backend, xi_vel_cpu)
     return _init_particles(backend, nxcell, max_xcell, min_xcell, xi_vel, xci, xvi, di, _di)
 end
@@ -90,6 +92,8 @@ function init_particles(
         xi_vel_cpu::NTuple{N, NTuple{N, AbstractRange}},
     ) where {N}
 
+    check_particle_capacity(nxcell, max_xcell, min_xcell)
+    check_staggered_grids(backend, xi_vel_cpu)
     xi_vel, xci, xvi, di, _di = staggered_grids(backend, xi_vel_cpu)
     return _init_particles(backend, nxcell, max_xcell, min_xcell, xi_vel, xci, xvi, di, _di)
 end

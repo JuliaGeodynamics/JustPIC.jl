@@ -97,6 +97,33 @@ function check_semilagrangian(advect!, method, ::Val{N}) where {N}
     return nothing
 end
 
+# Departure points that leave the grid are projected onto its boundary: a uniform flow
+# displacing every node by more than the first cell samples the inflow boundary values.
+function check_semilagrangian_domain_exit(advect!, method, ::Val{N}) where {N}
+    dev = TA(backend)
+    xv = FT[0, 0.15, 0.35, 0.6, 0.8, 1]
+    n = length(xv)
+    xc = (xv[1:(end - 1)] .+ xv[2:end]) ./ 2
+    xvi = ntuple(_ -> xv, Val(N))
+    grid = map(dev, xvi)
+    grid_vi = ntuple(d -> ntuple(j -> dev(j == d ? xv : sml_expand(xc)), Val(N)), Val(N))
+    v = ntuple(d -> FT((0.3, -0.25, 0.2)[d]), Val(N))
+    dt = FT(1)
+    V = ntuple(d -> dev(fill(v[d], length.(grid_vi[d]))), Val(N))
+
+    f = p -> FT(1) + sum(ntuple(d -> FT(d) * p[d], Val(N)))
+    F0 = dev([f(p) for p in Iterators.product(xvi...)])
+    F = dev(fill(FT(NaN), ntuple(_ -> n, Val(N))))
+    advect!(F, F0, method, V, grid_vi, grid, dt)
+
+    inner = ntuple(_ -> 2:(n - 1), Val(N))
+    departure(p) = clamp.(p .- v .* dt, FT(0), FT(1))
+    expected = [f(departure(p)) for p in Iterators.product(map(x -> x[2:(end - 1)], xvi)...)]
+    tol = FT === Float32 ? 1.0f-5 : 1.0e-12
+    @test Array(F)[inner...] ≈ expected atol = tol rtol = tol
+    return nothing
+end
+
 const SML_SCHEMES = (
     "plain" => semilagrangian_advection!,
     "LinP" => semilagrangian_advection_LinP!,
@@ -110,4 +137,5 @@ const SML_METHODS = (Euler(), RungeKutta2(), RungeKutta4())
         method in SML_METHODS
 
     check_semilagrangian(advect!, method, Val(N))
+    check_semilagrangian_domain_exit(advect!, method, Val(N))
 end

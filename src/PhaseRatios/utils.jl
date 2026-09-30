@@ -15,8 +15,9 @@ velocity nodes, and in 3D also at edge-midpoint locations.
 function update_phase_ratios!(
         phase_ratios::JustPIC.PhaseRatios{B, T}, particles, phases
     ) where {B, T <: AbstractMatrix}
-    phase_ratios_center!(phase_ratios, particles, phases)
-    phase_ratios_vertex!(phase_ratios, particles, phases)
+    check_phase_ratio_inputs(phase_ratios, particles, phases)
+    _phase_ratios_center!(phase_ratios, particles, phases)
+    _phase_ratios_vertex!(phase_ratios, particles, phases)
     # velocity nodes
     phase_ratios_face!(phase_ratios.Vx, particles, phases, :x)
     phase_ratios_face!(phase_ratios.Vy, particles, phases, :y)
@@ -27,16 +28,17 @@ end
 function update_phase_ratios!(
         phase_ratios::JustPIC.PhaseRatios{B, T}, particles, phases
     ) where {B, T <: AbstractArray}
-    phase_ratios_center!(phase_ratios, particles, phases)
-    phase_ratios_vertex!(phase_ratios, particles, phases)
+    check_phase_ratio_inputs(phase_ratios, particles, phases)
+    _phase_ratios_center!(phase_ratios, particles, phases)
+    _phase_ratios_vertex!(phase_ratios, particles, phases)
     # velocity nodes
     phase_ratios_face!(phase_ratios.Vx, particles, phases, :x)
     phase_ratios_face!(phase_ratios.Vy, particles, phases, :y)
     phase_ratios_face!(phase_ratios.Vz, particles, phases, :z)
     # shear stress nodes
-    phase_ratios_midpoint!(phase_ratios.xy, particles, phases, :xy)
-    phase_ratios_midpoint!(phase_ratios.yz, particles, phases, :yz)
-    phase_ratios_midpoint!(phase_ratios.xz, particles, phases, :xz)
+    _phase_ratios_midpoint!(phase_ratios.xy, particles, phases, :xy)
+    _phase_ratios_midpoint!(phase_ratios.yz, particles, phases, :yz)
+    _phase_ratios_midpoint!(phase_ratios.xz, particles, phases, :xz)
     return nothing
 end
 
@@ -57,7 +59,7 @@ function phase_ratio_weights(
         # this is doing sum(w * δij(i, phase)), where δij is the Kronecker delta
         w = w .+ x .* ntuple(j -> (ph_local == j), Val(NC))
     end
-    w = w .* inv(sum(w))
+    w = w .* support_inverse(sum(w))
     return w
 end
 
