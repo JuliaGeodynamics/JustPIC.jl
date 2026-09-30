@@ -19,6 +19,8 @@ function init_markerchain(
     ) where {backend}
     T = initial_elevation isa AbstractArray ? promote_type(eltype(xv), eltype(initial_elevation)) : promote_type(eltype(xv), typeof(initial_elevation))
     _validate_chain_grid(xv)
+    T <: AbstractFloat || throw(ArgumentError("MarkerChain inputs must promote to an AbstractFloat, got $T"))
+    check_backend_precision(backend, T)
     nx = length(xv) - 1
     0 < nxcell ≤ max_xcell || throw(ArgumentError("nxcell must satisfy 0 < nxcell ≤ max_xcell"))
     0 < min_xcell ≤ max_xcell || throw(ArgumentError("min_xcell must satisfy 0 < min_xcell ≤ max_xcell"))

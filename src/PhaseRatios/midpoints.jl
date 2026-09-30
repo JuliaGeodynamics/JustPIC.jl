@@ -47,10 +47,10 @@ end
         end
     end
 
-    w = w .* inv(sum(w))
+    w = w .* support_inverse(sum(w))
     face_index = min.(I_inner .+ offsets .- 1, nf)
     for ip in cellaxes(ratio_faces)
-        CAI.@index ratio_faces[ip, face_index...] = w[ip] * !isnan(w[ip]) # make it zero if there are NaNs (means no particles within velocity half cell)
+        CAI.@index ratio_faces[ip, face_index...] = w[ip]
     end
 
     if isboundary(offsets, I)
@@ -66,9 +66,9 @@ end
             ph_local = CAI.@index phases[ip, I_inner...]
             w = accumulate_weight(w, x, ph_local, NC)
         end
-        w = w .* inv(sum(w))
+        w = w .* support_inverse(sum(w))
         for ip in cellaxes(ratio_faces)
-            CAI.@index ratio_faces[ip, I...] = w[ip] * !isnan(w[ip]) # make it zero if there are NaNs (means no particles within velocity half cell)
+            CAI.@index ratio_faces[ip, I...] = w[ip]
         end
     end
 end
@@ -79,7 +79,7 @@ end
     elseif dimension === :y
         (0, 1)
     else
-        throw("Unknown dimensions. Valid dimensions are :x, :y")
+        throw(ArgumentError("unknown face direction $(repr(dimension)); valid directions are :x, :y"))
     end
 end
 
@@ -91,13 +91,23 @@ end
     elseif dimension === :z
         (0, 0, 1)
     else
-        throw("Unknown dimensions. Valid dimensions are :x, :y, :z, :xy, :yz, :xz")
+        throw(ArgumentError("unknown face direction $(repr(dimension)); valid directions are :x, :y, :z"))
     end
 end
 
 ## MIDPOINTS: AKA SHEAR STRESS-NODES (ONLY IN 3D)
 
 function phase_ratios_midpoint!(
+        phase_midpoint, particles::Particles{B, N}, phases, dimension
+    ) where {B, N}
+    N == 3 || throw(ArgumentError("phase ratios at edge midpoints are only defined in 3D"))
+    offsets = midpoint_offset(Val(N), dimension)
+    check_phase_ratio_field("phase_midpoint", phase_midpoint, (size(particles.index) .- 2) .+ offsets, particles)
+    check_phase_inputs(particles, phases, numphases(phase_midpoint))
+    return _phase_ratios_midpoint!(phase_midpoint, particles, phases, dimension)
+end
+
+function _phase_ratios_midpoint!(
         phase_midpoint, particles::Particles{B, N}, phases, dimension
     ) where {B, N}
     offsets = midpoint_offset(Val(N), dimension)
@@ -155,9 +165,9 @@ function _phase_ratios_midpoint_kernel!(
         end
     end
 
-    w = w .* inv(sum(w))
+    w = w .* support_inverse(sum(w))
     for ip in cellaxes(ratio_midpoints)
-        CAI.@index ratio_midpoints[ip, (I .+ offsets)...] = w[ip] * !isnan(w[ip]) # make it zero if there are NaNs (means no particles within half cells)
+        CAI.@index ratio_midpoints[ip, (I .+ offsets)...] = w[ip]
     end
 
     if isboundary(offsets, I)
@@ -189,9 +199,9 @@ function _phase_ratios_midpoint_kernel!(
                     w = accumulate_weight(w, x, ph_local, NC)
                 end
             end
-            w = w .* inv(sum(w))
+            w = w .* support_inverse(sum(w))
             for ip in cellaxes(ratio_midpoints)
-                CAI.@index ratio_midpoints[ip, midpoint_index...] = w[ip] * !isnan(w[ip]) # make it zero if there are NaNs (means no particles within half cells)
+                CAI.@index ratio_midpoints[ip, midpoint_index...] = w[ip]
             end
         end
     end
@@ -207,7 +217,7 @@ end
     elseif dimension === :xz
         (1, 0, 1)
     else
-        throw("Unknown dimensions. Valid dimensions are :xy, :yz, :xz")
+        throw(ArgumentError("unknown midpoint direction $(repr(dimension)); valid directions are :xy, :yz, :xz"))
     end
 end
 

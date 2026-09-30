@@ -21,6 +21,7 @@ particle2centroid!(F, Fp, particles::Particles; ghost_1 = true, ghost_2 = true, 
 
 function particle2centroid!(F, Fp, xci::NTuple, particles::Particles, di; ghost_1 = true, ghost_2 = true, ghost_3 = true)
     (; coords) = particles
+    check_transfer(Fp, F, ghosted_size(xci, (ghost_1, ghost_2, ghost_3)), particles)
     backend = ka_backend(particles)
     Tc = eltype(eltype(coords[1]))
     xci = backend_grid(backend, xci, Tc)
@@ -61,7 +62,7 @@ end
         ωxF = muladd(ω_i, CAI.@index(Fp[i, inode, jnode]), ωxF)
     end
 
-    return F[(inode, jnode) .+ mask...] = ωxF / ω
+    return F[(inode, jnode) .+ mask...] = ωxF * support_inverse(ω)
 end
 
 @inbounds function _particle2centroid!(
@@ -90,7 +91,7 @@ end
         end
     end
 
-    _ω = inv(ω)
+    _ω = support_inverse(ω)
     # `let` stops the closure from boxing the loop-reassigned `ωxF`; boxing allocates,
     # which GPU kernels cannot compile.
     return let ωxF = ωxF
@@ -124,7 +125,7 @@ end
         ωF = muladd(ω_i, CAI.@index(Fp[ip, inode, jnode, knode]), ωF)
     end
 
-    return F[(inode, jnode, knode) .+ mask...] = ωF * inv(ω)
+    return F[(inode, jnode, knode) .+ mask...] = ωF * support_inverse(ω)
 end
 
 @inbounds function _particle2centroid!(
@@ -154,7 +155,7 @@ end
         end
     end
 
-    _ω = inv(ω)
+    _ω = support_inverse(ω)
     # `let` stops the closure from boxing the loop-reassigned `ωxF`; boxing allocates,
     # which GPU kernels cannot compile.
     return let ωxF = ωxF

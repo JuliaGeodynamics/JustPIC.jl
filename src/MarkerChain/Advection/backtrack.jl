@@ -54,6 +54,8 @@ function semilagrangian_advection!(
         dt,
     ) where {N}
     (; h_vertices) = chain
+    check_finite_scalar("dt", dt)
+    check_velocity(V, grid_vxi, ka_backend(chain), eltype(h_vertices))
     length(grid[1]) == length(h_vertices) ||
         throw(DimensionMismatch("The horizontal grid must match the chain vertices"))
     h_new = similar(h_vertices)

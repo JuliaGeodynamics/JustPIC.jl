@@ -37,6 +37,7 @@ makedocs(;
         ],
         "I/O" => "IO.md",
         "Mixed GPU/CPU" => "mixed_CPU_GPU.md",
+        "Input validation" => "validation.md",
         "Support matrix" => "support_matrix.md",
         "Public API" => "API.md",
         "Performance" => "performance.md",

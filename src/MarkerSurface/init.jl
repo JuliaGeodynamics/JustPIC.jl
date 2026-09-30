@@ -35,6 +35,7 @@ function init_marker_surface(
     Tinitial = initial_elevation isa AbstractArray ? eltype(initial_elevation) : typeof(initial_elevation)
     T = promote_type(eltype(xv), eltype(yv), Tinitial)
     T <: AbstractFloat || throw(ArgumentError("MarkerSurface inputs must promote to an AbstractFloat"))
+    check_backend_precision(backend, T)
 
     xv_arr = TA(backend)(T.(recast_grid(xv, T)))
     yv_arr = TA(backend)(T.(recast_grid(yv, T)))

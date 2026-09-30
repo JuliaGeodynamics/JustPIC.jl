@@ -18,6 +18,7 @@ function force_injection!(particles::Particles{Backend}, p_new, fields::NTuple{N
     (; coords, index) = particles
     size(p_new) == (size(index)..., cellnum(index)) || throw(ArgumentError("p_new must be slot-aligned with particles.index"))
     length(fields) == length(values) || throw(ArgumentError("fields and values must have the same length"))
+    check_particle_fields(particles, fields; name = "fields")
     ni = size(index)
     launch!(ka_backend(index), force_injection_kernel!, ni, coords, index, p_new, fields, values)
     return nothing

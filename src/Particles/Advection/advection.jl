@@ -59,6 +59,7 @@ function advection!(
     ) where {N}
     (; coords, index) = particles
     N == 2 && periodic_3 && throw(ArgumentError("periodic_3 is only valid for 3D particles"))
+    check_advection_inputs(particles, method, V, grid_vi, dt)
     # compute some basic stuff
     ni = inner_size(index)
     # compute local limits (i.e. domain or MPI rank limits)

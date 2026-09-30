@@ -41,6 +41,8 @@ function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args, dx
     (; index) = particles
     N == 2 && periodic_3 && throw(ArgumentError("periodic_3 is only valid for 3D particles"))
     N in (2, 3) || throw(ArgumentError("The dimension of the problem must be either 2 or 3"))
+    check_particle_fields(particles, args)
+    check_active_coordinates(particles)
     domain_limits = physical_domain_limits(particles)
     periodicity = ntuple(i -> (periodic_1, periodic_2, periodic_3)[i], Val(N))
     if any(periodicity)
@@ -427,6 +429,7 @@ This is typically used after particle deletion or reinjection to compact each
 cell's active particle block.
 """
 function clean_particles!(particles::Particles, grid, args)
+    check_particle_fields(particles, args)
     (; coords, index) = particles
     dxi = compute_dx(grid)
     ni = size(index)

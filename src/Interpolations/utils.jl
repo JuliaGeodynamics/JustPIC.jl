@@ -1,3 +1,7 @@
+# Normalization factor of a weighted average with total weight `ω`. A point without particle
+# support (`ω == 0`) gets NaN, so that every weighted value it scales is NaN.
+@inline support_inverse(ω) = ifelse(iszero(ω), convert(typeof(ω), NaN), inv(ω))
+
 # dimension-agnostic fully unrolled euclidean distance
 @inline function distance(a::NTuple{N, Any}, b::NTuple{N, Any}) where {N}
     return distance((a[1] - b[1])^2, Base.tail(a), Base.tail(b))

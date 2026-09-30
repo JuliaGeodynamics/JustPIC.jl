@@ -206,12 +206,12 @@ end
     JustPIC.particle2grid!(Fv_plain, pT, particles; ghost_1 = false, ghost_2 = false)
     @test Array(Fv_plain) == interior(Fy_ref)
 
-    # Empty particle neighborhoods must produce zero rather than NaN from 0 / 0.
+    # Nodes without particle support are NaN.
     particles_empty = copy(particles)
     fill!(particles_empty.index.data, false)
-    Fempty = TA(backend)(fill(FT(NaN), length.(xvi)))
+    Fempty = TA(backend)(zeros(FT, length.(xvi)))
     JustPIC.particle2grid!(Fempty, pT, particles_empty; ghost_1 = false, ghost_2 = false)
-    @test all(iszero, Fempty)
+    @test all(isnan, Array(Fempty))
 
     Fc = TA(backend)(fill(FT(NaN), length.(xci_p)))
     Fc_plain = TA(backend)(fill(FT(NaN), length.(xci)))
@@ -402,7 +402,25 @@ end
         JustPIC.grid2particle!(values, (xv, yv, zv), field, markers)
         JustPIC.particle2grid!(output, values, buffer, (xv, yv, zv), markers)
 
-        @test all(isfinite, output)
+        # support: nodes that receive a positive bilinear weight from some marker. Corners
+        # of a marker's cell with zero weight may round either way, so only nodes outside
+        # every marker's cell are required to be NaN.
+        grid = (xv, yv, zv)
+        weight = zeros(FT, size(output))
+        touched = falses(size(output))
+        for k in eachindex(coords[1])
+            p = getindex.(coords, k)
+            I = ntuple(d -> clamp(searchsortedlast(grid[d], p[d]), 1, length(grid[d]) - 1), 3)
+            for offset in CartesianIndices((0:1, 0:1, 0:1))
+                node = I .+ Tuple(offset)
+                w = prod(d -> 1 - abs(p[d] - grid[d][node[d]]) / (grid[d][I[d] + 1] - grid[d][I[d]]), 1:3)
+                weight[node...] = max(weight[node...], w)
+                touched[node...] = true
+            end
+        end
+        support = weight .> sqrt(eps(FT))
+        @test all(isfinite, output[support])
+        @test all(isnan, output[.!touched])
         @test output[2, 2, 2] ≈ 0.1 + 2 * 0.2 + 3 * 0.15
     end
 end

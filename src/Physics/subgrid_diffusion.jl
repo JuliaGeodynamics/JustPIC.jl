@@ -60,7 +60,7 @@ function subgrid_diffusion!(
         pT, T_grid, ΔT_grid, subgrid_arrays, particles::Particles, dt; d = 1.0
     )
     # d = dimensionless numerical diffusion coefficient (0 ≤ d ≤ 1)
-    check_resolved_grid_layout(ΔT_grid, pT)
+    check_subgrid_inputs(pT, T_grid, ΔT_grid, particles, particles.xvi, dt, d)
     (; pT0, pΔT, dt₀) = subgrid_arrays
     ni = size(pT)
     # scalars must match the particle-field precision (Float64 breaks Metal)
@@ -94,7 +94,7 @@ function subgrid_diffusion_centroid!(
         pT, T_grid, ΔT_grid, subgrid_arrays, particles::Particles, dt; d = 1.0
     )
     # d = dimensionless numerical diffusion coefficient (0 ≤ d ≤ 1)
-    check_resolved_grid_layout(ΔT_grid, pT)
+    check_subgrid_inputs(pT, T_grid, ΔT_grid, particles, particles.xci, dt, d)
     (; pT0, pΔT, dt₀) = subgrid_arrays
     ni = size(pT)
     # scalars must match the particle-field precision (Float64 breaks Metal)
@@ -111,6 +111,17 @@ function subgrid_diffusion_centroid!(
 
     launch!(ka_backend(pT), update_particle_temperature_kernel!, ni, pT, pT0, pΔT)
 
+    return nothing
+end
+
+function check_subgrid_inputs(pT, T_grid, ΔT_grid, particles, grid, dt, d)
+    0 ≤ d ≤ 1 || throw(ArgumentError("the subgrid diffusion coefficient `d` must lie in [0, 1], got $d"))
+    check_finite_scalar("dt", dt)
+    check_particle_field("pT", pT, particles)
+    check_grid_field("T_grid", T_grid, map(length, grid), particles)
+    check_backend("ΔT_grid", ΔT_grid, ka_backend(particles))
+    check_precision("ΔT_grid", ΔT_grid, scalar_eltype(particles.coords[1]))
+    check_resolved_grid_layout(ΔT_grid, pT)
     return nothing
 end
 

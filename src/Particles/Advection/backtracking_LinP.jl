@@ -22,8 +22,7 @@ function semilagrangian_advection_LinP!(
         grid::NTuple{N, Any},
         dt,
     ) where {N}
-    check_semilagrangian_integrator(method)
-    check_no_alias(F, F0)
+    check_semilagrangian_inputs(F, F0, method, V, grid_vi, grid, dt)
     Fref = F isa Tuple ? first(F) : F
     # recast integrator/timestep/grids to the field precision so Float32 backends
     # (e.g. Metal) don't carry a Float64 value into the kernel; `recast_grid` also
@@ -68,7 +67,7 @@ end
         # extract particle coordinates from the grid
         @inbounds grid[i][I[i]]
     end
-    pᵢ_backtrack = advect_particle_SML(method, pᵢ, V, grid_vi, dxi_velocity, dt, interp_velocity2particle_LinP, I; backtracking = true)
+    pᵢ_backtrack = clamp_to_grid(advect_particle_SML(method, pᵢ, V, grid_vi, dxi_velocity, dt, interp_velocity2particle_LinP, I; backtracking = true), grid)
     I_backtrack = ntuple(Val(N)) do i
         find_parent_cell_bisection(pᵢ_backtrack[i], grid[i], I[i])
     end
@@ -97,7 +96,7 @@ end
         @inbounds grid[i][I[i]]
     end
     # backtrack particle position
-    pᵢ_backtrack = advect_particle_SML(method, pᵢ, V, grid_vi, dxi_velocity, dt, interp_velocity2particle_LinP, I; backtracking = true)
+    pᵢ_backtrack = clamp_to_grid(advect_particle_SML(method, pᵢ, V, grid_vi, dxi_velocity, dt, interp_velocity2particle_LinP, I; backtracking = true), grid)
     I_backtrack = ntuple(Val(N)) do i
         find_parent_cell_bisection(pᵢ_backtrack[i], grid[i], I[i])
     end

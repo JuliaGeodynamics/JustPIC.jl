@@ -16,6 +16,8 @@ export cell_array,
 include("launch.jl")
 export launch!, ka_backend
 
+include("validation.jl")
+
 include("CellArrays/ImplicitGlobalGrid.jl")
 export update_cell_halo!
 

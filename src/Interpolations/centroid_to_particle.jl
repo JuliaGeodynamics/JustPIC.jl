@@ -16,16 +16,19 @@ interpolated from the ghost centroids, so `F` must always use the ghosted
 """
 function centroid2particle!(Fp, F, particles; ghosted = true)
     if ghosted
+        check_transfer(Fp, F, map(length, particles.xci), particles)
         centroid2particle_ghosted!(Fp, particles.xci, F, particles, particles.di.center)
     else
         xci = ntuple(i -> particles.xci[i][2:(end - 1)], Val(length(particles.xci)))
         di = ntuple(i -> diff(xci[i]), Val(length(xci)))
+        check_transfer(Fp, F, map(length, xci), particles)
         centroid2particle_unghosted!(Fp, xci, F, particles, di)
     end
     return nothing
 end
 
 function centroid2particle!(Fp, xci, F, particles, di; ghosted = true)
+    check_transfer(Fp, F, map(length, xci), particles)
     if ghosted
         centroid2particle_ghosted!(Fp, xci, F, particles, di)
     else

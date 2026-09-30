@@ -1,6 +1,11 @@
 ## Kernels to compute phase ratios at the centers
 
 function phase_ratios_center!(phase_ratios::JustPIC.PhaseRatios, particles, phases)
+    check_phase_ratio_inputs(phase_ratios, particles, phases)
+    return _phase_ratios_center!(phase_ratios, particles, phases)
+end
+
+function _phase_ratios_center!(phase_ratios::JustPIC.PhaseRatios, particles, phases)
     ni = size(phase_ratios.center)
 
     launch!(
