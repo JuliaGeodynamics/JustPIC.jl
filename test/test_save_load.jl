@@ -50,7 +50,7 @@ end
 same_values(a, b) = size(a) == size(b) && all(isequal.(a, b))
 
 @testset "Passive marker conversions" begin
-    markers = init_passive_markers(backend, (collect(1.0:4.0), collect(5.0:8.0)))
+    markers = init_passive_markers(backend, JustPIC.TA(backend).((collect(FT, 1:4), collect(FT, 5:8))))
     markers_copy = copy(markers)
     markers_cpu = Array(markers)
     markers_f32 = Array(Float32, markers)
