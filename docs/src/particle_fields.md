@@ -12,7 +12,7 @@ for vector quantities:
 
 ```julia
 pV = init_cell_arrays(particles, Val(2))
-particle2grid!((Vx, Vy), pV, particles)
+particle2vertex!((Vx, Vy), pV, particles)
 ```
 
 Pass companion fields through movement and injection routines so values stay

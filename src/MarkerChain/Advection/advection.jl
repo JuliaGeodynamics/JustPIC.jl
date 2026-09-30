@@ -99,7 +99,7 @@ end
         Base.@_inline_meta
         local_lims = local_limits[i]
         v = if check_local_limits(local_lims, particle_coords)
-            interp_velocity_grid2particle(particle_coords, grid_vi[i], V[i], icell)
+            interp_velocity_vertex2particle(particle_coords, grid_vi[i], V[i], icell)
         else
             # Typed sentinel: a bare `Inf` is Float64 and widens the tuple eltype,
             # which forces heap allocation inside the kernel (fatal on Metal).
@@ -113,12 +113,12 @@ end
     ) where {N}
     return ntuple(Val(N)) do i
         Base.@_inline_meta
-        interp_velocity_grid2particle(particle_coords, grid_vi[i], V[i], icell)
+        interp_velocity_vertex2particle(particle_coords, grid_vi[i], V[i], icell)
     end
 end
 
 # Interpolate velocity from staggered grid to particle
-@inline function interp_velocity_grid2particle(
+@inline function interp_velocity_vertex2particle(
         pᵢ::Union{SVector, NTuple}, xi_vx::NTuple, F::AbstractArray, icell
     )
     # F, coordinates and spacing of the cell corners

@@ -33,7 +33,7 @@ particles = init_particles(backend, nxcell, max_xcell, min_xcell, grid_vx, grid_
 ```
 
 Time loop core: `advection!` → `move_particles!` → (`inject_particles!` if needed) →
-interpolation (`particle2grid!` / `grid2particle!`).
+interpolation (`particle2vertex!` / `vertex2particle!`).
 
 - `backend` is a KA backend type: `CPU`, or `CUDA.CUDABackend` after `using CUDA`
 - Keep the script backend-agnostic: allocate through `TA(backend)` / `cell_array(backend, ...)`

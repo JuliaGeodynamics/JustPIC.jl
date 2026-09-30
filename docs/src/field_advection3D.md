@@ -87,10 +87,10 @@ We also need to initialize the field `T` on the particles
 particle_args = pT, = init_cell_arrays(particles, Val(1));
 ```
 
-Use `grid2particle!` to interpolate `T` to the particles:
+Use `vertex2particle!` to interpolate `T` to the particles:
 
 ```julia
-grid2particle!(pT, T, particles)
+vertex2particle!(pT, T, particles)
 ```
 
 We can now start the time loop:
@@ -103,6 +103,6 @@ for it in 1:niter
     advection!(particles, RungeKutta2(), V, dt)                               # advect particles
     move_particles!(particles, particle_args)                                # move particles in the memory
     inject_particles!(particles, (pT, ))                                     # inject particles if needed
-    particle2grid!(T, pT, particles)                                         # interpolate particles to the grid
+    particle2vertex!(T, pT, particles)                                         # interpolate particles to the grid
 end
 ```

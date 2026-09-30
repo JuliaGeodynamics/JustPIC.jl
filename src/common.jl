@@ -26,13 +26,13 @@ include("Advection/common.jl")
 include("Interpolations/utils.jl")
 
 include("Interpolations/particle_to_grid.jl")
-export particle2grid!
+export particle2vertex!
 
 include("Interpolations/particle_to_centroid.jl")
 export particle2centroid!
 
 include("Interpolations/grid_to_particle.jl")
-export grid2particle!, grid2particle_flip!
+export vertex2particle!, vertex2particle_flip!
 
 include("Interpolations/centroid_to_particle.jl")
 export centroid2particle!
@@ -136,10 +136,10 @@ include("PassiveMarkers/advection.jl")
 export advection!
 
 include("PassiveMarkers/grid_to_particle.jl")
-export grid2particle!
+export vertex2particle!
 
 include("PassiveMarkers/particle_to_grid.jl")
-export particle2grid!
+export particle2vertex!
 
 include("PhaseRatios/constructors.jl")
 export PhaseRatios

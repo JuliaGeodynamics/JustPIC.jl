@@ -3,8 +3,8 @@
 # LAUNCHERS
 
 """
-    grid2particle!(Fp, F, particles)
-    grid2particle!(Fp, xvi, F, particles, di)
+    vertex2particle!(Fp, F, particles)
+    vertex2particle!(Fp, xvi, F, particles, di)
 
 Interpolate a nodal field `F` to particle values `Fp`.
 
@@ -21,13 +21,13 @@ Interpolate a nodal field `F` to particle values `Fp`.
 
 # Notes
 - `Fp` must be allocated with the same cell layout as `particles.coords`.
-- `grid2particle!(Fp, F, particles)` is the public convenience entry point and
+- `vertex2particle!(Fp, F, particles)` is the public convenience entry point and
   reads the vertex grid and spacing from `particles`.
 """
 
-grid2particle!(Fp, F, particles; ghost_1 = true, ghost_2 = true, ghost_3 = true) = grid2particle!(Fp, particles.xvi, F, particles, particles.di.vertex; ghost_1 = ghost_1, ghost_2 = ghost_2, ghost_3 = ghost_3)
+vertex2particle!(Fp, F, particles; ghost_1 = true, ghost_2 = true, ghost_3 = true) = vertex2particle!(Fp, particles.xvi, F, particles, particles.di.vertex; ghost_1 = ghost_1, ghost_2 = ghost_2, ghost_3 = ghost_3)
 
-function grid2particle!(Fp, xvi, F, particles, di; ghost_1 = true, ghost_2 = true, ghost_3 = true)
+function vertex2particle!(Fp, xvi, F, particles, di; ghost_1 = true, ghost_2 = true, ghost_3 = true)
     (; coords, index) = particles
     ni = inner_size(index)
     backend = ka_backend(particles)
@@ -38,25 +38,25 @@ function grid2particle!(Fp, xvi, F, particles, di; ghost_1 = true, ghost_2 = tru
     # mask shift in case `F` has ghost nodes only in some dimensions, or non at all
     mask = inner_mask(particles, ghost_1, ghost_2, ghost_3)
 
-    launch!(backend, grid2particle_classic!, ni, Fp, F, xvi, index, di, coords, mask)
+    launch!(backend, vertex2particle_classic!, ni, Fp, F, xvi, index, di, coords, mask)
 
     return nothing
 end
 
 
-@kernel function grid2particle_classic!(
+@kernel function vertex2particle_classic!(
         Fp, F, xvi, index, di, particle_coords, mask
     )
     I = @index(Global, NTuple)
     I_inner = I .+ 1
-    _grid2particle_classic!(
+    _vertex2particle_classic!(
         Fp, particle_coords, xvi, @dxi(di, I_inner...), F, index, I_inner, Val(cellnum(index)), mask
     )
 end
 
 # INNERMOST INTERPOLATION KERNEL
 
-@inline function _grid2particle_classic!(
+@inline function _vertex2particle_classic!(
         Fp::AbstractArray, p, xvi, di::NTuple{2}, F::AbstractArray, index, idx
     )
     i, j, ip = idx
@@ -68,11 +68,11 @@ end
         # cache particle coordinates
         pᵢ = get_particle_coords(p, ip, i, j)
         # Interpolate field F onto particle
-        CAI.@index Fp[ip, i, j] = _grid2particle(pᵢ, xvi, di, Fi, (i, j))
+        CAI.@index Fp[ip, i, j] = _vertex2particle(pᵢ, xvi, di, Fi, (i, j))
     end
 end
 
-@generated function _grid2particle_classic!(
+@generated function _vertex2particle_classic!(
         Fp, p, xvi, di, F, index, idx, ::Val{N}, mask
     ) where {N}
     return quote
@@ -86,13 +86,13 @@ end
                 # cache particle coordinates
                 pᵢ = get_particle_coords(p, ip, idx...)
                 # Interpolate field F onto particle
-                CAI.@index Fp[ip, idx...] = _grid2particle(pᵢ, xi_corner, di, Fi)
+                CAI.@index Fp[ip, idx...] = _vertex2particle(pᵢ, xi_corner, di, Fi)
             end
         end
     end
 end
 
-@generated function _grid2particle_classic!(
+@generated function _vertex2particle_classic!(
         Fp::NTuple{NF}, p, xvi, di, F::NTuple{NF}, index, idx, ::Val{NP}, mask
     ) where {NF, NP}
     return quote
@@ -103,7 +103,7 @@ end
             @inbounds if !doskip(index, ip, idx...)
                 pᵢ = get_particle_coords(p, ip, idx...)
                 Base.@nexprs $NF field -> begin
-                    CAI.@index Fp[field][ip, idx...] = _grid2particle(
+                    CAI.@index Fp[field][ip, idx...] = _vertex2particle(
                         pᵢ, xi_corner, di, Fi[field]
                     )
                 end
@@ -118,7 +118,7 @@ end
 # LAUNCHERS
 
 """
-    grid2particle_flip!(Fp, xvi, F, F0, particles; α = 0.0)
+    vertex2particle_flip!(Fp, xvi, F, F0, particles; α = 0.0)
 
 Update particle values with a PIC/FLIP blend.
 
@@ -134,7 +134,7 @@ between the two updates.
 - `ghost_1`, `ghost_2`, `ghost_3`: whether `F` and `F0` include ghost nodes in
   each coordinate direction. Disable a keyword for a physical-only direction.
 """
-function grid2particle_flip!(Fp, xvi, F, F0, particles; α = 0.0, ghost_1 = true, ghost_2 = true, ghost_3 = true)
+function vertex2particle_flip!(Fp, xvi, F, F0, particles; α = 0.0, ghost_1 = true, ghost_2 = true, ghost_3 = true)
     (; coords, index) = particles
     # recast the grid to the particle precision so the ranges are GPU-safe on Float32
     # backends (they are indexed directly inside the kernel; see advection!)
@@ -149,22 +149,22 @@ function grid2particle_flip!(Fp, xvi, F, F0, particles; α = 0.0, ghost_1 = true
     # mask shift in case `F` has ghost nodes only in some dimensions, or non at all
     mask = inner_mask(particles, ghost_1, ghost_2, ghost_3)
 
-    launch!(ka_backend(particles), grid2particle_full!, ni, Fp, F, F0, xvi, di, coords, index, αT, mask)
+    launch!(ka_backend(particles), vertex2particle_full!, ni, Fp, F, F0, xvi, di, coords, index, αT, mask)
 
     return nothing
 end
 
-@kernel function grid2particle_full!(
+@kernel function vertex2particle_full!(
         Fp, F, F0, xvi, di, particle_coords, index, α, mask
     )
     I = @index(Global, NTuple)
     I_inner = I .+ 1
-    _grid2particle_full!(Fp, particle_coords, xvi, @dxi(di, I_inner...), F, F0, index, I_inner, α, mask)
+    _vertex2particle_full!(Fp, particle_coords, xvi, @dxi(di, I_inner...), F, F0, index, I_inner, α, mask)
 end
 
 # INNERMOST INTERPOLATION KERNEL
 
-@inline function _grid2particle_full!(
+@inline function _vertex2particle_full!(
         Fp, p, xvi, di::NTuple{N, Any}, F, F0, index, idx, α, mask
     ) where {N}
     Fi = field_corners(F, idx .+ mask)
@@ -179,7 +179,7 @@ end
         pᵢ = get_particle_coords(p, ip, idx...)
 
         Fᵢ = CAI.@index Fp[ip, idx...]
-        F_pic, F0_pic = _grid2particle(pᵢ, xvi, di, (Fi, F0i), idx)
+        F_pic, F0_pic = _vertex2particle(pᵢ, xvi, di, (Fi, F0i), idx)
         ΔF = F_pic - F0_pic
         F_flip = Fᵢ + ΔF
         # Interpolate field F onto particle
@@ -187,7 +187,7 @@ end
     end
 end
 
-@inline function _grid2particle_full!(
+@inline function _vertex2particle_full!(
         Fp::NTuple{N1, Any},
         p,
         xvi,
@@ -215,7 +215,7 @@ end
             Fᵢ = CAI.@index Fp[i][ip, idx...]
             Fi = field_corners(F[i], idx .+ mask)
             F0i = field_corners(F0[i], idx .+ mask)
-            F_pic, F0_pic = _grid2particle(pᵢ, xvi, di, (Fi, F0i), idx)
+            F_pic, F0_pic = _vertex2particle(pᵢ, xvi, di, (Fi, F0i), idx)
             ΔF = F_pic - F0_pic
             F_flip = Fᵢ + ΔF
             # Interpolate field F onto particle
@@ -226,7 +226,7 @@ end
 
 #  Interpolation from grid corners to particle positions --------------------------------------------------------
 
-@inline function _grid2particle(
+@inline function _vertex2particle(
         pᵢ::Union{SVector, NTuple}, xvi::NTuple, di::NTuple, F::AbstractArray, idx
     )
     # F at the cell corners
@@ -239,9 +239,9 @@ end
     return Fp
 end
 
-@inline _grid2particle(pᵢ::Union{SVector, NTuple}, xvi::NTuple, di::NTuple, ::Tuple{}, idx) = ()
+@inline _vertex2particle(pᵢ::Union{SVector, NTuple}, xvi::NTuple, di::NTuple, ::Tuple{}, idx) = ()
 
-@inline function _grid2particle(
+@inline function _vertex2particle(
         pᵢ::Union{SVector, NTuple}, xvi::NTuple, di::NTuple, Fi::NTuple{N, Number}, idx
     ) where {N}
     # normalize particle coordinates
@@ -252,7 +252,7 @@ end
     return Fp
 end
 
-@inline function _grid2particle(
+@inline function _vertex2particle(
         pᵢ::Union{SVector, NTuple}, xvi::NTuple, di::NTuple, F::NTuple{N, AbstractArray}, idx
     ) where {N}
     # normalize particle coordinates
@@ -268,7 +268,7 @@ end
     return Fp
 end
 
-@inline function _grid2particle(
+@inline function _vertex2particle(
         pᵢ::Union{SVector, NTuple}, xvi::NTuple, di::NTuple, F::NTuple{N1, Tuple{Vararg{Number}}}, idx
     ) where {N1}
     # normalize particle coordinates
@@ -282,7 +282,7 @@ end
     return Fp
 end
 
-@inline function _grid2particle(
+@inline function _vertex2particle(
         pᵢ::Union{SVector, NTuple}, xvi::NTuple{N1, Any}, di::NTuple, Fi::NTuple{N2, Any}
     ) where {N1, N2}
     # normalize particle coordinates

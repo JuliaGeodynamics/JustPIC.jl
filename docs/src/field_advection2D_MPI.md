@@ -100,10 +100,10 @@ We finally initialize the field `T` on the particles
 particle_args = pT, = init_cell_arrays(particles, Val(1));
 ```
 
-and we use the function `grid2particle!` to interpolate the field `T` to the particles
+and we use the function `vertex2particle!` to interpolate the field `T` to the particles
 
 ```julia
-grid2particle!(pT, T, particles);
+vertex2particle!(pT, T, particles);
 ```
 
 Now start the simulation
@@ -122,7 +122,7 @@ for it in 1:niter
     # refresh halos again so reinjected particles are visible across ranks
     update_cell_halo!(particles.coords..., particle_args..., particles.index)
     # interpolate particles to the grid
-    particle2grid!(T, pT, particles)
+    particle2vertex!(T, pT, particles)
 end
 ```
 
@@ -144,7 +144,7 @@ The usual pattern is:
 3. call `move_particles!` so particles that crossed a rank boundary are
    reassigned on the neighboring rank
 4. reinject particles if needed
-5. exchange halos again before `particle2grid!`
+5. exchange halos again before `particle2vertex!`
 
 In code:
 
@@ -154,10 +154,10 @@ update_cell_halo!(particles.coords..., particle_args..., particles.index)
 move_particles!(particles, particle_args)
 inject_particles!(particles, (pT,))
 update_cell_halo!(particles.coords..., particle_args..., particles.index)
-particle2grid!(T, pT, particles)
+particle2vertex!(T, pT, particles)
 ```
 
-If the second halo refresh is skipped after reinjection, `particle2grid!` can
+If the second halo refresh is skipped after reinjection, `particle2vertex!` can
 reconstruct grid nodes from incomplete cross-rank neighborhoods. If the first
 halo refresh is skipped before `move_particles!`, particles that leave a rank
 can fail to appear on the neighboring rank.

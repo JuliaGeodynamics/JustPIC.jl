@@ -1,6 +1,6 @@
 # LAUNCHERS
 """
-    grid2particle!(Fp, xvi, F, particles::PassiveMarkers)
+    vertex2particle!(Fp, xvi, F, particles::PassiveMarkers)
 
 Interpolate a nodal field `F` to passive-marker values `Fp`, updated in place.
 
@@ -13,7 +13,7 @@ only marker coordinates and no grid metadata.
 - `F`: source nodal field, or tuple of nodal fields matching `Fp`.
 - `particles`: `PassiveMarkers` container supplying marker coordinates.
 """
-function grid2particle!(Fp, xvi, F, particles::PassiveMarkers)
+function vertex2particle!(Fp, xvi, F, particles::PassiveMarkers)
     (; coords, np) = particles
     # recast the grid to the marker precision so the ranges are GPU-safe on Float32
     # backends (they are indexed directly inside the kernel; see advection!)
@@ -21,21 +21,21 @@ function grid2particle!(Fp, xvi, F, particles::PassiveMarkers)
     dxi = grid_size(xvi)
     dxi = backend_grid(ka_backend(particles), dxi, eltype(coords[1]))
 
-    launch!(ka_backend(particles), grid2particle_passive_marker!, np, Fp, F, xvi, dxi, coords)
+    launch!(ka_backend(particles), vertex2particle_passive_marker!, np, Fp, F, xvi, dxi, coords)
 
     return nothing
 end
 
-@kernel function grid2particle_passive_marker!(
+@kernel function vertex2particle_passive_marker!(
         Fp, F, xvi, dxi, particle_coords
     )
     ip = @index(Global)
-    _grid2particle_passive_marker!(Fp, F, xvi, dxi, particle_coords, ip)
+    _vertex2particle_passive_marker!(Fp, F, xvi, dxi, particle_coords, ip)
 end
 
 # INNERMOST INTERPOLATION KERNEL
 
-@inline function _grid2particle_passive_marker!(
+@inline function _vertex2particle_passive_marker!(
         Fp::AbstractArray, F::AbstractArray, xvi, dxi::NTuple{N}, p, ip
     ) where {N}
 
@@ -52,17 +52,17 @@ end
     di = local_grid_spacing(dxi, I)
 
     # Interpolate field F onto particle
-    Fp[ip] = _grid2particle(pᵢ, xvi, di, Fi, I)
+    Fp[ip] = _vertex2particle(pᵢ, xvi, di, Fi, I)
 
     return nothing
 end
 
-@inline function _grid2particle!(Fp, ip, pᵢ, xvi, di, Fi, I)
+@inline function _vertex2particle!(Fp, ip, pᵢ, xvi, di, Fi, I)
     # Interpolate field F onto particle
-    return Fp[ip] = _grid2particle(pᵢ, xvi, di, Fi, I)
+    return Fp[ip] = _vertex2particle(pᵢ, xvi, di, Fi, I)
 end
 
-@inline function _grid2particle_passive_marker!(
+@inline function _vertex2particle_passive_marker!(
         Fp::NTuple{N1, AbstractArray}, F::NTuple{N1, AbstractArray}, xvi, dxi::NTuple{N2}, p, ip
     ) where {N1, N2}
 
@@ -78,7 +78,7 @@ end
     ntuple(Val(N1)) do i
         Fi = field_corners(F[i], I)
         # Interpolate field F onto particle
-        Fp[i][ip] = _grid2particle(pᵢ, xvi, di, Fi, I)
+        Fp[i][ip] = _vertex2particle(pᵢ, xvi, di, Fi, I)
     end
 
     return nothing

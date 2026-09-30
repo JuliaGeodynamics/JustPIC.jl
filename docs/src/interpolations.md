@@ -33,7 +33,7 @@ Bi- and tri-linear interpolation over a rectangular or cubic cells is thus nothi
 N-linear interpolation is implemented recursively to keep the code dimension
 agnostic while staying friendly to compiler specialization.
 
-We can interpolate an arbitrary field `F` onto particles with `grid2particle!`:
+We can interpolate an arbitrary field `F` onto particles with `vertex2particle!`:
 
 ```jldoctest
 using JustPIC
@@ -55,7 +55,7 @@ F = [y for x in particles.xvi[1], y in particles.xvi[2]]
 # instantiate empty `CellArray`
 Fp, = init_cell_arrays(particles, Val(1));
 # interpolate F onto Fp
-grid2particle!(Fp, F, particles);
+vertex2particle!(Fp, F, particles);
 # F is linear in y, so each active particle recovers its own y coordinate
 active = particles.index.data
 all(Fp.data[active] .≈ particles.coords[2].data[active])
@@ -71,7 +71,7 @@ disable the shift in each unpadded direction:
 
 ```julia
 F_physical = [y for x in xv, y in yv]
-grid2particle!(Fp, F_physical, particles; ghost_1=false, ghost_2=false)
+vertex2particle!(Fp, F_physical, particles; ghost_1=false, ghost_2=false)
 ```
 
 ## Particle to grid
@@ -87,15 +87,15 @@ On shared-memory hardware this typically requires atomics. JustPIC avoids that
 by looping over grid nodes and scanning only the neighboring particle cells that
 can contribute to each node.
 
-This interpolation is handled by `particle2grid!`:
+This interpolation is handled by `particle2vertex!`:
 ```julia-repl
-julia> particle2grid!(F, Fp, particles)
+julia> particle2vertex!(F, Fp, particles)
 ```
 
 The same `ghost_1`, `ghost_2`, and `ghost_3` keywords select whether each
 destination direction includes particle ghost nodes. They default to `true`.
 
-`particle2centroid!` and `grid2particle_flip!` take the same keywords; for
+`particle2centroid!` and `vertex2particle_flip!` take the same keywords; for
 `particle2centroid!` they refer to the ghosted centroid grid `particles.xci`.
 `centroid2particle!` has no opt-out: particles sitting between a domain boundary
 and the first centroid are interpolated from the ghost centroids, so its source
@@ -104,16 +104,16 @@ field must always use the `particles.xci` layout.
 Related high-level helpers in this workflow are `particle2centroid!`,
 `centroid2particle!`, `update_phase_ratios!`, `subgrid_diffusion!`, and
 `subgrid_diffusion_centroid!`. The two subgrid-diffusion routines read their
-`T_grid` through `grid2particle!`/`centroid2particle!` and so expect the ghosted
+`T_grid` through `vertex2particle!`/`centroid2particle!` and so expect the ghosted
 vertex and centroid layouts respectively, while `ΔT_grid` carries one ghost node
 per side, matching `size(particles.index)`.
 
 ## API
 
 ```@docs
-grid2particle!
-grid2particle_flip!
-particle2grid!
+vertex2particle!
+vertex2particle_flip!
+particle2vertex!
 centroid2particle!
 particle2centroid!
 ```

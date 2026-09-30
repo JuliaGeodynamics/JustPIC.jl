@@ -59,8 +59,8 @@ function main()
 
     # Advection test
     particle_args = pT, = init_cell_arrays(particles, Val(1))
-    grid2particle!(pT, T, particles)
-    # grid2particle!(pT, T, particles; ghost_1 = false, ghost_2 = false)
+    vertex2particle!(pT, T, particles)
+    # vertex2particle!(pT, T, particles; ghost_1 = false, ghost_2 = false)
 
     frame_stride = 10
     t_end = 5.0
@@ -89,8 +89,8 @@ function main()
                 advection!(particles, RungeKutta2(), V, dt; periodic_1 = true)
                 move_particles!(particles, particle_args; periodic_1 = true, periodic_2 = false)
                 inject_particles!(particles, (pT,))
-                particle2grid!(T, pT, particles)
-                # particle2grid!(T, pT, particles; ghost_1 = false, ghost_2 = false)
+                particle2vertex!(T, pT, particles)
+                # particle2vertex!(T, pT, particles; ghost_1 = false, ghost_2 = false)
                 any(isnan, T)
                 t += dt
             end

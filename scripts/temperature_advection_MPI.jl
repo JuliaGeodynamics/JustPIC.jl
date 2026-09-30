@@ -75,7 +75,7 @@ function main()
 
     # Advection test
     particle_args = pT, = init_cell_arrays(particles, Val(1))
-    grid2particle!(pT, T, particles)
+    vertex2particle!(pT, T, particles)
 
     !isdir("figs") && mkdir("figs")
 
@@ -95,7 +95,7 @@ function main()
         # refill under-populated cells before reconstructing the grid field
         # inject_particles!(particles, particle_args)
         # interpolate T from particle to grid
-        particle2grid!(T, pT, particles)
+        particle2vertex!(T, pT, particles)
 
         @views T_nohalo .= T[2:(end - 1), 2:(end - 1)]
         gather!(Array(T_nohalo), T_v)

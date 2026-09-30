@@ -36,7 +36,7 @@ T = TA(backend)([
 ])
 ```
 
-After interpolating `T` to the particle field with `grid2particle!`, the time
+After interpolating `T` to the particle field with `vertex2particle!`, the time
 loop advances particles with `advection!`, restores cell sorting with
 `move_particles!`, injects particles where needed, and reconstructs the field
 on the grid:
@@ -46,7 +46,7 @@ for _ in 1:frame_stride
     advection!(particles, RungeKutta2(), V, dt; periodic_1 = true)
     move_particles!(particles, particle_args; periodic_1 = true, periodic_2 = false)
     inject_particles!(particles, (pT,))
-    particle2grid!(T, pT, particles)
+    particle2vertex!(T, pT, particles)
 end
 ```
 
@@ -64,5 +64,5 @@ at once:
 
 - particles can leave and re-enter the domain cleanly in the periodic direction,
 - `inject_particles!` maintains particle density during transport,
-- the reconstructed annulus stays coherent after repeated `particle2grid!`
+- the reconstructed annulus stays coherent after repeated `particle2vertex!`
   transfers.

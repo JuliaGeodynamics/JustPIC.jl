@@ -238,7 +238,7 @@ end
 
     T_vertex = TA(backend)([z for x in xvi_p[1], y in xvi_p[2], z in xvi_p[3]])
     pT, = JustPIC.init_cell_arrays(particles, Val(1))
-    JustPIC.grid2particle!(pT, T_vertex, particles)
+    JustPIC.vertex2particle!(pT, T_vertex, particles)
     pT_before = copy(Array(pT.data))
     subgrid_diffusion!(pT, T_vertex, ΔT_grid, arrays, particles, FT(1); d = FT(0))
     @test Array(pT.data)[active] ≈ (pT_before .+ ΔT_const)[active]
@@ -484,7 +484,7 @@ end
     end
 
     # interpolate grid fields T and P onto the marker locations
-    JustPIC.grid2particle!((T_marker, P_marker), xvi, (T, P), passive_markers)
+    JustPIC.vertex2particle!((T_marker, P_marker), xvi, (T, P), passive_markers)
     x_marker = passive_markers.coords[1]
     z_marker = passive_markers.coords[3]
 
@@ -652,18 +652,18 @@ function test_advection_3D()
 
     # Advection test
     particle_args = pT, = JustPIC.init_cell_arrays(particles, Val(1))
-    JustPIC.grid2particle!(pT, xvi_p, T, particles, diff.(xvi_p))
+    JustPIC.vertex2particle!(pT, xvi_p, T, particles, diff.(xvi_p))
     # Particle-to-grid interpolation is nonconservative; weighted integral checks bounded drift.
     sumT = _weighted_integral_3D(T, xvi)
 
     niter = 5
     for step in 1:niter
-        JustPIC.particle2grid!(T, pT, particles)
+        JustPIC.particle2vertex!(T, pT, particles)
         JustPIC.advection!(particles, JustPIC.RungeKutta2(), V, dt)
         JustPIC.move_particles!(particles, particle_args)
         # reseed
         JustPIC.inject_particles!(particles, (pT,))
-        JustPIC.grid2particle!(pT, xvi_p, T, particles, diff.(xvi_p))
+        JustPIC.vertex2particle!(pT, xvi_p, T, particles, diff.(xvi_p))
         _assert_finite_advection_3D!(
             particles, T, step, layout,
         )
@@ -711,17 +711,17 @@ function test_advection_3D_refined()
     )
 
     particle_args = pT, = JustPIC.init_cell_arrays(particles, Val(1))
-    JustPIC.grid2particle!(pT, xvi_p, T, particles, diff.(xvi_p))
+    JustPIC.vertex2particle!(pT, xvi_p, T, particles, diff.(xvi_p))
     # Refined-grid check remains a bounded-drift check for nonconservative interpolation.
     sumT = _weighted_integral_3D(T, xvi)
 
     niter = 5
     for step in 1:niter
-        JustPIC.particle2grid!(T, pT, particles)
+        JustPIC.particle2vertex!(T, pT, particles)
         JustPIC.advection!(particles, JustPIC.RungeKutta2(), V, dt)
         JustPIC.move_particles!(particles, particle_args)
         JustPIC.inject_particles!(particles, (pT,))
-        JustPIC.grid2particle!(pT, xvi_p, T, particles, diff.(xvi_p))
+        JustPIC.vertex2particle!(pT, xvi_p, T, particles, diff.(xvi_p))
         _assert_finite_advection_3D!(
             particles, T, step, layout,
         )

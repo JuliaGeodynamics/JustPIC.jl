@@ -11,11 +11,11 @@ valid in four stages:
 ```
 
 ```julia
-grid2particle!(pT, T, particles)
+vertex2particle!(pT, T, particles)
 advection!(particles, RungeKutta2(), V, dt)
 move_particles!(particles, (pT,))
 inject_particles!(particles, (pT,))
-particle2grid!(T, pT, particles)
+particle2vertex!(T, pT, particles)
 ```
 
 ## Initialize

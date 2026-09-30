@@ -52,8 +52,8 @@ V = Vx, Vy;
 
 # We also need to initialize the field `T` on the particles
 particle_args = pT, = init_cell_arrays(particles, Val(1));
-# and we can use the function `grid2particle!` to interpolate the field `T` to the particles
-grid2particle!(pT, T, particles);
+# and we can use the function `vertex2particle!` to interpolate the field `T` to the particles
+vertex2particle!(pT, T, particles);
 
 # we can now start the simulation
 dt = min(dx / maximum(abs.(Array(Vx))), dy / maximum(abs.(Array(Vy)))) * 0.5;
@@ -62,5 +62,5 @@ for it in 1:niter
     advection!(particles, RungeKutta2(), V, dt)                     # advect particles
     move_particles!(particles, particle_args)                       # move particles in the memory
     inject_particles!(particles, (pT,))                            # inject particles if needed
-    particle2grid!(T, pT, particles)                               # interpolate particles to the grid
+    particle2vertex!(T, pT, particles)                               # interpolate particles to the grid
 end

@@ -60,7 +60,7 @@ function main()
 
     # Advection test
     particle_args = pT, = init_cell_arrays(particles, Val(1))
-    grid2particle!(pT, T, particles)
+    vertex2particle!(pT, T, particles)
 
     fname = "donut_figs_$dt"
     !isdir(fname) && mkdir(fname)
@@ -74,7 +74,7 @@ function main()
         advection!(particles, RungeKutta2(), V, dt)
         move_particles!(particles, particle_args)
         inject_particles!(particles, (pT,))
-        particle2grid!(T, pT, particles)
+        particle2vertex!(T, pT, particles)
         t += dt
         if rem(it, 10) == 0
             f = Figure(size = (800, 160))

@@ -93,7 +93,7 @@ end
         find_parent_cell_bisection(pᵢ_backtrack[i], grid[i], I[i])
     end
     di_vertex = @dxi(dxi_vertex, I_backtrack...)
-    F[I...] = _grid2particle(pᵢ_backtrack, grid, di_vertex, F0, I_backtrack)
+    F[I...] = _vertex2particle(pᵢ_backtrack, grid, di_vertex, F0, I_backtrack)
 end
 
 @kernel function backtrack_kernel!(
@@ -124,7 +124,7 @@ end
     ntuple(Val(NF)) do i
         @inline
         # interpolate field F onto particle
-        F[i][I...] = _grid2particle(pᵢ_backtrack, grid, di_vertex, F0[i], I_backtrack)
+        F[i][I...] = _vertex2particle(pᵢ_backtrack, grid, di_vertex, F0[i], I_backtrack)
     end
 end
 

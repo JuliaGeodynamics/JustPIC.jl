@@ -1,7 +1,7 @@
 ## LAUNCHERS
 
 """
-    particle2grid!(F, Fp, buffer, xi, particles::PassiveMarkers)
+    particle2vertex!(F, Fp, buffer, xi, particles::PassiveMarkers)
 
 Interpolate passive-marker values `Fp` onto the grid nodes `F`, overwriting `F`
 in place.
@@ -18,7 +18,7 @@ supplied explicitly.
 - `xi`: vertex coordinates of the target grid.
 - `particles`: `PassiveMarkers` container supplying marker coordinates.
 """
-function particle2grid!(F, Fp, buffer, xi, particles::PassiveMarkers)
+function particle2vertex!(F, Fp, buffer, xi, particles::PassiveMarkers)
     (; coords, np) = particles
     # recast the grid to the marker precision so the ranges are GPU-safe on Float32
     # backends (they are indexed directly inside the kernel; see advection!)
@@ -31,7 +31,7 @@ function particle2grid!(F, Fp, buffer, xi, particles::PassiveMarkers)
     # accumulate weights on F and buffer arrays
     launch!(ka_backend(F), passivemarker2grid!, np, F, Fp, buffer, xi, coords, dxi)
     # finish interpolation process
-    launch!(ka_backend(F), resolve_particle2grid!, ni, F, buffer)
+    launch!(ka_backend(F), resolve_particle2vertex!, ni, F, buffer)
 
     return nothing
 end
@@ -106,7 +106,7 @@ end
     return nothing
 end
 
-@kernel function resolve_particle2grid!(F, buffer)
+@kernel function resolve_particle2vertex!(F, buffer)
     I = @index(Global, NTuple)
     @inbounds F[I...] = ifelse(iszero(F[I...]), zero(eltype(F)), buffer[I...] * inv(F[I...]))
 end

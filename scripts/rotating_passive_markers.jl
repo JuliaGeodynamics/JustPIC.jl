@@ -68,7 +68,7 @@ function main()
     end
 
     # interpolate grid fields T and P onto the marker locations
-    grid2particle!((T_marker, P_marker), xvi, (T, P), passive_markers)
+    vertex2particle!((T_marker, P_marker), xvi, (T, P), passive_markers)
 
     px = passive_markers.coords[1].data[:]
     py = passive_markers.coords[2].data[:]
