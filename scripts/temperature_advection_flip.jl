@@ -42,7 +42,32 @@ function diffuse!(T, κ, dt, dx, dy)
     return nothing
 end
 
-function main(; α = 0.0, κ = 1.0e-3, niter = 100)
+# Grid-side update of T followed by the particle round trip:
+# T += Σω (pT - pT0) / Σω, where pT has received the interpolated increment Tg - T.
+# α = 0 is pure FLIP, α = 1 pure PIC.
+function round_trip!(T, Tg, pT, pT0, particles, α, κ, dt, dx, dy)
+    particle2centroid!(T, pT, particles)
+    # particle2centroid! fills only the interior; the particle-side increment below
+    # reads the ghost centroids, which must match those of the diffused copy
+    neumann!(T)
+
+    # 1. Grid-side update: diffuse a copy of T
+    Tg .= T
+    diffuse!(Tg, κ, dt, dx, dy)
+
+    # 2. Grid → particles: pT += interp(Tg - T), blended with the PIC value by α
+    pT0.data .= pT.data
+    centroid2particle_flip!(pT, Tg, T, particles; α)
+
+    # 3. Particles → grid: add the interpolated particle increment pT - pT0 to T
+    particle2centroid_flip!(T, pT, pT0, particles)
+    return nothing
+end
+
+interior(A) = Array(A)[2:(end - 1), 2:(end - 1)]
+relative_difference(T, Tg) = norm(interior(T .- Tg)) / norm(interior(Tg))
+
+function main(; α_flip = 0.0, α_pic = 1.0, κ = 1.0e-3, niter = 100)
     # Initialize particles -------------------------------
     nxcell, max_xcell, min_xcell = 24, 30, 12
     n = 64
@@ -58,56 +83,53 @@ function main(; α = 0.0, κ = 1.0e-3, niter = 100)
 
     particles = init_particles(backend, nxcell, max_xcell, min_xcell, grid_vx, grid_vy)
 
-    # Grid fields: velocity and the temperature at the centroids (with ghost nodes)
+    # Grid fields: velocity and two copies of the temperature at the centroids (with ghost nodes),
+    # one updated with FLIP and one with PIC
     Vx = TA(backend)([vx_stream(x, y) for x in grid_vx[1], y in grid_vx[2]])
     Vy = TA(backend)([vy_stream(x, y) for x in grid_vy[1], y in grid_vy[2]])
     V = Vx, Vy
     xci_p = Array.(particles.xci)
     blob(x, y) = exp(-((x - 0.5)^2 + (y - 0.7)^2) / 0.01)
-    T = TA(backend)([blob(x, y) for x in xci_p[1], y in xci_p[2]]) # temperature stored on the grid
-    Tg = similar(T) # temperature after the grid-side (diffusion) update
+    T_flip = TA(backend)([blob(x, y) for x in xci_p[1], y in xci_p[2]])
+    T_pic = copy(T_flip)
+    Tg_flip, Tg_pic = similar(T_flip), similar(T_flip) # after the grid-side (diffusion) update
 
     dt = 0.5 * min(dx / maximum(abs.(Array(Vx))), dy / maximum(abs.(Array(Vy))))
     @assert κ * dt * (1 / dx^2 + 1 / dy^2) < 0.5 "explicit diffusion is unstable; reduce κ or dt"
 
-    # Particle fields: temperature and its value before the update
-    particle_args = pT, pT0 = init_cell_arrays(particles, Val(2))
-    centroid2particle!(pT, T, particles)
+    # Particle fields: temperature and its value before the update, for each copy
+    particle_args = pT_flip, pT0_flip, pT_pic, pT0_pic = init_cell_arrays(particles, Val(4))
+    centroid2particle!(pT_flip, T_flip, particles)
+    centroid2particle!(pT_pic, T_pic, particles)
 
     !isdir("figs") && mkdir("figs")
 
     for it in 1:niter
         advection!(particles, RungeKutta2(), V, dt)
         move_particles!(particles, particle_args)
-        inject_particles!(particles, (pT,))
-        particle2centroid!(T, pT, particles)
-        # particle2centroid! fills only the interior; the particle-side increment below
-        # reads the ghost centroids, which must match those of the diffused copy
-        neumann!(T)
+        inject_particles!(particles, (pT_flip, pT_pic))
 
-        # 1. Grid-side update: diffuse a copy of T
-        Tg .= T
-        diffuse!(Tg, κ, dt, dx, dy)
-
-        # 2. Grid → particles: interpolate the increment Tg - T and add it to the particles
-        #    (α = 0 is pure FLIP: pT += interp(Tg - T))
-        pT0.data .= pT.data
-        centroid2particle_flip!(pT, Tg, T, particles; α)
-
-        # 3. Particles → grid: interpolate the particle increment pT - pT0 and add it to T,
-        #    T += Σω (pT - pT0) / Σω
-        particle2centroid_flip!(T, pT, pT0, particles)
+        round_trip!(T_flip, Tg_flip, pT_flip, pT0_flip, particles, α_flip, κ, dt, dx, dy)
+        round_trip!(T_pic, Tg_pic, pT_pic, pT0_pic, particles, α_pic, κ, dt, dx, dy)
 
         if rem(it, 10) == 0
-            err = norm(Array(T .- Tg)[2:(end - 1), 2:(end - 1)]) / norm(Array(Tg)[2:(end - 1), 2:(end - 1)])
-            @show it, extrema(T), err
-            f = Figure(size = (1100, 450))
-            ax1 = Axis(f[1, 1], title = "T after the particle round trip", aspect = 1)
-            ax2 = Axis(f[1, 3], title = "T - Tg (round trip vs grid update)", aspect = 1)
-            hm1 = heatmap!(ax1, xci..., Array(T)[2:(end - 1), 2:(end - 1)], colormap = :batlow)
-            hm2 = heatmap!(ax2, xci..., log10.(Array(T .- Tg)[2:(end - 1), 2:(end - 1)]), colormap = :vik)
-            Colorbar(f[1, 2], hm1, label = "T")
-            Colorbar(f[1, 4], hm2, label = "T - Tg")
+            @show it, extrema(T_flip), relative_difference(T_flip, Tg_flip)
+            @show it, extrema(T_pic), relative_difference(T_pic, Tg_pic)
+
+            # same color scales in both rows
+            Tmax = max(maximum(interior(T_flip)), maximum(interior(T_pic)))
+            dmax = max(maximum(abs, interior(T_flip .- Tg_flip)), maximum(abs, interior(T_pic .- Tg_pic)))
+            f = Figure(size = (1100, 900))
+            for (row, name, α, T, Tg) in (
+                    (1, "FLIP", α_flip, T_flip, Tg_flip), (2, "PIC", α_pic, T_pic, Tg_pic),
+                )
+                ax1 = Axis(f[row, 1], title = "$name (α = $α): T after the round trip", aspect = 1)
+                ax2 = Axis(f[row, 3], title = "$name (α = $α): T - Tg", aspect = 1)
+                hm1 = heatmap!(ax1, xci..., interior(T), colormap = :batlow, colorrange = (0, Tmax))
+                hm2 = heatmap!(ax2, xci..., interior(T .- Tg), colormap = :vik, colorrange = (-dmax, dmax))
+                Colorbar(f[row, 2], hm1, label = "T")
+                Colorbar(f[row, 4], hm2, label = "T - Tg")
+            end
             save("figs/flip_$(it).png", f)
         end
     end
@@ -115,4 +137,4 @@ function main(; α = 0.0, κ = 1.0e-3, niter = 100)
     return println("Finished")
 end
 
-main(; α = 0)
+main()

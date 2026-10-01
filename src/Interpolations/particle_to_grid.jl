@@ -282,30 +282,31 @@ end
 
 @kernel function particle2grid_flip_kernel!(F, Fp, Fp0, xi, coords, index, mask)
     I = @index(Global, NTuple)
-    _particle2grid_flip!(F, Fp, Fp0, I .+ 1, xi, coords, index, mask)
+    node = I .+ 1
+    D = length(node)
+    xvertex = ntuple(d -> xi[d][node[d]], Val(D))
+    weight(x, p_i) = distance_weight(x, p_i; order = 2)
+    _particle2grid_flip!(F, Fp, Fp0, node, CartesianIndices(ntuple(_ -> -1:0, Val(D))), xvertex, coords, index, weight, mask)
 end
 
+# F[f][idx...] += Σ ω (Fp[f] - Fp0[f]) / Σ ω over the particles of the cells `idx .+ offsets`
 @inline function _particle2grid_flip!(
-        F::NTuple{NF}, Fp, Fp0, node::NTuple{D}, xi, p, index, mask
-    ) where {NF, D}
-    xvertex = ntuple(d -> xi[d][node[d]], Val(D))
+        F::NTuple{NF}, Fp, Fp0, idx, offsets, x, p, index, weight, mask
+    ) where {NF}
     ω = zero(eltype(F[1]))
     acc = ntuple(_ -> zero(eltype(F[1])), Val(NF))
-
-    # iterate over the cells around the node
-    for offset in CartesianIndices(ntuple(_ -> -1:0, Val(D)))
-        cell = node .+ Tuple(offset)
+    for offset in offsets
+        cell = idx .+ Tuple(offset)
         for ip in cellaxes(p[1])
             doskip(index, ip, cell...) && continue
             p_i = get_particle_coords(p, ip, cell...)
             any(isnan, p_i) && continue
-            ω_i = distance_weight(xvertex, p_i; order = 2)
+            ω_i = weight(x, p_i)
             ω += ω_i
             acc = _flip_accumulate(acc, ω_i, Fp, Fp0, ip, cell)
         end
     end
-
-    _flip_store!(F, acc, ω, node .+ mask)
+    _flip_store!(F, acc, ω, idx .+ mask)
     return nothing
 end
 

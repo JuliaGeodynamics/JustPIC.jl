@@ -197,26 +197,10 @@ end
 
 @kernel function particle2centroid_flip_kernel!(F, Fp, Fp0, xci, coords, index, di, mask)
     I = @index(Global, NTuple)
-    I_inner = I .+ 1
-    _particle2centroid_flip!(F, Fp, Fp0, I_inner, xci, coords, index, @dxi(di, I_inner...), mask)
-end
-
-@inline function _particle2centroid_flip!(
-        F::NTuple{NF}, Fp, Fp0, idx::NTuple{D}, xci, p, index, di, mask
-    ) where {NF, D}
+    idx = I .+ 1
+    D = length(idx)
     xcenter = ntuple(d -> xci[d][idx[d]], Val(D))
-    ω = zero(eltype(F[1]))
-    acc = ntuple(_ -> zero(eltype(F[1])), Val(NF))
-
-    for ip in cellaxes(p[1])
-        doskip(index, ip, idx...) && continue
-        p_i = get_particle_coords(p, ip, idx...)
-        any(isnan, p_i) && continue
-        ω_i = bilinear_weight(xcenter, p_i, di)
-        ω += ω_i
-        acc = _flip_accumulate(acc, ω_i, Fp, Fp0, ip, idx)
-    end
-
-    _flip_store!(F, acc, ω, idx .+ mask)
-    return nothing
+    dxi = @dxi(di, idx...)
+    weight(x, p_i) = bilinear_weight(x, p_i, dxi)
+    _particle2grid_flip!(F, Fp, Fp0, idx, CartesianIndices(ntuple(_ -> 0:0, Val(D))), xcenter, coords, index, weight, mask)
 end

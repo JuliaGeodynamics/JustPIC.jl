@@ -123,8 +123,8 @@ between the two updates.
     The older method `grid2particle_flip!(Fp, xvi, F, F0, particles; ...)` that takes
     the vertex coordinates explicitly is deprecated; use the method above.
 """
-grid2particle_flip!(Fp, F, F0, particles; α = 0.0, ghost_1 = true, ghost_2 = true, ghost_3 = true) =
-    _grid2particle_flip!(Fp, particles.xvi, F, F0, particles; α = α, ghost_1 = ghost_1, ghost_2 = ghost_2, ghost_3 = ghost_3)
+grid2particle_flip!(Fp, F, F0, particles; kwargs...) =
+    _grid2particle_flip!(Fp, particles.xvi, F, F0, particles; kwargs...)
 
 function grid2particle_flip!(Fp, xvi, F, F0, particles; kwargs...)
     Base.depwarn(

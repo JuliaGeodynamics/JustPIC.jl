@@ -26,13 +26,13 @@ function centroid2particle!(
     )
     xci, di, off = centroid_layout(particles, (ghost_1, ghost_2, ghost_3))
     check_transfer(Fp, F, map(length, xci), particles)
-    _centroid2particle!(Fp, xci, F, particles, di, off)
+    _centroid2particle!(Fp, xci, F, nothing, particles, di, off, 1)
     return nothing
 end
 
 function centroid2particle!(Fp, xci, F, particles, di; ghosted = true)
     check_transfer(Fp, F, map(length, xci), particles)
-    _centroid2particle!(Fp, xci, F, particles, di, ntuple(_ -> Int(ghosted), Val(length(xci))))
+    _centroid2particle!(Fp, xci, F, nothing, particles, di, ntuple(_ -> Int(ghosted), Val(length(xci))), 1)
     return nothing
 end
 
@@ -56,14 +56,7 @@ function centroid2particle_flip!(
     check_field_pairing("F", F, "F0", F0)
     check_grid_field("F0", F0, dims, particles)
     check_distinct("Fp" => Fp, "F0" => F0)
-    backend = ka_backend(particles)
-    Tc = eltype(eltype(particles.coords[1]))
-    xci = backend_grid(backend, xci, Tc)
-    di = backend_grid(backend, di, Tc)
-    launch!(
-        backend, centroid2particle_flip_kernel!, inner_size(Fp), as_tuple(Fp), as_tuple(F), as_tuple(F0),
-        xci, di, particles.coords, convert(Tc, α), off
-    )
+    _centroid2particle!(Fp, xci, F, F0, particles, di, off, α)
     return nothing
 end
 
@@ -76,63 +69,43 @@ function centroid_layout(particles, ghosts)
     return xci, ntuple(i -> diff(xci[i]), Val(N)), map(Int, g)
 end
 
-function _centroid2particle!(Fp, xci, F, particles, di, off)
+# `F0 === nothing` gives plain interpolation, otherwise the PIC/FLIP blend with PIC fraction `α`.
+function _centroid2particle!(Fp, xci, F, F0, particles, di, off, α)
     backend = ka_backend(particles)
     Tc = eltype(eltype(particles.coords[1]))
     xci = backend_grid(backend, xci, Tc)
     di = backend_grid(backend, di, Tc)
-    launch!(backend, centroid2particle_kernel!, inner_size(Fp), Fp, F, xci, di, particles.coords, off)
+    F0 = isnothing(F0) ? F0 : as_tuple(F0)
+    launch!(
+        backend, centroid2particle_kernel!, inner_size(Fp), as_tuple(Fp), as_tuple(F), F0,
+        xci, di, particles.coords, convert(Tc, α), off
+    )
     return nothing
 end
 
-@kernel function centroid2particle_kernel!(Fp, F, xci, di, coords, off)
+@kernel function centroid2particle_kernel!(Fp, F, F0, xci, di, coords, α, off)
     I = @index(Global, NTuple)
-    _centroid2particle!(Fp, coords, xci, di, F, I .+ off, I .+ 1)
+    _centroid2particle!(Fp, coords, xci, di, F, F0, α, I .+ off, I .+ 1)
 end
 
-@kernel function centroid2particle_flip_kernel!(Fp, F, F0, xci, di, coords, α, off)
-    I = @index(Global, NTuple)
-    _centroid2particle_flip!(Fp, coords, xci, di, F, F0, α, I .+ off, I .+ 1)
-end
-
-# INNERMOST INTERPOLATION KERNELS
+# INNERMOST INTERPOLATION KERNEL
 # `I_src` indexes the centroid grid of `F`, `I_dst` the particle cells.
 
-@inline function _centroid2particle!(Fp, p, xci, di::NTuple{N}, F, I_src, I_dst) where {N}
-    ni = size(F) .- 1
-    xc = ntuple(i -> xci[i][I_src[i]], Val(N))
-    @inbounds for ip in cellaxes(Fp)
-        pᵢ = ntuple(i -> (CAI.@index p[i][ip, I_dst...]), Val(N))
-        any(isnan, pᵢ) && continue
-        cell_index = clamp.(shifted_index(pᵢ, xc, I_src), 1, ni)
-        CAI.@index Fp[ip, I_dst...] = _grid2particle(pᵢ, xci, @dxi(di, cell_index...), F, cell_index)
-    end
-    return nothing
-end
-
 @generated function _centroid2particle!(
-        Fp::NTuple{NF}, p, xci, di::NTuple{N}, F::NTuple{NF}, I_src, I_dst
+        Fp::NTuple{NF}, p, xci, di::NTuple{N}, F::NTuple{NF}, F0, α, I_src, I_dst
     ) where {NF, N}
-    return quote
-        Base.@_inline_meta
-        ni = size(F[1]) .- 1
-        xc = Base.@ntuple $N i -> xci[i][I_src[i]]
-        @inbounds for ip in cellaxes(Fp)
-            pᵢ = get_particle_coords(p, ip, I_dst...)
-            any(isnan, pᵢ) && continue
-            cell_index = clamp.(shifted_index(pᵢ, xc, I_src), 1, ni)
-            ti = normalize_coordinates(pᵢ, xci, @dxi(di, cell_index...), cell_index)
-            Base.@nexprs $NF f -> begin
-                CAI.@index Fp[f][ip, I_dst...] = lerp(field_corners(F[f], cell_index), ti)
-            end
-        end
-        return nothing
+    value = if F0 <: Nothing
+        :(lerp(field_corners(F[f], cell_index), ti))
+    else
+        :(
+            _flip_blend(
+                CAI.@index(Fp[f][ip, I_dst...]),
+                lerp(field_corners(F[f], cell_index), ti),
+                lerp(field_corners(F0[f], cell_index), ti),
+                α,
+            )
+        )
     end
-end
-
-@generated function _centroid2particle_flip!(
-        Fp::NTuple{NF}, p, xci, di::NTuple{N}, F::NTuple{NF}, F0::NTuple{NF}, α, I_src, I_dst
-    ) where {NF, N}
     return quote
         Base.@_inline_meta
         ni = size(F[1]) .- 1
@@ -142,12 +115,7 @@ end
             any(isnan, pᵢ) && continue
             cell_index = clamp.(shifted_index(pᵢ, xc, I_src), 1, ni)
             ti = normalize_coordinates(pᵢ, xci, @dxi(di, cell_index...), cell_index)
-            Base.@nexprs $NF f -> begin
-                Fᵢ = CAI.@index Fp[f][ip, I_dst...]
-                F_pic = lerp(field_corners(F[f], cell_index), ti)
-                F0_pic = lerp(field_corners(F0[f], cell_index), ti)
-                CAI.@index Fp[f][ip, I_dst...] = _flip_blend(Fᵢ, F_pic, F0_pic, α)
-            end
+            Base.@nexprs $NF f -> CAI.@index Fp[f][ip, I_dst...] = $value
         end
         return nothing
     end
