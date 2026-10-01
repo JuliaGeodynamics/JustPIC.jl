@@ -321,6 +321,15 @@ function check_transfer(Fp, F, dims, particles)
     return nothing
 end
 
+# A FLIP transfer between the particle fields `Fp`, `Fp0` and the grid field `F`.
+function check_flip_transfer(Fp, Fp0, F, dims, particles)
+    check_transfer(Fp, F, dims, particles)
+    check_field_pairing("Fp", Fp, "Fp0", Fp0)
+    check_particle_field("Fp0", Fp0, particles)
+    check_distinct("F" => F, "Fp" => Fp, "Fp0" => Fp0)
+    return nothing
+end
+
 ## Phase ratios
 
 function check_phase_ratio_field(name, ratios, dims, particles)

@@ -122,8 +122,8 @@ end
     @test_throws "share memory" particle2grid!((F, F), (pT, pP), particles)
     @test_throws "mixed precision" particle2grid!(dev(zeros(OTHER_FT, vertex_size(particles))), pT, particles)
     @test_throws "CellArray" grid2particle!(dev(zeros(FT, 10)), F, particles)
-    @test_throws "`α` must lie in [0, 1]" grid2particle_flip!(pT, particles.xvi, F, G, particles; α = 2)
-    @test_throws DimensionMismatch grid2particle_flip!(pT, particles.xvi, F, dev(zeros(FT, 3, 3)), particles)
+    @test_throws "`α` must lie in [0, 1]" grid2particle_flip!(pT, F, G, particles; α = 2)
+    @test_throws DimensionMismatch grid2particle_flip!(pT, F, dev(zeros(FT, 3, 3)), particles)
 
     C = dev(zeros(FT, center_size(particles)))
     @test_throws DimensionMismatch particle2centroid!(F, pT, particles)
@@ -238,4 +238,26 @@ end
 @testset "update_cell_halo! requires ImplicitGlobalGrid" begin
     particles = test_particles()
     @test_throws "requires an ImplicitGlobalGrid" update_cell_halo!(particles.coords...)
+end
+
+@testset "FLIP argument checks" begin
+    particles = test_particles()
+    pT, pP = init_cell_arrays(particles, Val(2))
+    F = dev(zeros(FT, vertex_size(particles)))
+    C = dev(zeros(FT, center_size(particles)))
+    C0 = dev(zeros(FT, center_size(particles)))
+
+    @test_throws "single fields or tuples of the same length" particle2grid_flip!(F, pT, (pT, pP), particles)
+    @test_throws "share memory" particle2grid_flip!(F, pT, pT, particles)
+    @test_throws DimensionMismatch particle2grid_flip!(dev(zeros(FT, 3, 3)), pT, pP, particles)
+    @test_throws DimensionMismatch particle2centroid_flip!(F, pT, pP, particles)
+    particle2grid_flip!(F, pT, pP, particles)
+    particle2centroid_flip!(C, pT, pP, particles)
+
+    @test_throws DimensionMismatch centroid2particle_flip!(pT, F, C, particles)
+    @test_throws "`α` must lie in [0, 1]" centroid2particle_flip!(pT, C, C0, particles; α = 2)
+    @test_throws "share memory" centroid2particle_flip!((pT, pT), (C, C), (C0, C0), particles)
+    @test_throws DimensionMismatch centroid2particle!(pT, C, particles; ghost_1 = false)
+    centroid2particle_flip!(pT, C, C0, particles)
+    centroid2particle!(pT, dev(zeros(FT, center_size(particles) .- (2, 0))), particles; ghost_1 = false)
 end

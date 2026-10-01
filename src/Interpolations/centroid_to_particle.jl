@@ -2,154 +2,123 @@
 
 # LAUNCHERS
 """
-    centroid2particle!(Fp, xci, F, particles)
+    centroid2particle!(Fp, F, particles; ghosted = true)
+    centroid2particle!(Fp, xci, F, particles, di; ghosted = true)
 
 Interpolate cell-centered field values `F` to particle values `Fp`.
 
-`xci` contains the center coordinates of the grid carrying `F`. The destination
-`Fp` is mutated in place and may be either a single particle field or a tuple of
-particle fields.
+The destination `Fp` is mutated in place and may be either a single particle
+field or a tuple of particle fields.
 
-Particles lying between a domain boundary and the first centroid are
-interpolated from the ghost centroids, so `F` must always use the ghosted
-`particles.xci` layout — unlike `grid2particle!`, there is no opt-out.
+# Arguments
+- `xci`, `di`: optional explicit centroid coordinates and spacing of the grid
+  carrying `F`, for lower-level/internal use.
+- `ghosted`: whether `F` uses the ghosted `particles.xci` layout. Particles
+  lying between a domain boundary and the first centroid are then interpolated
+  from the ghost centroids.
+- `ghost_1`, `ghost_2`, `ghost_3`: per-direction override of `ghosted`
+  (`centroid2particle!(Fp, F, particles)` only). When a direction is not
+  ghosted, particles outside the first/last centroid use the nearest physical
+  cell.
 """
-function centroid2particle!(Fp, F, particles; ghosted = true)
-    if ghosted
-        check_transfer(Fp, F, map(length, particles.xci), particles)
-        centroid2particle_ghosted!(Fp, particles.xci, F, particles, particles.di.center)
-    else
-        xci = ntuple(i -> particles.xci[i][2:(end - 1)], Val(length(particles.xci)))
-        di = ntuple(i -> diff(xci[i]), Val(length(xci)))
-        check_transfer(Fp, F, map(length, xci), particles)
-        centroid2particle_unghosted!(Fp, xci, F, particles, di)
-    end
+function centroid2particle!(
+        Fp, F, particles; ghosted = true, ghost_1 = ghosted, ghost_2 = ghosted, ghost_3 = ghosted
+    )
+    xci, di, off = centroid_layout(particles, (ghost_1, ghost_2, ghost_3))
+    check_transfer(Fp, F, map(length, xci), particles)
+    _centroid2particle!(Fp, xci, F, nothing, particles, di, off, 1)
     return nothing
 end
 
 function centroid2particle!(Fp, xci, F, particles, di; ghosted = true)
     check_transfer(Fp, F, map(length, xci), particles)
-    if ghosted
-        centroid2particle_ghosted!(Fp, xci, F, particles, di)
-    else
-        centroid2particle_unghosted!(Fp, xci, F, particles, di)
-    end
+    _centroid2particle!(Fp, xci, F, nothing, particles, di, ntuple(_ -> Int(ghosted), Val(length(xci))), 1)
     return nothing
 end
 
-function centroid2particle_ghosted!(Fp, xci, F, particles, di)
-    (; coords) = particles
+"""
+    centroid2particle_flip!(Fp, F, F0, particles; α = 0.0, ghosted = true)
 
-    ni = inner_size(Fp)
+Update particle values from cell-centered fields with a PIC/FLIP blend.
+
+`α = 1` gives pure PIC, `α = 0` gives pure FLIP: `Fp += F - F0`, with `F` and
+`F0` interpolated to the particle. `Fp`, `F` and `F0` may be single fields or
+tuples of fields. See [`centroid2particle!`](@ref) for the `ghosted`,
+`ghost_1`, `ghost_2` and `ghost_3` keywords.
+"""
+function centroid2particle_flip!(
+        Fp, F, F0, particles; α = 0.0, ghosted = true, ghost_1 = ghosted, ghost_2 = ghosted, ghost_3 = ghosted
+    )
+    0 ≤ α ≤ 1 || throw(ArgumentError("the PIC fraction `α` must lie in [0, 1], got $α"))
+    xci, di, off = centroid_layout(particles, (ghost_1, ghost_2, ghost_3))
+    dims = map(length, xci)
+    check_transfer(Fp, F, dims, particles)
+    check_field_pairing("F", F, "F0", F0)
+    check_grid_field("F0", F0, dims, particles)
+    check_distinct("Fp" => Fp, "F0" => F0)
+    _centroid2particle!(Fp, xci, F, F0, particles, di, off, α)
+    return nothing
+end
+
+# Centroid grid, spacing and source-index offset of `F` for the given ghost layout.
+function centroid_layout(particles, ghosts)
+    N = length(particles.xci)
+    g = ntuple(i -> ghosts[i], Val(N))
+    all(g) && return particles.xci, particles.di.center, ntuple(_ -> 1, Val(N))
+    xci = ntuple(i -> g[i] ? particles.xci[i] : particles.xci[i][2:(end - 1)], Val(N))
+    return xci, ntuple(i -> diff(xci[i]), Val(N)), map(Int, g)
+end
+
+# `F0 === nothing` gives plain interpolation, otherwise the PIC/FLIP blend with PIC fraction `α`.
+function _centroid2particle!(Fp, xci, F, F0, particles, di, off, α)
     backend = ka_backend(particles)
-    Tc = eltype(eltype(coords[1]))
+    Tc = eltype(eltype(particles.coords[1]))
     xci = backend_grid(backend, xci, Tc)
     di = backend_grid(backend, di, Tc)
-    launch!(backend, centroid2particle_classic_ghosted!, ni, Fp, F, xci, di, coords)
+    F0 = isnothing(F0) ? F0 : as_tuple(F0)
+    launch!(
+        backend, centroid2particle_kernel!, inner_size(Fp), as_tuple(Fp), as_tuple(F), F0,
+        xci, di, particles.coords, convert(Tc, α), off
+    )
     return nothing
 end
 
-function centroid2particle_unghosted!(Fp, xci, F, particles, di)
-    (; coords) = particles
-
-    backend = ka_backend(particles)
-    Tc = eltype(eltype(coords[1]))
-    xci = backend_grid(backend, xci, Tc)
-    di = backend_grid(backend, di, Tc)
-    launch!(backend, centroid2particle_classic_unghosted!, size(F), Fp, F, xci, di, coords)
-    return nothing
-end
-
-@kernel function centroid2particle_classic_ghosted!(Fp, F, xci, di, coords)
+@kernel function centroid2particle_kernel!(Fp, F, F0, xci, di, coords, α, off)
     I = @index(Global, NTuple)
-    _centroid2particle_classic_ghosted!(Fp, coords, xci, di, F, I .+ 1)
-end
-
-@kernel function centroid2particle_classic_unghosted!(Fp, F, xci, di, coords)
-    I = @index(Global, NTuple)
-    _centroid2particle_classic_unghosted!(Fp, coords, xci, di, F, I, I .+ 1)
+    _centroid2particle!(Fp, coords, xci, di, F, F0, α, I .+ off, I .+ 1)
 end
 
 # INNERMOST INTERPOLATION KERNEL
+# `I_src` indexes the centroid grid of `F`, `I_dst` the particle cells.
 
-@inline function _centroid2particle_classic_ghosted!(Fp, p, xci, di::NTuple{N}, F, I) where {N}
-    ni = size(F) .- 1
-    xc = ntuple(i -> xci[i][I[i]], Val(N))
-    # iterate over all the particles within the cells of index `idx`
-    @inbounds for ip in cellaxes(Fp)
-        # cache particle coordinates
-        pᵢ = ntuple(i -> (CAI.@index p[i][ip, I...]), Val(N))
-        # skip lines below if there is no particle in this piece of memory
-        any(isnan, pᵢ) && continue
-        # continue the kernel
-        cell_index = shifted_index(pᵢ, xc, I)
-        cell_index = clamp.(cell_index, 1, ni)
-        # Interpolate field F onto particle
-        # @show @dxi(di, cell_index...)
-        CAI.@index Fp[ip, I...] = _grid2particle(pᵢ, xci, @dxi(di, cell_index...), F, cell_index)
+@generated function _centroid2particle!(
+        Fp::NTuple{NF}, p, xci, di::NTuple{N}, F::NTuple{NF}, F0, α, I_src, I_dst
+    ) where {NF, N}
+    value = if F0 <: Nothing
+        :(lerp(field_corners(F[f], cell_index), ti))
+    else
+        :(
+            _flip_blend(
+                CAI.@index(Fp[f][ip, I_dst...]),
+                lerp(field_corners(F[f], cell_index), ti),
+                lerp(field_corners(F0[f], cell_index), ti),
+                α,
+            )
+        )
     end
-    return nothing
-end
-
-@inline function _centroid2particle_classic_unghosted!(Fp, p, xci, di::NTuple{N}, F, I_src, I_dst) where {N}
-    ni = size(F) .- 1
-    xc = ntuple(i -> xci[i][I_src[i]], Val(N))
-    @inbounds for ip in cellaxes(Fp)
-        pᵢ = ntuple(i -> (CAI.@index p[i][ip, I_dst...]), Val(N))
-        any(isnan, pᵢ) && continue
-        cell_index = shifted_index(pᵢ, xc, I_src)
-        cell_index = clamp.(cell_index, 1, ni)
-        CAI.@index Fp[ip, I_dst...] = _grid2particle(pᵢ, xci, @dxi(di, cell_index...), F, cell_index)
-    end
-    return nothing
-end
-
-@generated function _centroid2particle_store!(
-        Fp::NTuple{NF}, F::NTuple{NF}, ip, idx, ti, cell_index
-    ) where {NF}
     return quote
         Base.@_inline_meta
-        Base.@nexprs $NF n -> begin
-            CAI.@index Fp[n][ip, idx...] = lerp(field_corners(F[n], cell_index), ti)
+        ni = size(F[1]) .- 1
+        xc = Base.@ntuple $N i -> xci[i][I_src[i]]
+        @inbounds for ip in cellaxes(Fp)
+            pᵢ = get_particle_coords(p, ip, I_dst...)
+            any(isnan, pᵢ) && continue
+            cell_index = clamp.(shifted_index(pᵢ, xc, I_src), 1, ni)
+            ti = normalize_coordinates(pᵢ, xci, @dxi(di, cell_index...), cell_index)
+            Base.@nexprs $NF f -> CAI.@index Fp[f][ip, I_dst...] = $value
         end
-        nothing
+        return nothing
     end
-end
-
-@inline function _centroid2particle_classic_ghosted!(
-        Fp::NTuple{NF}, p, xci, di::NTuple{N}, F::NTuple{NF}, I
-    ) where {NF, N}
-    ni = size(first(F)) .- 1
-    # iterate over all the particles within the cells of index `idx`
-    @inbounds for ip in cellaxes(Fp)
-        # cache particle coordinates
-        pᵢ = ntuple(i -> (CAI.@index p[i][ip, I...]), Val(N))
-        # skip lines below if there is no particle in this piece of memory
-        any(isnan, pᵢ) && continue
-        # continue the kernel
-        xc = ntuple(i -> xci[i][I[i]], Val(N))
-        cell_index = shifted_index(pᵢ, xc, I)
-        # cell_index = clamp.(cell_index, 1, ni) # no need with ghost nodes
-        ti = normalize_coordinates(pᵢ, xc, @dxi(di, cell_index...))
-        _centroid2particle_store!(Fp, F, ip, I, ti, cell_index)
-    end
-    return nothing
-end
-
-@inline function _centroid2particle_classic_unghosted!(
-        Fp::NTuple{NF}, p, xci, di::NTuple{N}, F::NTuple{NF}, I_src, I_dst
-    ) where {NF, N}
-    ni = size(first(F)) .- 1
-    @inbounds for ip in cellaxes(Fp)
-        pᵢ = ntuple(i -> (CAI.@index p[i][ip, I_dst...]), Val(N))
-        any(isnan, pᵢ) && continue
-        xc = ntuple(i -> xci[i][I_src[i]], Val(N))
-        cell_index = shifted_index(pᵢ, xc, I_src)
-        cell_index = clamp.(cell_index, 1, ni)
-        ti = normalize_coordinates(pᵢ, xc, @dxi(di, cell_index...))
-        _centroid2particle_store!(Fp, F, ip, I_dst, ti, cell_index)
-    end
-    return nothing
 end
 
 ## UTILS ------------------------------------------------------------------------------------------------------

@@ -247,6 +247,90 @@ function _particle2grid!(
     return nothing
 end
 
+## FLIP
+
+"""
+    particle2grid_flip!(F, Fp, Fp0, particles; ghost_1 = true, ghost_2 = true, ghost_3 = true)
+
+Add the interpolated particle increment `Fp - Fp0` to the grid nodes `F`:
+`F += Σ ω (Fp - Fp0) / Σ ω`, with the weights of [`particle2grid!`](@ref).
+
+`F`, `Fp` and `Fp0` may be single fields or tuples of fields. Nodes with no
+surrounding particles are left unchanged.
+
+# Arguments
+- `F`: nodal array (or tuple of arrays) to update in place.
+- `Fp`: current particle field.
+- `Fp0`: particle field at the previous state, with the same layout as `Fp`.
+- `particles`: particle container.
+- `ghost_1`, `ghost_2`, `ghost_3`: whether `F` includes ghost nodes in each
+  coordinate direction. Disable a keyword for a physical-only direction.
+"""
+function particle2grid_flip!(F, Fp, Fp0, particles; ghost_1 = true, ghost_2 = true, ghost_3 = true)
+    (; coords, index, xvi) = particles
+    check_flip_transfer(Fp, Fp0, F, ghosted_size(xvi, (ghost_1, ghost_2, ghost_3)), particles)
+    backend = ka_backend(particles)
+    xvi = backend_grid(backend, xvi, eltype(eltype(coords[1])))
+    mask = inner_mask(particles, ghost_1, ghost_2, ghost_3)
+    ndrange = length.(inner_ranges(index))
+    launch!(
+        backend, particle2grid_flip_kernel!, ndrange,
+        as_tuple(F), as_tuple(Fp), as_tuple(Fp0), xvi, coords, index, mask
+    )
+    return nothing
+end
+
+@kernel function particle2grid_flip_kernel!(F, Fp, Fp0, xi, coords, index, mask)
+    I = @index(Global, NTuple)
+    node = I .+ 1
+    D = length(node)
+    xvertex = ntuple(d -> xi[d][node[d]], Val(D))
+    weight(x, p_i) = distance_weight(x, p_i; order = 2)
+    _particle2grid_flip!(F, Fp, Fp0, node, CartesianIndices(ntuple(_ -> -1:0, Val(D))), xvertex, coords, index, weight, mask)
+end
+
+# F[f][idx...] += Σ ω (Fp[f] - Fp0[f]) / Σ ω over the particles of the cells `idx .+ offsets`
+@inline function _particle2grid_flip!(
+        F::NTuple{NF}, Fp, Fp0, idx, offsets, x, p, index, weight, mask
+    ) where {NF}
+    ω = zero(eltype(F[1]))
+    acc = ntuple(_ -> zero(eltype(F[1])), Val(NF))
+    for offset in offsets
+        cell = idx .+ Tuple(offset)
+        for ip in cellaxes(p[1])
+            doskip(index, ip, cell...) && continue
+            p_i = get_particle_coords(p, ip, cell...)
+            any(isnan, p_i) && continue
+            ω_i = weight(x, p_i)
+            ω += ω_i
+            acc = _flip_accumulate(acc, ω_i, Fp, Fp0, ip, cell)
+        end
+    end
+    _flip_store!(F, acc, ω, idx .+ mask)
+    return nothing
+end
+
+# acc[f] += ω_i * (Fp[f] - Fp0[f]) at slot `ip` of cell `cell`
+@generated function _flip_accumulate(
+        acc::NTuple{NF}, ω_i, Fp::NTuple{NF}, Fp0::NTuple{NF}, ip, cell
+    ) where {NF}
+    return quote
+        Base.@ntuple $NF f -> muladd(
+            ω_i, CAI.@index(Fp[f][ip, cell...]) - CAI.@index(Fp0[f][ip, cell...]), acc[f]
+        )
+    end
+end
+
+# F[f][idx...] += acc[f] / ω, unless no particle contributed
+@generated function _flip_store!(F::NTuple{NF}, acc::NTuple{NF}, ω, idx) where {NF}
+    return quote
+        iszero(ω) && return nothing
+        _ω = inv(ω)
+        Base.@nexprs $NF f -> F[f][idx...] += acc[f] * _ω
+        return nothing
+    end
+end
+
 ## OTHERS
 
 @inline function distance_weight(a, b; order::Int64 = 1)

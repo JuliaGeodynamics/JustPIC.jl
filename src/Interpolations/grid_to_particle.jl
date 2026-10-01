@@ -57,22 +57,6 @@ end
 
 # INNERMOST INTERPOLATION KERNEL
 
-@inline function _grid2particle_classic!(
-        Fp::AbstractArray, p, xvi, di::NTuple{2}, F::AbstractArray, index, idx
-    )
-    i, j, ip = idx
-    # iterate over all the particles within the cells of index `idx`
-    # skip lines below if there is no particle in this piece of memory
-    return if !doskip(index, ip, i, j)
-
-        Fi = field_corners(F, (i, j))
-        # cache particle coordinates
-        pᵢ = get_particle_coords(p, ip, i, j)
-        # Interpolate field F onto particle
-        CAI.@index Fp[ip, i, j] = _grid2particle(pᵢ, xvi, di, Fi, (i, j))
-    end
-end
-
 @generated function _grid2particle_classic!(
         Fp, p, xvi, di, F, index, idx, ::Val{N}, mask
     ) where {N}
@@ -119,7 +103,7 @@ end
 # LAUNCHERS
 
 """
-    grid2particle_flip!(Fp, xvi, F, F0, particles; α = 0.0)
+    grid2particle_flip!(Fp, F, F0, particles; α = 0.0)
 
 Update particle values with a PIC/FLIP blend.
 
@@ -127,15 +111,30 @@ Update particle values with a PIC/FLIP blend.
 between the two updates.
 
 # Arguments
-- `Fp`: particle field to update in place.
-- `F`: current grid field.
-- `F0`: previous grid field.
-- `particles`: particle container.
-- `α`: PIC fraction in the PIC/FLIP blend.
+- `Fp`: particle field (or tuple of particle fields) to update in place.
+- `F`: current grid field (or tuple of fields).
+- `F0`: previous grid field (or tuple of fields), same layout as `F`.
+- `particles`: particle container; its vertex grid `particles.xvi` is used.
+- `α`: PIC fraction in the PIC/FLIP blend, in `[0, 1]`.
 - `ghost_1`, `ghost_2`, `ghost_3`: whether `F` and `F0` include ghost nodes in
   each coordinate direction. Disable a keyword for a physical-only direction.
+
+!!! note
+    The older method `grid2particle_flip!(Fp, xvi, F, F0, particles; ...)` that takes
+    the vertex coordinates explicitly is deprecated; use the method above.
 """
-function grid2particle_flip!(Fp, xvi, F, F0, particles; α = 0.0, ghost_1 = true, ghost_2 = true, ghost_3 = true)
+grid2particle_flip!(Fp, F, F0, particles; kwargs...) =
+    _grid2particle_flip!(Fp, particles.xvi, F, F0, particles; kwargs...)
+
+function grid2particle_flip!(Fp, xvi, F, F0, particles; kwargs...)
+    Base.depwarn(
+        "`grid2particle_flip!(Fp, xvi, F, F0, particles)` is deprecated; use `grid2particle_flip!(Fp, F, F0, particles)`",
+        :grid2particle_flip!,
+    )
+    return _grid2particle_flip!(Fp, xvi, F, F0, particles; kwargs...)
+end
+
+function _grid2particle_flip!(Fp, xvi, F, F0, particles; α = 0.0, ghost_1 = true, ghost_2 = true, ghost_3 = true)
     (; coords, index) = particles
     0 ≤ α ≤ 1 || throw(ArgumentError("the PIC fraction `α` must lie in [0, 1], got $α"))
     dims = ghosted_size(xvi, (ghost_1, ghost_2, ghost_3))
@@ -171,9 +170,14 @@ end
 
 # INNERMOST INTERPOLATION KERNEL
 
+# PIC value `F_pic` blended with the FLIP update `Fp_old + (F_pic - F0_pic)`
+@inline function _flip_blend(Fp_old, F_pic, F0_pic, α)
+    return muladd(F_pic, α, (Fp_old + (F_pic - F0_pic)) * (one(α) - α))
+end
+
 @inline function _grid2particle_full!(
-        Fp, p, xvi, di::NTuple{N, Any}, F, F0, index, idx, α, mask
-    ) where {N}
+        Fp, p, xvi, di, F, F0, index, idx, α, mask
+    )
     Fi = field_corners(F, idx .+ mask)
     F0i = field_corners(F0, idx .+ mask)
 
@@ -182,52 +186,32 @@ end
         # skip lines below if there is no particle in this piece of memory
         doskip(index, ip, idx...) && continue
 
-        # cache particle coordinates
         pᵢ = get_particle_coords(p, ip, idx...)
-
+        ti = normalize_coordinates(pᵢ, xvi, di, idx)
         Fᵢ = CAI.@index Fp[ip, idx...]
-        F_pic, F0_pic = _grid2particle(pᵢ, xvi, di, (Fi, F0i), idx)
-        ΔF = F_pic - F0_pic
-        F_flip = Fᵢ + ΔF
-        # Interpolate field F onto particle
-        CAI.@index Fp[ip, idx...] = muladd(F_pic, α, F_flip * (one(α) - α))
+        CAI.@index Fp[ip, idx...] = _flip_blend(Fᵢ, lerp(Fi, ti), lerp(F0i, ti), α)
     end
 end
 
-@inline function _grid2particle_full!(
-        Fp::NTuple{N1, Any},
-        p,
-        xvi,
-        di::NTuple{N2, Any},
-        F::NTuple{N1, Any},
-        F0::NTuple{N1, Any},
-        index,
-        idx,
-        α,
-        mask,
-    ) where {N1, N2}
-    # iterate over all the particles within the cells of index `idx`
-    return @inbounds for ip in cellaxes(Fp)
-        # skip lines below if there is no particle in this piece of memory
-        doskip(index, ip, idx...) && continue
-
-        # cache particle coordinates
-        pᵢ = ntuple(i -> (CAI.@index p[i][ip, idx...]), Val(N2))
-
-        # skip lines below if there is no particle in this piece of memory
-        # any(isnan, pᵢ) && continue
-
-        ntuple(Val(N1)) do i
-            Base.@_inline_meta
-            Fᵢ = CAI.@index Fp[i][ip, idx...]
-            Fi = field_corners(F[i], idx .+ mask)
-            F0i = field_corners(F0[i], idx .+ mask)
-            F_pic, F0_pic = _grid2particle(pᵢ, xvi, di, (Fi, F0i), idx)
-            ΔF = F_pic - F0_pic
-            F_flip = Fᵢ + ΔF
-            # Interpolate field F onto particle
-            CAI.@index Fp[i][ip, idx...] = muladd(F_pic, α, F_flip * (one(α) - α))
+@generated function _grid2particle_full!(
+        Fp::NTuple{NF}, p, xvi, di, F::NTuple{NF}, F0::NTuple{NF}, index, idx, α, mask
+    ) where {NF}
+    return quote
+        Base.@_inline_meta
+        Fi = Base.@ntuple $NF f -> field_corners(F[f], idx .+ mask)
+        F0i = Base.@ntuple $NF f -> field_corners(F0[f], idx .+ mask)
+        @inbounds for ip in cellaxes(Fp)
+            doskip(index, ip, idx...) && continue
+            pᵢ = get_particle_coords(p, ip, idx...)
+            ti = normalize_coordinates(pᵢ, xvi, di, idx)
+            Base.@nexprs $NF f -> begin
+                Fᵢ = CAI.@index Fp[f][ip, idx...]
+                CAI.@index Fp[f][ip, idx...] = _flip_blend(
+                    Fᵢ, lerp(Fi[f], ti), lerp(F0i[f], ti), α
+                )
+            end
         end
+        return nothing
     end
 end
 
