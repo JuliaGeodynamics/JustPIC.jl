@@ -65,3 +65,5 @@ FLIP:
 ```julia
 grid2particle_flip!(pT, T, T_previous, particles; α=0.5)
 ```
+
+See [PIC/FLIP](pic_flip.md) for the particle-to-grid counterpart `particle2grid_flip!`.

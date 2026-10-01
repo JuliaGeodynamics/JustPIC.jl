@@ -95,11 +95,12 @@ julia> particle2grid!(F, Fp, particles)
 The same `ghost_1`, `ghost_2`, and `ghost_3` keywords select whether each
 destination direction includes particle ghost nodes. They default to `true`.
 
-`particle2centroid!` and `grid2particle_flip!` take the same keywords; for
-`particle2centroid!` they refer to the ghosted centroid grid `particles.xci`.
-`centroid2particle!` has no opt-out: particles sitting between a domain boundary
-and the first centroid are interpolated from the ghost centroids, so its source
-field must always use the `particles.xci` layout.
+`particle2centroid!` and the [PIC/FLIP](pic_flip.md) transfers take the same
+keywords; for the centroid routines they refer to the ghosted centroid grid
+`particles.xci`. `centroid2particle!` accepts them too (and `ghosted` as a
+shorthand for all three): with ghost centroids, particles sitting between a
+domain boundary and the first centroid are interpolated from them; without,
+those particles use the nearest physical cell.
 
 Related high-level helpers in this workflow are `particle2centroid!`,
 `centroid2particle!`, `update_phase_ratios!`, `subgrid_diffusion!`, and
@@ -112,7 +113,6 @@ per side, matching `size(particles.index)`.
 
 ```@docs
 grid2particle!
-grid2particle_flip!
 particle2grid!
 centroid2particle!
 particle2centroid!
