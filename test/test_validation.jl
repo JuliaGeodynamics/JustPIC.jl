@@ -122,8 +122,8 @@ end
     @test_throws "share memory" particle2grid!((F, F), (pT, pP), particles)
     @test_throws "mixed precision" particle2grid!(dev(zeros(OTHER_FT, vertex_size(particles))), pT, particles)
     @test_throws "CellArray" grid2particle!(dev(zeros(FT, 10)), F, particles)
-    @test_throws "`α` must lie in [0, 1]" grid2particle_flip!(pT, particles.xvi, F, G, particles; α = 2)
-    @test_throws DimensionMismatch grid2particle_flip!(pT, particles.xvi, F, dev(zeros(FT, 3, 3)), particles)
+    @test_throws "`α` must lie in [0, 1]" grid2particle_flip!(pT, F, G, particles; α = 2)
+    @test_throws DimensionMismatch grid2particle_flip!(pT, F, dev(zeros(FT, 3, 3)), particles)
 
     C = dev(zeros(FT, center_size(particles)))
     @test_throws DimensionMismatch particle2centroid!(F, pT, particles)

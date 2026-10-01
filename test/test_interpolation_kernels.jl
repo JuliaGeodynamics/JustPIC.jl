@@ -112,7 +112,7 @@ end
     @test Array(pY.data)[active] ≈ Array(particles.coords[2].data)[active]
 
     # Grid to particle test
-    JustPIC.grid2particle_flip!(pT, xvi_p, T, T0, particles)
+    JustPIC.grid2particle_flip!(pT, T, T0, particles)
 
     @test Array(pT.data)[active] ≈ Array(particles.coords[2].data)[active]
 
@@ -229,9 +229,9 @@ end
     @test Array(pT_ghost.data)[active] ≈ Array(pT_plain.data)[active]
 
     pF_ghost, pF_plain = JustPIC.init_cell_arrays(particles, Val(2))
-    JustPIC.grid2particle_flip!(pF_ghost, xvi_p, T_ghost, T_ghost, particles; α = FT(0.5))
+    JustPIC.grid2particle_flip!(pF_ghost, T_ghost, T_ghost, particles; α = FT(0.5))
     JustPIC.grid2particle_flip!(
-        pF_plain, xvi_p, T_plain, T_plain, particles;
+        pF_plain, T_plain, T_plain, particles;
         α = FT(0.5), ghost_1 = false, ghost_2 = false,
     )
     @test Array(pF_ghost.data)[active] ≈ Array(pF_plain.data)[active]
@@ -295,7 +295,7 @@ end
     @test Array(pZ.data)[active] ≈ Array(particles.coords[3].data)[active]
 
     # Grid to particle test
-    JustPIC.grid2particle_flip!(pT, xvi_p, T, T0, particles)
+    JustPIC.grid2particle_flip!(pT, T, T0, particles)
 
     @test Array(pT.data)[active] ≈ Array(particles.coords[3].data)[active]
 
@@ -367,7 +367,7 @@ end
         T = [x + y for x in xvi[1], y in xvi[2]]
 
         JustPIC.grid2particle!(p_pic, T, particles)
-        JustPIC.grid2particle_flip!(p_flip, xvi, T, T, particles; α = FT(1))
+        JustPIC.grid2particle_flip!(p_flip, T, T, particles; α = FT(1))
 
         @test p_flip.data == p_pic.data
     end
@@ -447,4 +447,85 @@ end
         F_xz, (v_z[1], v_z[2], v_z[5], v_z[6]), (t[1], t[3]), 2, 2, Val(2)
     )
     @test JustPIC.MQS(F_z, v_z, t, idx..., Val(3)) ≈ expected_z
+end
+
+@testset "PIC/FLIP grid to particle 2D" begin
+    n = 5
+    xv = yv = LinRange(FT(0), FT(1), n)
+    dx = xv[2] - xv[1]
+    xc = LinRange(dx / 2, 1 - dx / 2, n - 1)
+    xvi = xv, yv
+    grid_vx = TA(backend).((xv, expand_range(xc)))
+    grid_vy = TA(backend).((expand_range(xc), yv))
+    particles = JustPIC.init_particles(backend, 5, 5, 1, grid_vx, grid_vy)
+    active = Array(particles.index.data)
+    xp = Array(particles.coords[1].data)[active]
+    yp = Array(particles.coords[2].data)[active]
+    xg, yg = particles.xvi
+
+    # linear fields: bilinear interpolation reproduces them exactly
+    Y = TA(backend)(FT[y for x in xg, y in yg])
+    X = TA(backend)(FT[x for x in xg, y in yg])
+    ΔX = FT(0.1) .* X
+    Y1 = Y .+ ΔX
+    c = FT(0.1)
+    tol = 50 * eps(FT)
+
+    # particle values that are *not* consistent with the old grid field, so that PIC and
+    # FLIP give different answers: pT = 2y
+    function fresh_particle_field()
+        pT, = JustPIC.init_cell_arrays(particles, Val(1))
+        JustPIC.grid2particle!(pT, 2 .* Y, particles)
+        return pT
+    end
+
+    @testset "α = 1 is pure PIC" begin
+        pT = fresh_particle_field()
+        grid2particle_flip!(pT, Y1, Y, particles; α = FT(1))
+        @test isapprox(Array(pT.data)[active], yp .+ c .* xp; atol = tol)
+    end
+
+    @testset "α = 0 is pure FLIP" begin
+        pT = fresh_particle_field()
+        grid2particle_flip!(pT, Y1, Y, particles; α = FT(0))
+        @test isapprox(Array(pT.data)[active], 2 .* yp .+ c .* xp; atol = tol)
+    end
+
+    @testset "α = 1/2 blends" begin
+        pT = fresh_particle_field()
+        grid2particle_flip!(pT, Y1, Y, particles; α = FT(0.5))
+        @test isapprox(Array(pT.data)[active], FT(1.5) .* yp .+ c .* xp; atol = tol)
+    end
+
+    @testset "unchanged grid leaves FLIP particles untouched" begin
+        pT = fresh_particle_field()
+        before = copy(Array(pT.data))
+        grid2particle_flip!(pT, Y, Y .+ 0, particles; α = FT(0))
+        @test Array(pT.data)[active] == before[active]
+    end
+
+    @testset "tuple of fields" begin
+        pA = fresh_particle_field()
+        pB, = JustPIC.init_cell_arrays(particles, Val(1))
+        JustPIC.grid2particle!(pB, 3 .* X, particles)
+        grid2particle_flip!(
+            (pA, pB), (Y1, X .+ Y), (Y, X), particles; α = FT(0)
+        )
+        @test isapprox(Array(pA.data)[active], 2 .* yp .+ c .* xp; atol = tol)
+        @test isapprox(Array(pB.data)[active], 3 .* xp .+ yp; atol = tol)
+    end
+
+    @testset "deprecated explicit-grid method still works" begin
+        pNew = fresh_particle_field()
+        pOld = fresh_particle_field()
+        grid2particle_flip!(pNew, Y1, Y, particles; α = FT(0.5))
+        grid2particle_flip!(pOld, particles.xvi, Y1, Y, particles; α = FT(0.5))
+        @test Array(pOld.data)[active] == Array(pNew.data)[active]
+    end
+
+    @testset "precision is preserved" begin
+        pT = fresh_particle_field()
+        grid2particle_flip!(pT, Y1, Y, particles; α = FT(0.5))
+        @test eltype(eltype(pT)) === FT
+    end
 end

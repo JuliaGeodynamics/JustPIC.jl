@@ -119,7 +119,7 @@ end
 # LAUNCHERS
 
 """
-    grid2particle_flip!(Fp, xvi, F, F0, particles; α = 0.0)
+    grid2particle_flip!(Fp, F, F0, particles; α = 0.0)
 
 Update particle values with a PIC/FLIP blend.
 
@@ -127,15 +127,30 @@ Update particle values with a PIC/FLIP blend.
 between the two updates.
 
 # Arguments
-- `Fp`: particle field to update in place.
-- `F`: current grid field.
-- `F0`: previous grid field.
-- `particles`: particle container.
-- `α`: PIC fraction in the PIC/FLIP blend.
+- `Fp`: particle field (or tuple of particle fields) to update in place.
+- `F`: current grid field (or tuple of fields).
+- `F0`: previous grid field (or tuple of fields), same layout as `F`.
+- `particles`: particle container; its vertex grid `particles.xvi` is used.
+- `α`: PIC fraction in the PIC/FLIP blend, in `[0, 1]`.
 - `ghost_1`, `ghost_2`, `ghost_3`: whether `F` and `F0` include ghost nodes in
   each coordinate direction. Disable a keyword for a physical-only direction.
+
+!!! note
+    The older method `grid2particle_flip!(Fp, xvi, F, F0, particles; ...)` that takes
+    the vertex coordinates explicitly is deprecated; use the method above.
 """
-function grid2particle_flip!(Fp, xvi, F, F0, particles; α = 0.0, ghost_1 = true, ghost_2 = true, ghost_3 = true)
+grid2particle_flip!(Fp, F, F0, particles; α = 0.0, ghost_1 = true, ghost_2 = true, ghost_3 = true) =
+    _grid2particle_flip!(Fp, particles.xvi, F, F0, particles; α = α, ghost_1 = ghost_1, ghost_2 = ghost_2, ghost_3 = ghost_3)
+
+function grid2particle_flip!(Fp, xvi, F, F0, particles; kwargs...)
+    Base.depwarn(
+        "`grid2particle_flip!(Fp, xvi, F, F0, particles)` is deprecated; use `grid2particle_flip!(Fp, F, F0, particles)`",
+        :grid2particle_flip!,
+    )
+    return _grid2particle_flip!(Fp, xvi, F, F0, particles; kwargs...)
+end
+
+function _grid2particle_flip!(Fp, xvi, F, F0, particles; α = 0.0, ghost_1 = true, ghost_2 = true, ghost_3 = true)
     (; coords, index) = particles
     0 ≤ α ≤ 1 || throw(ArgumentError("the PIC fraction `α` must lie in [0, 1], got $α"))
     dims = ghosted_size(xvi, (ghost_1, ghost_2, ghost_3))
