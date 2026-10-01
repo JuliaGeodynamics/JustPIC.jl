@@ -69,6 +69,9 @@ particle2centroid_flip!(Fc, Fp, Fp₀, particles)
 the result carries over the previous grid value elsewhere. No temporary arrays
 or atomics are involved: each grid node gathers from the particles around it.
 
+A complete example that uses both directions on a centroid field is in
+[PIC/FLIP temperature update in 2D](temperature_flip.md).
+
 ## API
 
 ```@docs
