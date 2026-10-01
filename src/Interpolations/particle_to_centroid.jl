@@ -165,3 +165,56 @@ end
         end
     end
 end
+
+## FLIP
+
+"""
+    particle2centroid_flip!(F, Fp, Fp0, particles; ghost_1 = true, ghost_2 = true, ghost_3 = true)
+
+Add the interpolated particle increment `Fp - Fp0` to the cell centers `F`:
+`F += Σ ω (Fp - Fp0) / Σ ω`, with the weights of [`particle2centroid!`](@ref).
+
+`F`, `Fp` and `Fp0` may be single fields or tuples of fields. Cells with no
+particles are left unchanged. See [`particle2grid_flip!`](@ref) for the
+arguments.
+"""
+function particle2centroid_flip!(F, Fp, Fp0, particles; ghost_1 = true, ghost_2 = true, ghost_3 = true)
+    (; coords, xci) = particles
+    check_flip_transfer(Fp, Fp0, F, ghosted_size(xci, (ghost_1, ghost_2, ghost_3)), particles)
+    backend = ka_backend(particles)
+    Tc = eltype(eltype(coords[1]))
+    xci = backend_grid(backend, xci, Tc)
+    di = backend_grid(backend, particles.di.vertex, Tc)
+    mask = inner_mask(particles, ghost_1, ghost_2, ghost_3)
+    launch!(
+        backend, particle2centroid_flip_kernel!, inner_size(coords[1]),
+        as_tuple(F), as_tuple(Fp), as_tuple(Fp0), xci, coords, particles.index, di, mask
+    )
+    return nothing
+end
+
+@kernel function particle2centroid_flip_kernel!(F, Fp, Fp0, xci, coords, index, di, mask)
+    I = @index(Global, NTuple)
+    I_inner = I .+ 1
+    _particle2centroid_flip!(F, Fp, Fp0, I_inner, xci, coords, index, @dxi(di, I_inner...), mask)
+end
+
+@inline function _particle2centroid_flip!(
+        F::NTuple{NF}, Fp, Fp0, idx::NTuple{D}, xci, p, index, di, mask
+    ) where {NF, D}
+    xcenter = ntuple(d -> xci[d][idx[d]], Val(D))
+    ω = zero(eltype(F[1]))
+    acc = ntuple(_ -> zero(eltype(F[1])), Val(NF))
+
+    for ip in cellaxes(p[1])
+        doskip(index, ip, idx...) && continue
+        p_i = get_particle_coords(p, ip, idx...)
+        any(isnan, p_i) && continue
+        ω_i = bilinear_weight(xcenter, p_i, di)
+        ω += ω_i
+        acc = _flip_accumulate(acc, ω_i, Fp, Fp0, ip, idx)
+    end
+
+    _flip_store!(F, acc, ω, idx .+ mask)
+    return nothing
+end

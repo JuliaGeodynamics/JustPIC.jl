@@ -28,16 +28,16 @@ include("Advection/common.jl")
 include("Interpolations/utils.jl")
 
 include("Interpolations/particle_to_grid.jl")
-export particle2grid!
+export particle2grid!, particle2grid_flip!
 
 include("Interpolations/particle_to_centroid.jl")
-export particle2centroid!
+export particle2centroid!, particle2centroid_flip!
 
 include("Interpolations/grid_to_particle.jl")
 export grid2particle!, grid2particle_flip!
 
 include("Interpolations/centroid_to_particle.jl")
-export centroid2particle!
+export centroid2particle!, centroid2particle_flip!
 
 include("Interpolations/ndlerp.jl")
 
