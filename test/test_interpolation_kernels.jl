@@ -664,3 +664,31 @@ linear_field(xs, c) = TA(backend)(FT[sum(c .* x) for x in Iterators.product(map(
         end
     end
 end
+
+@testset "particle2centroid! $(D)D" for D in (2, 3)
+    particles = flip_test_particles(Val(D))
+    c = ntuple(d -> FT(d), Val(D))
+    cs = ntuple(d -> FT(2d), Val(D))
+    pA, pB = JustPIC.init_cell_arrays(particles, Val(2))
+    JustPIC.grid2particle!(pA, linear_field(particles.xvi, c), particles)
+    JustPIC.grid2particle!(pB, linear_field(particles.xvi, cs), particles)
+    zeros_c() = TA(backend)(zeros(FT, map(length, particles.xci)))
+
+    @testset "tuple matches scalar" begin
+        A, B = zeros_c(), zeros_c()
+        particle2centroid!(A, pA, particles)
+        particle2centroid!(B, pB, particles)
+        TA_, TB_ = zeros_c(), zeros_c()
+        particle2centroid!((TA_, TB_), (pA, pB), particles)
+        @test isapprox(Array(TA_), Array(A); rtol = 100 * eps(FT))
+        @test isapprox(Array(TB_), Array(B); rtol = 100 * eps(FT))
+    end
+
+    @testset "occupancy mask decides" begin
+        masked = flip_test_particles(Val(D))
+        fill!(masked.index.data, false)
+        C = zeros_c()
+        particle2centroid!(C, pA, masked)
+        @test all(isnan, Array(C)[map(n -> 2:(n - 1), size(C))...])
+    end
+end
