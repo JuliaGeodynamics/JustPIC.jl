@@ -14,7 +14,7 @@ function resample!(chain::MarkerChain)
     # sort marker chain
     sort_chain!(chain)
     # Snapshot reads so neighboring cells never observe coordinates being overwritten.
-    coords_read = map(copy, coords)
+    coords_read = _copy(coords)
 
     # call kernel
     launch!(
