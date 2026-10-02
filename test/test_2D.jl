@@ -286,9 +286,16 @@ end
     fill!(particles.index.data, false)
     foreach(coord -> fill!(coord.data, FT(NaN)), particles.coords)
     for ip in 1:3
-        CAI.@index particles.index[ip, cell...] = true
-        CAI.@index particles.coords[1][ip, cell...] = x0 + dx * FT(ip) / 16
-        CAI.@index particles.coords[2][ip, cell...] = y0 + dy * FT(ip) / 16
+        for (A, value) in (
+                (particles.index, true),
+                (particles.coords[1], x0 + dx * FT(ip) / 16),
+                (particles.coords[2], y0 + dy * FT(ip) / 16),
+            )
+            slot = field(A, ip)
+            slot_cpu = to_cpu(slot)
+            slot_cpu[cell...] = value
+            copyto!(slot, slot_cpu)
+        end
     end
 
     inject_particles!(particles, ())

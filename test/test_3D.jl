@@ -182,8 +182,13 @@ end
     # cell along a dimension: that is where interpolating a cell-centered field reads one
     # index past its end if the field is mistaken for a vertex-centered one.
     cells = [(i, j, k) for i in 4:6, j in 3:6, k in 5:7]
-    for c in cells, ip in 1:max_xcell
-        CAI.@index particles.index[ip, c...] = false
+    for ip in 1:max_xcell
+        slot = field(particles.index, ip)
+        slot_cpu = to_cpu(slot)
+        for c in cells
+            slot_cpu[c...] = false
+        end
+        copyto!(slot, slot_cpu)
     end
 
     # A constant field must survive interpolation exactly, so every injected particle
