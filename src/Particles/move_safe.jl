@@ -151,12 +151,13 @@ end
 function maximum_particle_jump(particles, grid, dxi, domain_limits, periodicity)
     (; coords, index) = particles
     backend = ka_backend(index)
-    max_jumps = map(_ -> KernelAbstractions.zeros(backend, Int, size(index)...), periodicity)
+    # Int32 counters: Metal has no 64-bit integer atomics (see #362)
+    max_jumps = map(_ -> KernelAbstractions.zeros(backend, Int32, 1), periodicity)
     launch!(
         backend, maximum_particle_jump!, size(index),
         max_jumps, coords, grid, dxi, index, domain_limits, periodicity
     )
-    return map(maximum, max_jumps)
+    return map(m -> Int(maximum(m)), max_jumps)
 end
 
 @kernel function maximum_particle_jump!(
@@ -177,7 +178,9 @@ end
     end
 
     for d in eachindex(max_jumps)
-        max_jumps[d][I...] = max_jump[d]
+        if max_jump[d] > 0
+            KernelAbstractions.@atomic max_jumps[d][1] max Int32(max_jump[d])
+        end
     end
 end
 

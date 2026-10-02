@@ -18,13 +18,13 @@ function move_particles!(chain::MarkerChain; verbose = false)
     nxi = size(index, 1)
     grid = cell_vertices
 
-    cell_jumps = similar(chain.h_vertices, Int, nxi)
+    # Int32 counters: Metal has no 64-bit integer atomics (see #362)
+    max_cell_jump = KernelAbstractions.zeros(ka_backend(index), Int32, 1)
     launch!(
         ka_backend(index), maximum_cell_jump!, nxi,
-        cell_jumps, coords, grid, index
+        max_cell_jump, coords, grid, index
     )
-    max_jump = maximum(cell_jumps)
-    # Int32 counter: Metal has no 64-bit integer atomics (see #362)
+    max_jump = Int(maximum(max_cell_jump))
     overflow = KernelAbstractions.zeros(ka_backend(index), Int32, 1)
 
     # Sources of the same color are farther apart than the diameter of their
@@ -50,7 +50,7 @@ end
 # to run first.
 @inline outside_grid(x, grid) = x < first(grid) || x ≥ last(grid)
 
-@kernel function maximum_cell_jump!(cell_jumps, coords, grid, index)
+@kernel function maximum_cell_jump!(max_cell_jump, coords, grid, index)
     i = @index(Global)
     max_jump = 0
 
@@ -65,7 +65,9 @@ end
         max_jump = max(max_jump, abs(new_cell - i))
     end
 
-    cell_jumps[i] = max_jump
+    if max_jump > 0
+        KernelAbstractions.@atomic max_cell_jump[1] max Int32(max_jump)
+    end
 end
 
 @kernel function move_particles_launcher!(coords, grid, index, offset, nxi, ncolors, overflow)
