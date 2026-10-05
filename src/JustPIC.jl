@@ -5,7 +5,7 @@ using ImplicitGlobalGrid
 using MuladdMacro
 using GridGeometryUtils
 using CellArrays, StaticArrays
-using LinearAlgebra: det
+using LinearAlgebra: det, diag
 
 # `using KernelAbstractions` (full) makes bare `@index` resolve to KA's, which is
 # what `@kernel` bodies need. It also brings the KA backends `CPU` and the abstract

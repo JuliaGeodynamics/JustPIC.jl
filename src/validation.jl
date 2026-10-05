@@ -431,7 +431,8 @@ function phase_injection_layout(F, centers::NTuple{N}, name) where {N}
         if all(d -> sz[d] in (physical[d], physical[d] + 2), 1:N)
             all(>=(2), sz) || throw(DimensionMismatch("`$name` needs at least two samples per axis"))
             offset = ntuple(d -> Int(sz[d] == physical[d]), Val(N))
-            return (; iscenter, offset)
+            # `Int` flag, not `Bool`: a padded layout struct as kernel argument crashes the Metal compiler
+            return (; iscenter = Int(iscenter), offset)
         end
     end
     throw(DimensionMismatch("size(`$name`) = $sz; expected centers $centers or vertices $(centers .+ 1), optionally with two ghost samples per axis"))

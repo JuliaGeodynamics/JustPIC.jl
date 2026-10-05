@@ -165,7 +165,7 @@ end
 # 5 eps(T) / ratio, so requiring ratio > ∛eps(T) bounds it near eps(T)^(2/3).
 @inline function solve_fit((M, b, n))
     T = eltype(M)
-    ok = n ≥ size(M, 1) && abs(det(M)) > cbrt(eps(T)) * prod(i -> M[i, i], 1:size(M, 1))
+    ok = n ≥ size(M, 1) && abs(det(M)) > cbrt(eps(T)) * prod(diag(M))
     Minv = ok ? inv(M) : zero(M)
     return ok, map(bj -> Minv * bj, b)
 end
@@ -203,11 +203,12 @@ end
         Base.@nexprs $NF j -> begin
             F = fields[j]
             layout = layouts[j]
-            idx = layout.iscenter ? shifted_index(p_new, xci, idx_cell) : idx_cell
+            iscenter = isone(layout.iscenter)
+            idx = iscenter ? shifted_index(p_new, xci, idx_cell) : idx_cell
             field_idx = clamp.(idx .- layout.offset, 1, size(F) .- 1)
             grid_idx = field_idx .+ layout.offset
-            xi = layout.iscenter ? grid_center : grid
-            spacing = layout.iscenter ? (@dxi(dxi_center, grid_idx...)) : di
+            xi = iscenter ? grid_center : grid
+            spacing = iscenter ? (@dxi(dxi_center, grid_idx...)) : di
             corners = field_corners(F, field_idx)
             value = _grid2particle(p_new, xi, spacing, corners, grid_idx)
             lower, upper = extrema(corners)
