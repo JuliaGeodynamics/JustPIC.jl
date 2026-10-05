@@ -32,10 +32,10 @@ when the call starts; particles injected by the same call are never read.
 inject_particles!(particles::Particles, args) = inject_particles!(particles, args, particles.xvi, particles.di.vertex)
 
 inject_particles!(particles::Particles, args, grid::NTuple, di) =
-    _inject!(NearestInjection(), particles, nothing, args, (), grid, particles.xci, di, particles.di.center)
+    _inject!(NearestInjection(), particles, (), args, (), grid, particles.xci, di, particles.di.center)
 
 inject_particles!(particles::Particles, args, fields; scheme = :grid) = _inject!(
-    injection_scheme(scheme), particles, nothing, args, fields,
+    injection_scheme(scheme), particles, (), args, fields,
     particles.xvi, particles.xci, particles.di.vertex, particles.di.center
 )
 
@@ -60,7 +60,7 @@ inject_particles_phase!(particles::Particles, particles_phases, args, fields; sc
 
 inject_particles_phase!(
     particles::Particles, particles_phases, args, fields, grid::NTuple, grid_center, di, di_center; scheme = :grid
-) = _inject!(injection_scheme(scheme), particles, particles_phases, args, fields, grid, grid_center, di, di_center)
+) = _inject!(injection_scheme(scheme), particles, (particles_phases,), args, fields, grid, grid_center, di, di_center)
 
 check_injection_inputs(::NearestInjection, particles, phases, args, fields, grid) =
     (check_particle_fields(particles, args); ())
@@ -75,8 +75,7 @@ function _inject!(scheme, particles, phases, args, fields, grid, grid_center, di
     donor = _copy(index)
     launch!(
         ka_backend(index), inject_kernel!, inner_size(index),
-        scheme, isnothing(phases) ? () : (phases,), args, fields, layouts, coords, index, donor,
-        grid, grid_center, di, di_center, min_xcell
+        scheme, phases, args, fields, layouts, coords, index, donor, grid, grid_center, di, di_center, min_xcell
     )
     return nothing
 end
@@ -162,11 +161,11 @@ end
 
 @inline accumulate_fit((M, b, n), φ, F) = M + φ * φ', map((bj, Fj) -> bj + Fj * φ, b, F), n + 1
 
-# Hadamard ratio |det M| / ∏ Mᵢᵢ ∈ [0, 1]: rounding keeps it below 1e-6 for collinear or
-# coplanar donors in Float32, while 95% of well-spread donor sets exceed 1e-4.
+# Hadamard ratio |det M| / ∏ Mᵢᵢ ∈ [0, 1]; the fitted value's relative error is about
+# 5 eps(T) / ratio, so requiring ratio > ∛eps(T) bounds it near eps(T)^(2/3).
 @inline function solve_fit((M, b, n))
     T = eltype(M)
-    ok = n ≥ size(M, 1) && abs(det(M)) > T(1 // 100_000) * prod(i -> M[i, i], 1:size(M, 1))
+    ok = n ≥ size(M, 1) && abs(det(M)) > cbrt(eps(T)) * prod(i -> M[i, i], 1:size(M, 1))
     Minv = ok ? inv(M) : zero(M)
     return ok, map(bj -> Minv * bj, b)
 end

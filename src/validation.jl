@@ -439,8 +439,8 @@ end
 
 function check_phase_injection_inputs(particles, phases, args, fields, grid)
     check_particle_fields(particles, args)
-    isnothing(phases) || check_cell_layout("particles_phases", phases, particles.index)
-    isnothing(phases) || check_backend("particles_phases", phases, ka_backend(particles))
+    check_cell_layout("particles_phases", phases, particles.index)
+    check_backend("particles_phases", phases, ka_backend(particles))
     check_precision("args", args, scalar_eltype(particles.coords[1]))
     check_distinct("particles.coords" => particles.coords, "args" => args, "particles_phases" => phases)
     fields isa Tuple && length(fields) == length(args) || throw(
