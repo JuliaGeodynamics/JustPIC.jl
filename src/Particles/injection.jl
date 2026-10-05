@@ -1,369 +1,230 @@
 ## PARTICLE INJECTION FUNCTIONS
 
+struct NearestInjection end
+struct GridInjection end
+struct LeastSquaresInjection end
+
+function injection_scheme(scheme)
+    scheme === :grid && return GridInjection()
+    scheme === :least_squares && return LeastSquaresInjection()
+    throw(ArgumentError("unknown injection scheme $(repr(scheme)); use `:grid` or `:least_squares`"))
+end
+
 """
-    inject_particles!(particles::Particles, args)
+    inject_particles!(particles, args)
+    inject_particles!(particles, args, fields; scheme = :grid)
 
 Inject particles into cells whose occupancy falls below `particles.min_xcell`.
 
-# Arguments
-- `particles`: The particles object.
-- `args`: tuple of particle fields that should be populated for newly injected particles.
+New particles are placed quadrant by quadrant. Donors are the particles live
+when the call starts; particles injected by the same call are never read.
 
-# Notes
-- New particles are placed quadrant-by-quadrant inside the cell.
-- New field values are copied from the nearest existing particle in the same
-  neighborhood.
-- When companion fields are supplied, field values are copied from a live
-  particle in the neighboring support region. If none exists, the candidate is
-  skipped; no synthetic field fallback is invented.
-- The public entry point uses the vertex grid and cell spacing stored in
-  `particles`.
+- Without `fields`, each entry of `args` is copied from the nearest donor in
+  the 3^N cell neighborhood; a candidate with no donor is skipped.
+- With `fields` (one grid field per entry of `args`, laid out as described in
+  [`inject_particles_phase!`](@ref)), values come from `scheme`:
+  - `:grid`: interpolation of `fields` at the new particle;
+  - `:least_squares`: a linear least-squares fit on donors in the new
+    particle's cell (or its 3^N neighborhood when the cell has fewer than
+    N + 1 usable donors), clamped to the range of donor values in the
+    neighborhood; falls back to `:grid` when no fit is possible.
 """
 inject_particles!(particles::Particles, args) = inject_particles!(particles, args, particles.xvi, particles.di.vertex)
 
-function inject_particles!(particles::Particles, args, grid::NTuple{N}, di) where {N}
-    check_particle_fields(particles, args)
-    (; coords, index, min_xcell) = particles
-    ni = inner_size(index)
-    n_color = ntuple(i -> ceil(Int, ni[i] * 0.5), Val(N))
+inject_particles!(particles::Particles, args, grid::NTuple, di) =
+    _inject!(NearestInjection(), particles, nothing, args, (), grid, particles.xci, di, particles.di.center)
 
-    # We need a color-coded parallel approach for shared memory devices because
-    # we are look for the closest particle, which can be in a neighboring cell
-    return if N == 2
-        for offsetᵢ in 1:2, offsetⱼ in 1:2
-            launch!(
-                ka_backend(index), inject_particles_kernel!, n_color,
-                args, coords, index, grid, di, min_xcell, ni, (offsetᵢ, offsetⱼ)
-            )
-        end
-    elseif N == 3
-        for offsetᵢ in 1:2, offsetⱼ in 1:2, offsetₖ in 1:2
-            launch!(
-                ka_backend(index), inject_particles_kernel!, n_color,
-                args,
-                coords,
-                index,
-                grid,
-                di,
-                min_xcell,
-                ni,
-                (offsetᵢ, offsetⱼ, offsetₖ),
-            )
-        end
-    else
-        error(ThrowArgument("The dimension of the problem must be either 2 or 3"))
-    end
-end
-
-@kernel function inject_particles_kernel!(
-        args, coords, index, grid, di, min_xcell, ni, offsets::NTuple{N}
-    ) where {N}
-    I = @index(Global, NTuple)
-    physical_indices = ntuple(Val(N)) do i
-        2 * (I[i] - 1) + offsets[i]
-    end
-
-    if all(physical_indices .≤ ni)
-        indices = physical_indices .+ 1
-        _inject_particles!(args, coords, index, grid, @dxi(di, indices...) ./ 2, min_xcell, indices)
-    end
-end
-
-@inline function _inject_particles!(
-        ::Tuple{}, coords, index, grid, di_quadrant, min_xcell, idx_cell
-    )
-    xvi = corner_coordinate(grid, idx_cell)
-    xvi_quadrants = quadrant_corners(xvi, di_quadrant)
-    min_xQuadrant = cld(min_xcell, length(xvi_quadrants))
-
-    for vertex in xvi_quadrants
-        pcell = extract_particle_cell_coordinates(coords, idx_cell...)
-        particles_num = 0
-        for i in cellaxes(index)
-            (CAI.@index index[i, idx_cell...]) || continue
-            pcoords = extract_particle_coordinates(pcell, i)
-            isincell(pcoords, vertex, di_quadrant) || continue
-            particles_num += 1
-        end
-
-        particles_num ≥ min_xQuadrant && continue
-
-        for i in cellaxes(index)
-            !(CAI.@index index[i, idx_cell...]) || continue
-
-            p_new = new_particle(vertex, di_quadrant)
-            particles_num += 1
-            fill_particle!(coords, p_new, i, idx_cell)
-            CAI.@index index[i, idx_cell...] = true
-
-            particles_num ≥ min_xQuadrant && break
-        end
-    end
-
-    return nothing
-end
-
-@inline function _inject_particles!(
-        args::NTuple{N, Any}, coords, index, grid, di_quadrant, min_xcell, idx_cell
-    ) where {N}
-
-    # coordinates of the lower-left corner of the cell
-    xvi = corner_coordinate(grid, idx_cell)
-
-    # coordinates of the lower-left corner of the cell quadrants
-    xvi_quadrants = quadrant_corners(xvi, di_quadrant)
-
-    # integer ceiling division: `a / b` is a Float64 divide, which Metal cannot do
-    min_xQuadrant = cld(min_xcell, length(xvi_quadrants))
-
-    for vertex in xvi_quadrants
-
-        # cache coordinates of all particles inside parent cell
-        pcell = extract_particle_cell_coordinates(coords, idx_cell...)
-
-        # count current number of particles inside the cell
-        particles_num = 0
-        for i in cellaxes(index)
-            (CAI.@index index[i, idx_cell...]) || continue
-
-            # check if particle is in local quadrant
-            pcoords = extract_particle_coordinates(pcell, i)
-            isincell(pcoords, vertex, di_quadrant) || continue
-
-            # if it's inside, accumulate
-            particles_num += 1
-        end
-
-        # we are fine, do not inject if
-        particles_num ≥ min_xQuadrant && continue
-
-        for i in cellaxes(index)
-            !(CAI.@index index[i, idx_cell...]) || continue
-
-            # add at cellcenter + small random perturbation
-            p_new = new_particle(vertex, di_quadrant)
-
-            particle_idx, min_idx = index_min_distance(coords, p_new, index, i, idx_cell...)
-            iszero(particle_idx) && continue
-            particles_num += 1
-
-            # fill new particles information
-            fill_particle!(coords, p_new, i, idx_cell)
-            CAI.@index index[i, idx_cell...] = true
-
-            # add phase to new particle
-            for j in 1:N
-                new_value = CAI.@index args[j][particle_idx, min_idx...]
-                CAI.@index args[j][i, idx_cell...] = new_value
-            end
-
-            # we are done with injection if
-            particles_num ≥ min_xQuadrant && break
-        end
-    end
-
-    return nothing
-end
-
-# Injection of particles when multiple phases are present
-"""
-    inject_particles_phase!(particles, particles_phases, args, fields, grid)
-
-Inject particles into under-populated cells while also copying phase labels and
-field values from nearby particles.
-
-This is the phase-aware variant of `inject_particles!`.
-
-`particles_phases` stores a phase id per particle slot, while `args`/`fields`
-hold companion particle properties that must be initialized consistently for the
-new particles.
-"""
-inject_particles_phase!(
-    particles::Particles, particles_phases, args, fields
-) = inject_particles_phase!(
-    particles, particles_phases, args, fields, particles.xvi, particles.xci, particles.di.vertex, particles.di.center
+inject_particles!(particles::Particles, args, fields; scheme = :grid) = _inject!(
+    injection_scheme(scheme), particles, nothing, args, fields,
+    particles.xvi, particles.xci, particles.di.vertex, particles.di.center
 )
 
-function inject_particles_phase!(
-        particles::Particles, particles_phases, args, fields, grid::NTuple{N}, grid_center, di, di_center
-    ) where {N}
-    check_phase_injection_inputs(particles, particles_phases, args, fields, grid)
+"""
+    inject_particles_phase!(particles, particles_phases, args, fields; scheme = :grid)
+
+Phase-aware variant of [`inject_particles!`](@ref): each new particle also
+copies its phase from the nearest donor. `scheme` selects how `args` are
+initialized, as in `inject_particles!`.
+
+Each entry of `fields` may independently use cell centers or vertices, with
+one ghost sample per side on any axis or with no ghosts. Its size determines
+the layout relative to the particle grid. Unghosted center fields use the
+nearest valid interpolation stencil at boundaries, with the interpolated
+value clamped to the stencil's range.
+"""
+inject_particles_phase!(particles::Particles, particles_phases, args, fields; scheme = :grid) =
+    inject_particles_phase!(
+    particles, particles_phases, args, fields,
+    particles.xvi, particles.xci, particles.di.vertex, particles.di.center; scheme
+)
+
+inject_particles_phase!(
+    particles::Particles, particles_phases, args, fields, grid::NTuple, grid_center, di, di_center; scheme = :grid
+) = _inject!(injection_scheme(scheme), particles, particles_phases, args, fields, grid, grid_center, di, di_center)
+
+check_injection_inputs(::NearestInjection, particles, phases, args, fields, grid) =
+    (check_particle_fields(particles, args); ())
+check_injection_inputs(scheme, particles, phases, args, fields, grid) =
+    check_phase_injection_inputs(particles, phases, args, fields, grid)
+
+function _inject!(scheme, particles, phases, args, fields, grid, grid_center, di, di_center)
+    layouts = check_injection_inputs(scheme, particles, phases, args, fields, grid)
     (; coords, index, min_xcell) = particles
-    ni = inner_size(index)
-    n_color = ntuple(i -> ceil(Int, ni[i] * 0.5), Val(N))
-
-    return if N == 2
-        for offsetᵢ in 1:2, offsetⱼ in 1:2
-            launch!(
-                ka_backend(index), inject_particles_phase_kernel!, n_color,
-                particles_phases,
-                args,
-                fields,
-                coords,
-                index,
-                grid,
-                grid_center,
-                di,
-                di_center,
-                min_xcell,
-                ni,
-                (offsetᵢ, offsetⱼ),
-            )
-        end
-    elseif N == 3
-        for offsetᵢ in 1:2, offsetⱼ in 1:2, offsetₖ in 1:2
-            launch!(
-                ka_backend(index), inject_particles_phase_kernel!, n_color,
-                particles_phases,
-                args,
-                fields,
-                coords,
-                index,
-                grid,
-                grid_center,
-                di,
-                di_center,
-                min_xcell,
-                ni,
-                (offsetᵢ, offsetⱼ, offsetₖ),
-            )
-        end
-    else
-        error(ThrowArgument("The dimension of the problem must be either 2 or 3"))
-    end
-end
-
-@kernel function inject_particles_phase_kernel!(
-        particles_phases,
-        args,
-        fields,
-        coords,
-        index,
-        grid,
-        grid_center,
-        dxi,
-        dxi_center,
-        min_xcell,
-        ni,
-        offsets::NTuple{N},
-    ) where {N}
-    I = @index(Global, NTuple)
-    physical_indices = ntuple(Val(N)) do i
-        2 * (I[i] - 1) + offsets[i]
-    end
-
-    if all(physical_indices .≤ ni)
-        indices = physical_indices .+ 1
-        di = @dxi(dxi, indices...)
-        di_quadrant = di ./ 2
-        _inject_particles_phase!(
-            particles_phases,
-            args,
-            fields,
-            coords,
-            index,
-            grid,
-            grid_center,
-            di,
-            di_quadrant,
-            dxi_center,
-            min_xcell,
-            indices,
-        )
-    end
-end
-
-function _inject_particles_phase!(
-        particles_phases,
-        args,
-        fields,
-        coords,
-        index,
-        grid,
-        grid_center,
-        di,
-        di_quadrant,
-        dxi_center,
-        min_xcell,
-        idx_cell,
+    # Neighbor cells are read only through donor slots, and only non-donor slots of the
+    # thread's own cell are written, so all cells run concurrently.
+    donor = _copy(index)
+    launch!(
+        ka_backend(index), inject_kernel!, inner_size(index),
+        scheme, phases, args, fields, layouts, coords, index, donor, grid, grid_center, di, di_center, min_xcell
     )
-    # coordinates of the lower-left corner of the cell
-    xvi = corner_coordinate(grid, idx_cell)
-    # Number of cells, i.e. the size of a cell-centered field. `index` carries a halo, so
-    # its own size is `ni .+ 2`; comparing a field against that below would never match and
-    # every field would be treated as vertex-centered.
-    ni_cells = inner_size(index)
+    return nothing
+end
 
-    # coordinates of the lower-left corner of the cell quadrants
-    xvi_quadrants = quadrant_corners(xvi, di_quadrant)
+@kernel function inject_kernel!(
+        scheme, phases, args, fields, layouts, coords, index, donor, grid, grid_center, dxi, dxi_center, min_xcell
+    )
+    I = @index(Global, NTuple)
+    idx_cell = I .+ 1
+    di = @dxi(dxi, idx_cell...)
+    xci = corner_coordinate(grid_center, idx_cell)
+    ctx = (; args, fields, layouts, coords, donor, grid, grid_center, di, dxi_center, xci)
+    _inject_cell!(scheme, ctx, phases, index, di ./ 2, min_xcell, idx_cell)
+end
+
+@inline function _inject_cell!(scheme, ctx, phases, index, di_quadrant, min_xcell, idx_cell)
+    (; args, coords, donor, grid) = ctx
+    xvi_quadrants = quadrant_corners(corner_coordinate(grid, idx_cell), di_quadrant)
     # integer ceiling division: `a / b` is a Float64 divide, which Metal cannot do
     min_xQuadrant = cld(min_xcell, length(xvi_quadrants))
-    xci = xvi_quadrants[1] .+ di_quadrant # center of the cell
-
-    for (ic, vertex) in enumerate(xvi_quadrants)
-
-        # cache coordinates of all particles inside parent cell
-        pcell = extract_particle_cell_coordinates(coords, idx_cell...)
-
-        # count current number of particles inside the cell
-        particles_num = 0
+    pcell = extract_particle_cell_coordinates(coords, idx_cell...)
+    counts = map(xvi_quadrants) do vertex
+        n = 0
         for i in cellaxes(index)
             (CAI.@index index[i, idx_cell...]) || continue
-
-            # check if particle is in local quadrant
-            pcoords = extract_particle_coordinates(pcell, i)
-            isincell(pcoords, vertex, di_quadrant) || continue
-
-            # if it's inside, accumulate
-            particles_num += 1
+            n += isincell(extract_particle_coordinates(pcell, i), vertex, di_quadrant)
         end
+        n
+    end
+    all(≥(min_xQuadrant), counts) && return nothing
+    fit = cell_fit(scheme, ctx, idx_cell)
 
-        # we are fine, do not inject if
+    for (vertex, particles_num) in zip(xvi_quadrants, counts)
         particles_num ≥ min_xQuadrant && continue
-
         for i in cellaxes(index)
             !(CAI.@index index[i, idx_cell...]) || continue
-
-            # add at cellcenter + small random perturbation
             p_new = new_particle(vertex, di_quadrant)
-
-            # add phase to new particle
-            particle_idx, min_idx = index_min_distance(coords, p_new, index, i, idx_cell...)
-            iszero(particle_idx) && continue
+            ip_donor, I_donor = nearest_donor(scheme, args, phases, coords, p_new, donor, i, idx_cell)
+            iszero(ip_donor) && continue
             particles_num += 1
-            new_phase = CAI.@index particles_phases[particle_idx, min_idx...]
-            CAI.@index particles_phases[i, idx_cell...] = new_phase
 
-            # fill new particle information
             fill_particle!(coords, p_new, i, idx_cell)
             CAI.@index index[i, idx_cell...] = true
+            copy_phase!(phases, ip_donor, I_donor, i, idx_cell)
+            inject_values!(scheme, ctx, fit, p_new, ip_donor, I_donor, i, idx_cell)
 
-            # interpolate fields into newly injected particle
-            for j in eachindex(args)
-                sz = size(fields[j])
-                if sz == ni_cells
-                    # if field is defined at cell centers, interpolate from cell center to particle
-                    idx_center = shifted_index(p_new, xci, idx_cell)
-                    idx_center = clamp.(idx_center, 1, sz .- 1)
-                    di_center = @dxi(dxi_center, idx_center...)
-                    tmp = _grid2particle(p_new, grid_center, di_center, fields[j], idx_center)
-                    local_field = cell_field(fields[j], idx_center...)
-                    lower, upper = extrema(local_field)
-                    CAI.@index args[j][i, idx_cell...] = clamp(tmp, lower, upper)
-
-                else
-                    tmp = _grid2particle(p_new, grid, di, fields[j], idx_cell)
-                    local_field = cell_field(fields[j], idx_cell...)
-                    lower, upper = extrema(local_field)
-                    CAI.@index args[j][i, idx_cell...] = clamp(tmp, lower, upper)
-                end
-            end
-
-            # we are done with injection if
             particles_num ≥ min_xQuadrant && break
         end
     end
     return nothing
+end
+
+# A donor is needed only to copy a phase, or `args` under `NearestInjection`.
+@inline needs_donor(::NearestInjection, args, phases) = !isempty(args)
+@inline needs_donor(scheme, args, phases) = !isnothing(phases)
+
+# Without a needed donor every candidate is accepted; the returned slot is never read.
+@inline nearest_donor(scheme, args, phases, coords, p, donor, ip, idx_cell) =
+    needs_donor(scheme, args, phases) ? index_min_distance(coords, p, donor, ip, idx_cell...) : (1, idx_cell)
+
+@inline copy_phase!(::Nothing, ip_donor, I_donor, ip, idx_cell) = nothing
+@inline function copy_phase!(phases, ip_donor, I_donor, ip, idx_cell)
+    CAI.@index phases[ip, idx_cell...] = CAI.@index phases[ip_donor, I_donor...]
+    return nothing
+end
+
+@inline function inject_values!(::NearestInjection, ctx, fit, p_new, ip_donor, I_donor, ip, idx_cell)
+    foreach(ctx.args) do A
+        CAI.@index A[ip, idx_cell...] = CAI.@index A[ip_donor, I_donor...]
+    end
+    return nothing
+end
+
+@inline inject_values!(::GridInjection, ctx, fit, p_new, ip_donor, I_donor, ip, idx_cell) = inject_phase_fields!(
+    ctx.args, ctx.fields, ctx.layouts, p_new, ctx.grid, ctx.grid_center, ctx.di, ctx.dxi_center, ctx.xci, ip, idx_cell
+)
+
+@inline function inject_values!(::LeastSquaresInjection, ctx, fit, p_new, ip_donor, I_donor, ip, idx_cell)
+    ok, coeffs, Fmin, Fmax, xc = fit
+    ok || return inject_values!(GridInjection(), ctx, fit, p_new, ip_donor, I_donor, ip, idx_cell)
+    φ = SVector(one(eltype(p_new)), ((p_new .- xc) ./ ctx.di)...)
+    foreach(ctx.args, coeffs, Fmin, Fmax) do A, c, lo, hi
+        CAI.@index A[ip, idx_cell...] = clamp(sum(c .* φ), lo, hi)
+    end
+    return nothing
+end
+
+# Per-cell state shared by every particle injected into the cell.
+@inline cell_fit(scheme, ctx, idx_cell) = nothing
+
+@inline accumulate_fit((M, b, n), φ, F) = M + φ * φ', map((bj, Fj) -> bj + Fj * φ, b, F), n + 1
+
+# Hadamard ratio |det M| / ∏ Mᵢᵢ ∈ [0, 1]: rounding keeps it below 1e-6 for collinear or
+# coplanar donors in Float32, while 95% of well-spread donor sets exceed 1e-4.
+@inline function solve_fit((M, b, n))
+    T = eltype(M)
+    ok = n ≥ size(M, 1) && abs(det(M)) > T(1 // 100_000) * prod(i -> M[i, i], 1:size(M, 1))
+    Minv = ok ? inv(M) : zero(M)
+    return ok, map(bj -> Minv * bj, b)
+end
+
+# Linear fit F ≈ c₁ + c₂..ₙ₊₁⋅(x - xc)/di on donors, about the cell center xc: cell-local
+# when possible, else over the 3^N neighborhood. Values are later clamped to the
+# neighborhood's donor range.
+@inline function cell_fit(::LeastSquaresInjection, ctx, idx_cell)
+    (; args, coords, donor, di) = ctx
+    N, NA = length(idx_cell), length(args)
+    T = eltype(di)
+    xc = corner_coordinate(ctx.grid, idx_cell) .+ di ./ 2
+    own = stencil = (zero(SMatrix{N + 1, N + 1, T}), ntuple(_ -> zero(SVector{N + 1, T}), Val(NA)), 0)
+    Fmin = ntuple(_ -> typemax(T), Val(NA))
+    Fmax = ntuple(_ -> typemin(T), Val(NA))
+    neighborhood = ntuple(d -> max(idx_cell[d] - 1, 1):min(idx_cell[d] + 1, size(donor, d)), Val(N))
+    for J in CartesianIndices(neighborhood), k in cellaxes(donor)
+        I = Tuple(J)
+        (CAI.@index donor[k, I...]) || continue
+        φ = SVector(one(T), ntuple(d -> (CAI.@index(coords[d][k, I...]) - xc[d]) / di[d], Val(N))...)
+        F = map(A -> CAI.@index(A[k, I...]), args)
+        stencil = accumulate_fit(stencil, φ, F)
+        I == idx_cell && (own = accumulate_fit(own, φ, F))
+        Fmin = map(min, Fmin, F)
+        Fmax = map(max, Fmax, F)
+    end
+    fit = solve_fit(own)
+    ok, coeffs = first(fit) ? fit : solve_fit(stencil)
+    return ok, coeffs, Fmin, Fmax, xc
+end
+
+@generated function inject_phase_fields!(
+        args::NTuple{NF, Any}, fields::NTuple{NF, Any}, layouts, p_new, grid, grid_center,
+        di, dxi_center, xci, ip, idx_cell
+    ) where {NF}
+    return quote
+        Base.@_inline_meta
+        Base.@nexprs $NF j -> begin
+            F = fields[j]
+            layout = layouts[j]
+            idx = layout.iscenter ? shifted_index(p_new, xci, idx_cell) : idx_cell
+            field_idx = clamp.(idx .- layout.offset, 1, size(F) .- 1)
+            grid_idx = field_idx .+ layout.offset
+            xi = layout.iscenter ? grid_center : grid
+            spacing = layout.iscenter ? (@dxi(dxi_center, grid_idx...)) : di
+            corners = field_corners(F, field_idx)
+            value = _grid2particle(p_new, xi, spacing, corners, grid_idx)
+            lower, upper = extrema(corners)
+            CAI.@index args[j][ip, idx_cell...] = clamp(value, lower, upper)
+        end
+        nothing
+    end
 end
 
 ## UTILS
