@@ -244,9 +244,11 @@ end
     return p_new
 end
 
-# Lower corners of the 2^N quadrants, first axis fastest.
-@inline quadrant_corners(xvi::NTuple{N}, di_quadrant) where {N} =
-    ntuple(q -> xvi .+ di_quadrant .* Tuple(CartesianIndices(ntuple(_ -> 0:1, Val(N)))[q]), Val(2^N))
+# Lower corners of the 2^N quadrants, first axis fastest. Literal offsets keep the
+# quadrant count a compile-time constant; GPU inference does not fold `2^N`.
+@inline quadrant_corners(xvi, di_quadrant) = map(o -> xvi .+ di_quadrant .* o, quadrant_offsets(xvi))
+quadrant_offsets(::NTuple{2}) = ((0, 0), (1, 0), (0, 1), (1, 1))
+quadrant_offsets(::NTuple{3}) = ((0, 0, 0), (1, 0, 0), (0, 1, 0), (1, 1, 0), (0, 0, 1), (1, 0, 1), (0, 1, 1), (1, 1, 1))
 
 function extract_particle_cell_coordinates(
         coords::NTuple{N}, I::Vararg{Integer, N}
