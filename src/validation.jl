@@ -437,16 +437,10 @@ function phase_injection_layout(F, centers::NTuple{N}, name) where {N}
     throw(DimensionMismatch("size(`$name`) = $sz; expected centers $centers or vertices $(centers .+ 1), optionally with two ghost samples per axis"))
 end
 
-check_phases(particles, ::Nothing) = nothing
-function check_phases(particles, phases)
-    check_cell_layout("particles_phases", phases, particles.index)
-    check_backend("particles_phases", phases, ka_backend(particles))
-    return nothing
-end
-
 function check_phase_injection_inputs(particles, phases, args, fields, grid)
     check_particle_fields(particles, args)
-    check_phases(particles, phases)
+    isnothing(phases) || check_cell_layout("particles_phases", phases, particles.index)
+    isnothing(phases) || check_backend("particles_phases", phases, ka_backend(particles))
     check_precision("args", args, scalar_eltype(particles.coords[1]))
     check_distinct("particles.coords" => particles.coords, "args" => args, "particles_phases" => phases)
     fields isa Tuple && length(fields) == length(args) || throw(

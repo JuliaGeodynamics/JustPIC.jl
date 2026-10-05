@@ -75,7 +75,8 @@ function _inject!(scheme, particles, phases, args, fields, grid, grid_center, di
     donor = _copy(index)
     launch!(
         ka_backend(index), inject_kernel!, inner_size(index),
-        scheme, phases, args, fields, layouts, coords, index, donor, grid, grid_center, di, di_center, min_xcell
+        scheme, isnothing(phases) ? () : (phases,), args, fields, layouts, coords, index, donor,
+        grid, grid_center, di, di_center, min_xcell
     )
     return nothing
 end
@@ -113,13 +114,13 @@ end
         for i in cellaxes(index)
             !(CAI.@index index[i, idx_cell...]) || continue
             p_new = new_particle(vertex, di_quadrant)
-            ip_donor, I_donor = nearest_donor(scheme, args, phases, coords, p_new, donor, i, idx_cell)
+            ip_donor, I_donor = nearest_donor(scheme, args, phases, coords, p_new, donor, idx_cell)
             iszero(ip_donor) && continue
             particles_num += 1
 
             fill_particle!(coords, p_new, i, idx_cell)
             CAI.@index index[i, idx_cell...] = true
-            copy_phase!(phases, ip_donor, I_donor, i, idx_cell)
+            copy_from_donor!(phases, ip_donor, I_donor, i, idx_cell)
             inject_values!(scheme, ctx, fit, p_new, ip_donor, I_donor, i, idx_cell)
 
             particles_num ≥ min_xQuadrant && break
@@ -130,34 +131,27 @@ end
 
 # A donor is needed only to copy a phase, or `args` under `NearestInjection`.
 @inline needs_donor(::NearestInjection, args, phases) = !isempty(args)
-@inline needs_donor(scheme, args, phases) = !isnothing(phases)
+@inline needs_donor(scheme, args, phases) = !isempty(phases)
 
 # Without a needed donor every candidate is accepted; the returned slot is never read.
-@inline nearest_donor(scheme, args, phases, coords, p, donor, ip, idx_cell) =
-    needs_donor(scheme, args, phases) ? index_min_distance(coords, p, donor, ip, idx_cell...) : (1, idx_cell)
+@inline nearest_donor(scheme, args, phases, coords, p, donor, idx_cell) =
+    needs_donor(scheme, args, phases) ? index_min_distance(coords, p, donor, idx_cell) : (1, idx_cell)
 
-@inline copy_phase!(::Nothing, ip_donor, I_donor, ip, idx_cell) = nothing
-@inline function copy_phase!(phases, ip_donor, I_donor, ip, idx_cell)
-    CAI.@index phases[ip, idx_cell...] = CAI.@index phases[ip_donor, I_donor...]
-    return nothing
-end
+@inline copy_from_donor!(arrays, ip_donor, I_donor, ip, idx_cell) =
+    foreach(A -> (CAI.@index A[ip, idx_cell...] = CAI.@index A[ip_donor, I_donor...]), arrays)
 
-@inline function inject_values!(::NearestInjection, ctx, fit, p_new, ip_donor, I_donor, ip, idx_cell)
-    foreach(ctx.args) do A
-        CAI.@index A[ip, idx_cell...] = CAI.@index A[ip_donor, I_donor...]
-    end
-    return nothing
-end
+@inline inject_values!(::NearestInjection, ctx, fit, p_new, ip_donor, I_donor, ip, idx_cell) =
+    copy_from_donor!(ctx.args, ip_donor, I_donor, ip, idx_cell)
 
 @inline inject_values!(::GridInjection, ctx, fit, p_new, ip_donor, I_donor, ip, idx_cell) = inject_phase_fields!(
     ctx.args, ctx.fields, ctx.layouts, p_new, ctx.grid, ctx.grid_center, ctx.di, ctx.dxi_center, ctx.xci, ip, idx_cell
 )
 
 @inline function inject_values!(::LeastSquaresInjection, ctx, fit, p_new, ip_donor, I_donor, ip, idx_cell)
-    ok, coeffs, Fmin, Fmax, xc = fit
+    ok, coeffs, limits, xc = fit
     ok || return inject_values!(GridInjection(), ctx, fit, p_new, ip_donor, I_donor, ip, idx_cell)
     φ = SVector(one(eltype(p_new)), ((p_new .- xc) ./ ctx.di)...)
-    foreach(ctx.args, coeffs, Fmin, Fmax) do A, c, lo, hi
+    foreach(ctx.args, coeffs, limits) do A, c, (lo, hi)
         CAI.@index A[ip, idx_cell...] = clamp(sum(c .* φ), lo, hi)
     end
     return nothing
@@ -186,22 +180,19 @@ end
     T = eltype(di)
     xc = corner_coordinate(ctx.grid, idx_cell) .+ di ./ 2
     own = stencil = (zero(SMatrix{N + 1, N + 1, T}), ntuple(_ -> zero(SVector{N + 1, T}), Val(NA)), 0)
-    Fmin = ntuple(_ -> typemax(T), Val(NA))
-    Fmax = ntuple(_ -> typemin(T), Val(NA))
-    neighborhood = ntuple(d -> max(idx_cell[d] - 1, 1):min(idx_cell[d] + 1, size(donor, d)), Val(N))
-    for J in CartesianIndices(neighborhood), k in cellaxes(donor)
+    limits = ntuple(_ -> (typemax(T), typemin(T)), Val(NA))
+    for J in CartesianIndices(neighborhood(donor, idx_cell)), k in cellaxes(donor)
         I = Tuple(J)
         (CAI.@index donor[k, I...]) || continue
         φ = SVector(one(T), ntuple(d -> (CAI.@index(coords[d][k, I...]) - xc[d]) / di[d], Val(N))...)
         F = map(A -> CAI.@index(A[k, I...]), args)
         stencil = accumulate_fit(stencil, φ, F)
         I == idx_cell && (own = accumulate_fit(own, φ, F))
-        Fmin = map(min, Fmin, F)
-        Fmax = map(max, Fmax, F)
+        limits = map((l, f) -> (min(l[1], f), max(l[2], f)), limits, F)
     end
     fit = solve_fit(own)
     ok, coeffs = first(fit) ? fit : solve_fit(stencil)
-    return ok, coeffs, Fmin, Fmax, xc
+    return ok, coeffs, limits, xc
 end
 
 @generated function inject_phase_fields!(
@@ -229,85 +220,20 @@ end
 
 ## UTILS
 
-# find index of the closest particle w.r.t the new particle
-function index_min_distance(coords, pn, index, current_cell, icell, jcell)
-    particle_idx_min = i_min = j_min = 0
-    # typed sentinel: a bare `Inf` is Float64 and would widen the running minimum,
-    # carrying a Float64 into the kernel (fatal on Metal)
-    dist_min = convert(eltype(pn), Inf)
-    px, py = coords
-    nx, ny = size(px)
+@inline neighborhood(A, idx_cell::NTuple{N}) where {N} =
+    ntuple(d -> max(idx_cell[d] - 1, 1):min(idx_cell[d] + 1, size(A, d)), Val(N))
 
-    for j in (jcell - 1):(jcell + 1), i in (icell - 1):(icell + 1), ip in cellaxes(index)
-
-        # early escape conditions
-        ((i < 1) || (j < 1)) && continue # out of the domain
-        ((i > nx) || (j > ny)) && continue # out of the domain
-        (i == icell) && (j == jcell) && (ip == current_cell) && continue # current injected particle
-        (CAI.@index index[ip, i, j]) || continue
-
-        # distance from new point to the existing particle
-        pxi = CAI.@index(px[ip, i, j]), CAI.@index(py[ip, i, j])
-
-        any(isnan, pxi) && continue
-
-        d = distance(pxi, pn)
-
-        if d < dist_min
-            particle_idx_min = ip
-            i_min, j_min = i, j
-            dist_min = d
-        end
+# Nearest donor to `pn` in the 3^N neighborhood of `idx_cell`; slot 0 when there is none.
+@inline function index_min_distance(coords::NTuple{N}, pn, donor, idx_cell) where {N}
+    # typed sentinel: a bare `Inf` is Float64 and would carry a Float64 into the kernel (fatal on Metal)
+    best = (convert(eltype(pn), Inf), 0, idx_cell)
+    for J in CartesianIndices(neighborhood(donor, idx_cell)), ip in cellaxes(donor)
+        I = Tuple(J)
+        (CAI.@index donor[ip, I...]) || continue
+        d = distance(ntuple(d -> CAI.@index(coords[d][ip, I...]), Val(N)), pn)
+        d < best[1] && (best = (d, ip, I))
     end
-
-    return particle_idx_min, (i_min, j_min)
-end
-
-function index_min_distance(coords, pn, index, current_cell, icell, jcell, kcell)
-    particle_idx_min = i_min = j_min = k_min = 0
-    # see the 2D method: typed sentinel keeps the running minimum Float32 on Metal
-    dist_min = convert(eltype(pn), Inf)
-    px, py, pz = coords
-    nx, ny, nz = size(px)
-
-    for k in (kcell - 1):(kcell + 1),
-            j in (jcell - 1):(jcell + 1),
-            i in (icell - 1):(icell + 1),
-            ip in cellaxes(index)
-
-        # early escape conditions
-        ((i < 1) || (j < 1) || (k < 1)) && continue # out of the domain
-        ((i > nx) || (j > ny) || (k > nz)) && continue # out of the domain
-        (i == icell) && (j == jcell) && (k == kcell) && (ip == current_cell) && continue # current injected particle
-        (CAI.@index index[ip, i, j, k]) || continue
-
-        # distance from new point to the existing particle
-        pxi = CAI.@index(px[ip, i, j, k]), CAI.@index(py[ip, i, j, k]), CAI.@index(pz[ip, i, j, k])
-        d = distance(pxi, pn)
-
-        if d < dist_min
-            particle_idx_min = ip
-            i_min, j_min, k_min = i, j, k
-            dist_min = d
-        end
-    end
-
-    return particle_idx_min, (i_min, j_min, k_min)
-end
-
-@inline function cell_field(field, i, j)
-    return field[i, j], field[i + 1, j], field[i, j + 1], field[i + 1, j + 1]
-end
-
-@inline function cell_field(field, i, j, k)
-    return field[i, j, k],
-        field[i + 1, j, k],
-        field[i, j + 1, k],
-        field[i + 1, j + 1, k],
-        field[i, j, k + 1],
-        field[i + 1, j, k + 1],
-        field[i, j + 1, k + 1],
-        field[i + 1, j + 1, k + 1]
+    return best[2], best[3]
 end
 
 # keep all arithmetic in the grid eltype: Float64 literals/rand() break Metal
@@ -319,49 +245,9 @@ end
     return p_new
 end
 
-@inline function new_particle(xvi::NTuple{2}, di::NTuple{2}, ctr, np)
-    T = typeof(first(di))
-    th = 2 * convert(T, pi) * (ctr - 1) / np
-    r = min(di...) / 4
-    p_new = (
-        muladd(di[1], convert(T, 0.5), muladd(r, cos(th), xvi[1])),
-        muladd(di[2], convert(T, 0.5), muladd(r, sin(th), xvi[2])),
-    )
-    return p_new
-end
-
-@inline function new_particle(xvi::NTuple{3}, di::NTuple{3}, ctr, np)
-    T = typeof(first(di))
-    th = 2 * convert(T, pi) * (ctr - 1) / np
-    r = min(di...) / 4
-    p_new = (
-        muladd(di[1], convert(T, 0.5), muladd(r, cos(th), xvi[1])),
-        muladd(di[2], convert(T, 0.5), xvi[2]),
-        muladd(di[3], convert(T, 0.5), muladd(r, cos(th), xvi[3])),
-    )
-    return p_new
-end
-
-function quadrant_corners(xvi::NTuple{2}, di_quadrant::NTuple{2})
-    c11 = xvi
-    c12 = @. xvi + di_quadrant * (1, 0)
-    c21 = @. xvi + di_quadrant * (0, 1)
-    c22 = @. xvi + di_quadrant * (1, 1)
-    return c11, c12, c21, c22
-end
-
-function quadrant_corners(xvi::NTuple{3}, di_quadrant::NTuple{3})
-    c111 = xvi
-    c121 = @. xvi + di_quadrant * (1, 0, 0)
-    c211 = @. xvi + di_quadrant * (0, 1, 0)
-    c221 = @. xvi + di_quadrant * (1, 1, 0)
-    c112 = @. xvi + di_quadrant * (0, 0, 1)
-    c122 = @. xvi + di_quadrant * (1, 0, 1)
-    c212 = @. xvi + di_quadrant * (0, 1, 1)
-    c222 = @. xvi + di_quadrant * (1, 1, 1)
-
-    return c111, c121, c211, c221, c112, c122, c212, c222
-end
+# Lower corners of the 2^N quadrants, first axis fastest.
+@inline quadrant_corners(xvi::NTuple{N}, di_quadrant) where {N} =
+    ntuple(q -> xvi .+ di_quadrant .* Tuple(CartesianIndices(ntuple(_ -> 0:1, Val(N)))[q]), Val(2^N))
 
 function extract_particle_cell_coordinates(
         coords::NTuple{N}, I::Vararg{Integer, N}
@@ -376,5 +262,3 @@ function extract_particle_coordinates(coords::NTuple{N}, I::Integer) where {N}
         coords[i][I]
     end
 end
-
-@inline distance2(x, y) = √(mapreduce(x -> (x[1] - x[2])^2, +, zip(x, y)))
