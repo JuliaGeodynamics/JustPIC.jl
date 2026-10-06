@@ -422,23 +422,36 @@ function check_marker_transfer(Fp, F, xvi, markers)
     return nothing
 end
 
-# `fields` are grid fields sampled at the new particles: each lives on the cell centers
-# (`inner_size(particles.index)`) or on the ghosted vertex grid `grid`.
+# Infer one location per field, allowing a ghost layer independently on each axis.
+function phase_injection_layout(F, centers::NTuple{N}, name) where {N}
+    sz = size(F)
+    ndims(F) == N || throw(DimensionMismatch("`$name` must be $(N)D"))
+    for iscenter in (true, false)
+        physical = centers .+ !iscenter
+        if all(d -> sz[d] in (physical[d], physical[d] + 2), 1:N)
+            all(>=(2), sz) || throw(DimensionMismatch("`$name` needs at least two samples per axis"))
+            offset = ntuple(d -> Int(sz[d] == physical[d]), Val(N))
+            # `Int` flag, not `Bool`: a padded layout struct as kernel argument crashes the Metal compiler
+            return (; iscenter = Int(iscenter), offset)
+        end
+    end
+    throw(DimensionMismatch("size(`$name`) = $sz; expected centers $centers or vertices $(centers .+ 1), optionally with two ghost samples per axis"))
+end
+
 function check_phase_injection_inputs(particles, phases, args, fields, grid)
     check_particle_fields(particles, args)
     check_cell_layout("particles_phases", phases, particles.index)
     check_backend("particles_phases", phases, ka_backend(particles))
+    check_precision("args", args, scalar_eltype(particles.coords[1]))
     check_distinct("particles.coords" => particles.coords, "args" => args, "particles_phases" => phases)
     fields isa Tuple && length(fields) == length(args) || throw(
         ArgumentError("`fields` must be a tuple with one grid field per entry of `args`")
     )
-    centers, vertices = inner_size(particles.index), map(length, grid)
-    for (j, F) in enumerate(fields)
-        size(F) in (centers, vertices) || throw(
-            DimensionMismatch("size(`fields[$j]`) = $(size(F)); expected $centers (cell centers) or $vertices (vertices)")
-        )
+    centers = inner_size(particles.index)
+    return map(fields, ntuple(identity, length(fields))) do F, j
+        layout = phase_injection_layout(F, centers, "fields[$j]")
         check_backend("fields[$j]", F, ka_backend(particles))
         check_precision("fields[$j]", F, scalar_eltype(particles.coords[1]))
+        layout
     end
-    return nothing
 end

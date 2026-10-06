@@ -1,6 +1,6 @@
 name = "JustPIC"
 uuid = "10dc771f-8528-4cd9-9d3b-b21b2e693339"
-version = "0.7.10"
+version = "0.7.11"
 authors = ["Albert De Montserrat <albertdemontserratnavarro@eaps.ethz.ch>"]
 
 [deps]
@@ -10,6 +10,7 @@ GridGeometryUtils = "6f784e4f-3d6e-439e-b87e-1b67132dd330"
 ImplicitGlobalGrid = "4d7a3746-15be-11ea-1130-334b0c4f5fa0"
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 KernelAbstractions = "63c18a36-062a-441e-b654-da1e3ab1ce7c"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 MPI = "da04e1cc-30fd-572f-bb4f-1f8673147195"
 MuladdMacro = "46d2c3a1-f734-5fdb-9937-b9b9aeba4221"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
@@ -34,6 +35,7 @@ GridGeometryUtils = "0.3.1"
 ImplicitGlobalGrid = "0.16, 0.17"
 JLD2 = "0.5, 0.6"
 KernelAbstractions = "0.9"
+LinearAlgebra = "1.10, 1.11, 1.12, 1.13"
 MPI = "0.20"
 Metal = "1"
 MuladdMacro = "0.2.4"
@@ -45,11 +47,10 @@ julia = "1.10, 1.11, 1.12, 1.13"
 AMDGPU = "21141c5a-9bdb-4563-92ae-f87d6854732e"
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
-LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Metal = "dde4c033-4e86-420c-a63e-0dd931031962"
 Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["AMDGPU", "Aqua", "CUDA", "LinearAlgebra", "Metal", "Pkg", "TOML", "Test"]
+test = ["AMDGPU", "Aqua", "CUDA", "Metal", "Pkg", "TOML", "Test"]
