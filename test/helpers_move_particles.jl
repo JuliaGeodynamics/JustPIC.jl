@@ -134,6 +134,41 @@ function check_full_destination_overflow(particles, fields)
     return nothing
 end
 
+# Three cells in a row along the first direction: the full cell `a` sends all its particles
+# to the full cell `b`, which sends all its particles to the empty cell `c`. `a` is swept
+# before `b`, so `b` is full only until its own particles have left (#378); nothing may be
+# dropped.
+function check_transiently_full_destination(particles, fields)
+    T = eltype(eltype(particles.coords[1]))
+    N = length(particles.coords)
+    max_xcell = particles.max_xcell
+    a, b, c = ntuple(i -> ntuple(d -> d == 1 ? i + 1 : 3, Val(N)), 3)
+    xci = Array.(particles.xci)
+    centre(cell) = ntuple(d -> T(xci[d][cell[d]]), Val(N))
+
+    total = 2 * max_xcell
+    cells = ntuple(d -> [fill(a[d], max_xcell); fill(b[d], max_xcell)], Val(N))
+    slots = repeat(1:max_xcell, 2)
+    positions = ntuple(d -> [fill(centre(b)[d], max_xcell); fill(centre(c)[d], max_xcell)], Val(N))
+    clear_particles!(particles, fields)
+    dev = TA(backend)
+    JustPIC.launch!(
+        JustPIC.ka_backend(particles.index), place_particles_kernel!, total,
+        particles.index, particles.coords, fields,
+        ntuple(d -> dev(cells[d]), Val(N)), dev(slots),
+        ntuple(d -> dev(positions[d]), Val(N)), dev(T.(1:total)),
+    )
+    move_particles!(particles, fields)
+
+    fields_h = to_cpu.(fields)
+    @test count(particles.index.data) == total
+    for (cell, ids) in ((b, 1:max_xcell), (c, (max_xcell + 1):total))
+        @test sort([CAI.@index(fields_h[1][slot, cell...]) for slot in 1:max_xcell]) == T.(ids)
+        @test all(CAI.@index(fields_h[2][slot, cell...]) == 2 * CAI.@index(fields_h[1][slot, cell...]) for slot in 1:max_xcell)
+    end
+    return nothing
+end
+
 function check_clean_particles(particles, fields)
     T = eltype(eltype(particles.coords[1]))
     N = length(particles.coords)

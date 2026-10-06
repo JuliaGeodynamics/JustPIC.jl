@@ -61,9 +61,9 @@ Source and destination arrays must not share memory. The checks reject:
   periodic direction must be empty when `move_particles!` is called.
 - **Displacement.** A particle may cross any number of cells in one call to
   `move_particles!`. Large jumps are slower, not rejected; see the
-  [`move_particles!`](@ref) docstring. If a destination cell is full, the particle and
-  its companion fields are dropped; `verbose = true` prints the number of dropped
-  particles.
+  [`move_particles!`](@ref) docstring. If a destination cell is still full once no
+  particle can move any more, the particle and its companion fields are dropped;
+  `verbose = true` prints the number of dropped particles.
 - **Passive markers.** Passive markers have no occupancy mask. `init_passive_markers`
   requires finite coordinates, and interpolation and advection require every marker to
   lie inside the grid. `advection!` stops markers on the boundary instead of moving them
