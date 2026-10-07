@@ -58,7 +58,7 @@ function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args, dx
     # CFL-limited advection ensures. Particles that jump farther are left in place and moved by
     # a later sweep, which is sized to the largest jump of the particles left behind. Particles
     # with a full destination wait for a later sweep (#378); a sweep that covers every jump and
-    # moves nothing is followed by one that drops them. Every other sweep moves a particle or
+    # frees no source slots is followed by one that drops them. Every other sweep frees a slot or
     # widens `max_jump`, so the loop ends.
     max_jump = ntuple(_ -> 1, Val(N))
     drop = false
@@ -68,7 +68,7 @@ function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args, dx
         overflow += sweep.dropped
         far = any(sweep.jump .> max_jump)
         far || sweep.full || break
-        drop = !(far || sweep.moved)
+        drop = !(far || sweep.progress)
         max_jump = sweep.jump
     end
 
@@ -84,7 +84,7 @@ end
 # direction `i` and leave the others where they are. A particle whose destination is full is
 # dropped if `drop` is set and left in place otherwise. Return the largest jump along each
 # direction of the particles left in place (`jump`), whether any of them was left because its
-# destination is full (`full`), whether any particle was moved (`moved`), and the number of
+# destination is full (`full`), whether any source slot was freed (`progress`), and the number of
 # particles dropped (`dropped`).
 #
 # The source cells are swept in colors: the cells of one color are processed concurrently, one
@@ -100,8 +100,8 @@ function sweep_cells!(particles, grid, args, dxi, domain_limits, periodicity, ma
     # Int32 flags and counters: Metal has no 64-bit integer atomics (see #362)
     counter() = KernelAbstractions.zeros(backend, Int32, 1)
     jump = map(_ -> counter(), max_jump)
-    full, moved, overflow = counter(), counter(), counter()
-    bound = (; max_jump, periodicity, drop, jump, full, moved, overflow)
+    full, progress, overflow = counter(), counter(), counter()
+    bound = (; max_jump, periodicity, drop, jump, full, progress, overflow)
     layout = map(ColorAxis, size(index), max_jump, periodicity)
     nblocks = map(axis -> axis.nblocks, layout)
     for colors in Iterators.product(map(axis -> 1:axis.ncolors, layout)...)
@@ -111,7 +111,7 @@ function sweep_cells!(particles, grid, args, dxi, domain_limits, periodicity, ma
         )
     end
     value(x) = Int(maximum(x))
-    return (; jump = map(value, jump), full = !iszero(value(full)), moved = !iszero(value(moved)), dropped = value(overflow))
+    return (; jump = map(value, jump), full = !iszero(value(full)), progress = !iszero(value(progress)), dropped = value(overflow))
 end
 
 # Partition of the cells of one direction into colors. The cell of color `k` in block `b` is
@@ -211,7 +211,7 @@ function move_kernel!(
     ) where {N1, N2}
 
     dxi = @dxi di idx...
-    full = moved = false
+    full = progress = false
     jump = ntuple(_ -> 0, Val(N1))
 
     # iterate over particles in child cell
@@ -229,6 +229,7 @@ function move_kernel!(
             CAI.@index index[ip, idx...] = false
             empty_particle!(coords, ip, idx)
             empty_particle!(args, ip, idx)
+            progress = true
         end
         domain_check && continue
 
@@ -256,6 +257,7 @@ function move_kernel!(
         CAI.@index index[ip, idx...] = false
         empty_particle!(coords, ip, idx)
         empty_particle!(args, ip, idx)
+        progress = true
 
         if iszero(free_idx)
             KernelAbstractions.@atomic bound.overflow[1] += one(eltype(bound.overflow))
@@ -266,11 +268,10 @@ function move_kernel!(
         CAI.@index index[free_idx, new_cell...] = true
         fill_particle!(coords, pᵢ, free_idx, new_cell)
         fill_particle!(args, current_args, free_idx, new_cell)
-        moved = true
     end
     map(raise!, bound.jump, jump)
     raise!(bound.full, full)
-    raise!(bound.moved, moved)
+    raise!(bound.progress, progress)
     return nothing
 end
 
@@ -286,10 +287,10 @@ end
 end
 
 # Raise the shared maximum `x[1]` to `value`. The values are shared by all threads: update each
-# at most once per cell, and only when it grows, so that threads do not contend for it.
+# at most once per cell, skipping zero local values without reading the shared counter.
 @inline function raise!(x, value)
     v = convert(eltype(x), value)
-    v > x[1] && (KernelAbstractions.@atomic x[1] max v)
+    !iszero(v) && (KernelAbstractions.@atomic x[1] max v)
     return nothing
 end
 

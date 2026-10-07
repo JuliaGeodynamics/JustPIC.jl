@@ -169,6 +169,46 @@ function check_transiently_full_destination(particles, fields)
     return nothing
 end
 
+# All three cells are full and swept in order a, b, c. The particles in c leave
+# the domain, so later sweeps must propagate its vacancies without dropping a or b.
+function check_exit_unblocks_destination(backend, ::Type{T}, ::Val{N}) where {T, N}
+    xv = LinRange(zero(T), one(T), 9)
+    xc_extended = LinRange(-one(T) / 16, T(17) / 16, 10)
+    velocity_grids = ntuple(d -> ntuple(i -> i == d ? xv : xc_extended, Val(N)), Val(N))
+    particles = init_particles(backend, 4, 4, 1, velocity_grids...)
+    fields = init_cell_arrays(particles, Val(2))
+    capacity = particles.max_xcell
+    a, b, c = ntuple(i -> ntuple(d -> d == 1 ? i + 3 : 3, Val(N)), 3)
+    xci = Array.(particles.xci)
+    centre(cell) = ntuple(d -> T(xci[d][cell[d]]), Val(N))
+    outside = ntuple(d -> d == 1 ? T(2) : centre(c)[d], Val(N))
+    total = 3 * capacity
+    cells = ntuple(d -> repeat([a[d], b[d], c[d]]; inner = capacity), Val(N))
+    positions = ntuple(d -> repeat([centre(b)[d], centre(c)[d], outside[d]]; inner = capacity), Val(N))
+    clear_particles!(particles, fields)
+    dev = TA(backend)
+    JustPIC.launch!(
+        JustPIC.ka_backend(particles.index), place_particles_kernel!, total,
+        particles.index, particles.coords, fields,
+        ntuple(d -> dev(cells[d]), Val(N)), dev(repeat(1:capacity, 3)),
+        ntuple(d -> dev(positions[d]), Val(N)), dev(T.(1:total)),
+    )
+    move_particles!(particles, fields)
+
+    index_h = to_cpu(particles.index)
+    coords_h = to_cpu.(particles.coords)
+    fields_h = to_cpu.(fields)
+    @test count(Array(particles.index.data)) == 2 * capacity
+    @test !any(CAI.@index(index_h[slot, a...]) for slot in 1:capacity)
+    for (cell, ids) in ((b, 1:capacity), (c, (capacity + 1):(2 * capacity)))
+        @test all(CAI.@index(index_h[slot, cell...]) for slot in 1:capacity)
+        @test sort([CAI.@index(fields_h[1][slot, cell...]) for slot in 1:capacity]) == T.(ids)
+        @test all(CAI.@index(fields_h[2][slot, cell...]) == 2 * CAI.@index(fields_h[1][slot, cell...]) for slot in 1:capacity)
+        @test all(CAI.@index(coords_h[d][slot, cell...]) == centre(cell)[d] for d in 1:N, slot in 1:capacity)
+    end
+    return nothing
+end
+
 function check_clean_particles(particles, fields)
     T = eltype(eltype(particles.coords[1]))
     N = length(particles.coords)

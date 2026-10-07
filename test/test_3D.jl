@@ -382,6 +382,10 @@ include(joinpath(@__DIR__, "helpers_move_particles.jl"))
         check_transiently_full_destination(particles, fields)
     end
 
+    @testset "domain exits unblock incoming particles" begin
+        check_exit_unblocks_destination(backend, FT, Val(3))
+    end
+
     @testset "clean removes out-of-cell particles without compaction" begin
         check_clean_particles(particles, fields)
     end
