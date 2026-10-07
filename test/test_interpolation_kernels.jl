@@ -112,7 +112,7 @@ end
     @test Array(pY.data)[active] ≈ Array(particles.coords[2].data)[active]
 
     # Grid to particle test
-    JustPIC.grid2particle_flip!(pT, xvi_p, T, T0, particles)
+    JustPIC.grid2particle_flip!(pT, T, T0, particles)
 
     @test Array(pT.data)[active] ≈ Array(particles.coords[2].data)[active]
 
@@ -229,9 +229,9 @@ end
     @test Array(pT_ghost.data)[active] ≈ Array(pT_plain.data)[active]
 
     pF_ghost, pF_plain = JustPIC.init_cell_arrays(particles, Val(2))
-    JustPIC.grid2particle_flip!(pF_ghost, xvi_p, T_ghost, T_ghost, particles; α = FT(0.5))
+    JustPIC.grid2particle_flip!(pF_ghost, T_ghost, T_ghost, particles; α = FT(0.5))
     JustPIC.grid2particle_flip!(
-        pF_plain, xvi_p, T_plain, T_plain, particles;
+        pF_plain, T_plain, T_plain, particles;
         α = FT(0.5), ghost_1 = false, ghost_2 = false,
     )
     @test Array(pF_ghost.data)[active] ≈ Array(pF_plain.data)[active]
@@ -295,7 +295,7 @@ end
     @test Array(pZ.data)[active] ≈ Array(particles.coords[3].data)[active]
 
     # Grid to particle test
-    JustPIC.grid2particle_flip!(pT, xvi_p, T, T0, particles)
+    JustPIC.grid2particle_flip!(pT, T, T0, particles)
 
     @test Array(pT.data)[active] ≈ Array(particles.coords[3].data)[active]
 
@@ -367,7 +367,7 @@ end
         T = [x + y for x in xvi[1], y in xvi[2]]
 
         JustPIC.grid2particle!(p_pic, T, particles)
-        JustPIC.grid2particle_flip!(p_flip, xvi, T, T, particles; α = FT(1))
+        JustPIC.grid2particle_flip!(p_flip, T, T, particles; α = FT(1))
 
         @test p_flip.data == p_pic.data
     end
@@ -447,4 +447,170 @@ end
         F_xz, (v_z[1], v_z[2], v_z[5], v_z[6]), (t[1], t[3]), 2, 2, Val(2)
     )
     @test JustPIC.MQS(F_z, v_z, t, idx..., Val(3)) ≈ expected_z
+end
+
+function flip_test_particles(::Val{D}) where {D}
+    n = 5
+    xv = LinRange(FT(0), FT(1), n)
+    dx = xv[2] - xv[1]
+    xc = LinRange(dx / 2, 1 - dx / 2, n - 1)
+    grids = ntuple(Val(D)) do d
+        TA(backend).(ntuple(k -> k == d ? xv : expand_range(xc), Val(D)))
+    end
+    nxcell = D == 2 ? 5 : 12
+    return JustPIC.init_particles(backend, nxcell, nxcell, 1, grids...)
+end
+
+# linear field c ⋅ x sampled on the tuple of coordinate vectors `xs`
+linear_field(xs, c) = TA(backend)(FT[sum(c .* x) for x in Iterators.product(map(collect, xs)...)])
+
+@testset "PIC/FLIP transfers $(D)D" for D in (2, 3)
+    particles = flip_test_particles(Val(D))
+    active = Array(particles.index.data)
+    xp = ntuple(d -> Array(particles.coords[d].data)[active], Val(D))
+    at_particles(c) = sum(c[d] .* xp[d] for d in 1:D)
+    host(pT) = Array(pT.data)[active]
+    tol = 200 * eps(FT)
+    c0 = ntuple(d -> FT(d), Val(D))
+    c1 = ntuple(d -> FT(d) + FT(0.1) * d^2, Val(D))
+    # particle field that is inconsistent with the grid fields, so PIC and FLIP differ
+    function fresh_particle_field(F)
+        pT, = JustPIC.init_cell_arrays(particles, Val(1))
+        JustPIC.grid2particle!(pT, 2 .* F, particles)
+        return pT
+    end
+    expected(α) = α .* at_particles(c1) .+ (1 - α) .* (2 .* at_particles(c0) .+ at_particles(c1) .- at_particles(c0))
+    full_grids(xs, ghost_1) = ntuple(d -> (d == 1 && !ghost_1) ? xs[d][2:(end - 1)] : xs[d], Val(D))
+
+    @testset "grid2particle_flip!" begin
+        F0, F1 = linear_field(particles.xvi, c0), linear_field(particles.xvi, c1)
+        for α in FT.((0, 1 // 2, 1))
+            pT = fresh_particle_field(F0)
+            grid2particle_flip!(pT, F1, F0, particles; α)
+            @test isapprox(host(pT), expected(α); atol = tol)
+            @test eltype(eltype(pT)) === FT
+        end
+        pA, pB = fresh_particle_field(F0), fresh_particle_field(F0)
+        grid2particle_flip!((pA, pB), (F1, copy(F1)), (F0, copy(F0)), particles; α = FT(0))
+        @test isapprox(host(pA), expected(0); atol = tol)
+        @test host(pA) == host(pB)
+        pOld = fresh_particle_field(F0)
+        grid2particle_flip!(pOld, particles.xvi, F1, F0, particles; α = FT(0))
+        @test host(pOld) == host(pA)
+    end
+
+    @testset "centroid2particle_flip!" begin
+        for ghosted in (true, false)
+            xs = ghosted ? particles.xci : map(x -> x[2:(end - 1)], particles.xci)
+            C0, C1 = linear_field(xs, c0), linear_field(xs, c1)
+            for α in FT.((0, 1 // 2, 1))
+                pT = fresh_particle_field(linear_field(particles.xvi, c0))
+                centroid2particle_flip!(pT, C1, C0, particles; α, ghosted)
+                @test isapprox(host(pT), expected(α); atol = tol)
+                @test eltype(eltype(pT)) === FT
+            end
+            pA, pB = ntuple(_ -> fresh_particle_field(linear_field(particles.xvi, c0)), Val(2))
+            centroid2particle_flip!((pA, pB), (C1, copy(C1)), (C0, copy(C0)), particles; α = FT(0), ghosted)
+            @test isapprox(host(pA), expected(0); atol = tol)
+            @test host(pA) == host(pB)
+        end
+    end
+
+    @testset "centroid2particle! ghost layouts" begin
+        for ghosted in (true, false)
+            xs = ghosted ? particles.xci : map(x -> x[2:(end - 1)], particles.xci)
+            pT, pT2 = JustPIC.init_cell_arrays(particles, Val(2))
+            centroid2particle!(pT, linear_field(xs, c0), particles; ghosted)
+            @test isapprox(host(pT), at_particles(c0); atol = tol)
+            centroid2particle!((pT, pT2), (linear_field(xs, c0), linear_field(xs, c1)), particles; ghosted)
+            @test isapprox(host(pT), at_particles(c0); atol = tol)
+            @test isapprox(host(pT2), at_particles(c1); atol = tol)
+        end
+        xs = full_grids(particles.xci, false)
+        pT, = JustPIC.init_cell_arrays(particles, Val(1))
+        centroid2particle!(pT, linear_field(xs, c0), particles; ghost_1 = false)
+        @test isapprox(host(pT), at_particles(c0); atol = tol)
+    end
+
+    # a constant particle increment shifts every node/centroid that has particles by exactly that amount
+    function check_increment(transfer!, xs, extra...)
+        δ = FT(0.25)
+        F = linear_field(xs, c0)
+        Fp0, = JustPIC.init_cell_arrays(particles, Val(1))
+        JustPIC.grid2particle!(Fp0, linear_field(particles.xvi, c1), particles)
+        Fp, = JustPIC.init_cell_arrays(particles, Val(1))
+        Fp.data .= Fp0.data .+ δ
+        before = Array(F)
+        transfer!(F, Fp, Fp0, particles; extra...)
+        @test eltype(F) === FT
+        Δ = Array(F) .- before
+        @test all(d -> d == 0 || isapprox(d, δ; atol = tol), Δ)
+        @test count(d -> d ≠ 0, Δ) ≥ prod(size(F) .- 2)
+
+        # tuple of fields, one of them unchanged
+        G, H = linear_field(xs, c0), linear_field(xs, c0)
+        Fq, = JustPIC.init_cell_arrays(particles, Val(1))
+        Fq.data .= Fp0.data
+        Fq0 = deepcopy(Fp0)
+        transfer!((G, H), (Fp, Fq), (Fp0, Fq0), particles; extra...)
+        @test Array(G) == Array(F)
+        @test Array(H) == before
+
+        # no particles, no change
+        empty = flip_test_particles(Val(D))
+        fill!(empty.index.data, false)
+        K = linear_field(xs, c0)
+        transfer!(K, Fp, Fp0, empty; extra...)
+        @test Array(K) == before
+    end
+
+    @testset "particle2grid_flip!" begin
+        check_increment(particle2grid_flip!, particles.xvi)
+    end
+
+    @testset "particle2centroid_flip!" begin
+        check_increment(particle2centroid_flip!, particles.xci)
+    end
+
+    @testset "particle2grid_flip! without ghost nodes along x" begin
+        Fp0, = JustPIC.init_cell_arrays(particles, Val(1))
+        JustPIC.grid2particle!(Fp0, linear_field(particles.xvi, c1), particles)
+        Fp, = JustPIC.init_cell_arrays(particles, Val(1))
+        Fp.data .= Fp0.data .+ FT(0.25)
+        for (transfer!, xs) in ((particle2grid_flip!, particles.xvi), (particle2centroid_flip!, particles.xci))
+            Fg = linear_field(xs, c0)
+            transfer!(Fg, Fp, Fp0, particles)
+            Fl = linear_field(full_grids(xs, false), c0)
+            transfer!(Fl, Fp, Fp0, particles; ghost_1 = false)
+            @test Array(Fl) == Array(Fg)[2:(end - 1), ntuple(_ -> :, D - 1)...]
+        end
+    end
+end
+
+@testset "particle2centroid! $(D)D" for D in (2, 3)
+    particles = flip_test_particles(Val(D))
+    c = ntuple(d -> FT(d), Val(D))
+    cs = ntuple(d -> FT(2d), Val(D))
+    pA, pB = JustPIC.init_cell_arrays(particles, Val(2))
+    JustPIC.grid2particle!(pA, linear_field(particles.xvi, c), particles)
+    JustPIC.grid2particle!(pB, linear_field(particles.xvi, cs), particles)
+    zeros_c() = TA(backend)(zeros(FT, map(length, particles.xci)))
+
+    @testset "tuple matches scalar" begin
+        A, B = zeros_c(), zeros_c()
+        particle2centroid!(A, pA, particles)
+        particle2centroid!(B, pB, particles)
+        TA_, TB_ = zeros_c(), zeros_c()
+        particle2centroid!((TA_, TB_), (pA, pB), particles)
+        @test isapprox(Array(TA_), Array(A); rtol = 100 * eps(FT))
+        @test isapprox(Array(TB_), Array(B); rtol = 100 * eps(FT))
+    end
+
+    @testset "occupancy mask decides" begin
+        masked = flip_test_particles(Val(D))
+        fill!(masked.index.data, false)
+        C = zeros_c()
+        particle2centroid!(C, pA, masked)
+        @test all(isnan, Array(C)[map(n -> 2:(n - 1), size(C))...])
+    end
 end

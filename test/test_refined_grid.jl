@@ -166,7 +166,7 @@ active = Array(particles.index.data)
     @test Array(pT.data)[active] ≈ Array(particles.coords[2].data)[active]
 
     # Grid to particle test
-    JustPIC.grid2particle_flip!(pT, xvi_p, T, T0, particles)
+    JustPIC.grid2particle_flip!(pT, T, T0, particles)
     @test Array(pT.data)[active] ≈ Array(particles.coords[2].data)[active]
 
     # Particle to grid test

@@ -34,6 +34,7 @@ makedocs(;
             "field_advection2D_MPI.md",
             "field_advection3D.md",
             "donut_advection_periodic.md",
+            "temperature_flip.md",
         ],
         "I/O" => "IO.md",
         "Mixed GPU/CPU" => "mixed_CPU_GPU.md",

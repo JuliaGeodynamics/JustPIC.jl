@@ -30,20 +30,20 @@ function particle2centroid!(F, Fp, xci::NTuple, particles::Particles, di; ghost_
     # mask shift in case `F` has ghost nodes only in some dimensions, or non at all
     mask = inner_mask(particles, ghost_1, ghost_2, ghost_3)
 
-    launch!(backend, particle2centroid_kernel!, inner_size(coords[1]), F, Fp, xci, coords, di, mask)
+    launch!(backend, particle2centroid_kernel!, inner_size(coords[1]), F, Fp, xci, coords, particles.index, di, mask)
     return nothing
 end
 
-@kernel function particle2centroid_kernel!(F, Fp, xci, coords, di, mask)
+@kernel function particle2centroid_kernel!(F, Fp, xci, coords, index, di, mask)
     I = @index(Global, NTuple)
     I_inner = I .+ 1
-    _particle2centroid!(F, Fp, I_inner, xci, coords, @dxi(di, I_inner...), mask)
+    _particle2centroid!(F, Fp, I_inner, xci, coords, index, @dxi(di, I_inner...), mask)
 end
 
 ## INTERPOLATION KERNEL 2D
 
 @inbounds function _particle2centroid!(
-        F, Fp, idx, xci::NTuple{2, T}, p, di, mask
+        F, Fp, idx, xci::NTuple{2, T}, p, index, di, mask
     ) where {T}
     inode, jnode = idx
     px, py = p # particle coordinates
@@ -52,11 +52,11 @@ end
 
     # iterate over cell
     for i in cellaxes(px)
+        doskip(index, i, inode, jnode) && continue
         p_i = CAI.@index(px[i, inode, jnode]), CAI.@index(py[i, inode, jnode])
         # ignore lines below for unused allocations
         any(isnan, p_i) && continue
         ω_i = bilinear_weight(xcenter, p_i, di)
-        # ω_i = distance_weight(xcenter, p_i; order=4)
         ω += ω_i
         # ωxF += ω_i * CAI.@index(Fp[i, inode, jnode])
         ωxF = muladd(ω_i, CAI.@index(Fp[i, inode, jnode]), ωxF)
@@ -66,7 +66,7 @@ end
 end
 
 @inbounds function _particle2centroid!(
-        F::NTuple{N, Any}, Fp::NTuple{N, Any}, idx, xci::NTuple{2, T3}, p, di, mask
+        F::NTuple{N, Any}, Fp::NTuple{N, Any}, idx, xci::NTuple{2, T3}, p, index, di, mask
     ) where {N, T3}
     inode, jnode = idx
     px, py = p # particle coordinates
@@ -76,11 +76,11 @@ end
 
     # iterate over cell
     for i in cellaxes(px)
+        doskip(index, i, inode, jnode) && continue
         p_i = CAI.@index(px[i, inode, jnode]), CAI.@index(py[i, inode, jnode])
         # ignore lines below for unused allocations
         any(isnan, p_i) && continue
-        # ω_i = bilinear_weight(xcenter, p_i, di)
-        ω_i = distance_weight(xcenter, p_i; order = 2)
+        ω_i = bilinear_weight(xcenter, p_i, di)
 
         ω += ω_i
         ωxF = let ωxF = ωxF, ω_i = ω_i
@@ -105,7 +105,7 @@ end
 ## INTERPOLATION KERNEL 3D
 
 @inbounds function _particle2centroid!(
-        F, Fp, idx, xci::NTuple{3, T}, p, di, mask
+        F, Fp, idx, xci::NTuple{3, T}, p, index, di, mask
     ) where {T}
     inode, jnode, knode = idx
     px, py, pz = p # particle coordinates
@@ -114,12 +114,13 @@ end
 
     # iterate over cell
     @inbounds for ip in cellaxes(px)
+        doskip(index, ip, inode, jnode, knode) && continue
         p_i = (
             CAI.@index(px[ip, inode, jnode, knode]),
             CAI.@index(py[ip, inode, jnode, knode]),
             CAI.@index(pz[ip, inode, jnode, knode]),
         )
-        isnan(p_i[1]) && continue  # ignore lines below for unused allocations
+        any(isnan, p_i) && continue  # ignore lines below for unused allocations
         ω_i = bilinear_weight(xcenter, p_i, di)
         ω += ω_i
         ωF = muladd(ω_i, CAI.@index(Fp[ip, inode, jnode, knode]), ωF)
@@ -129,7 +130,7 @@ end
 end
 
 @inbounds function _particle2centroid!(
-        F::NTuple{N, Any}, Fp::NTuple{N, Any}, idx, xci::NTuple{3, T3}, p, di, mask
+        F::NTuple{N, Any}, Fp::NTuple{N, Any}, idx, xci::NTuple{3, T3}, p, index, di, mask
     ) where {N, T3}
     inode, jnode, knode = idx
     px, py, pz = p # particle coordinates
@@ -139,6 +140,7 @@ end
 
     # iterate over cell
     @inbounds for ip in cellaxes(px)
+        doskip(index, ip, inode, jnode, knode) && continue
         p_i = (
             CAI.@index(px[ip, inode, jnode, knode]),
             CAI.@index(py[ip, inode, jnode, knode]),
@@ -164,4 +166,41 @@ end
             F[i][(inode, jnode, knode) .+ mask...] = ωxF[i] * _ω
         end
     end
+end
+
+## FLIP
+
+"""
+    particle2centroid_flip!(F, Fp, Fp0, particles; ghost_1 = true, ghost_2 = true, ghost_3 = true)
+
+Add the interpolated particle increment `Fp - Fp0` to the cell centers `F`:
+`F += Σ ω (Fp - Fp0) / Σ ω`, with the weights of [`particle2centroid!`](@ref).
+
+`F`, `Fp` and `Fp0` may be single fields or tuples of fields. Cells with no
+particles are left unchanged. See [`particle2grid_flip!`](@ref) for the
+arguments.
+"""
+function particle2centroid_flip!(F, Fp, Fp0, particles; ghost_1 = true, ghost_2 = true, ghost_3 = true)
+    (; coords, xci) = particles
+    check_flip_transfer(Fp, Fp0, F, ghosted_size(xci, (ghost_1, ghost_2, ghost_3)), particles)
+    backend = ka_backend(particles)
+    Tc = eltype(eltype(coords[1]))
+    xci = backend_grid(backend, xci, Tc)
+    di = backend_grid(backend, particles.di.vertex, Tc)
+    mask = inner_mask(particles, ghost_1, ghost_2, ghost_3)
+    launch!(
+        backend, particle2centroid_flip_kernel!, inner_size(coords[1]),
+        as_tuple(F), as_tuple(Fp), as_tuple(Fp0), xci, coords, particles.index, di, mask
+    )
+    return nothing
+end
+
+@kernel function particle2centroid_flip_kernel!(F, Fp, Fp0, xci, coords, index, di, mask)
+    I = @index(Global, NTuple)
+    idx = I .+ 1
+    D = length(idx)
+    xcenter = ntuple(d -> xci[d][idx[d]], Val(D))
+    dxi = @dxi(di, idx...)
+    weight(x, p_i) = bilinear_weight(x, p_i, dxi)
+    _particle2grid_flip!(F, Fp, Fp0, idx, CartesianIndices(ntuple(_ -> 0:0, Val(D))), xcenter, coords, index, weight, mask)
 end
