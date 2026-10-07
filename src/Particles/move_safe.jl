@@ -30,9 +30,11 @@ layout.
   largest jump along direction `i`, so keep the displacement per step small.
 - `args` must use the same cell layout as `particles.coords`.
 - The public entry point uses the vertex grid and spacing stored in `particles`.
-- If a destination cell is full, the particle is dropped. With `verbose=true`,
-  the number of dropped particles is printed. Companion fields are dropped with
-  the particle.
+- A particle whose destination cell is full stays in its source cell until the
+  destination's own outgoing particles have left. It is dropped only once no
+  particle can move any more, so particles exchanged between two full cells are
+  dropped. With `verbose=true`, the number of dropped particles is printed.
+  Companion fields are dropped with the particle.
 """
 move_particles!(particles::AbstractParticles, args; periodic_1 = false, periodic_2 = false, periodic_3 = false, verbose = false) = move_particles!(particles, particles.xvi, args, particles.di.vertex; periodic_1 = periodic_1, periodic_2 = periodic_2, periodic_3 = periodic_3, verbose = verbose)
 
@@ -54,15 +56,20 @@ function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args, dx
 
     # The first sweep assumes that particles cross at most one cell along each direction, as
     # CFL-limited advection ensures. Particles that jump farther are left in place and moved by
-    # a second sweep, which is sized to the largest jump along each direction.
+    # a later sweep, which is sized to the largest jump of the particles left behind. Particles
+    # with a full destination wait for a later sweep (#378); a sweep that covers every jump and
+    # frees no source slots is followed by one that drops them. Every other sweep frees a slot or
+    # widens `max_jump`, so the loop ends.
     max_jump = ntuple(_ -> 1, Val(N))
+    drop = false
     overflow = 0
-    done, dropped = sweep_cells!(particles, grid, args, dxi, domain_limits, periodicity, max_jump)
-    overflow += dropped
-    while !done
-        max_jump = maximum_particle_jump(particles, grid, dxi, domain_limits, periodicity)
-        done, dropped = sweep_cells!(particles, grid, args, dxi, domain_limits, periodicity, max_jump)
-        overflow += dropped
+    while true
+        sweep = sweep_cells!(particles, grid, args, dxi, domain_limits, periodicity, max_jump, drop)
+        overflow += sweep.dropped
+        far = any(sweep.jump .> max_jump)
+        far || sweep.full || break
+        drop = !(far || sweep.progress)
+        max_jump = sweep.jump
     end
 
     verbose && println("move_particles!: dropped $overflow particles because destination cells were full")
@@ -74,7 +81,11 @@ function physical_domain_limits(particles::Particles{B, N}) where {B, N}
 end
 
 # Move the particles that are at most `max_jump[i]` cells away from their parent cell along each
-# direction `i` and leave the others where they are. Return whether there were no others.
+# direction `i` and leave the others where they are. A particle whose destination is full is
+# dropped if `drop` is set and left in place otherwise. Return the largest jump along each
+# direction of the particles left in place (`jump`), whether any of them was left because its
+# destination is full (`full`), whether any source slot was freed (`progress`), and the number of
+# particles dropped (`dropped`).
 #
 # The source cells are swept in colors: the cells of one color are processed concurrently, one
 # color after the other. This is race free because a source cell only writes to itself and to
@@ -83,13 +94,14 @@ end
 # ring). Two cells of the same color are more than `2 * max_jump[i]` cells apart along at least
 # one direction `i`, so their write sets are disjoint and no two threads ever search or fill
 # slots in the same cell.
-function sweep_cells!(particles, grid, args, dxi, domain_limits, periodicity, max_jump)
+function sweep_cells!(particles, grid, args, dxi, domain_limits, periodicity, max_jump, drop)
     (; coords, index) = particles
     backend = ka_backend(index)
-    # Int32 counters: Metal has no 64-bit integer atomics (see #362)
-    deferred = KernelAbstractions.zeros(backend, Int32, 1)
-    overflow = KernelAbstractions.zeros(backend, Int32, 1)
-    bound = (; max_jump, periodicity, deferred, overflow)
+    # Int32 flags and counters: Metal has no 64-bit integer atomics (see #362)
+    counter() = KernelAbstractions.zeros(backend, Int32, 1)
+    jump = map(_ -> counter(), max_jump)
+    full, progress, overflow = counter(), counter(), counter()
+    bound = (; max_jump, periodicity, drop, jump, full, progress, overflow)
     layout = map(ColorAxis, size(index), max_jump, periodicity)
     nblocks = map(axis -> axis.nblocks, layout)
     for colors in Iterators.product(map(axis -> 1:axis.ncolors, layout)...)
@@ -98,7 +110,8 @@ function sweep_cells!(particles, grid, args, dxi, domain_limits, periodicity, ma
             coords, grid, dxi, index, domain_limits, args, bound, colors, layout
         )
     end
-    return iszero(maximum(deferred)), Int(maximum(overflow))
+    value(x) = Int(maximum(x))
+    return (; jump = map(value, jump), full = !iszero(value(full)), progress = !iszero(value(progress)), dropped = value(overflow))
 end
 
 # Partition of the cells of one direction into colors. The cell of color `k` in block `b` is
@@ -143,41 +156,6 @@ end
 
     if all(>(0), indices)
         _move_particles!(coords, grid, dxi, index, domain_limits, indices, args, bound)
-    end
-end
-
-# Largest number of cells any particle has to cross along each direction to reach its parent
-# cell. Particles that are outside the domain or already in their parent cell do not count.
-function maximum_particle_jump(particles, grid, dxi, domain_limits, periodicity)
-    (; coords, index) = particles
-    backend = ka_backend(index)
-    max_jumps = map(_ -> KernelAbstractions.zeros(backend, Int, size(index)...), periodicity)
-    launch!(
-        backend, maximum_particle_jump!, size(index),
-        max_jumps, coords, grid, dxi, index, domain_limits, periodicity
-    )
-    return map(maximum, max_jumps)
-end
-
-@kernel function maximum_particle_jump!(
-        max_jumps, coords, grid, di, index, domain_limits, periodicity
-    )
-    I = @index(Global, NTuple)
-    corner_xi = corner_coordinate(grid, I)
-    dxi = @dxi di I...
-
-    max_jump = map(_ -> 0, periodicity)
-    for ip in cellaxes(index)
-        doskip(index, ip, I...) && continue
-        pᵢ = cache_particle(coords, ip, I)
-        isincell(pᵢ, corner_xi, dxi) && continue
-        indomain(pᵢ, domain_limits) || continue
-        new_cell = find_parent_cell_bisection(pᵢ, grid, I)
-        max_jump = max.(max_jump, cell_jump(new_cell, I, size(index), periodicity))
-    end
-
-    for d in eachindex(max_jumps)
-        max_jumps[d][I...] = max_jump[d]
     end
 end
 
@@ -233,6 +211,8 @@ function move_kernel!(
     ) where {N1, N2}
 
     dxi = @dxi di idx...
+    full = progress = false
+    jump = ntuple(_ -> 0, Val(N1))
 
     # iterate over particles in child cell
     for ip in cellaxes(index)
@@ -249,14 +229,24 @@ function move_kernel!(
             CAI.@index index[ip, idx...] = false
             empty_particle!(coords, ip, idx)
             empty_particle!(args, ip, idx)
+            progress = true
         end
         domain_check && continue
 
         new_cell = find_parent_cell_bisection(pᵢ, grid, idx)
 
         # too far for the cells swept concurrently: leave it for a wider sweep
-        if any(cell_jump(new_cell, idx, size(index), bound.periodicity) .> bound.max_jump)
-            bound.deferred[1] = 1
+        jumpᵢ = cell_jump(new_cell, idx, size(index), bound.periodicity)
+        if any(jumpᵢ .> bound.max_jump)
+            jump = max.(jump, jumpᵢ)
+            continue
+        end
+
+        # check whether there's empty space in parent cell
+        free_idx = find_free_memory(index, new_cell...)
+        if iszero(free_idx) && !bound.drop && !settled(coords, grid, di, index, new_cell)
+            jump = max.(jump, jumpᵢ)
+            full = true
             continue
         end
 
@@ -267,9 +257,8 @@ function move_kernel!(
         CAI.@index index[ip, idx...] = false
         empty_particle!(coords, ip, idx)
         empty_particle!(args, ip, idx)
+        progress = true
 
-        # check whether there's empty space in parent cell
-        free_idx = find_free_memory(index, new_cell...)
         if iszero(free_idx)
             KernelAbstractions.@atomic bound.overflow[1] += one(eltype(bound.overflow))
             continue
@@ -280,6 +269,28 @@ function move_kernel!(
         fill_particle!(coords, pᵢ, free_idx, new_cell)
         fill_particle!(args, current_args, free_idx, new_cell)
     end
+    map(raise!, bound.jump, jump)
+    raise!(bound.full, full)
+    raise!(bound.progress, progress)
+    return nothing
+end
+
+# A full cell whose particles all lie inside it stays full for the rest of `move_particles!`.
+# The destination of a swept cell is never swept concurrently, so reading it is race free.
+@inline function settled(coords, grid, di, index, I)
+    corner_xi = corner_coordinate(grid, I)
+    dxi = @dxi di I...
+    for ip in cellaxes(index)
+        isincell(cache_particle(coords, ip, I), corner_xi, dxi) || return false
+    end
+    return true
+end
+
+# Raise the shared maximum `x[1]` to `value`. The values are shared by all threads: update each
+# at most once per cell, skipping zero local values without reading the shared counter.
+@inline function raise!(x, value)
+    v = convert(eltype(x), value)
+    !iszero(v) && (KernelAbstractions.@atomic x[1] max v)
     return nothing
 end
 

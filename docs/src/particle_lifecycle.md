@@ -36,8 +36,9 @@ not a live-particle count. Use the occupancy mask when counting active slots.
 
 `advection!` changes coordinates but does not reorganize cell storage.
 `move_particles!` relocates particles to their destination cells and moves
-companion fields with them. Particles that leave the domain or encounter a full
-cell can be removed; use `verbose=true` to report dropped particles.
+companion fields with them. Particles that leave the domain or whose
+destination cell stays full can be removed; use `verbose=true` to report
+dropped particles.
 
 `inject_particles!` restores occupancy using the particle fields supplied in
 its argument tuple:
