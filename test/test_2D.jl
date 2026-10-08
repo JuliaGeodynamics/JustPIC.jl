@@ -427,6 +427,42 @@ end
     @test CAI.@index(field[1, 4, 3]) == FT(42)
 end
 
+@testset "Nonperiodic ghost nodes 2D" begin
+    xv = FT[0, 0.1, 0.3, 0.6, 1]
+    yv = FT[0, 0.2, 0.5, 0.7, 1]
+    xc = (xv[1:(end - 1)] .+ xv[2:end]) ./ 2
+    yc = (yv[1:(end - 1)] .+ yv[2:end]) ./ 2
+    grid_vx = xv, expand_range(yc)
+    grid_vy = expand_range(xc), yv
+
+    particles = init_particles(
+        backend, 8, 12, 4, grid_vx, grid_vy; periodic = (true, false),
+    )
+
+    extend_nonperiodic(x, lower, upper) = vcat(2 * lower - x[1], x, 2 * upper - x[end])
+    @test Array.(particles.xvi) == (JustPIC.add_periodic_ghost_nodes(xv), extend_nonperiodic(yv, yv[1], yv[end]))
+    @test Array.(particles.xci) == (JustPIC.add_periodic_ghost_nodes(xc), extend_nonperiodic(yc, yv[1], yv[end]))
+
+    expected_xci = JustPIC.add_periodic_ghost_nodes(xc)
+    expected_yci = extend_nonperiodic(yc, yv[1], yv[end])
+    field = TA(backend)([y for _ in expected_xci, y in expected_yci])
+    pfield, = init_cell_arrays(particles, Val(1))
+    centroid2particle!(pfield, field, particles)
+    active = Array(particles.index.data)
+    @test Array(pfield.data)[active] ≈ Array(particles.coords[2].data)[active]
+
+    xr = LinRange(FT(0), FT(1), 5)
+    cr = LinRange(FT(0.125), FT(0.875), 4)
+    particles_range = init_particles(
+        backend, 8, 12, 4, (xr, expand_range(cr)), (expand_range(cr), xr);
+        periodic = (false, false),
+    )
+    @test all(x -> x isa TA(backend), particles_range.xvi)
+    @test all(x -> x isa TA(backend), particles_range.xci)
+    @test Array.(particles_range.xvi) == (extend_nonperiodic(xr, xr[1], xr[end]), extend_nonperiodic(xr, xr[1], xr[end]))
+    @test Array.(particles_range.xci) == (extend_nonperiodic(cr, xr[1], xr[end]), extend_nonperiodic(cr, xr[1], xr[end]))
+end
+
 include(joinpath(@__DIR__, "helpers_move_particles.jl"))
 
 @testset "Particle movement fills free slots per destination 2D" begin

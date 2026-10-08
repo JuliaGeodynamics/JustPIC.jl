@@ -343,6 +343,33 @@ end
     end
 end
 
+@testset "Nonperiodic ghost nodes 3D" begin
+    xv = FT[0, 0.1, 0.3, 0.6, 1]
+    yv = FT[0, 0.2, 0.5, 0.7, 1]
+    zv = FT[-1, -0.9, -0.7, -0.4, 0]
+    centers(x) = (x[1:(end - 1)] .+ x[2:end]) ./ 2
+    xc, yc, zc = centers(xv), centers(yv), centers(zv)
+    grid_vx = xv, expand_range(yc), expand_range(zc)
+    grid_vy = expand_range(xc), yv, expand_range(zc)
+    grid_vz = expand_range(xc), expand_range(yc), zv
+
+    particles = init_particles(
+        backend, 8, 12, 4, grid_vx, grid_vy, grid_vz; periodic = (false, false, false),
+    )
+
+    extend_nonperiodic(x, lower, upper) = vcat(2 * lower - x[1], x, 2 * upper - x[end])
+    @test Array.(particles.xvi) == (
+        extend_nonperiodic(xv, xv[1], xv[end]),
+        extend_nonperiodic(yv, yv[1], yv[end]),
+        extend_nonperiodic(zv, zv[1], zv[end]),
+    )
+    @test Array.(particles.xci) == (
+        extend_nonperiodic(xc, xv[1], xv[end]),
+        extend_nonperiodic(yc, yv[1], yv[end]),
+        extend_nonperiodic(zc, zv[1], zv[end]),
+    )
+end
+
 include(joinpath(@__DIR__, "helpers_move_particles.jl"))
 
 @testset "Particle movement fills free slots per destination 3D" begin
