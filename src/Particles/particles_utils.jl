@@ -79,7 +79,8 @@ init_particles(::Any, ::Any, ::Any, ::Any, ::Tuple{}) = _throw_empty_velocity_gr
 # `Tuple{}` is also `NTuple{0, NTuple{0, AbstractVector}}`, which makes the
 # velocity-grid methods below applicable; this signature is more specific than
 # all of them and keeps the empty grid an error instead of an ambiguity.
-init_particles(::Any, ::Union{Number, Tuple{}}, ::Any, ::Any, ::Tuple{}) = _throw_empty_velocity_grid()
+init_particles(::Any, ::Union{Number, Tuple{}}, ::Any, ::Any, ::Tuple{}; periodic = ()) =
+    _throw_empty_velocity_grid()
 
 function init_particles(
         backend,
