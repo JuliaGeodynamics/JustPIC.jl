@@ -40,6 +40,11 @@ raised to match.
 After construction, the returned `Particles` object already contains the center,
 vertex, and staggered velocity grids needed by the higher-level APIs.
 
+Particle center and vertex grids use periodic ghost spacing by default. Pass a
+`periodic` tuple to `init_particles` for nonperiodic dimensions, such as
+`periodic = (false, false)` in 2D. Nonperiodic center ghosts reflect across the
+boundary vertices, using the local boundary-cell width.
+
 The two layouts on a 4x4 grid with 16 particles per cell:
 
 ![Random and regular particle initialization](assets/particle_initialization.png)
