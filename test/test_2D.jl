@@ -457,6 +457,8 @@ end
         backend, 8, 12, 4, (xr, expand_range(cr)), (expand_range(cr), xr);
         periodic = (false, false),
     )
+    @test all(x -> x isa TA(backend), particles_range.xvi)
+    @test all(x -> x isa TA(backend), particles_range.xci)
     @test Array.(particles_range.xvi) == (extend_nonperiodic(xr, xr[1], xr[end]), extend_nonperiodic(xr, xr[1], xr[end]))
     @test Array.(particles_range.xci) == (extend_nonperiodic(cr, xr[1], xr[end]), extend_nonperiodic(cr, xr[1], xr[end]))
 end

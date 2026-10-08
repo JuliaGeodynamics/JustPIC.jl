@@ -173,8 +173,8 @@ function staggered_grids(
     xci = center_coordinates(xi_vel)
     xvi = ntuple(i -> xi_vel[i][i], Val(N))
     # add ghost nodes to the center and vertex grids
-    xci = recast_grid(map(particle_center_grid, xci, xvi, periodic), T)
-    xvi = recast_grid(map(particle_vertex_grid, xvi, periodic), T)
+    xci = map(x -> device_grid(backend, x, T), map(particle_center_grid, xci, xvi, periodic))
+    xvi = map(x -> device_grid(backend, x, T), map(particle_vertex_grid, xvi, periodic))
 
     di_vertex = getindex.(xvi, 2) .- first.(xvi)
     di_center = getindex.(xci, 2) .- first.(xci)
