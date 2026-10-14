@@ -106,7 +106,7 @@ function subgrid_diffusion_centroid!(
     launch!(ka_backend(pT), subgrid_diffusion_kernel!, ni, pT, pT0, pΔT, dt₀, particles.index, d, dt)
     particle2centroid!(subgrid_arrays.ΔT_subgrid, pΔT, particles)
 
-    launch!(ka_backend(subgrid_arrays.ΔT_subgrid), update_ΔT_subgrid_kernel!, size(ΔT_grid), subgrid_arrays.ΔT_subgrid, ΔT_grid)
+    launch!(ka_backend(subgrid_arrays.ΔT_subgrid), update_ΔT_subgrid_centroid_kernel!, size(ΔT_grid) .- 2, subgrid_arrays.ΔT_subgrid, ΔT_grid)
     centroid2particle!(pΔT, subgrid_arrays.ΔT_subgrid, particles)
 
     launch!(ka_backend(pT), update_particle_temperature_kernel!, ni, pT, pT0, pΔT)
@@ -160,6 +160,24 @@ end
 @kernel function update_ΔT_subgrid_kernel!(ΔTsubgrid, ΔT)
     I = @index(Global, NTuple)
     ΔTsubgrid[I...] = ΔT[I...] - ΔTsubgrid[I...]
+end
+
+# Launched over the interior cells. Ghost cells hold no particles, so `particle2centroid!`
+# never writes them; each ghost takes the remainder of its interior neighbor (zero
+# gradient) rather than a stale value, which would otherwise flip sign every call.
+@kernel function update_ΔT_subgrid_centroid_kernel!(ΔTsubgrid, ΔT)
+    I = @index(Global, NTuple)
+    N = length(I)
+    Ii = I .+ 1
+    r = ΔT[Ii...] - ΔTsubgrid[Ii...]
+    ΔTsubgrid[Ii...] = r
+    n = size(ΔT)
+    if any(ntuple(d -> Ii[d] == 2 || Ii[d] == n[d] - 1, N))
+        for o in CartesianIndices(ntuple(_ -> -1:1, N))
+            J = Ii .+ Tuple(o)
+            all(ntuple(d -> o[d] == 0 || J[d] == 1 || J[d] == n[d], N)) && (ΔTsubgrid[J...] = r)
+        end
+    end
 end
 
 @kernel function update_particle_temperature_kernel!(pT, pT0, pΔT)
