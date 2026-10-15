@@ -93,7 +93,7 @@ where `xvi = (xv, yv)` is the chain's vertex grid, with `xv` matching
 the mean height by default, using cell-width weights on refined grids. `method` is the
 time integrator: `advect_markerchain!` accepts
 `Euler`, `RungeKutta2`, or `RungeKutta4`, while the semi-Lagrangian scheme requires a
-backtracking-capable integrator (`RungeKutta2` or `RungeKutta4`).
+`RungeKutta2` or `RungeKutta4`.
 
 Set `conserve_mean = false` for net uplift, subsidence, or boundary flux: restoring the
 old mean would remove that physical change. Set `max_slope_angle = nothing` or `90` to
@@ -102,14 +102,14 @@ on slopes exceeding that angle;
 it does not guarantee that every slope ends below that angle. Straight lines are preserved
 even on refined grids.
 
-The semi-Lagrangian solve enforces `y_departure = h_old(x_departure)`, rather than
-backtracking from the old height and applying a single correction. The velocity is held
-fixed during each step. RK2/RK4 determine the trajectory integration order; the old
-topography is interpolated piecewise linearly, which also limits the overall accuracy.
-Departures outside the horizontal domain use constant endpoint heights, while velocities
-are extrapolated from their edge cells. These boundary choices are not periodic inflow
-conditions. A failed characteristic solve raises an error before changing the chain;
-reduce the timestep and check whether the surface is still single-valued.
+The semi-Lagrangian kernel forward-advects the old surface vertices, then linearly
+interpolates their heights onto the fixed horizontal grid. There is no iterative
+characteristic solve. The velocity is held fixed during each step. RK2/RK4 determine
+the trajectory integration order; piecewise linear remapping also limits the overall
+accuracy. Queries outside the advected horizontal domain use the advected endpoint
+heights, while velocities are extrapolated from their edge cells. These boundary
+choices are not periodic inflow conditions. Non-finite trajectories or vertices that
+cross or coincide in x raise an error before changing the chain; reduce the timestep.
 
 The lower-level `semilagrangian_advection!(chain, method, V, grid_vxi, xvi, dt)` only
 updates `h_vertices`. It leaves marker coordinates and previous-step buffers unchanged,
