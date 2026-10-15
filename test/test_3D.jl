@@ -782,8 +782,15 @@ function test_advection_refined()
 end
 
 @testset "Miniapps" begin
-    @info "Running 3D advection miniapp (uniform grid)"
-    @test test_advection()
-    @info "Running 3D advection miniapp (refined grid)"
-    @test test_advection_refined()
+    # Metal on Julia 1.10 takes ~1 h per miniapp on the CI hosts (seconds on Julia 1.13),
+    # which exceeds the job timeout.
+    if BACKEND_NAME == "Metal" && VERSION < v"1.11"
+        @test_skip test_advection()
+        @test_skip test_advection_refined()
+    else
+        @info "Running 3D advection miniapp (uniform grid)"
+        @test test_advection()
+        @info "Running 3D advection miniapp (refined grid)"
+        @test test_advection_refined()
+    end
 end
