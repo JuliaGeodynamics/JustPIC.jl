@@ -1,4 +1,3 @@
-pushfirst!(LOAD_PATH, joinpath(@__DIR__, ".."))
 using Documenter, DocumenterVitepress, JustPIC
 
 @info "Making documentation..."

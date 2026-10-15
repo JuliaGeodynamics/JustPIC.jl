@@ -149,6 +149,12 @@ Base.getindex(p::ForceInjectionPoint2D, i::Int) = p.coords[i]
     pTc_before = copy(Array(pTc.data))
     subgrid_diffusion_centroid!(pTc, T_centroid, ΔT_grid, arrays_c, particles, FT(1); d = FT(0))
     @test Array(pTc.data)[active] ≈ (pTc_before .+ ΔT_const)[active]
+    # stale ghost values of the subgrid buffer must not leak into boundary particles
+    fill!(arrays_c.ΔT_subgrid, FT(1.0e6))
+    JustPIC.centroid2particle!(pTc, T_centroid, particles)
+    subgrid_diffusion_centroid!(pTc, T_centroid, ΔT_grid, arrays_c, particles, FT(1); d = FT(0))
+    @test Array(pTc.data)[active] ≈ (pTc_before .+ ΔT_const)[active]
+    @test all(≈(ΔT_const), Array(arrays_c.ΔT_subgrid))
 
     # a resolved-grid increment without ghost nodes is rejected rather than read out of bounds
     @test_throws "ΔT_grid must carry one ghost node per side" subgrid_diffusion!(
