@@ -41,7 +41,9 @@ end
 
 function runtests(tier)
     testdir = @__DIR__
-    load_path = join(LOAD_PATH, Sys.iswindows() ? ';' : ':')
+    # Nested checks (e.g. Aqua's persistent-task probe) select their own project.
+    # Pkg.test can supply absolute LOAD_PATH entries, so retain `@` explicitly.
+    load_path = join(("@", LOAD_PATH...), Sys.iswindows() ? ';' : ':')
     suites = tier == "fast" ? FAST_SUITES : tier == "full" ? FULL_SUITES : (FAST_SUITES..., FULL_SUITES...)
     failures = count(!run_suite(testdir, load_path, suite, tier) for suite in suites)
     println("\n$(length(suites) - failures)/$(length(suites)) test suites passed")
