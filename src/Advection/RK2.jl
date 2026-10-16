@@ -28,12 +28,13 @@ end
     dt = convert(T, dt)
     backtracking_sign = convert(T, 1 - 2 * backtracking) # flip sign if backtracking is true, used for backtracking particles during Semi-Lagrangian advection
     half = convert(T, 0.5)
+    unity = one(T) # Keep the type out of broadcast, which wraps it in a heap-allocated Ref.
     p = if α == half
         @. @muladd particle_coordinate + backtracking_sign * dt * particle_velocity1
     else
         @. @muladd particle_coordinate +
             backtracking_sign * dt * (
-            (one(T) - half * inv(α)) * particle_velocity0 + half * inv(α) * particle_velocity1
+            (unity - half * inv(α)) * particle_velocity0 + half * inv(α) * particle_velocity1
         )
     end
     return p

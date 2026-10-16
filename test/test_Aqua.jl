@@ -62,7 +62,9 @@ end
 end
 
 @testset "Persistent tasks" begin
-    Aqua.test_persistent_tasks(JustPIC)
+    # Julia 1.10 can still be precompiling GPU extensions after the probe loads
+    # JustPIC, especially with coverage and --pkgimages=no in CI.
+    Aqua.test_persistent_tasks(JustPIC; tmax = 120)
 end
 
 @testset "Migration lint" begin
