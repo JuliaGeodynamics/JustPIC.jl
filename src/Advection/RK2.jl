@@ -31,9 +31,11 @@ end
     p = if α == half
         @. @muladd particle_coordinate + backtracking_sign * dt * particle_velocity1
     else
+        # Keep the type argument out of broadcasting: Julia 1.10 boxes it on GPU.
+        unit = one(T)
         @. @muladd particle_coordinate +
             backtracking_sign * dt * (
-            (one(T) - half * inv(α)) * particle_velocity0 + half * inv(α) * particle_velocity1
+            (unit - half * inv(α)) * particle_velocity0 + half * inv(α) * particle_velocity1
         )
     end
     return p

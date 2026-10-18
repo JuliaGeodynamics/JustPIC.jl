@@ -9,7 +9,7 @@ elseif BACKEND_NAME == "Metal"
 end
 
 using JustPIC, Test
-import KernelAbstractions: CPU
+import KernelAbstractions: CPU, @kernel, @index
 
 const backend = @static if BACKEND_NAME == "AMDGPU"
     AMDGPU.ROCBackend
@@ -50,6 +50,41 @@ check_backend(BACKEND_NAME, backend, FT)
     p1 = JustPIC.first_stage(rk2, dt, v0, p)
     @test all(p1 .≈ (1.2, 2.266666666, 3.3333333333333335))
     @test all(JustPIC.second_stage(rk2, dt, v0, v1, p1) .≈ (1.5075, 2.67416666, 3.8408333333333333))
+end
+
+@kernel function rk2_stages!(out, method, dt, p, v0, v1, backtracking)
+    i = @index(Global, Linear)
+    p1 = JustPIC.first_stage(method, dt, v0, p; backtracking = backtracking)
+    p2 = JustPIC.second_stage(method, dt, v0, v1, p; backtracking = backtracking)
+    for d in eachindex(p)
+        out[d, i] = p1[d]
+        out[length(p) + d, i] = p2[d]
+    end
+end
+
+@testset "RK2 stages on backend" begin
+    # Enough evaluations to expose per-thread heap allocations on CUDA Julia 1.10.
+    n = 2^21
+    for N in (2, 3), α in (0.5, 2 / 3), backtracking in (false, true)
+        p = ntuple(d -> FT(d), N)
+        v0 = ntuple(d -> FT(d + 2), N)
+        v1 = ntuple(d -> FT(d + 2) + FT(0.1), N)
+        dt = FT(0.1)
+        method = RungeKutta2(FT(α))
+        out = TA(backend)(zeros(FT, 2N, n))
+        JustPIC.launch!(JustPIC.ka_backend(out), rk2_stages!, n, out, method, dt, p, v0, v1, backtracking)
+        direction = backtracking ? -one(FT) : one(FT)
+        a = FT(α)
+        expected1 = p .+ direction .* a .* dt .* v0
+        weight = inv(2a)
+        expected2 = p .+ direction .* dt .* ((one(FT) - weight) .* v0 .+ weight .* v1)
+        result = Array(out)
+        @test eltype(result) === FT
+        for d in 1:N
+            @test all(x -> isapprox(x, expected1[d]), @view result[d, :])
+            @test all(x -> isapprox(x, expected2[d]), @view result[N + d, :])
+        end
+    end
 end
 
 @testset "Euler" begin
