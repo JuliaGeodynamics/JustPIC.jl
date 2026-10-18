@@ -16,7 +16,11 @@ onMounted(() => {
   const state = { hardware: "", group: "", metric: "runtime" };
   let data, runs;
 
-  const hardwareKey = run => `${run.backend} · ${run.hardware_fingerprint}`;
+  // Runs are grouped by backend; individual devices within a backend appear in tooltips and the
+  // results table, and the roofline uses the device of the most recent run (see #367).
+  const hardwareKey = run => run.backend;
+  const latestFingerprint = () => hardwareRuns(state.hardware).at(-1)?.hardware_fingerprint;
+  const deviceName = run => run.benchmarks[0]?.metadata?.device || run.hardware_fingerprint;
   const hardwareRuns = key => runs.filter(run => hardwareKey(run) === key);
   const observations = key => hardwareRuns(key).flatMap(run => run.benchmarks.map(benchmark => ({ run, benchmark })));
   const groupObservations = () => observations(state.hardware).filter(item => item.benchmark.group === state.group);
@@ -74,7 +78,7 @@ onMounted(() => {
     const values = [
       [new Set(runs.map(run => run.commit)).size, "commits tracked"],
       [runs.reduce((sum, run) => sum + run.benchmarks.length, 0), "data points"],
-      [new Set(runs.map(hardwareKey)).size, "hardware profiles"],
+      [new Set(runs.map(hardwareKey)).size, "backends"],
       [latest ? new Date(latest.timestamp_utc).toLocaleDateString() : "—", "last result"]
     ];
     $("jp-stats").innerHTML = values.map(([value, label]) => `<div class="jp-stat"><span class="jp-stat-value">${escapeHTML(value)}</span><span class="jp-stat-label">${label}</span></div>`).join("");
@@ -143,12 +147,12 @@ onMounted(() => {
       const color = colors[seriesIndex % colors.length];
       const points = items.map(item => [x(runIndex.get(item.run)), y(definition.value(item.benchmark)), item]);
       if (points.length > 1) svg += `<path d="${points.map(([px, py], index) => `${index ? "L" : "M"}${px},${py}`).join(" ")}" fill="none" stroke="${color}" stroke-width="2.5"/>`;
-      for (const [px, py, item] of points) svg += `<circle cx="${px}" cy="${py}" r="5" fill="${color}"><title>${escapeHTML(item.benchmark.name)}\n${shortCommit(item.run.commit)}\n${formatNumber(definition.value(item.benchmark))} ${definition.unit}</title></circle>`;
+      for (const [px, py, item] of points) svg += `<circle cx="${px}" cy="${py}" r="5" fill="${color}"><title>${escapeHTML(item.benchmark.name)}\n${shortCommit(item.run.commit)} · ${escapeHTML(deviceName(item.run))}\n${formatNumber(definition.value(item.benchmark))} ${definition.unit}</title></circle>`;
     });
     chart.innerHTML = svg + "</svg>";
   }
 
-  const rooflineStorageKey = () => `justpic-roofline:${state.hardware}`;
+  const rooflineStorageKey = () => `justpic-roofline:${state.hardware}:${latestFingerprint()}`;
 
   function loadRooflineProfile() {
     const metadata = hardwareRuns(state.hardware).at(-1)?.benchmarks?.[0]?.metadata || {};
@@ -165,7 +169,8 @@ onMounted(() => {
 
   function latestBenchmarks() {
     const latest = new Map();
-    for (const item of groupObservations()) latest.set(item.benchmark.name, item);
+    const fingerprint = latestFingerprint();
+    for (const item of groupObservations()) if (item.run.hardware_fingerprint === fingerprint) latest.set(item.benchmark.name, item);
     return [...latest.values()];
   }
 
@@ -216,21 +221,24 @@ onMounted(() => {
     });
     chart.innerHTML = svg + "</svg>";
 
-    $("jp-roof-note").textContent = ready ? `Ridge point: ${formatNumber(ridge)} FLOP/byte. The ceilings are specific to this browser and hardware selection.` : "No device peak values are recorded. Enter published or measured peaks to draw the memory- and compute-bound ceilings; the dashboard will not invent them.";
+    $("jp-roof-note").textContent = ready ? `Ridge point: ${formatNumber(ridge)} FLOP/byte. The ceilings are specific to this browser and backend, measured on ${deviceName(hardwareRuns(state.hardware).at(-1))}.` : "No device peak values are recorded. Enter published or measured peaks to draw the memory- and compute-bound ceilings; the dashboard will not invent them.";
   }
 
   function renderTable() {
     const series = seriesForGroup();
     if (!series.length) { $("jp-results").innerHTML = '<div class="jp-empty">No results.</div>'; return; }
     const rows = series.map(([name, items]) => {
-      const current = items.at(-1), previous = items.at(-2);
+      const current = items.at(-1);
+      const previous = items.slice(0, -1).filter(item => item.run.hardware_fingerprint === current.run.hardware_fingerprint).slice(-5);
       const benchmark = current.benchmark;
-      const delta = previous ? 100 * (benchmark.time_median_seconds / previous.benchmark.time_median_seconds - 1) : NaN;
+      const mean = previous.reduce((sum, item) => sum + item.benchmark.time_median_seconds, 0) / previous.length;
+      const delta = 100 * (benchmark.time_median_seconds / mean - 1);
       const deltaClass = delta < 0 ? "jp-good" : delta > 0 ? "jp-bad" : "";
       const commitURL = `${data.repository_url}/commit/${current.run.commit}`;
       return `<tr>
-        <td><strong>${escapeHTML(name)}</strong>${current.run.dirty ? '<span class="jp-tag">dirty</span>' : ''}<span class="jp-desc">${escapeHTML(benchmark.performance_model_description || "")}</span></td>
+        <td><strong>${escapeHTML(name)}</strong>${current.run.dirty ? '<span class="jp-tag">dirty</span>' : ''}<span class="jp-desc">${escapeHTML(deviceName(current.run))}</span><span class="jp-desc">${escapeHTML(benchmark.performance_model_description || "")}</span></td>
         <td class="num">${formatNumber(1e3 * benchmark.time_median_seconds)} ms</td>
+        <td class="num">${previous.length ? `${formatNumber(1e3 * mean)} ms<span class="jp-desc">${previous.length} run${previous.length > 1 ? "s" : ""}</span>` : "—"}</td>
         <td class="num ${deltaClass}">${Number.isFinite(delta) ? `${delta > 0 ? "+" : ""}${delta.toFixed(2)}%` : "first run"}</td>
         <td class="num">${formatNumber(benchmark.arithmetic_intensity_flops_per_byte)}</td>
         <td class="num">${formatNumber(benchmark.effective_gflops_per_second)}</td>
@@ -238,7 +246,7 @@ onMounted(() => {
         <td class="num"><a href="${commitURL}">${shortCommit(current.run.commit)}</a><span class="jp-desc">${escapeHTML(benchmark.metadata.commit_subject || "")}</span></td>
       </tr>`;
     }).join("");
-    $("jp-results").innerHTML = `<table><thead><tr><th>Benchmark</th><th>Median</th><th>Change</th><th>FLOP/byte</th><th>GFLOP/s</th><th>GB/s</th><th>Commit</th></tr></thead><tbody>${rows}</tbody></table>`;
+    $("jp-results").innerHTML = `<table><thead><tr><th>Benchmark</th><th>Median</th><th>Recent mean</th><th>Change</th><th>FLOP/byte</th><th>GFLOP/s</th><th>GB/s</th><th>Commit</th></tr></thead><tbody>${rows}</tbody></table>`;
   }
 
   fetch(historyURL)
@@ -262,7 +270,7 @@ onMounted(() => {
   <div id="justpic-performance" ref="root">
   <div class="jp-stats" id="jp-stats"></div>
   <div class="jp-controls">
-    <label>Hardware<select id="jp-hardware"></select></label>
+    <label>Backend<select id="jp-hardware"></select></label>
     <label>History metric<select id="jp-metric">
       <option value="runtime">Median runtime</option>
       <option value="gflops">Effective GFLOP/s</option>
@@ -294,7 +302,7 @@ onMounted(() => {
   </div>
   <section class="jp-card">
     <strong>Latest results</strong>
-    <p class="jp-copy">Change is relative to the previous run of the same benchmark on the selected hardware.</p>
+    <p class="jp-copy">Change is relative to the mean median runtime of up to five earlier runs of the same benchmark on the same device.</p>
     <div class="jp-table" id="jp-results"></div>
   </section>
 </div>

@@ -2,6 +2,11 @@
 
 
 function phase_ratios_vertex!(phase_ratios::JustPIC.PhaseRatios, particles, phases)
+    check_phase_ratio_inputs(phase_ratios, particles, phases)
+    return _phase_ratios_vertex!(phase_ratios, particles, phases)
+end
+
+function _phase_ratios_vertex!(phase_ratios::JustPIC.PhaseRatios, particles, phases)
     ni = size(phase_ratios.vertex)
 
     launch!(
@@ -55,7 +60,7 @@ end
         end
     end
 
-    w = w .* inv(sum(w))
+    w = w .* support_inverse(sum(w))
     for ip in cellaxes(ratio_vertices)
         CAI.@index ratio_vertices[ip, I...] = w[ip]
     end
@@ -102,7 +107,7 @@ end
         end
     end
 
-    w = w .* inv(sum(w))
+    w = w .* support_inverse(sum(w))
     for ip in cellaxes(ratio_vertices)
         CAI.@index ratio_vertices[ip, I...] = w[ip]
     end

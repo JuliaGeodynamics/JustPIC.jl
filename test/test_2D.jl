@@ -149,6 +149,12 @@ Base.getindex(p::ForceInjectionPoint2D, i::Int) = p.coords[i]
     pTc_before = copy(Array(pTc.data))
     subgrid_diffusion_centroid!(pTc, T_centroid, ΔT_grid, arrays_c, particles, FT(1); d = FT(0))
     @test Array(pTc.data)[active] ≈ (pTc_before .+ ΔT_const)[active]
+    # stale ghost values of the subgrid buffer must not leak into boundary particles
+    fill!(arrays_c.ΔT_subgrid, FT(1.0e6))
+    JustPIC.centroid2particle!(pTc, T_centroid, particles)
+    subgrid_diffusion_centroid!(pTc, T_centroid, ΔT_grid, arrays_c, particles, FT(1); d = FT(0))
+    @test Array(pTc.data)[active] ≈ (pTc_before .+ ΔT_const)[active]
+    @test all(≈(ΔT_const), Array(arrays_c.ΔT_subgrid))
 
     # a resolved-grid increment without ghost nodes is rejected rather than read out of bounds
     @test_throws "ΔT_grid must carry one ghost node per side" subgrid_diffusion!(
@@ -427,6 +433,42 @@ end
     @test CAI.@index(field[1, 4, 3]) == FT(42)
 end
 
+@testset "Nonperiodic ghost nodes 2D" begin
+    xv = FT[0, 0.1, 0.3, 0.6, 1]
+    yv = FT[0, 0.2, 0.5, 0.7, 1]
+    xc = (xv[1:(end - 1)] .+ xv[2:end]) ./ 2
+    yc = (yv[1:(end - 1)] .+ yv[2:end]) ./ 2
+    grid_vx = xv, expand_range(yc)
+    grid_vy = expand_range(xc), yv
+
+    particles = init_particles(
+        backend, 8, 12, 4, grid_vx, grid_vy; periodic = (true, false),
+    )
+
+    extend_nonperiodic(x, lower, upper) = vcat(2 * lower - x[1], x, 2 * upper - x[end])
+    @test Array.(particles.xvi) == (JustPIC.add_periodic_ghost_nodes(xv), extend_nonperiodic(yv, yv[1], yv[end]))
+    @test Array.(particles.xci) == (JustPIC.add_periodic_ghost_nodes(xc), extend_nonperiodic(yc, yv[1], yv[end]))
+
+    expected_xci = JustPIC.add_periodic_ghost_nodes(xc)
+    expected_yci = extend_nonperiodic(yc, yv[1], yv[end])
+    field = TA(backend)([y for _ in expected_xci, y in expected_yci])
+    pfield, = init_cell_arrays(particles, Val(1))
+    centroid2particle!(pfield, field, particles)
+    active = Array(particles.index.data)
+    @test Array(pfield.data)[active] ≈ Array(particles.coords[2].data)[active]
+
+    xr = LinRange(FT(0), FT(1), 5)
+    cr = LinRange(FT(0.125), FT(0.875), 4)
+    particles_range = init_particles(
+        backend, 8, 12, 4, (xr, expand_range(cr)), (expand_range(cr), xr);
+        periodic = (false, false),
+    )
+    @test all(x -> x isa TA(backend), particles_range.xvi)
+    @test all(x -> x isa TA(backend), particles_range.xci)
+    @test Array.(particles_range.xvi) == (extend_nonperiodic(xr, xr[1], xr[end]), extend_nonperiodic(xr, xr[1], xr[end]))
+    @test Array.(particles_range.xci) == (extend_nonperiodic(cr, xr[1], xr[end]), extend_nonperiodic(cr, xr[1], xr[end]))
+end
+
 include(joinpath(@__DIR__, "helpers_move_particles.jl"))
 
 @testset "Particle movement fills free slots per destination 2D" begin
@@ -453,6 +495,14 @@ include(joinpath(@__DIR__, "helpers_move_particles.jl"))
 
     @testset "full destination reports overflow" begin
         check_full_destination_overflow(particles, fields)
+    end
+
+    @testset "transiently full destination keeps its incoming particles" begin
+        check_transiently_full_destination(particles, fields)
+    end
+
+    @testset "domain exits unblock incoming particles" begin
+        check_exit_unblocks_destination(backend, FT, Val(2))
     end
 
     @testset "clean removes out-of-cell particles without compaction" begin

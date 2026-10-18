@@ -16,6 +16,8 @@ export cell_array,
 include("launch.jl")
 export launch!, ka_backend
 
+include("validation.jl")
+
 include("CellArrays/ImplicitGlobalGrid.jl")
 export update_cell_halo!
 
@@ -26,16 +28,16 @@ include("Advection/common.jl")
 include("Interpolations/utils.jl")
 
 include("Interpolations/particle_to_grid.jl")
-export particle2grid!
+export particle2grid!, particle2grid_flip!
 
 include("Interpolations/particle_to_centroid.jl")
-export particle2centroid!
+export particle2centroid!, particle2centroid_flip!
 
 include("Interpolations/grid_to_particle.jl")
 export grid2particle!, grid2particle_flip!
 
 include("Interpolations/centroid_to_particle.jl")
-export centroid2particle!
+export centroid2particle!, centroid2particle_flip!
 
 include("Interpolations/ndlerp.jl")
 
@@ -51,7 +53,6 @@ export init_particles, init_cell_arrays
 
 include("Particles/utils.jl")
 
-# include("Particles/move.jl")
 include("Particles/move_safe.jl")
 export move_particles!
 
@@ -154,4 +155,4 @@ export update_phase_ratios!,
     phase_ratios_center!, phase_ratios_vertex!, phase_ratios_midpoint!
 
 include("IO/JLD2.jl")
-export checkpointing_particles
+export checkpointing_particles, load_checkpoint

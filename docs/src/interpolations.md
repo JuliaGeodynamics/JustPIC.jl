@@ -3,6 +3,13 @@
 The interpolation routines in JustPIC target rectangular 2D and 3D grids and
 support both uniform and coordinate-vector refined grids.
 
+The two standard transfer paths are documented separately:
+
+- [Vertex interpolation](vertex_interpolation.md): vertex → particle → vertex.
+- [Centroid interpolation](centroid_interpolation.md): centroid → particle → centroid.
+
+Both pages show ghosted and physical-only array layouts.
+
 ## Grid to particle
 
 Information is transferred from nodal or staggered grids to particle-carried
@@ -28,11 +35,11 @@ agnostic while staying friendly to compiler specialization.
 
 We can interpolate an arbitrary field `F` onto particles with `grid2particle!`:
 
-```julia
+```jldoctest
 using JustPIC
 # define model domain
 nxcell, max_xcell, min_xcell = 24, 30, 12
-n = 129
+n = 9
 Lx  = Ly = 1.0
 xvi = xv, yv = range(0, Lx, length=n), range(0, Ly, length=n)
 dx, dy = step(xv), step(yv)
@@ -49,6 +56,13 @@ F = [y for x in particles.xvi[1], y in particles.xvi[2]]
 Fp, = init_cell_arrays(particles, Val(1));
 # interpolate F onto Fp
 grid2particle!(Fp, F, particles);
+# F is linear in y, so each active particle recovers its own y coordinate
+active = particles.index.data
+all(Fp.data[active] .≈ particles.coords[2].data[active])
+
+# output
+
+true
 ```
 
 `particles.xvi` includes one ghost node on each side, so the compact call above
@@ -81,11 +95,12 @@ julia> particle2grid!(F, Fp, particles)
 The same `ghost_1`, `ghost_2`, and `ghost_3` keywords select whether each
 destination direction includes particle ghost nodes. They default to `true`.
 
-`particle2centroid!` and `grid2particle_flip!` take the same keywords; for
-`particle2centroid!` they refer to the ghosted centroid grid `particles.xci`.
-`centroid2particle!` has no opt-out: particles sitting between a domain boundary
-and the first centroid are interpolated from the ghost centroids, so its source
-field must always use the `particles.xci` layout.
+`particle2centroid!` and the [PIC/FLIP](pic_flip.md) transfers take the same
+keywords; for the centroid routines they refer to the ghosted centroid grid
+`particles.xci`. `centroid2particle!` accepts them too (and `ghosted` as a
+shorthand for all three): with ghost centroids, particles sitting between a
+domain boundary and the first centroid are interpolated from them; without,
+those particles use the nearest physical cell.
 
 Related high-level helpers in this workflow are `particle2centroid!`,
 `centroid2particle!`, `update_phase_ratios!`, `subgrid_diffusion!`, and
@@ -98,7 +113,6 @@ per side, matching `size(particles.index)`.
 
 ```@docs
 grid2particle!
-grid2particle_flip!
 particle2grid!
 centroid2particle!
 particle2centroid!

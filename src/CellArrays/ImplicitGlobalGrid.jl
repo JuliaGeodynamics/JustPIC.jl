@@ -36,6 +36,9 @@ particle2grid!(T, pT, particles)
 function update_cell_halo!(
         x::Vararg{CellArray, NA}
     ) where {NA}
+    ImplicitGlobalGrid.grid_is_initialized() || throw(
+        ArgumentError("`update_cell_halo!` requires an ImplicitGlobalGrid; call `init_global_grid` first")
+    )
     ni = size(x[1])
     backend = ka_backend(x[1])
     for xᵢ in x

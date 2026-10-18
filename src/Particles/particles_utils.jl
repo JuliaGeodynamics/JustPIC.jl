@@ -21,8 +21,9 @@ In both cases `max_xcell` is raised to the resulting number of particles per
 cell if it is smaller.
 
 The particle vertex and center grids stored in the returned container are
-extended with periodic ghost nodes. The staggered velocity grids are stored as
-provided.
+extended with ghost nodes. By default, ghost nodes use periodic spacing. Set
+`periodic` to `false` in nonperiodic dimensions to extend each boundary using
+its local edge spacing. The staggered velocity grids are stored as provided.
 
 # Arguments
 - `backend`: KernelAbstractions backend type such as `CPU`.
@@ -32,12 +33,15 @@ provided.
 - `min_xcell`: minimum occupancy used by reinjection routines.
 - `grid_vx`, `grid_vy`, `grid_vz`: staggered velocity-grid coordinate tuples.
   Omit `grid_vz` for a 2D simulation. Each tuple must contain one coordinate
-  vector per spatial dimension.
+  vector per spatial dimension. Coordinate vectors may live on any backend;
+  they are copied to the host to build the grids.
+- `periodic`: tuple of booleans indicating periodic dimensions. Defaults to
+  `true` in every dimension for compatibility.
 
 # Returns
 - A `Particles` object whose coordinates and occupancy arrays are ready for
   advection/interpolation routines, with `particles.xvi` and `particles.xci`
-  including one periodic ghost node on each side.
+  including one ghost node on each side.
 
 # Example
 ```julia
@@ -49,15 +53,23 @@ grid_vx = xv, LinRange(first(yc) - dx, last(yc) + dx, 34)
 grid_vy = LinRange(first(xc) - dx, last(xc) + dx, 34), yv
 particles = init_particles(CPU, 24, 48, 12, grid_vx, grid_vy)
 
+# Nonperiodic boundaries on both axes
+particles = init_particles(CPU, 24, 48, 12, grid_vx, grid_vy; periodic = (false, false))
+
 # 5x5 regularly spaced particles per cell
 particles = init_particles(CPU, (5, 5), 48, 12, grid_vx, grid_vy)
 ```
 """
 function init_particles(
-        backend, nxcell, max_xcell, min_xcell, xi_vel::Vararg{NTuple{N2, AbstractVector}, N1}
-    ) where {N1, N2}
+        backend,
+        nxcell,
+        max_xcell,
+        min_xcell,
+        xi_vel::Vararg{Tuple{Vararg{AbstractVector}}, N1};
+        periodic = ntuple(_ -> true, N1),
+    ) where {N1}
 
-    return init_particles(backend, nxcell, max_xcell, min_xcell, xi_vel)
+    return init_particles(backend, nxcell, max_xcell, min_xcell, xi_vel; periodic)
 end
 
 @noinline _throw_empty_velocity_grid() = throw(ArgumentError("The velocity grid cannot be empty"))
@@ -67,17 +79,21 @@ init_particles(::Any, ::Any, ::Any, ::Any, ::Tuple{}) = _throw_empty_velocity_gr
 # `Tuple{}` is also `NTuple{0, NTuple{0, AbstractVector}}`, which makes the
 # velocity-grid methods below applicable; this signature is more specific than
 # all of them and keeps the empty grid an error instead of an ambiguity.
-init_particles(::Any, ::Union{Number, Tuple{}}, ::Any, ::Any, ::Tuple{}) = _throw_empty_velocity_grid()
+init_particles(::Any, ::Union{Number, Tuple{}}, ::Any, ::Any, ::Tuple{}; periodic = ()) =
+    _throw_empty_velocity_grid()
 
 function init_particles(
         backend,
         nxcell::Union{Number, NTuple{N, Integer}},
         max_xcell,
         min_xcell,
-        xi_vel_cpu::NTuple{N, NTuple{N, AbstractVector}},
+        xi_vel_cpu::NTuple{N, NTuple{N, AbstractVector}};
+        periodic::NTuple{N, Bool} = ntuple(_ -> true, Val(N)),
     ) where {N}
 
-    xi_vel, xci, xvi, di, _di = staggered_grids(backend, xi_vel_cpu)
+    check_particle_capacity(nxcell, max_xcell, min_xcell)
+    check_staggered_grids(backend, xi_vel_cpu)
+    xi_vel, xci, xvi, di, _di = staggered_grids(backend, xi_vel_cpu; periodic)
     return _init_particles(backend, nxcell, max_xcell, min_xcell, xi_vel, xci, xvi, di, _di)
 end
 
@@ -86,10 +102,13 @@ function init_particles(
         nxcell::Union{Number, NTuple{N, Integer}},
         max_xcell,
         min_xcell,
-        xi_vel_cpu::NTuple{N, NTuple{N, R}},
-    ) where {N, R <: AbstractRange}
+        xi_vel_cpu::NTuple{N, NTuple{N, AbstractRange}};
+        periodic::NTuple{N, Bool} = ntuple(_ -> true, Val(N)),
+    ) where {N}
 
-    xi_vel, xci, xvi, di, _di = staggered_grids(backend, xi_vel_cpu)
+    check_particle_capacity(nxcell, max_xcell, min_xcell)
+    check_staggered_grids(backend, xi_vel_cpu)
+    xi_vel, xci, xvi, di, _di = staggered_grids(backend, xi_vel_cpu; periodic)
     return _init_particles(backend, nxcell, max_xcell, min_xcell, xi_vel, xci, xvi, di, _di)
 end
 
@@ -106,6 +125,9 @@ end
     xi_vel[1][3][2:(end - 1)],
 )
 
+host_vector(x::AbstractRange) = x
+host_vector(x::AbstractVector) = Array(x)
+
 @inline function inverse_spacing(di)
     return (;
         center = map(x -> inv.(x), di.center),
@@ -115,19 +137,25 @@ end
 end
 
 """
-    staggered_grids(backend, xi_vel_cpu)
+    staggered_grids(backend, xi_vel_any)
 
 Build the device-resident grids carried by a [`Particles`](@ref) container from
 the staggered velocity grids: the velocity grids themselves, the cell-center and
-vertex grids extended with one periodic ghost node on each side, and the cell
-spacings together with their reciprocals.
+vertex grids extended with one ghost node on each side, and the cell spacings
+together with their reciprocals. `periodic` selects periodic or local-edge
+spacing for each dimension. The velocity grids may live on any backend.
 """
-function staggered_grids(backend, xi_vel_cpu::NTuple{N, NTuple{N, AbstractVector}}) where {N}
+function staggered_grids(
+        backend, xi_vel_any::NTuple{N, NTuple{N, AbstractVector}};
+        periodic::NTuple{N, Bool} = ntuple(_ -> true, Val(N)),
+    ) where {N}
+    # Grid construction indexes individual coordinates, which device arrays disallow.
+    xi_vel_cpu = map(x -> map(host_vector, x), xi_vel_any)
     xci_cpu = center_coordinates(xi_vel_cpu)
     xvi_cpu = ntuple(i -> xi_vel_cpu[i][i], Val(N))
     xi_vel = ntuple(i -> TA(backend).(xi_vel_cpu[i]), Val(N))
-    xci = TA(backend).(add_periodic_ghost_nodes.(xci_cpu))
-    xvi = TA(backend).(add_periodic_ghost_nodes.(xvi_cpu))
+    xci = TA(backend).(map(particle_center_grid, xci_cpu, xvi_cpu, periodic))
+    xvi = TA(backend).(map(particle_vertex_grid, xvi_cpu, periodic))
 
     di_vertex = diff.(xvi)
     di_center = diff.(xci)
@@ -137,14 +165,17 @@ function staggered_grids(backend, xi_vel_cpu::NTuple{N, NTuple{N, AbstractVector
     return xi_vel, xci, xvi, di, inverse_spacing(di)
 end
 
-function staggered_grids(backend, xi_vel_cpu::NTuple{N, NTuple{N, R}}) where {N, R <: AbstractRange}
+function staggered_grids(
+        backend, xi_vel_cpu::NTuple{N, NTuple{N, AbstractRange}};
+        periodic::NTuple{N, Bool} = ntuple(_ -> true, Val(N)),
+    ) where {N}
     T = eltype(first(first(xi_vel_cpu)))
     xi_vel = recast_grid(xi_vel_cpu, T)
     xci = center_coordinates(xi_vel)
     xvi = ntuple(i -> xi_vel[i][i], Val(N))
     # add ghost nodes to the center and vertex grids
-    xci = recast_grid(add_periodic_ghost_nodes.(xci), T)
-    xvi = recast_grid(add_periodic_ghost_nodes.(xvi), T)
+    xci = map(x -> device_grid(backend, x, T), map(particle_center_grid, xci, xvi, periodic))
+    xvi = map(x -> device_grid(backend, x, T), map(particle_vertex_grid, xvi, periodic))
 
     di_vertex = getindex.(xvi, 2) .- first.(xvi)
     di_center = getindex.(xci, 2) .- first.(xci)
@@ -153,6 +184,12 @@ function staggered_grids(backend, xi_vel_cpu::NTuple{N, NTuple{N, R}}) where {N,
 
     return xi_vel, xci, xvi, di, inverse_spacing(di)
 end
+
+@inline particle_center_grid(xc, xv, is_periodic) =
+    is_periodic ? add_periodic_ghost_nodes(xc) : add_nonperiodic_ghost_nodes(xc, first(xv), last(xv))
+
+@inline particle_vertex_grid(xv, is_periodic) =
+    is_periodic ? add_periodic_ghost_nodes(xv) : add_nonperiodic_ghost_nodes(xv, first(xv), last(xv))
 
 # random distribution, balanced over the cell quadrants
 function _init_particles(
@@ -208,8 +245,8 @@ function allocate_particle_storage(backend, xvi::NTuple{N}, max_xcell, nᵢ) whe
 end
 
 @kernel function fill_coords_index!(
-        pxᵢ::NTuple{N, T}, index, coords, di::NTuple{N}, np_quadrant
-    ) where {N, T}
+        pxᵢ::NTuple{N, Any}, index, coords, di::NTuple{N}, np_quadrant
+    ) where {N}
     I0 = @index(Global, NTuple)
     I = I0 .+ 1 # shift by one to skip the periodic ghost node
     # lower-left corner of the cell
@@ -254,8 +291,8 @@ end
 )
 
 @kernel function fill_regular_coords_index!(
-        pxᵢ::NTuple{N, T}, index, coords, di::NTuple{N}, nxdim::NTuple{N}
-    ) where {N, T}
+        pxᵢ::NTuple{N, Any}, index, coords, di::NTuple{N}, nxdim::NTuple{N}
+    ) where {N}
     I0 = @index(Global, NTuple)
     I = I0 .+ 1 # shift by one to skip the periodic ghost node
     # lower-left corner of the cell

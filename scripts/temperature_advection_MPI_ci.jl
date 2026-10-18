@@ -50,19 +50,19 @@ function main()
     )
     Lx = Ly = 1.0
     dxi = dx, dy = Lx / (nx_g() - 1), Ly / (ny_g() - 1)
+    # Local grids are anchored at the first interior point: with periodic boundaries,
+    # x_g/y_g wrap the halo coordinates into [0, L), so the endpoints of a boundary
+    # rank do not lie on one contiguous local grid.
+    local_range(x2, d, len) = LinRange(x2 - d, x2 + (len - 2) * d, len)
     # nodal vertices
     xvi = xv, yv = let
         dummy = zeros(n, n)
-        xv = [x_g(i, dx, dummy) for i in axes(dummy, 1)]
-        yv = [y_g(i, dy, dummy) for i in axes(dummy, 2)]
-        LinRange(first(xv), last(xv), n), LinRange(first(yv), last(yv), n)
+        local_range(x_g(2, dx, dummy), dx, n), local_range(y_g(2, dy, dummy), dy, n)
     end
     # nodal centers
     xci = xc, yc = let
         dummy = zeros(nx, ny)
-        xc = [x_g(i, dx, dummy) for i in axes(dummy, 1)]
-        yc = [y_g(i, dy, dummy) for i in axes(dummy, 2)]
-        LinRange(first(xc), last(xc), nx), LinRange(first(yc), last(yc), ny)
+        local_range(x_g(2, dx, dummy), dx, nx), local_range(y_g(2, dy, dummy), dy, ny)
     end
 
     # staggered grid for the velocity components

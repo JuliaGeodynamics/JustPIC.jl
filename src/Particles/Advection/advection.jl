@@ -50,15 +50,16 @@ function advection!(
         particles::Particles,
         method::AbstractAdvectionIntegrator,
         V,
-        grid_vi::NTuple{N, NTuple{N, T}},
+        grid_vi::NTuple{N, NTuple{N, Any}},
         dt,
         dxi;
         periodic_1 = false,
         periodic_2 = false,
         periodic_3 = false,
-    ) where {N, T}
+    ) where {N}
     (; coords, index) = particles
     N == 2 && periodic_3 && throw(ArgumentError("periodic_3 is only valid for 3D particles"))
+    check_advection_inputs(particles, method, V, grid_vi, dt)
     # compute some basic stuff
     ni = inner_size(index)
     # compute local limits (i.e. domain or MPI rank limits)
@@ -86,7 +87,7 @@ end
 @kernel function advection_kernel!(
         p,
         method::AbstractAdvectionIntegrator,
-        V::NTuple{N, T},
+        V::NTuple{N, Any},
         index,
         grid_vi,
         local_limits,
@@ -94,7 +95,7 @@ end
         dt,
         periodicity,
         domain_limits,
-    ) where {N, T}
+    ) where {N}
     I = @index(Global, NTuple)
     I_inner = I .+ 1
 
@@ -170,9 +171,4 @@ end
 
         return Fi, xci, indices
     end
-end
-
-@inline function vertex_offset(xi, pxi, di)
-    dist = normalised_distance(xi, pxi, di)
-    return (dist > 2) * 2 + (2 > dist > 1) * 1 + (-1 < dist < 0) * -1 + (dist < -1) * -2
 end

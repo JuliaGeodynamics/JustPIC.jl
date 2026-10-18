@@ -15,8 +15,9 @@ velocity nodes, and in 3D also at edge-midpoint locations.
 function update_phase_ratios!(
         phase_ratios::JustPIC.PhaseRatios{B, T}, particles, phases
     ) where {B, T <: AbstractMatrix}
-    phase_ratios_center!(phase_ratios, particles, phases)
-    phase_ratios_vertex!(phase_ratios, particles, phases)
+    check_phase_ratio_inputs(phase_ratios, particles, phases)
+    _phase_ratios_center!(phase_ratios, particles, phases)
+    _phase_ratios_vertex!(phase_ratios, particles, phases)
     # velocity nodes
     phase_ratios_face!(phase_ratios.Vx, particles, phases, :x)
     phase_ratios_face!(phase_ratios.Vy, particles, phases, :y)
@@ -27,24 +28,25 @@ end
 function update_phase_ratios!(
         phase_ratios::JustPIC.PhaseRatios{B, T}, particles, phases
     ) where {B, T <: AbstractArray}
-    phase_ratios_center!(phase_ratios, particles, phases)
-    phase_ratios_vertex!(phase_ratios, particles, phases)
+    check_phase_ratio_inputs(phase_ratios, particles, phases)
+    _phase_ratios_center!(phase_ratios, particles, phases)
+    _phase_ratios_vertex!(phase_ratios, particles, phases)
     # velocity nodes
     phase_ratios_face!(phase_ratios.Vx, particles, phases, :x)
     phase_ratios_face!(phase_ratios.Vy, particles, phases, :y)
     phase_ratios_face!(phase_ratios.Vz, particles, phases, :z)
     # shear stress nodes
-    phase_ratios_midpoint!(phase_ratios.xy, particles, phases, :xy)
-    phase_ratios_midpoint!(phase_ratios.yz, particles, phases, :yz)
-    phase_ratios_midpoint!(phase_ratios.xz, particles, phases, :xz)
+    _phase_ratios_midpoint!(phase_ratios.xy, particles, phases, :xy)
+    _phase_ratios_midpoint!(phase_ratios.yz, particles, phases, :yz)
+    _phase_ratios_midpoint!(phase_ratios.xz, particles, phases, :xz)
     return nothing
 end
 
 ## interpolation kernels
 
 function phase_ratio_weights(
-        pxi::NTuple{NP, C}, ph::SVector{N1, T}, cell_center, di, ::Val{NC}
-    ) where {N1, NC, NP, T, C}
+        pxi::NTuple{NP, Any}, ph::SVector{N1, T}, cell_center, di, ::Val{NC}
+    ) where {N1, NC, NP, T}
 
     # Initialize phase ratio weights
     w = ntuple(_ -> zero(T), Val(NC))
@@ -57,13 +59,14 @@ function phase_ratio_weights(
         # this is doing sum(w * δij(i, phase)), where δij is the Kronecker delta
         w = w .+ x .* ntuple(j -> (ph_local == j), Val(NC))
     end
-    w = w .* inv(sum(w))
+    w = w .* support_inverse(sum(w))
     return w
 end
 
 @generated function bilinear_weight(
-        a::NTuple{N, T}, b::NTuple{N, T}, di::NTuple{N, T}
-    ) where {N, T}
+        a::NTuple{N, Any}, b::NTuple{N, Any}, di::NTuple{N, Any}
+    ) where {N}
+    T = eltype(a)
     return quote
         Base.@_inline_meta
         val = one($T)

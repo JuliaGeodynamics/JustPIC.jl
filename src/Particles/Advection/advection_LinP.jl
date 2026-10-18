@@ -50,6 +50,7 @@ function advection_LinP!(
 
     (; coords, index) = particles
     N == 2 && periodic_3 && throw(ArgumentError("periodic_3 is only valid for 3D particles"))
+    check_advection_inputs(particles, method, V, grid_vi, dt)
     # compute some basic stuff
     ni = inner_size(index)
     # compute local limits (i.e. domain or MPI rank limits)
@@ -288,62 +289,63 @@ function interpolate_V_to_P(F, xi_corner, xi_particle, dxi, ::Val{N}, i, j, k) w
     offsetᵢ, offsetⱼ, offsetₖ = augment_offset(VN)
 
     # velocity at velocity corners
-    F000 = F[
+    # Clamped indices are valid; redundant bounds checks stall Metal's RK4 shader compilation.
+    F000 = @inbounds F[
         clamp(i + offsetᵢ[1][1], 1, nx),
         clamp(j + offsetⱼ[1][1], 1, ny),
         clamp(k + offsetₖ[1][1], 1, nz),
     ]
-    F100 = F[
+    F100 = @inbounds F[
         clamp(i + offsetᵢ[1][2], 1, nx),
         clamp(j + offsetⱼ[1][2], 1, ny),
         clamp(k + offsetₖ[1][2], 1, nz),
     ]
-    F200 = F[
+    F200 = @inbounds F[
         clamp(i + offsetᵢ[1][3], 1, nx),
         clamp(j + offsetⱼ[1][3], 1, ny),
         clamp(k + offsetₖ[1][3], 1, nz),
     ]
-    F010 = F[
+    F010 = @inbounds F[
         clamp(i + offsetᵢ[2][1], 1, nx),
         clamp(j + offsetⱼ[2][1], 1, ny),
         clamp(k + offsetₖ[2][1], 1, nz),
     ]
-    F110 = F[
+    F110 = @inbounds F[
         clamp(i + offsetᵢ[2][2], 1, nx),
         clamp(j + offsetⱼ[2][2], 1, ny),
         clamp(k + offsetₖ[2][2], 1, nz),
     ]
-    F210 = F[
+    F210 = @inbounds F[
         clamp(i + offsetᵢ[2][3], 1, nx),
         clamp(j + offsetⱼ[2][3], 1, ny),
         clamp(k + offsetₖ[2][3], 1, nz),
     ]
-    F001 = F[
+    F001 = @inbounds F[
         clamp(i + offsetᵢ[3][1], 1, nx),
         clamp(j + offsetⱼ[1][1], 1, ny),
         clamp(k + offsetₖ[3][1], 1, nz),
     ]
-    F101 = F[
+    F101 = @inbounds F[
         clamp(i + offsetᵢ[3][2], 1, nx),
         clamp(j + offsetⱼ[1][2], 1, ny),
         clamp(k + offsetₖ[3][2], 1, nz),
     ]
-    F201 = F[
+    F201 = @inbounds F[
         clamp(i + offsetᵢ[3][3], 1, nx),
         clamp(j + offsetⱼ[1][3], 1, ny),
         clamp(k + offsetₖ[3][3], 1, nz),
     ]
-    F011 = F[
+    F011 = @inbounds F[
         clamp(i + offsetᵢ[4][1], 1, nx),
         clamp(j + offsetⱼ[2][1], 1, ny),
         clamp(k + offsetₖ[4][1], 1, nz),
     ]
-    F111 = F[
+    F111 = @inbounds F[
         clamp(i + offsetᵢ[4][2], 1, nx),
         clamp(j + offsetⱼ[2][2], 1, ny),
         clamp(k + offsetₖ[4][2], 1, nz),
     ]
-    F211 = F[
+    F211 = @inbounds F[
         clamp(i + offsetᵢ[4][3], 1, nx),
         clamp(j + offsetⱼ[2][3], 1, ny),
         clamp(k + offsetₖ[4][3], 1, nz),

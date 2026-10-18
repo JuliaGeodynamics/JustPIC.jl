@@ -166,12 +166,12 @@ active = Array(particles.index.data)
     @test Array(pT.data)[active] ≈ Array(particles.coords[2].data)[active]
 
     # Grid to particle test
-    JustPIC.grid2particle_flip!(pT, xvi_p, T, T0, particles)
+    JustPIC.grid2particle_flip!(pT, T, T0, particles)
     @test Array(pT.data)[active] ≈ Array(particles.coords[2].data)[active]
 
     # Particle to grid test
     T2 = similar(T)
-    fill!(T2, NaN)
+    fill!(T2, FT(NaN))
     JustPIC.particle2grid!(T2, pT, particles)
     finite_mask = isfinite.(T2)
     @test norm(T2[finite_mask] .- T[finite_mask]) / count(finite_mask) < 1.0e-1
@@ -182,7 +182,7 @@ active = Array(particles.index.data)
 
     # Particle to centroid test
     Tc2 = similar(Tc)
-    fill!(Tc2, NaN)
+    fill!(Tc2, FT(NaN))
     JustPIC.particle2centroid!(Tc2, pT, particles)
     finite_mask_c = isfinite.(Tc2)
     @test norm(Tc2[finite_mask_c] .- Tc[finite_mask_c]) / count(finite_mask_c) < 1.0e-1

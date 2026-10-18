@@ -1,13 +1,13 @@
 @inline function advect_particle_markerchain(
         method::RungeKutta2,
-        p0::NTuple{N, T},
-        V::NTuple{N, AbstractArray{T, N}},
+        p0::NTuple{N, Any},
+        V::NTuple{N, AbstractArray{<:Any, N}},
         grid_vi,
         local_limits,
         dt,
         icell;
         backtracking::Bool = false
-    ) where {T, N}
+    ) where {N}
 
     # interpolate velocity to current location
     vp0 = interp_velocity2particle_markerchain(p0, grid_vi, V, icell)

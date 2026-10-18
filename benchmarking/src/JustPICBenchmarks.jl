@@ -11,7 +11,7 @@ export benchmark_cases, dashboard_main, main, print_comparison, run_benchmarks, 
     write_results
 
 const REPOSITORY_ROOT = normpath(joinpath(@__DIR__, "..", ".."))
-const PERFORMANCE_MODEL_VERSION = "justpic_cpu_v1"
+const PERFORMANCE_MODEL_VERSION = "justpic_cpu_v3"
 const REPOSITORY_URL = "https://github.com/JuliaGeodynamics/JustPIC.jl"
 
 struct PerformanceModel
@@ -44,24 +44,26 @@ synchronize(backend) = JustPIC.KernelAbstractions.synchronize(backend())
 # are treated as `Float32` scalars, so they scale with a wider element type.
 scale_float32_bytes(bytes, ::Type{FT}) where {FT} = bytes * sizeof(FT) ÷ sizeof(Float32)
 
-function particle_state_2d(backend, n, ::Type{FT}) where {FT}
-    xv = range(FT(0), FT(1); length = n + 1)
-    yv = range(FT(0), FT(1); length = n + 1)
-    grid_vx = xv, extended_centers(yv)
-    grid_vy = extended_centers(xv), yv
-    particles = init_particles(backend, (2, 2), 8, 2, grid_vx, grid_vy)
+function particle_state(backend, n, ::Type{FT}, ::Val{D}) where {FT, D}
+    xv = ntuple(_ -> range(FT(0), FT(1); length = n + 1), Val(D))
+    grid_vi = ntuple(i -> ntuple(j -> j == i ? xv[j] : extended_centers(xv[j]), Val(D)), Val(D))
+    particles = init_particles(backend, ntuple(_ -> 2, Val(D)), 2^(D + 1), 2, grid_vi...)
     particle_field, = init_cell_arrays(particles, Val(1))
     xvi = Array.(particles.xvi)
-    nodal_field = TA(backend)(FT[x + y for x in xvi[1], y in xvi[2]])
+    nodal_field = TA(backend)(FT[sum(x) for x in Iterators.product(xvi...)])
+    xci = Array.(particles.xci)
+    centroid_field = TA(backend)(FT[sum(x) for x in Iterators.product(xci...)])
+    particle_fields = init_cell_arrays(particles, Val(3))
+    nodal_fields = ntuple(i -> TA(backend)(FT[i * sum(x) for x in Iterators.product(xvi...)]), Val(3))
+    centroid_fields = ntuple(i -> TA(backend)(FT[i * sum(x) for x in Iterators.product(xci...)]), Val(3))
     grid2particle!(particle_field, nodal_field, particles)
+    grid2particle!(particle_fields, nodal_fields, particles)
 
-    V = (
-        TA(backend)(fill(FT(0.1), length.(grid_vx))),
-        TA(backend)(fill(FT(-0.05), length.(grid_vy))),
-    )
-    dt = FT(step(xv) / FT(0.4))
+    velocities = FT.((0.1, -0.05, 0.025))
+    V = ntuple(i -> TA(backend)(fill(velocities[i], length.(grid_vi[i]))), Val(D))
+    dt = FT(step(xv[1]) / FT(0.4))
     initial_count = count(Array(particles.index.data))
-    return (; particles, particle_field, nodal_field, V, dt, initial_count)
+    return (; particles, particle_field, nodal_field, centroid_field, particle_fields, nodal_fields, centroid_fields, V, dt, initial_count)
 end
 
 function validate_particle_state(state)
@@ -77,37 +79,68 @@ function validate_particle_state(state)
     return nothing
 end
 
-function advection_move_case(backend, n, ::Type{FT}) where {FT}
-    setup() = particle_state_2d(backend, n, FT)
+# Performance-model coefficients per particle (`Np`), slot (`Ns`), vertex (`Nv`), and cell
+# (`Nc`); benchmarking/README.md lists them.
+advection_move_model(::Val{2}, Np, Ns, ::Type{FT}) where {FT} = PerformanceModel(
+    80 * Np,
+    26 * sizeof(FT) * Np + 2 * Ns,
+    "two-stage 2D RK2 velocity interpolation and one logical particle-payload movement pass",
+)
+advection_move_model(::Val{3}, Np, Ns, ::Type{FT}) where {FT} = PerformanceModel(
+    234 * Np,
+    62 * sizeof(FT) * Np + 2 * Ns,
+    "two-stage 3D RK2 trilinear velocity interpolation and one logical particle-payload movement pass",
+)
+
+interpolation_model(::Val{2}, Np, Nv, Nc, ::Type{FT}) where {FT} = PerformanceModel(
+    54 * Np + Nv,
+    15 * sizeof(FT) * Np + sizeof(FT) * Nv + 8 * sizeof(FT) * Nc,
+    "one inverse-distance particle-to-grid pass followed by one bilinear grid-to-particle pass",
+)
+interpolation_model(::Val{3}, Np, Nv, Nc, ::Type{FT}) where {FT} = PerformanceModel(
+    133 * Np + 2 * Nv,
+    36 * sizeof(FT) * Np + sizeof(FT) * Nv + 14 * sizeof(FT) * Nc,
+    "one inverse-distance particle-to-grid pass followed by one trilinear grid-to-particle pass",
+)
+
+function interpolation_direction_model(direction, ::Val{D}, Np, Nv, Nc, ::Type{FT}, fields = 1) where {D, FT}
+    # The directional models split the round-trip model: particle-to-grid/centroid
+    # carries the gather and weighting, the reverse direction one interpolation per
+    # particle. Particle-to-centroid reuses the inverse-distance weight count.
+    if direction in (:particle_to_grid, :particle_to_centroid)
+        flops = (D == 2 ? 36 : 96) * Np * fields
+        grid_values = direction == :particle_to_grid ? Nv : Nc
+        bytes = ((D == 2 ? 11 : 36) * Np + grid_values) * sizeof(FT) * fields
+    else
+        flops = (D == 2 ? 18 : 37) * Np * fields
+        bytes = ((D == 2 ? 4 : 8) * Np + (D == 2 ? 8 : 14) * Nc) * sizeof(FT) * fields
+    end
+    return PerformanceModel(flops, bytes, string(direction, " interpolation"))
+end
+
+grid_label(n, D) = join(fill(n, D), "×")
+
+function advection_move_case(backend, n, ::Type{FT}, dims::Val{D} = Val(2)) where {FT, D}
+    setup() = particle_state(backend, n, FT, dims)
+    periodic = (; periodic_1 = true, periodic_2 = true, periodic_3 = D == 3)
     function run(state)
-        advection!(
-            state.particles, RungeKutta2(), state.V, state.dt;
-            periodic_1 = true, periodic_2 = true,
-        )
-        move_particles!(
-            state.particles, (state.particle_field,);
-            periodic_1 = true, periodic_2 = true,
-        )
+        advection!(state.particles, RungeKutta2(), state.V, state.dt; periodic...)
+        move_particles!(state.particles, (state.particle_field,); periodic...)
         synchronize(backend)
         return state
     end
-    work_units = 4 * n^2
-    slots = 8 * n^2
-    performance_model = PerformanceModel(
-        54 * work_units,
-        26 * sizeof(FT) * work_units + 2 * slots,
-        "two-stage 2D RK2 velocity interpolation and one logical particle-payload movement pass",
-    )
+    ppc = 2^D
+    work_units = ppc * n^D
     parameters = Dict{String, Any}(
-        "dimension" => 2,
+        "dimension" => D,
         "float_type" => string(FT),
-        "grid_cells" => [n, n],
-        "particles_per_cell" => 4,
-        "periodic" => [true, true],
+        "grid_cells" => fill(n, D),
+        "particles_per_cell" => ppc,
+        "periodic" => fill(true, D),
         "integrator" => "RungeKutta2",
     )
     return BenchmarkCase(
-        "Particle advection + move (2D, $(n)×$(n), 4 ppc, $FT)",
+        "Particle advection + move ($(D)D, $(grid_label(n, D)), $ppc ppc, $FT)",
         "Particle workflow",
         setup,
         run,
@@ -115,34 +148,29 @@ function advection_move_case(backend, n, ::Type{FT}) where {FT}
         work_units,
         "particles",
         parameters,
-        performance_model,
+        advection_move_model(dims, work_units, 2 * work_units, FT),
     )
 end
 
-function interpolation_case(backend, n, ::Type{FT}) where {FT}
-    setup() = particle_state_2d(backend, n, FT)
+function interpolation_case(backend, n, ::Type{FT}, dims::Val{D} = Val(2)) where {FT, D}
+    setup() = particle_state(backend, n, FT, dims)
     function run(state)
         particle2grid!(state.nodal_field, state.particle_field, state.particles)
         grid2particle!(state.particle_field, state.nodal_field, state.particles)
         synchronize(backend)
         return state
     end
-    work_units = 4 * n^2
-    nodes = (n + 1)^2
-    performance_model = PerformanceModel(
-        54 * work_units + nodes,
-        19 * sizeof(FT) * work_units + sizeof(FT) * nodes + 10 * sizeof(FT) * n^2,
-        "one inverse-distance particle-to-grid pass followed by one bilinear grid-to-particle pass",
-    )
+    ppc = 2^D
+    work_units = ppc * n^D
     parameters = Dict{String, Any}(
-        "dimension" => 2,
+        "dimension" => D,
         "float_type" => string(FT),
-        "grid_cells" => [n, n],
-        "particles_per_cell" => 4,
+        "grid_cells" => fill(n, D),
+        "particles_per_cell" => ppc,
         "directions" => ["particle_to_grid", "grid_to_particle"],
     )
     return BenchmarkCase(
-        "Particle ↔ grid interpolation (2D, $(n)×$(n), 4 ppc, $FT)",
+        "Particle ↔ grid interpolation ($(D)D, $(grid_label(n, D)), $ppc ppc, $FT)",
         "Interpolation",
         setup,
         run,
@@ -150,7 +178,55 @@ function interpolation_case(backend, n, ::Type{FT}) where {FT}
         work_units,
         "particle values",
         parameters,
-        performance_model,
+        interpolation_model(dims, work_units, (n + 1)^D, n^D, FT),
+    )
+end
+
+function interpolation_direction_case(
+        backend, n, ::Type{FT}, direction, dims::Val{D} = Val(2), components::Val{NF} = Val(1)
+    ) where {FT, D, NF}
+    setup() = particle_state(backend, n, FT, dims)
+    run = if direction == :particle_to_grid && NF == 1
+        state -> (particle2grid!(state.nodal_field, state.particle_field, state.particles); state)
+    elseif direction == :grid_to_particle && NF == 1
+        state -> (grid2particle!(state.particle_field, state.nodal_field, state.particles); state)
+    elseif direction == :particle_to_centroid && NF == 1
+        state -> (particle2centroid!(state.centroid_field, state.particle_field, state.particles); state)
+    elseif direction == :centroid_to_particle && NF == 1
+        state -> (centroid2particle!(state.particle_field, state.centroid_field, state.particles); state)
+    elseif direction == :grid_to_particle && NF > 1
+        state -> (grid2particle!(state.particle_fields, state.nodal_fields, state.particles); state)
+    elseif direction == :centroid_to_particle && NF > 1
+        state -> (centroid2particle!(state.particle_fields, state.centroid_fields, state.particles); state)
+    elseif direction == :particle_to_grid && NF > 1
+        state -> (particle2grid!(state.nodal_fields, state.particle_fields, state.particles); state)
+    elseif direction == :particle_to_centroid && NF > 1
+        state -> (particle2centroid!(state.centroid_fields, state.particle_fields, state.particles); state)
+    else
+        throw(ArgumentError("unknown interpolation direction $direction"))
+    end
+    ppc = 2^D
+    work_units = ppc * n^D
+    parameters = Dict{String, Any}(
+        "dimension" => D,
+        "float_type" => string(FT),
+        "grid_cells" => fill(n, D),
+        "particles_per_cell" => ppc,
+        "direction" => string(direction),
+        "fields" => NF,
+    )
+    label = replace(string(direction), '_' => ' ')
+    fields_label = NF == 1 ? "" : ", $NF fields"
+    return BenchmarkCase(
+        "$(label) ($(D)D, $(grid_label(n, D)), $ppc ppc$(fields_label), $FT)",
+        "Interpolation",
+        setup,
+        run,
+        validate_particle_state,
+        work_units,
+        "particle values",
+        parameters,
+        interpolation_direction_model(direction, dims, work_units, (n + 1)^D, n^D, FT, NF),
     )
 end
 
@@ -218,19 +294,39 @@ function marker_surface_case(backend, n, ::Type{FT}) where {FT}
 end
 
 function benchmark_cases(
-        backend = JustPIC.CPU; particle_size = 128, surface_size = 256,
+        backend = JustPIC.CPU; particle_size = 128, particle_size_3d = 32, surface_size = 256,
         precision::Type = Float64,
     )
     return (
         advection_move_case(backend, particle_size, precision),
         interpolation_case(backend, particle_size, precision),
+        interpolation_direction_case(backend, particle_size, precision, :particle_to_grid),
+        interpolation_direction_case(backend, particle_size, precision, :grid_to_particle),
+        interpolation_direction_case(backend, particle_size, precision, :particle_to_centroid),
+        interpolation_direction_case(backend, particle_size, precision, :centroid_to_particle),
+        interpolation_direction_case(backend, particle_size, precision, :grid_to_particle, Val(2), Val(3)),
+        interpolation_direction_case(backend, particle_size, precision, :centroid_to_particle, Val(2), Val(3)),
+        interpolation_direction_case(backend, particle_size, precision, :particle_to_grid, Val(2), Val(3)),
+        interpolation_direction_case(backend, particle_size, precision, :particle_to_centroid, Val(2), Val(3)),
+        advection_move_case(backend, particle_size_3d, precision, Val(3)),
+        interpolation_case(backend, particle_size_3d, precision, Val(3)),
+        interpolation_direction_case(backend, particle_size_3d, precision, :particle_to_grid, Val(3)),
+        interpolation_direction_case(backend, particle_size_3d, precision, :grid_to_particle, Val(3)),
+        interpolation_direction_case(backend, particle_size_3d, precision, :particle_to_centroid, Val(3)),
+        interpolation_direction_case(backend, particle_size_3d, precision, :centroid_to_particle, Val(3)),
+        interpolation_direction_case(backend, particle_size_3d, precision, :grid_to_particle, Val(3), Val(3)),
+        interpolation_direction_case(backend, particle_size_3d, precision, :centroid_to_particle, Val(3), Val(3)),
+        interpolation_direction_case(backend, particle_size_3d, precision, :particle_to_grid, Val(3), Val(3)),
+        interpolation_direction_case(backend, particle_size_3d, precision, :particle_to_centroid, Val(3), Val(3)),
         marker_surface_case(backend, surface_size, precision),
     )
 end
 
 function git_metadata()
     commit = readchomp(`git -C $REPOSITORY_ROOT rev-parse HEAD`)
-    dirty = !isempty(read(`git -C $REPOSITORY_ROOT status --porcelain`, String))
+    status = read(`git -C $REPOSITORY_ROOT status --porcelain`, String)
+    dirty = !isempty(status)
+    dirty && @warn "benchmarking a dirty worktree; results will not be published" status
     subject = readchomp(`git -C $REPOSITORY_ROOT log -1 --format=%s`)
     author = readchomp(`git -C $REPOSITORY_ROOT log -1 --format=%an`)
     return (; commit, dirty, subject, author)
@@ -395,7 +491,8 @@ end
 function run_benchmarks(;
         backend = JustPIC.CPU, backend_name = "CPU", device = nothing,
         samples = 10, group = "all", precision::Type = Float64,
-        cases = benchmark_cases(backend; precision),
+        particle_size = 128, particle_size_3d = 32, allow_case_errors = false,
+        cases = benchmark_cases(backend; precision, particle_size, particle_size_3d),
     )
     samples > 0 || throw(ArgumentError("samples must be positive"))
     selected = group == "all" ? cases : filter(case -> case.group == group, cases)
@@ -403,7 +500,19 @@ function run_benchmarks(;
     metadata = benchmark_metadata(backend, backend_name, device, precision)
     return map(selected) do case
         @info "Benchmarking $(case.name)" samples
-        measure(case, samples, metadata)
+        allow_case_errors || return measure(case, samples, metadata)
+        try
+            measure(case, samples, metadata)
+        catch err
+            # A base revision can lack API that newer cases call; record the failure so
+            # the comparison reports it instead of aborting.
+            @error "Benchmark $(case.name) failed" exception = (err, catch_backtrace())
+            Dict{String, Any}(
+                "name" => case.name,
+                "error" => first(split(sprint(showerror, err), '\n')),
+                "metadata" => metadata,
+            )
+        end
     end
 end
 
@@ -477,8 +586,10 @@ format_timing(result) =
 Print a markdown table of the median time of each benchmark in `candidate` relative to
 `baseline`, both result vectors as written by [`write_results`](@ref). The spread is the
 interquartile range as a percentage of the median. A ratio that differs from 1 by more than
-the two spreads combined is marked 🔴 (slower) or 🟢 (faster). Returns the
-candidate-to-baseline median ratios.
+the two spreads combined is marked 🔴 (slower) or 🟢 (faster). Baseline cases that failed
+(recorded with `--allow-case-errors`) are listed with their error and no ratio; a failed
+candidate case is an error. Returns the candidate-to-baseline median ratios of the compared
+cases.
 """
 function print_comparison(io::IO, baseline, candidate)
     base_meta, cand_meta = baseline[1]["metadata"], candidate[1]["metadata"]
@@ -489,9 +600,16 @@ function print_comparison(io::IO, baseline, candidate)
     end
     getindex.(baseline, "name") == getindex.(candidate, "name") ||
         error("baseline and candidate ran different benchmarks")
+    failed = [cand["name"] for cand in candidate if haskey(cand, "error")]
+    isempty(failed) || error("candidate benchmarks failed: $(join(failed, ", "))")
 
-    ratios = map((b, c) -> c["time_median_seconds"] / b["time_median_seconds"], baseline, candidate)
-    rows = map(baseline, candidate, ratios) do base, cand, ratio
+    compared = [(b, c) for (b, c) in zip(baseline, candidate) if !haskey(b, "error")]
+    ratios = [c["time_median_seconds"] / b["time_median_seconds"] for (b, c) in compared]
+    rows = map(baseline, candidate) do base, cand
+        haskey(base, "error") && return [
+            cand["name"], "failed", format_timing(cand), "— → $(cand["allocations"])", "—",
+        ]
+        ratio = cand["time_median_seconds"] / base["time_median_seconds"]
         noise = relative_spread(base) + relative_spread(cand)
         marker = ratio > 1 + noise ? " 🔴" : ratio < 1 - noise ? " 🟢" : ""
         [
@@ -509,6 +627,11 @@ function print_comparison(io::IO, baseline, candidate)
     println(io, "| ", cells(header), " |")
     println(io, "| :", "-"^(widths[1] - 1), " | ", join(("-"^(w - 1) * ":" for w in widths[2:end]), " | "), " |")
     foreach(row -> println(io, "| ", cells(row), " |"), rows)
+    for base in baseline
+        haskey(base, "error") || continue
+        println(io)
+        println(io, "Baseline failed $(base["name"]): `$(base["error"])`")
+    end
     return ratios
 end
 
@@ -519,6 +642,9 @@ function parse_commandline(args)
     samples = 10
     group = "all"
     precision = Float64
+    particle_size = 128
+    particle_size_3d = 32
+    allow_case_errors = false
     for arg in args
         if startswith(arg, "--output=")
             output = split(arg, '='; limit = 2)[2]
@@ -526,6 +652,12 @@ function parse_commandline(args)
             samples = parse(Int, split(arg, '='; limit = 2)[2])
         elseif startswith(arg, "--group=")
             group = split(arg, '='; limit = 2)[2]
+        elseif arg == "--allow-case-errors"
+            allow_case_errors = true
+        elseif startswith(arg, "--size=")
+            particle_size = parse(Int, split(arg, '='; limit = 2)[2])
+        elseif startswith(arg, "--size-3d=")
+            particle_size_3d = parse(Int, split(arg, '='; limit = 2)[2])
         elseif startswith(arg, "--precision=")
             name = split(arg, '='; limit = 2)[2]
             precision = get(PRECISIONS, name) do
@@ -534,18 +666,21 @@ function parse_commandline(args)
         else
             throw(
                 ArgumentError(
-                    "unknown argument $arg; use --output=PATH, --samples=N, --group=NAME, or --precision=TYPE"
+                    "unknown argument $arg; use --output=PATH, --samples=N, --group=NAME, --precision=TYPE, --size=N, --size-3d=N, or --allow-case-errors"
                 )
             )
         end
     end
-    return (; output, samples, group, precision)
+    particle_size > 0 && particle_size_3d > 0 ||
+        throw(ArgumentError("--size and --size-3d must be positive"))
+    return (; output, samples, group, precision, particle_size, particle_size_3d, allow_case_errors)
 end
 
 function main(args = ARGS; backend = JustPIC.CPU, backend_name = "CPU", device = nothing)
     options = parse_commandline(args)
     results = run_benchmarks(;
-        backend, backend_name, device, options.samples, options.group, options.precision
+        backend, backend_name, device, options.samples, options.group, options.precision,
+        options.particle_size, options.particle_size_3d, options.allow_case_errors,
     )
     output = write_results(options.output, results)
     @info "Wrote benchmark results" output

@@ -29,7 +29,7 @@ struct Particles{Backend, N, I, T1, T2, D, V} <: AbstractParticles
 
     function Particles(
             ::Type{B},
-            coords::NTuple{N, T1},
+            coords::NTuple{N, Any},
             index::T2,
             nxcell::I,
             max_xcell::I,
@@ -37,10 +37,12 @@ struct Particles{Backend, N, I, T1, T2, D, V} <: AbstractParticles
             np::I,
             di::D,
             _di::D,
-            xci::NTuple{N, V},
-            xvi::NTuple{N, V},
-            xi_vel::NTuple{N, NTuple{N, V}},
-        ) where {B, N, I, T1, T2, D, V}
+            xci::NTuple{N, Any},
+            xvi::NTuple{N, Any},
+            xi_vel::NTuple{N, NTuple{N, Any}},
+        ) where {B, N, I, T2, D}
+        T1 = eltype(coords)
+        V = eltype(xci)
         return new{B, N, I, T1, T2, D, V}(coords, index, nxcell, max_xcell, min_xcell, np, di, _di, xci, xvi, xi_vel)
     end
 end
@@ -96,15 +98,16 @@ struct MarkerChain{Backend, N, I, T1, T2, T3, TV} <: AbstractParticles
 
     function MarkerChain(
             ::Type{B},
-            coords::NTuple{N, T1},
-            coords0::NTuple{N, T1},
+            coords::NTuple{N, Any},
+            coords0::NTuple{N, Any},
             h_vertices::T2,
             h_vertices0::T2,
             cell_vertices::TV,
             index::T3,
             max_xcell::I,
             min_xcell::I,
-        ) where {B, N, I, T1, T2, T3, TV}
+        ) where {B, N, I, T2, T3, TV}
+        T1 = eltype(coords)
         return new{B, N, I, T1, T2, T3, TV}(
             coords,
             coords0,
@@ -253,7 +256,7 @@ struct PassiveMarkers{Backend, T} <: AbstractParticles
     end
 end
 
-function PassiveMarkers(coords::Union{AbstractArray, NTuple{N, T}}) where {N, T}
+function PassiveMarkers(coords::Union{AbstractArray, NTuple})
     return PassiveMarkers(CPU, coords)
 end
 
@@ -354,7 +357,7 @@ dimension.
     end
 end
 
-@inline function cell_index(x::NTuple{N, T}, xv::NTuple{N, AbstractVector{T}}) where {N, T}
+@inline function cell_index(x::NTuple{N, Any}, xv::NTuple{N, AbstractVector}) where {N}
     return ntuple(Val(N)) do i
         Base.@_inline_meta
         cell_index(x[i], xv[i])

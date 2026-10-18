@@ -15,7 +15,13 @@ import Base: Array, copy
     ::Type{T}, ::UndefInitializer, dims::Int...
 ) where {T <: CellArrays.Cell} = CPU_CellArray(T, undef, dims)
 
-# Copies CellArray to CPU if it is on a GPU device.
+"""
+    to_cpu(x)
+    to_cpu(T, x)
+
+Copy arrays, cell arrays, tuples, or particle containers to CPU storage.
+With `T`, convert numeric values to element type `T` during the copy.
+"""
 to_cpu(CA::CellArray) = to_cpu(eltype(eltype(CA)), CA)
 to_cpu(A::AbstractArray) = Array(A)
 to_cpu(::Type{T}, A::AbstractArray) where {T <: Number} = Array{T}(A)
@@ -97,10 +103,10 @@ end
 
 _to_cpu(x) = x
 _to_cpu(::Nothing) = nothing
-_to_cpu(x::NTuple{N, T}) where {N, T} = ntuple(i -> _to_cpu(x[i]), Val(N))
+_to_cpu(x::NTuple{N, Any}) where {N} = ntuple(i -> _to_cpu(x[i]), Val(N))
 _to_cpu(::Type{T}, ::Nothing) where {T <: Number} = nothing
 _to_cpu(::Type{T}, x) where {T <: Number} = x
-function _to_cpu(::Type{T}, x::NTuple{N, TA}) where {T <: Number, N, TA}
+function _to_cpu(::Type{T}, x::NTuple{N, Any}) where {T <: Number, N}
     return ntuple(i -> _to_cpu(T, x[i]), Val(N))
 end
 
@@ -124,5 +130,7 @@ end
 
 _copy(::Nothing) = nothing
 _copy(x::AbstractArray) = copy(x)
-_copy(x::NTuple{N, T}) where {N, T} = ntuple(i -> _copy(x[i]), Val(N))
+# Copy the backing array in bulk: Base `copy` of a device `CellArray` indexes cell by cell.
+_copy(x::CellArray) = typeof(x)(copy(x.data), size(x))
+_copy(x::NTuple{N, Any}) where {N} = ntuple(i -> _copy(x[i]), Val(N))
 _copy(x::T) where {T} = x

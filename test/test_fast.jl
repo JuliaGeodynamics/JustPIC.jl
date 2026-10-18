@@ -48,6 +48,6 @@ end
     values = JustPIC.TA(backend)(FT[1, 2, 3])
     @test Array(values) == FT[1, 2, 3]
 
-    markers = init_passive_markers(backend, (FT[1, 2], FT[3, 4]))
+    markers = init_passive_markers(backend, JustPIC.TA(backend).((FT[1, 2], FT[3, 4])))
     @test Array(markers).coords == (FT[1, 2], FT[3, 4])
 end

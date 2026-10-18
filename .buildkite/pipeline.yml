@@ -14,3 +14,4 @@ steps:
           target: ".buildkite/run_tests.yml"
     agents:
       queue: "cuda"
+    timeout_in_minutes: 10

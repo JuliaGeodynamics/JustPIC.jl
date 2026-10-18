@@ -39,6 +39,8 @@ end
 
 JustPIC.TA(::Type{MetalBackend}) = MtlArray
 
+JustPIC.supports_float64(::Union{MetalBackend, Type{MetalBackend}}) = false
+
 # ---------------------------------------------------------------------------
 # Backend-specific CellArray allocation
 # ---------------------------------------------------------------------------
@@ -161,5 +163,20 @@ Metal.MtlArray(CA::CellArray) = MtlArray(eltype(eltype(CA)), CA)
 Metal.MtlArray(particles::JustPIC.Particles{MetalBackend}) = particles
 Metal.MtlArray(chain::JustPIC.MarkerChain{MetalBackend}) = chain
 Metal.MtlArray(phase_ratios::JustPIC.PhaseRatios{MetalBackend}) = phase_ratios
+
+# ---------------------------------------------------------------------------
+# Halo exchange
+# ---------------------------------------------------------------------------
+
+# ImplicitGlobalGrid has no Metal support: it treats an `MtlArray` as a host
+# array and copies its halos element-wise (scalar indexing). Stage through host
+# memory instead.
+function JustPIC._update_surface_halo!(fields::MtlArray...)
+    JustPIC.ImplicitGlobalGrid.grid_is_initialized() || return nothing
+    host = Array.(fields)
+    JustPIC.ImplicitGlobalGrid.update_halo!(host...; dims = (1, 2))
+    foreach(copyto!, fields, host)
+    return nothing
+end
 
 end # module

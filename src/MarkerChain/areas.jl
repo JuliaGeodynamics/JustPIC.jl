@@ -241,20 +241,20 @@ end
 #############################
 
 @inline function is_chain_above_cell(s::Segment, r::Rectangle)
-    max_y = r.origin[2] + r.h / 2
+    max_y = r.center[2] + r.h / 2
     # Check if the segment is above the rectangle
     return GridGeometryUtils.geq_r(s.p1[2], max_y) && GridGeometryUtils.geq_r(s.p2[2], max_y)
 end
 
 @inline function is_chain_below_cell(s::Segment, r::Rectangle)
-    min_y = r.origin[2] - r.h / 2
+    min_y = r.center[2] - r.h / 2
     # Check if the segment is below the rectangle
     return GridGeometryUtils.leq_r(s.p1[2], min_y) && GridGeometryUtils.leq_r(s.p2[2], min_y)
 end
 
 @inline function clip_chain_to_cell(s::Segment, r::Rectangle)
-    min_y = r.origin[2] - r.h / 2
-    max_y = r.origin[2] + r.h / 2
+    min_y = r.center[2] - r.h / 2
+    max_y = r.center[2] + r.h / 2
     dx = s.p2[1] - s.p1[1]
     dy = s.p2[2] - s.p1[2]
 
@@ -272,7 +272,7 @@ end
 # handed, so in absolute coordinates a cell many cell widths from the origin falls inside its
 # own tolerance: a `Float32` cell a few thousand widths out is swallowed whole.
 @inline function recenter_on_cell(s::Segment, r::Rectangle{T}) where {T}
-    ox, oy = r.origin[1], r.origin[2]
+    ox, oy = r.center[1], r.center[2]
     s_local = Segment(
         GridGeometryUtils.Point(s.p1[1] - ox, s.p1[2] - oy),
         GridGeometryUtils.Point(s.p2[1] - ox, s.p2[2] - oy),

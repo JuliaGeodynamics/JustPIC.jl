@@ -52,6 +52,12 @@ function add_periodic_ghost_nodes(x::AbstractRange)
     return range(first(x) - dx; step = dx, length = length(x) + 2)
 end
 
+function add_nonperiodic_ghost_nodes(x::AbstractVector, lower_boundary, upper_boundary)
+    length(x) ≥ 2 || throw(ArgumentError("At least two grid nodes are required"))
+
+    return vcat(2 * lower_boundary - x[1], x, 2 * upper_boundary - x[end])
+end
+
 @inline function wrap_coordinate(x, periodic, limits)
     periodic || return x
     xmin, xmax = limits
@@ -104,6 +110,7 @@ function get_particle_coords(p::NTuple{N}, ip) where {N}
 end
 
 @inline inner_size(A::AbstractArray) = size(A) .- 2
+@inline inner_size(A::Tuple) = inner_size(first(A))
 @inline function inner_ranges(A::AbstractArray{T, N}) where {T, N}
     return ntuple(i -> 1:(size(A, i) - 1), Val(N))
 end

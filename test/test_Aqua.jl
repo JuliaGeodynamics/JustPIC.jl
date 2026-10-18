@@ -27,8 +27,9 @@ end
 include("helpers_backend.jl")
 check_backend(BACKEND_NAME, backend, FT)
 
-## Failing tests: hard to fix in the current state of the pkg
-# Aqua.test_unbound_args(JustPIC)
+@testset "Unbound args" begin
+    @test Aqua.test_unbound_args(JustPIC).value
+end
 
 @testset "Piracies" begin
     @test Aqua.test_piracies(JustPIC).value
@@ -38,11 +39,6 @@ end
     @test Aqua.test_ambiguities(
         JustPIC,
         color = true,
-        # exclude = [_grid2particle],
-        exclude = [
-            JustPIC._grid2particle,
-            JustPIC._grid2particle,
-        ],
     ).value
 end
 
@@ -66,7 +62,9 @@ end
 end
 
 @testset "Persistent tasks" begin
-    Aqua.test_persistent_tasks(JustPIC)
+    # Julia 1.10 can still be precompiling GPU extensions after the probe loads
+    # JustPIC, especially with coverage and --pkgimages=no in CI.
+    Aqua.test_persistent_tasks(JustPIC; tmax = 120)
 end
 
 @testset "Migration lint" begin

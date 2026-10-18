@@ -18,6 +18,12 @@ function advection!(
         particles::PassiveMarkers, method::AbstractAdvectionIntegrator, V, grid_vxi, dt
     )
     (; coords, np) = particles
+    check_no_mpi("PassiveMarkers")
+    check_integrator(method)
+    check_finite_scalar("dt", dt)
+    check_velocity(V, grid_vxi, ka_backend(particles), eltype(coords[1]))
+    vertex_grid = ntuple(d -> grid_vxi[d][d], Val(length(grid_vxi)))
+    check_marker_grid(vertex_grid, particles)
 
     # recast integrator/timestep/grid to the marker precision (see particle
     # advection!); `recast_grid` also makes the grid ranges GPU-safe on Float32
@@ -29,9 +35,11 @@ function advection!(
 
     # compute some basic stuff
     local_limits = inner_limits(grid_vxi)
+    # markers that would leave the domain stop on its boundary
+    domain_limits = map(extrema, ntuple(d -> grid_vxi[d][d], Val(length(grid_vxi))))
 
     # launch parallel advection kernel
-    launch!(ka_backend(particles), _advection!, np, method, coords, V, grid_vxi, local_limits, dt)
+    launch!(ka_backend(particles), _advection!, np, method, coords, V, grid_vxi, local_limits, domain_limits, dt)
     return nothing
 end
 
@@ -39,7 +47,7 @@ end
 
 # Runge-Kutta advection kernel for staggered grids.
 @kernel function _advection!(
-        method::AbstractAdvectionIntegrator, p, V::NTuple{N}, grid, local_limits, dt
+        method::AbstractAdvectionIntegrator, p, V::NTuple{N}, grid, local_limits, domain_limits, dt
     ) where {N}
     ipart = @index(Global)
 
@@ -53,6 +61,6 @@ end
 
     # p[ipart] = SVector(p_new)
     ntuple(Val(N)) do i
-        @inbounds p[i][ipart] = pᵢ_new[i]
+        p[i][ipart] = clamp(pᵢ_new[i], domain_limits[i]...)
     end
 end

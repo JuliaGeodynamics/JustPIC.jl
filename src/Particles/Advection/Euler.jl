@@ -1,6 +1,6 @@
 function advect_particle(
         method::Euler,
-        p0::NTuple{N, T},
+        p0::NTuple{N, Any},
         V::NTuple{N, AbstractArray},
         grid_vi,
         local_limits,
@@ -10,7 +10,7 @@ function advect_particle(
         periodicity,
         domain_limits;
         backtracking::Bool = false
-    ) where {N, T}
+    ) where {N}
 
     # interpolate velocity to current location
     vp0 = interp_velocity2particle(p0, grid_vi, local_limits, dxi, V, idx)

@@ -40,13 +40,19 @@ raised to match.
 After construction, the returned `Particles` object already contains the center,
 vertex, and staggered velocity grids needed by the higher-level APIs.
 
+Particle center and vertex grids use periodic ghost spacing by default. Pass a
+`periodic` tuple to `init_particles` for nonperiodic dimensions, such as
+`periodic = (false, false)` in 2D. Nonperiodic center ghosts reflect across the
+boundary vertices, using the local boundary-cell width.
+
 The two layouts on a 4x4 grid with 16 particles per cell:
 
 ![Random and regular particle initialization](assets/particle_initialization.png)
 
 ### Randomly distributed particles
 
-```julia
+```jldoctest
+using JustPIC
 backend   = JustPIC.CPU # device backend
 nxcell    = 24  # initial number of randomly distributed particles
 max_xcell = 48  # maximum number of particles per cell
@@ -62,11 +68,17 @@ grid_vy   = LinRange(first(xc) - dx, last(xc) + dx, length(xc) + 2), yv
 particles = init_particles(
     backend, nxcell, max_xcell, min_xcell, grid_vx, grid_vy,
 )
+sum(particles.index.data) # number of active particles
+
+# output
+
+23064
 ```
 
 ### Regularly spaced particles
 
-```julia
+```jldoctest
+using JustPIC
 backend   = JustPIC.CPU # device backend
 nxcell    = (5, 5)  # number of evenly spaced particles in each cell dimension
 max_xcell = 48      # maximum number of particles per cell
@@ -82,6 +94,11 @@ grid_vy   = LinRange(first(xc) - dx, last(xc) + dx, length(xc) + 2), yv
 particles = init_particles(
     backend, nxcell, max_xcell, min_xcell, grid_vx, grid_vy,
 )
+sum(particles.index.data) # number of active particles
+
+# output
+
+24025
 ```
 
 ## Particle maintenance
@@ -176,8 +193,8 @@ semilagrangian_advection_MQS!
 
 ### Maintenance
 
-`move_particles!` drops particles whose destination cell is full; pass
-`verbose=true` to print the number dropped. Overflow removes the particle and
+`move_particles!` drops particles whose destination cell is still full once
+no particle can move any more; pass `verbose=true` to print the number dropped. Overflow removes the particle and
 its companion fields together. `clean_particles!` removes active particles
 outside their stored cell; it does not compact slots. Injection with companion
 fields requires a live neighboring particle from which to copy field values.

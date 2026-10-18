@@ -15,6 +15,7 @@ only marker coordinates and no grid metadata.
 """
 function grid2particle!(Fp, xvi, F, particles::PassiveMarkers)
     (; coords, np) = particles
+    check_marker_transfer(Fp, F, xvi, particles)
     # recast the grid to the marker precision so the ranges are GPU-safe on Float32
     # backends (they are indexed directly inside the kernel; see advection!)
     xvi = recast_grid(xvi, eltype(coords[1]))

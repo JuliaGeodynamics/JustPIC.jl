@@ -1,4 +1,3 @@
-pushfirst!(LOAD_PATH, joinpath(@__DIR__, ".."))
 using Documenter, DocumenterVitepress, JustPIC
 
 @info "Making documentation..."
@@ -11,16 +10,22 @@ makedocs(;
         devbranch = "main",
         devurl = "dev",
     ),
-    warnonly = Documenter.except(:footnote),
     checkdocs = :exports,
     pages = [
         "Home" => "index.md",
         "Particles" => "particles.md",
+        "Particle lifecycle" => "particle_lifecycle.md",
+        "Grid layouts" => "grid_layouts.md",
+        "Backends" => "backends.md",
         "CellArrays" => "CellArrays.md",
         "Interpolations" => [
             "interpolations.md",
+            "vertex_interpolation.md",
+            "centroid_interpolation.md",
+            "pic_flip.md",
             "velocity_interpolation.md",
         ],
+        "Particle fields" => "particle_fields.md",
         "Marker chain" => "marker_chain.md",
         "Marker surface" => "marker_surface.md",
         "Examples" => [
@@ -28,9 +33,12 @@ makedocs(;
             "field_advection2D_MPI.md",
             "field_advection3D.md",
             "donut_advection_periodic.md",
+            "temperature_flip.md",
         ],
         "I/O" => "IO.md",
         "Mixed GPU/CPU" => "mixed_CPU_GPU.md",
+        "Input validation" => "validation.md",
+        "Support matrix" => "support_matrix.md",
         "Public API" => "API.md",
         "Performance" => "performance.md",
     ],

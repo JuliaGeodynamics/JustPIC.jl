@@ -37,10 +37,13 @@ function advection!(
         chain::MarkerChain,
         method::AbstractAdvectionIntegrator,
         V,
-        grid_vi::NTuple{N, NTuple{N, T}},
+        grid_vi::NTuple{N, NTuple{N, Any}},
         dt,
-    ) where {N, T}
+    ) where {N}
     (; coords, index) = chain
+    check_integrator(method)
+    check_finite_scalar("dt", dt)
+    check_velocity(V, grid_vi, ka_backend(chain), scalar_eltype(coords[1]))
 
     # recast integrator/timestep/grid to the marker precision (see particle advection!);
     # `backend_grid` also makes the grid GPU-safe -- it is indexed directly inside the
@@ -70,12 +73,12 @@ end
 @kernel function advection_markerchain_kernel!(
         p,
         method::AbstractAdvectionIntegrator,
-        V::NTuple{N, T},
+        V::NTuple{N, Any},
         index,
         grid,
         local_limits,
         dt,
-    ) where {N, T}
+    ) where {N}
     i = @index(Global)
 
     for ipart in cellaxes(index)

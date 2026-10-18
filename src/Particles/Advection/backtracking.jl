@@ -20,12 +20,11 @@ function semilagrangian_advection!(
         F0,
         method::AbstractAdvectionIntegrator,
         V,
-        grid_vi::NTuple{N, NTuple{N, T}},
-        grid::NTuple{N, T},
+        grid_vi::NTuple{N, NTuple{N, Any}},
+        grid::NTuple{N, Any},
         dt,
-    ) where {N, T}
-    check_semilagrangian_integrator(method)
-    check_no_alias(F, F0)
+    ) where {N}
+    check_semilagrangian_inputs(F, F0, method, V, grid_vi, grid, dt)
     Fref = F isa Tuple ? first(F) : F
     # recast integrator/timestep/grids to the field precision so Float32 backends
     # (e.g. Metal) don't carry a Float64 value into the kernel; `recast_grid` also
@@ -46,6 +45,30 @@ function semilagrangian_advection!(
         F, F0, method, V, grid_vi, grid, dxi_velocity, dxi_vertex, dt
     )
 
+    return nothing
+end
+
+# A departure point outside the grid is projected onto the nearest point of the grid, so
+# the field is sampled from its boundary values instead of being extrapolated.
+@inline function clamp_to_grid(p::NTuple{N}, grid::NTuple{N}) where {N}
+    return ntuple(i -> clamp(p[i], first(grid[i]), last(grid[i])), Val(N))
+end
+
+function check_semilagrangian_inputs(F, F0, method, V, grid_vi, grid::NTuple{N}, dt) where {N}
+    check_semilagrangian_integrator(method)
+    check_finite_scalar("dt", dt)
+    check_field_pairing("F", F, "F0", F0)
+    Fref = first(as_tuple(F))
+    backend = ka_backend(Fref)
+    T = scalar_eltype(Fref)
+    dims = map(length, grid)
+    for (name, x) in (("F", F), ("F0", F0))
+        check_size(name, x, dims)
+        check_backend(name, x, backend)
+        check_precision(name, x, T)
+    end
+    check_velocity(V, grid_vi, backend, T)
+    check_no_alias(F, F0)
     return nothing
 end
 
@@ -72,13 +95,13 @@ end
         F::AbstractArray,
         F0::AbstractArray,
         method::AbstractAdvectionIntegrator,
-        V::NTuple{N, T},
+        V::NTuple{N, Any},
         grid_vi,
         grid,
         dxi_velocity,
         dxi_vertex,
         dt,
-    ) where {N, T}
+    ) where {N}
     I0 = @index(Global, NTuple)
     I = I0 .+ 1
 
@@ -88,7 +111,7 @@ end
         @inbounds grid[i][I[i]]
     end
     # backtrack particle
-    pᵢ_backtrack = advect_particle_SML(method, pᵢ, V, grid_vi, dxi_velocity, dt, I; backtracking = true)
+    pᵢ_backtrack = clamp_to_grid(advect_particle_SML(method, pᵢ, V, grid_vi, dxi_velocity, dt, I; backtracking = true), grid)
     I_backtrack = ntuple(Val(N)) do i
         find_parent_cell_bisection(pᵢ_backtrack[i], grid[i], I[i])
     end
@@ -100,13 +123,13 @@ end
         F::NTuple{NF, AbstractArray},
         F0::NTuple{NF, AbstractArray},
         method::AbstractAdvectionIntegrator,
-        V::NTuple{N, T},
+        V::NTuple{N, Any},
         grid_vi,
         grid,
         dxi_velocity,
         dxi_vertex,
         dt,
-    ) where {NF, N, T}
+    ) where {NF, N}
     I0 = @index(Global, NTuple)
     I = I0 .+ 1
 
@@ -116,7 +139,7 @@ end
         @inbounds grid[i][I[i]]
     end
     # backtrack particle position
-    pᵢ_backtrack = advect_particle_SML(method, pᵢ, V, grid_vi, dxi_velocity, dt, I; backtracking = true)
+    pᵢ_backtrack = clamp_to_grid(advect_particle_SML(method, pᵢ, V, grid_vi, dxi_velocity, dt, I; backtracking = true), grid)
     I_backtrack = ntuple(Val(N)) do i
         find_parent_cell_bisection(pᵢ_backtrack[i], grid[i], I[i])
     end

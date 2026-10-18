@@ -20,6 +20,12 @@ supplied explicitly.
 """
 function particle2grid!(F, Fp, buffer, xi, particles::PassiveMarkers)
     (; coords, np) = particles
+    F isa AbstractArray || throw(ArgumentError("passive-marker scatter supports a single field, got $(typeof(F))"))
+    check_marker_transfer(Fp, F, xi, particles)
+    check_size("buffer", buffer, size(F))
+    check_backend("buffer", buffer, ka_backend(particles))
+    check_precision("buffer", buffer, eltype(coords[1]))
+    check_distinct("F" => F, "Fp" => Fp, "buffer" => buffer)
     # recast the grid to the marker precision so the ranges are GPU-safe on Float32
     # backends (they are indexed directly inside the kernel; see advection!)
     xi = recast_grid(xi, eltype(coords[1]))
@@ -108,7 +114,7 @@ end
 
 @kernel function resolve_particle2grid!(F, buffer)
     I = @index(Global, NTuple)
-    @inbounds F[I...] = ifelse(iszero(F[I...]), zero(eltype(F)), buffer[I...] * inv(F[I...]))
+    F[I...] = buffer[I...] * support_inverse(F[I...])
 end
 
 @kernel function reset_arrays!(A, B)

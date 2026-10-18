@@ -470,8 +470,7 @@ end
         grid = TA(backend)(collect(xv)), TA(backend)(collect(yv))
         dt = FT(0.2)
         elevation, slope = FT(0.3), FT(0.4)
-        # In vertical extension, backward integration of the NEW height must land
-        # on the old flat surface: R(-dt) * h_new == h_old.
+        # Vertical extension follows the forward RK amplification factor.
         Vstretch = (
             TA(backend)(zeros(FT, length.(grid_vx)...)),
             TA(backend)([y for x in host_grid(grid_vy[1]), y in host_grid(grid_vy[2])]),
@@ -484,9 +483,15 @@ end
         for method in (RungeKutta2(), RungeKutta2(FT(0.75)), RungeKutta4())
             chain = init_markerchain(backend, 3, 2, 6, xv, elevation)
             semilagrangian_advection!(chain, method, Vstretch, grid_vi, grid, dt)
-            R = 1 - dt + dt^2 / 2
-            method isa RungeKutta4 && (R += -dt^3 / 6 + dt^4 / 24)
-            @test all(isapprox.(to_cpu(chain.h_vertices), elevation / R; atol = chain_tol(chain)))
+            R = 1 + dt + dt^2 / 2
+            method isa RungeKutta4 && (R += dt^3 / 6 + dt^4 / 24)
+            @test all(isapprox.(to_cpu(chain.h_vertices), elevation * R; atol = chain_tol(chain)))
+
+            # A large vertical step needs no convergence tolerance or root solve.
+            chain = init_markerchain(backend, 3, 2, 6, xv, elevation)
+            semilagrangian_advection!(chain, method, Vstretch, grid_vi, grid, FT(2))
+            amplification = method isa RungeKutta4 ? FT(7) : FT(5)
+            @test all(isapprox.(to_cpu(chain.h_vertices), elevation * amplification; atol = chain_tol(chain)))
 
             profile = @. elevation + slope * xv
             fill_chain_from_vertices!(chain, TA(backend)(collect(profile)))
@@ -509,7 +514,7 @@ end
         TA(backend)([y for x in grid_vy[1], y in grid_vy[2]]),
     )
     # No spatial interpolation error for a flat surface in v_y = y, so these
-    # errors isolate the temporal order of the backward characteristic solve.
+    # errors isolate the temporal order of the forward trajectories.
     if FT === Float64
         for (method, minimum_ratio) in ((RungeKutta2(), 3.5), (RungeKutta4(), 14))
             errors = map((4, 8, 16)) do nsteps
@@ -550,6 +555,17 @@ end
     @test_throws ArgumentError semilagrangian_advection!(chain, Euler(), V, grid_vi, grid, FT(0.1))
     @test_throws DimensionMismatch semilagrangian_advection!(chain, RungeKutta2(), V, grid_vi, (xv[1:3], yv), FT(0.1))
     @test to_cpu(chain.h_vertices) ≈ before
+
+    # Horizontal shear folds a descending line: reject before committing any heights.
+    folded = init_markerchain(backend, 3, 2, 6, xv, FT(0))
+    profile = FT.(0.8 .- 0.6 .* xv)
+    fill_chain_from_vertices!(folded, TA(backend)(collect(profile)))
+    Vfold = (
+        TA(backend)([y for x in grid_vx[1], y in grid_vx[2]]),
+        TA(backend)(zeros(FT, length.(grid_vy)...)),
+    )
+    @test_throws ErrorException semilagrangian_advection!(folded, RungeKutta2(), Vfold, grid_vi, grid, FT(2))
+    @test to_cpu(folded.h_vertices) == collect(profile)
 
     # A non-finite trajectory must not partially overwrite the chain.
     Vbad = constant_markerchain_velocity(grid_vx, grid_vy, FT(0), FT(NaN))
@@ -687,7 +703,7 @@ end
         di = T(4), T(2)
         r = JustPIC.rectangle_from_min_corner(min_corner, di)
 
-        @test r.origin == JustPIC.Point(T(4), T(0))
+        @test r.center == JustPIC.Point(T(4), T(0))
 
         horizontal(y) = JustPIC.Segment(
             JustPIC.Point(T(2), T(y)), JustPIC.Point(T(6), T(y))

@@ -9,8 +9,13 @@ helpers and provides a searchable index of everything.
 | Topic | Page |
 | --- | --- |
 | Particle containers, initialization, advection, maintenance, phase ratios, subgrid diffusion | [Particles](particles.md) |
+| Particle lifecycle | [Particle lifecycle](particle_lifecycle.md) |
+| Grid coordinates, staggering and ghosts | [Grid layouts](grid_layouts.md) |
+| CPU/GPU backend usage | [Backends](backends.md) |
 | Cell storage, allocation and halo exchange | [CellArrays](CellArrays.md) |
 | Grid/particle and centroid transfers | [Interpolations](interpolations.md) |
+| PIC/FLIP updates | [PIC/FLIP](pic_flip.md) |
+| Custom particle fields | [Particle fields](particle_fields.md) |
 | Velocity reconstruction schemes | [Velocity interpolation](velocity_interpolation.md) |
 | Marker-chain surface tracking | [Marker chain](marker_chain.md) |
 | Marker-surface (3D free surface) tracking | [Marker surface](marker_surface.md) |
