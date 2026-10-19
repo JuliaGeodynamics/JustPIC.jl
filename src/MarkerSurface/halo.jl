@@ -117,30 +117,34 @@ function reduce_surface_velocity_z!(surf::MarkerSurface, zg)
 end
 
 """
-    _z_column_comm(comm)
+    _column_comm(comm, remain)
 
-Sub-communicator of `comm` joining the ranks that share an `(x,y)` column, i.e.
-those differing only in their third Cartesian coordinate.
+Sub-communicator of the Cartesian communicator `comm` joining the ranks that differ
+only along the dimensions where `remain` is `true`; e.g. `(false, false, true)` joins
+the ranks sharing an `(x, y)` column.
 
-The Cartesian topology is fixed for the lifetime of a global grid, so the
-communicator is built once and reused; `MPI.Cart_sub` would otherwise allocate
+The Cartesian topology is fixed for the lifetime of a global grid, so each
+sub-communicator is built once and reused; `MPI.Cart_sub` would otherwise allocate
 one per time step. The cache holds the parent communicator alongside it, which
 both keeps that handle alive — so the identity test cannot match a recycled
 handle value — and rebuilds the sub-communicator when a new global grid is
 initialized. A dropped sub-communicator is freed by MPI.jl's finalizer; freeing
 it here would be a collective call on ranks that may already have moved on.
 """
-const Z_COLUMN_COMM = Ref{Tuple{MPI.Comm, MPI.Comm}}()
+const COLUMN_COMMS = Dict{NTuple{3, Bool}, Tuple{MPI.Comm, MPI.Comm}}()
 
-function _z_column_comm(comm::MPI.Comm)
-    if isassigned(Z_COLUMN_COMM)
-        cached_parent, zcomm = Z_COLUMN_COMM[]
-        cached_parent == comm && return zcomm
+function _column_comm(comm::MPI.Comm, remain::NTuple{3, Bool})
+    cached = get(COLUMN_COMMS, remain, nothing)
+    if !isnothing(cached)
+        cached_parent, subcomm = cached
+        cached_parent == comm && return subcomm
     end
-    zcomm = MPI.Cart_sub(comm, (false, false, true))
-    Z_COLUMN_COMM[] = (comm, zcomm)
-    return zcomm
+    subcomm = MPI.Cart_sub(comm, remain)
+    COLUMN_COMMS[remain] = (comm, subcomm)
+    return subcomm
 end
+
+_z_column_comm(comm::MPI.Comm) = _column_comm(comm, (false, false, true))
 
 # Local z-slab extent as scalars. `minimum`/`maximum` are GPU-friendly reductions
 # (no scalar indexing, no host copy) and return the slab bounds for a monotonic
