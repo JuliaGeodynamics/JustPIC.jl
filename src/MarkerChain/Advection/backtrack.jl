@@ -53,6 +53,7 @@ function semilagrangian_advection!(
         dt,
     ) where {N}
     (; h_vertices) = chain
+    _check_chain_periodicity()
     check_finite_scalar("dt", dt)
     check_velocity(V, grid_vxi, ka_backend(chain), eltype(h_vertices))
     length(grid[1]) == length(h_vertices) ||

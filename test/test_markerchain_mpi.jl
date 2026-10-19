@@ -121,12 +121,40 @@ function rock_fractions(xv, yv, nx, ny)
 end
 ratios_dist = rock_fractions(xv, yv, nx, ny)
 
+# the Lagrangian chain path has no particle exchange between ranks
+lagrangian = init_markerchain(backend, 6, 4, 8, xv, h0_f.(xv))
+lagrangian_msgs = map(
+    (
+        () -> advect_markerchain!(lagrangian, RungeKutta2(), V, grid_vxi, dt),
+        () -> move_particles!(lagrangian),
+    )
+) do f
+    try
+        f()
+        ""
+    catch err
+        sprint(showerror, err)
+    end
+end
+lagrangian_rejected = all(m -> occursin("use semilagrangian_advection_markerchain!", m), lagrangian_msgs)
+
 finalize_global_grid(; finalize_MPI = false)
 
 # serial reference on the full global grid
 V_g = sampleV(grid_vxi_g)
 h_serial = map(kw -> Array(run_chain(xv_g, yv_g, grid_vxi_g, V_g; kw...).h_vertices), cases)
 errs = map((hd, hs) -> maximum(abs.(hd .- hs[xoff .+ (1:(nx + 1))])), h_dist, h_serial)
+# a periodic x direction is rejected
+init_global_grid(nx, ny, 1; dimx, dimy, periodx = 1, init_MPI = false, quiet = true)
+periodic_chain = init_markerchain(backend, 6, 4, 8, xv, h0_f.(xv))
+periodic_msg = try
+    semilagrangian_advection_markerchain!(periodic_chain, RungeKutta2(), V, grid_vxi, (xv, yv), dt)
+    ""
+catch err
+    sprint(showerror, err)
+end
+finalize_global_grid(; finalize_MPI = false)
+
 ratios_serial = rock_fractions(xv_g, yv_g, length(xv_g) - 1, length(yv_g) - 1)
 ratio_errs = map(keys(ratios_dist)) do k
     local_ratio = ratios_dist[k]
@@ -142,6 +170,11 @@ end
     @test markers_consistent
     @test outside_on_all_ranks
     @test dims[1] == 1 || far_on_all_ranks
+end
+
+@testset "MarkerChain MPI unsupported paths (np=$np, dims=$(Tuple(dims)))" begin
+    @test lagrangian_rejected == (np > 1)
+    @test occursin("periodic x", periodic_msg)
 end
 
 @testset "MarkerChain MPI rock fractions (np=$np, dims=$(Tuple(dims)))" begin

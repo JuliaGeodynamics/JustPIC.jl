@@ -137,3 +137,19 @@ function _check_chain_remap(h_new, px, xv)
     )
     return nothing
 end
+
+# Lagrangian chain markers would have to move between ranks, which is not implemented,
+# and each rank only has the velocity of its own y-slab.
+function _check_serial_chain_path(name)
+    _distributed_chain() && throw(
+        ArgumentError("$name does not support a decomposed global grid; use semilagrangian_advection_markerchain!")
+    )
+    return nothing
+end
+
+function _check_chain_periodicity()
+    ImplicitGlobalGrid.grid_is_initialized() || return nothing
+    iszero(ImplicitGlobalGrid.global_grid().periods[1]) ||
+        throw(ArgumentError("a MarkerChain on a global grid does not support a periodic x direction"))
+    return nothing
+end
