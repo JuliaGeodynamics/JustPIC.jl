@@ -109,12 +109,30 @@ catch err
 end
 far_on_all_ranks = MPI.Allreduce(occursin("more than one cell", far_msg), &, comm)
 
+# rock fractions of a local chain, halo entries included
+function rock_fractions(xv, yv, nx, ny)
+    chain = init_markerchain(backend, 6, 4, 8, xv, h0_f.(xv))
+    ratios = (;
+        center = zeros(nx, ny), vertex = zeros(nx + 1, ny + 1),
+        Vx = zeros(nx + 1, ny), Vy = zeros(nx, ny + 1),
+    )
+    compute_rock_fraction!(ratios, chain, (xv, yv), (diff(xv), diff(yv)))
+    return ratios
+end
+ratios_dist = rock_fractions(xv, yv, nx, ny)
+
 finalize_global_grid(; finalize_MPI = false)
 
 # serial reference on the full global grid
 V_g = sampleV(grid_vxi_g)
 h_serial = map(kw -> Array(run_chain(xv_g, yv_g, grid_vxi_g, V_g; kw...).h_vertices), cases)
 errs = map((hd, hs) -> maximum(abs.(hd .- hs[xoff .+ (1:(nx + 1))])), h_dist, h_serial)
+ratios_serial = rock_fractions(xv_g, yv_g, length(xv_g) - 1, length(yv_g) - 1)
+ratio_errs = map(keys(ratios_dist)) do k
+    local_ratio = ratios_dist[k]
+    global_ratio = ratios_serial[k][xoff .+ axes(local_ratio, 1), yoff .+ axes(local_ratio, 2)]
+    maximum(abs.(local_ratio .- global_ratio))
+end
 
 @testset "MarkerChain MPI semi-Lagrangian (np=$np, dims=$(Tuple(dims)))" begin
     for (case, err) in zip(cases, errs)
@@ -124,6 +142,12 @@ errs = map((hd, hs) -> maximum(abs.(hd .- hs[xoff .+ (1:(nx + 1))])), h_dist, h_
     @test markers_consistent
     @test outside_on_all_ranks
     @test dims[1] == 1 || far_on_all_ranks
+end
+
+@testset "MarkerChain MPI rock fractions (np=$np, dims=$(Tuple(dims)))" begin
+    for (k, err) in zip(keys(ratios_dist), ratio_errs)
+        @test err < 1.0e-12
+    end
 end
 
 MPI.Finalize()
