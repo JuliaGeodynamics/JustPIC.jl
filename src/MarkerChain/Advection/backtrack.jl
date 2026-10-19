@@ -16,6 +16,12 @@ flux). Mean conservation uses cell-width weights, including on refined grids.
 `method` must be `RungeKutta2` or `RungeKutta4` (`Euler` is not supported). `grid_vxi` holds the staggered velocity grids and `grid` the chain's vertex
 grid `(xv, yv)`, whose horizontal coordinates must match `chain.cell_vertices`.
 The advected vertices must remain strictly ordered in x; reduce `dt` if they cross.
+
+Under an `ImplicitGlobalGrid` decomposition, `chain`, `V`, `grid_vxi` and `grid` are
+those of the local subdomain, and `V` must have current halos. The advected vertices
+are combined across each y-column and the mean height is that of the whole chain. A
+vertex may move at most one cell along x per step, and the x direction must not be
+periodic; the update raises on every rank otherwise.
 """
 function semilagrangian_advection_markerchain!(
         chain::MarkerChain, method::AbstractAdvectionIntegrator, V, grid_vxi, grid, dt;

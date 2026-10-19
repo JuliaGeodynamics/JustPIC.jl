@@ -115,6 +115,31 @@ The lower-level `semilagrangian_advection!(chain, method, V, grid_vxi, xvi, dt)`
 updates `h_vertices`. It leaves marker coordinates and previous-step buffers unchanged,
 and applies neither smoothing nor mean-height correction.
 
+## Multi-GPU / MPI (ImplicitGlobalGrid)
+
+The semi-Lagrangian update works with [ImplicitGlobalGrid.jl](https://github.com/eth-cscs/ImplicitGlobalGrid.jl)
+domain decomposition of a 2D grid in x, y or both. Build the chain from the **local**
+(rank) vertex coordinates and pass the local velocity grids; the velocity must have
+current halos. When a global grid is active, `semilagrangian_advection_markerchain!`
+
+- combines the advected vertices across each y-column, so every vertex moves with the
+  velocity of the rank whose slab holds it,
+- conserves the mean height of the whole chain, and
+- exchanges the x-halo of the vertex heights.
+
+`compute_rock_fraction!` exchanges the halos of the rock fractions as well. No user
+action is required.
+
+Limitations:
+
+- Only the semi-Lagrangian update is supported: `advect_markerchain!` and
+  `move_particles!(::MarkerChain)` raise on a decomposed grid, since chain markers
+  cannot move between ranks.
+- A vertex may move at most one cell along x per step; the update raises otherwise.
+- The x direction must not be periodic.
+- The y-column combination runs `Allreduce`s on the device arrays; on GPU this requires
+  GPU-aware MPI (`IGG_CUDAAWARE_MPI=1` / `IGG_ROCMAWARE_MPI=1`).
+
 ## Resampling and topography
 
 As a chain deforms, columns can become depleted or unevenly spaced. `resample!` refills any
