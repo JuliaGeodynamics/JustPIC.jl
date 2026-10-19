@@ -23,7 +23,7 @@ function semilagrangian_advection_markerchain!(
     )
     angle = isnothing(max_slope_angle) ? 90 : max_slope_angle
     0 ≤ angle ≤ 90 || throw(ArgumentError("max_slope_angle must be in [0, 90] degrees or nothing"))
-    target_mean = conserve_mean ? mean_height(chain) : nothing
+    target_mean = conserve_mean ? _global_mean_height(chain.h_vertices, chain.cell_vertices) : nothing
     semilagrangian_advection!(chain, method, V, grid_vxi, grid, dt)
     angle < 90 && smooth_slopes!(chain, deg2rad(angle))
     return finish_markerchain_step!(chain, target_mean)
@@ -71,9 +71,11 @@ function semilagrangian_advection!(
 
     px, py = similar(h_vertices), similar(h_vertices)
     _advect_chain_vertices!(px, py, h_vertices, method, V, grid_vxi, xv, dt)
+    _reduce_chain_positions_y!(px, py, h_vertices, grid_vxi[2][2])
     _remap_chain_heights!(h_new, px, py, xv)
-    all(isfinite, h_new) || error("Marker-chain remapping found non-finite trajectories or crossed vertices; reduce dt and check the velocity field")
+    _check_chain_remap(h_new, px, xv)
     copyto!(h_vertices, h_new)
+    _update_chain_halo!(h_vertices)
     return nothing
 end
 

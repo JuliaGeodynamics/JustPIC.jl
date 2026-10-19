@@ -101,3 +101,39 @@ function _reduce_chain_positions_y!(px, py, h, yv)
     end
     return nothing
 end
+
+"""
+    _check_chain_remap(h_new, px, xv)
+
+Raise when the remapped chain heights `h_new` are not valid, on every rank at once
+under a decomposed global grid. `px` holds the advected x-positions of the local
+vertices `xv`.
+
+A distributed chain is remapped from the local vertices only, so the source of every
+vertex this rank owns must lie between the advected local end vertices; it does
+whenever no vertex moves more than one cell. Overlap vertices are refreshed by the
+halo exchange and are not checked.
+"""
+function _check_chain_remap(h_new, px, xv)
+    if !_distributed_chain()
+        all(isfinite, h_new) || error(
+            "Marker-chain remapping found non-finite trajectories or crossed vertices; reduce dt and check the velocity field"
+        )
+        return nothing
+    end
+    gg = ImplicitGlobalGrid.global_grid()
+    cells = _owned_cells(length(h_new) - 1)
+    owned = first(cells):(last(cells) + 1)
+    x = Array(xv)
+    p = Array(px)
+    too_far = (gg.coords[1] > 0 && x[first(owned)] ≤ p[1]) ||
+        (gg.coords[1] < gg.dims[1] - 1 && x[last(owned)] ≥ p[end])
+    nonfinite = !all(isfinite, @view h_new[owned])
+    too_far = MPI.Allreduce(too_far, |, gg.comm)
+    nonfinite = MPI.Allreduce(nonfinite, |, gg.comm)
+    too_far && throw(ArgumentError("a MarkerChain vertex moved more than one cell in one step; reduce dt"))
+    nonfinite && error(
+        "Marker-chain remapping found non-finite trajectories or crossed vertices; reduce dt and check the velocity field"
+    )
+    return nothing
+end
