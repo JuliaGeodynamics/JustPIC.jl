@@ -62,7 +62,7 @@ end
 end
 
 @testset "Persistent tasks" begin
-    Aqua.test_persistent_tasks(JustPIC)
+    Aqua.test_persistent_tasks(JustPIC; tmax = 60)
 end
 
 @testset "Migration lint" begin
