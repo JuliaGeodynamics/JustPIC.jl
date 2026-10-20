@@ -20,8 +20,10 @@ The advected vertices must remain strictly ordered in x; reduce `dt` if they cro
 Under an `ImplicitGlobalGrid` decomposition, `chain`, `V`, `grid_vxi` and `grid` are
 those of the local subdomain, and `V` must have current halos. The advected vertices
 are combined across each y-column and the mean height is that of the whole chain. A
-vertex may move at most one cell along x per step, and the x direction must not be
-periodic; the update raises on every rank otherwise.
+vertex may move at most one cell along x, and out of its rank's local grid by at most
+one cell along y, per step. The chain must lie inside the global domain, the x direction
+must not be periodic, and every decomposed direction must have an overlap of 2; the
+update raises on every rank otherwise.
 """
 function semilagrangian_advection_markerchain!(
         chain::MarkerChain, method::AbstractAdvectionIntegrator, V, grid_vxi, grid, dt;
@@ -59,7 +61,7 @@ function semilagrangian_advection!(
         dt,
     ) where {N}
     (; h_vertices) = chain
-    _check_chain_periodicity()
+    _check_chain_grid()
     check_finite_scalar("dt", dt)
     check_velocity(V, grid_vxi, ka_backend(chain), eltype(h_vertices))
     length(grid[1]) == length(h_vertices) ||

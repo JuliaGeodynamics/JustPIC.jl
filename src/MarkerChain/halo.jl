@@ -50,6 +50,7 @@ distributed chain. Equals [`mean_height`](@ref) when no global grid is initializ
 """
 function _global_mean_height(h, xv)
     _distributed_chain() || return mean_height(h, xv)
+    _check_chain_grid()
     cells = _owned_cells(length(h) - 1)
     widths = @views xv[cells .+ 1] .- xv[cells]
     local_sum = sum(@views (h[cells] .+ h[cells .+ 1]) .* widths)
@@ -71,18 +72,26 @@ Each rank only has the velocity of its own y-slab, so a vertex is owned by the r
 whose slab, without the overlap cell on each side shared with another rank, holds its
 starting height. An `Allreduce` over the y-column recovers the owners' positions by
 weighted average; ranks sharing a vertex hold identical positions, so the average is
-exact. Raises on every rank when a vertex lies outside every slab. No-op when no global
-grid is initialized.
+exact up to rounding. Raises on every rank when a vertex lies outside every slab, or
+when an owned vertex is advected out of the local velocity grid across a rank
+boundary. No-op when no global grid is initialized.
 """
 function _reduce_chain_positions_y!(px, py, h, yv)
     ImplicitGlobalGrid.grid_is_initialized() || return nothing
     gg = ImplicitGlobalGrid.global_grid()
-    y = Array(yv) # a short host copy: the slab bounds need its second and penultimate entries
-    lo = gg.coords[2] > 0 ? y[2] : y[1]
-    hi = gg.coords[2] < gg.dims[2] - 1 ? y[end - 1] : y[end]
+    below, above = gg.coords[2] > 0, gg.coords[2] < gg.dims[2] - 1
+    # `yv` is increasing; reductions read its entries without scalar indexing
+    ymin, ymax = minimum(yv), maximum(yv)
+    lo = below ? minimum(@view yv[2:end]) : ymin
+    hi = above ? maximum(@view yv[1:(end - 1)]) : ymax
     T = eltype(px)
     w = similar(px)
     @. w = ifelse((lo ≤ h) & (h ≤ hi), one(T), zero(T))
+    # beyond the local velocity grid this rank has no velocity; checks the end point
+    # of the trajectory only, not its intermediate stages
+    too_far = mapreduce(|, w, py) do wi, yi
+        (wi > 0) & ((below & (yi < ymin)) | (above & (yi > ymax)))
+    end
 
     if gg.dims[2] > 1
         # non-owners may hold non-finite extrapolations; zero them, not scale them
@@ -93,14 +102,18 @@ function _reduce_chain_positions_y!(px, py, h, yv)
         MPI.Allreduce!(py, +, ycol)
         MPI.Allreduce!(w, +, ycol)
     end
-    MPI.Allreduce(any(iszero, w), |, gg.comm) &&
-        throw(ArgumentError("MarkerChain lies outside every local vertical velocity slab"))
+    outside, too_far = MPI.Allreduce([any(iszero, w), too_far], |, gg.comm)
+    outside && throw(ArgumentError("MarkerChain lies outside every local vertical velocity slab"))
+    too_far && error("a MarkerChain vertex moved more than one cell along y in one step; reduce dt")
     if gg.dims[2] > 1
         px ./= w
         py ./= w
     end
     return nothing
 end
+
+# One entry of a possibly device-resident vector, without scalar indexing.
+_entry(a, i) = minimum(view(a, i:i))
 
 """
     _check_chain_remap(h_new, px, xv)
@@ -124,14 +137,11 @@ function _check_chain_remap(h_new, px, xv)
     gg = ImplicitGlobalGrid.global_grid()
     cells = _owned_cells(length(h_new) - 1)
     owned = first(cells):(last(cells) + 1)
-    x = Array(xv)
-    p = Array(px)
-    too_far = (gg.coords[1] > 0 && x[first(owned)] ≤ p[1]) ||
-        (gg.coords[1] < gg.dims[1] - 1 && x[last(owned)] ≥ p[end])
+    too_far = (gg.coords[1] > 0 && _entry(xv, first(owned)) ≤ _entry(px, firstindex(px))) ||
+        (gg.coords[1] < gg.dims[1] - 1 && _entry(xv, last(owned)) ≥ _entry(px, lastindex(px)))
     nonfinite = !all(isfinite, @view h_new[owned])
-    too_far = MPI.Allreduce(too_far, |, gg.comm)
-    nonfinite = MPI.Allreduce(nonfinite, |, gg.comm)
-    too_far && throw(ArgumentError("a MarkerChain vertex moved more than one cell in one step; reduce dt"))
+    too_far, nonfinite = MPI.Allreduce([too_far, nonfinite], |, gg.comm)
+    too_far && error("a MarkerChain vertex moved more than one cell along x in one step; reduce dt")
     nonfinite && error(
         "Marker-chain remapping found non-finite trajectories or crossed vertices; reduce dt and check the velocity field"
     )
@@ -147,9 +157,14 @@ function _check_serial_chain_path(name)
     return nothing
 end
 
-function _check_chain_periodicity()
+# The global grid is the same on every rank, so these throws need no reduction.
+function _check_chain_grid()
     ImplicitGlobalGrid.grid_is_initialized() || return nothing
-    iszero(ImplicitGlobalGrid.global_grid().periods[1]) ||
+    gg = ImplicitGlobalGrid.global_grid()
+    iszero(gg.periods[1]) ||
         throw(ArgumentError("a MarkerChain on a global grid does not support a periodic x direction"))
+    # the ownership rules count one of the two shared cells on each side of a rank boundary
+    all(d -> gg.dims[d] == 1 || gg.overlaps[d] == 2, 1:2) ||
+        throw(ArgumentError("a MarkerChain on a global grid requires overlaps of 2 in every decomposed direction"))
     return nothing
 end

@@ -97,7 +97,6 @@ end
 function finish_markerchain_step!(chain, target_mean)
     isnothing(target_mean) ||
         (chain.h_vertices .-= _global_mean_height(chain.h_vertices, chain.cell_vertices) - target_mean)
-    _update_chain_halo!(chain.h_vertices)
     reconstruct_chain_from_vertices!(chain)
     foreach((dst, src) -> copyto!(dst.data, src.data), chain.coords0, chain.coords)
     copyto!(chain.h_vertices0, chain.h_vertices)

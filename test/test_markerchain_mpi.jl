@@ -13,6 +13,8 @@ using MPI, ImplicitGlobalGrid, JustPIC, Test
 const backend = JustPIC.CPU
 
 MPI.Initialized() || MPI.Init()
+# an error on one rank would leave the others blocked in a collective; end the whole job
+atexit(code -> iszero(code) || MPI.Abort(MPI.COMM_WORLD, code))
 np = MPI.Comm_size(MPI.COMM_WORLD)
 decomposition = get(ENV, "JULIA_MARKERCHAIN_MPI_DIMS", "xy")
 decomposition ∈ ("x", "y", "xy") || error("JULIA_MARKERCHAIN_MPI_DIMS must be \"x\", \"y\" or \"xy\"")
@@ -107,7 +109,18 @@ far_msg = try
 catch err
     sprint(showerror, err)
 end
-far_on_all_ranks = MPI.Allreduce(occursin("more than one cell", far_msg), &, comm)
+far_on_all_ranks = MPI.Allreduce(occursin("more than one cell along x", far_msg), &, comm)
+
+# the same along y: an owned vertex leaves its rank's local velocity grid
+far_y = init_markerchain(backend, 6, 4, 8, xv, h0_f.(xv))
+Vfar_y = sampleV(grid_vxi, (x, y) -> 0.0, (x, y) -> 1.0)
+far_y_msg = try
+    semilagrangian_advection_markerchain!(far_y, RungeKutta2(), Vfar_y, grid_vxi, (xv, yv), 2 * maximum(diff(yv_g)))
+    ""
+catch err
+    sprint(showerror, err)
+end
+far_y_on_all_ranks = MPI.Allreduce(occursin("more than one cell along y", far_y_msg), &, comm)
 
 # rock fractions of a local chain, halo entries included
 function rock_fractions(xv, yv, nx, ny)
@@ -155,6 +168,17 @@ catch err
 end
 finalize_global_grid(; finalize_MPI = false)
 
+# the ownership rules assume the default overlap
+init_global_grid(nx, ny, 1; dimx, dimy, overlaps = (4, 4, 2), init_MPI = false, quiet = true)
+overlap_chain = init_markerchain(backend, 6, 4, 8, xv, h0_f.(xv))
+overlap_msg = try
+    semilagrangian_advection_markerchain!(overlap_chain, RungeKutta2(), V, grid_vxi, (xv, yv), dt)
+    ""
+catch err
+    sprint(showerror, err)
+end
+finalize_global_grid(; finalize_MPI = false)
+
 ratios_serial = rock_fractions(xv_g, yv_g, length(xv_g) - 1, length(yv_g) - 1)
 ratio_errs = map(keys(ratios_dist)) do k
     local_ratio = ratios_dist[k]
@@ -170,11 +194,13 @@ end
     @test markers_consistent
     @test outside_on_all_ranks
     @test dims[1] == 1 || far_on_all_ranks
+    @test dims[2] == 1 || far_y_on_all_ranks
 end
 
 @testset "MarkerChain MPI unsupported paths (np=$np, dims=$(Tuple(dims)))" begin
     @test lagrangian_rejected == (np > 1)
     @test occursin("periodic x", periodic_msg)
+    @test np == 1 || occursin("overlaps of 2", overlap_msg)
 end
 
 @testset "MarkerChain MPI rock fractions (np=$np, dims=$(Tuple(dims)))" begin

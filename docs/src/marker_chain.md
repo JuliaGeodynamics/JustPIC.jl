@@ -135,10 +135,14 @@ Limitations:
 - Only the semi-Lagrangian update is supported: `advect_markerchain!` and
   `move_particles!(::MarkerChain)` raise on a decomposed grid, since chain markers
   cannot move between ranks.
-- A vertex may move at most one cell along x per step; the update raises otherwise.
-- The x direction must not be periodic.
+- A vertex may move at most one cell along x per step, and at most one cell beyond its
+  rank's local grid along y; the update raises otherwise.
+- The chain must lie inside the global domain; the update raises otherwise.
+- The x direction must not be periodic, and every decomposed direction must use the
+  default overlap of 2.
 - The y-column combination runs `Allreduce`s on the device arrays; on GPU this requires
-  GPU-aware MPI (`IGG_CUDAAWARE_MPI=1` / `IGG_ROCMAWARE_MPI=1`).
+  GPU-aware MPI (`IGG_CUDAAWARE_MPI=1` / `IGG_ROCMAWARE_MPI=1`). Only the CPU path is
+  tested.
 
 ## Resampling and topography
 
