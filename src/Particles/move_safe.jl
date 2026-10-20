@@ -1,6 +1,6 @@
 """
     move_particles!(particles::AbstractParticles, args; periodic_1=false, periodic_2=false, periodic_3=false)
-    move_particles!(particles::AbstractParticles, grid, args, dxi; periodic_1=false, periodic_2=false, periodic_3=false)
+    move_particles!(particles::AbstractParticles, grid, args; periodic_1=false, periodic_2=false, periodic_3=false)
 
 Reassign particles to the correct parent cells after their coordinates have been
 updated.
@@ -14,7 +14,6 @@ layout.
 - `args`: tuple of per-particle fields that must move together with the particle
   coordinates.
 - `grid`: optional vertex grid coordinates used by the lower-level method.
-- `dxi`: optional grid spacing used by the lower-level method.
 - `periodic_1`, `periodic_2`, `periodic_3`: enable periodic wrapping in the
   corresponding coordinate direction.
 
@@ -36,9 +35,9 @@ layout.
   dropped. With `verbose=true`, the number of dropped particles is printed.
   Companion fields are dropped with the particle.
 """
-move_particles!(particles::AbstractParticles, args; periodic_1 = false, periodic_2 = false, periodic_3 = false, verbose = false) = move_particles!(particles, particles.xvi, args, particles.di.vertex; periodic_1 = periodic_1, periodic_2 = periodic_2, periodic_3 = periodic_3, verbose = verbose)
+move_particles!(particles::AbstractParticles, args; periodic_1 = false, periodic_2 = false, periodic_3 = false, verbose = false) = move_particles!(particles, particles.xvi, args; periodic_1 = periodic_1, periodic_2 = periodic_2, periodic_3 = periodic_3, verbose = verbose)
 
-function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args, dxi; periodic_1 = false, periodic_2 = false, periodic_3 = false, verbose = false) where {N}
+function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args; periodic_1 = false, periodic_2 = false, periodic_3 = false, verbose = false) where {N}
 
     (; index) = particles
     N == 2 && periodic_3 && throw(ArgumentError("periodic_3 is only valid for 3D particles"))
@@ -64,7 +63,7 @@ function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args, dx
     drop = false
     overflow = 0
     while true
-        sweep = sweep_cells!(particles, grid, args, dxi, domain_limits, periodicity, max_jump, drop)
+        sweep = sweep_cells!(particles, grid, args, domain_limits, periodicity, max_jump, drop)
         overflow += sweep.dropped
         far = any(sweep.jump .> max_jump)
         far || sweep.full || break
@@ -94,7 +93,7 @@ end
 # ring). Two cells of the same color are more than `2 * max_jump[i]` cells apart along at least
 # one direction `i`, so their write sets are disjoint and no two threads ever search or fill
 # slots in the same cell.
-function sweep_cells!(particles, grid, args, dxi, domain_limits, periodicity, max_jump, drop)
+function sweep_cells!(particles, grid, args, domain_limits, periodicity, max_jump, drop)
     (; coords, index) = particles
     backend = ka_backend(index)
     # Int32 flags and counters: Metal has no 64-bit integer atomics (see #362)
@@ -107,7 +106,7 @@ function sweep_cells!(particles, grid, args, dxi, domain_limits, periodicity, ma
     for colors in Iterators.product(map(axis -> 1:axis.ncolors, layout)...)
         launch!(
             backend, move_particles_ps!, nblocks,
-            coords, grid, dxi, index, domain_limits, args, bound, colors, layout
+            coords, grid, index, domain_limits, args, bound, colors, layout
         )
     end
     value(x) = Int(maximum(x))
@@ -149,13 +148,13 @@ end
 end
 
 @kernel function move_particles_ps!(
-        coords, grid, dxi, index, domain_limits, args, bound, colors::NTuple{N}, layout::NTuple{N}
+        coords, grid, index, domain_limits, args, bound, colors::NTuple{N}, layout::NTuple{N}
     ) where {N}
     I = @index(Global, NTuple)
     indices = ntuple(i -> color_cell(layout[i], colors[i], I[i]), Val(N))
 
     if all(>(0), indices)
-        _move_particles!(coords, grid, dxi, index, domain_limits, indices, args, bound)
+        move_kernel!(coords, grid, index, domain_limits, args, indices, bound)
     end
 end
 
@@ -188,11 +187,6 @@ end
 
 @inline function cell_jump(dst::NTuple{N}, src::NTuple{N}, nxi::NTuple{N}, periodicity::NTuple{N}) where {N}
     return ntuple(i -> axis_jump(dst[i], src[i], nxi[i], periodicity[i]), Val(N))
-end
-
-function _move_particles!(coords, grid, dxi, index, domain_limits, idx, args, bound)
-    move_kernel!(coords, grid, index, domain_limits, args, idx, bound)
-    return nothing
 end
 
 # Staying and moving are decided by the same lookup. A separate in-cell test that disagrees with
