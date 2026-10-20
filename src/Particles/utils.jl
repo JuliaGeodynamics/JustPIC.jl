@@ -12,7 +12,8 @@
         return bool
     end
 end
-@inline isincell(px::T, xv::T, dx::T) where {T <: Real} = xv < px < xv + dx
+# half-open `[xv, xv + dx)`, like `half_open_cell` and `indomain`
+@inline isincell(px::T, xv::T, dx::T) where {T <: Real} = xv ≤ px < xv + dx
 
 @kernel function copy_vectors!(
         dest::NTuple{N, <:AbstractArray}, src::NTuple{N, <:AbstractArray}

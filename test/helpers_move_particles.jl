@@ -231,6 +231,22 @@ function check_clean_particles(particles, fields)
     for coords in particles.coords
         @test all(isnan, Array(coords.data))
     end
+
+    # cells are half-open, as in `move_particles!`: the lower corner of `cell` belongs to it
+    # and its upper corner does not
+    lower = ntuple(d -> T(xvi[d][cell[d]]), Val(N))
+    upper = ntuple(d -> T(xvi[d][cell[d] + 1]), Val(N))
+    clear_particles!(particles, fields)
+    JustPIC.launch!(
+        JustPIC.ka_backend(particles.index), place_particles_kernel!, 2,
+        particles.index, particles.coords, fields,
+        ntuple(d -> dev([cell[d], cell[d]]), Val(N)), dev([1, 2]),
+        ntuple(d -> dev([lower[d], upper[d]]), Val(N)), dev(T[1, 2]),
+    )
+    clean_particles!(particles, particles.xvi, fields)
+    @test count(Array(particles.index.data)) == 1
+    @test CAI.@index(particles.index[1, cell...])
+    @test ntuple(d -> CAI.@index(particles.coords[d][1, cell...]), Val(N)) == lower
     return nothing
 end
 

@@ -437,27 +437,26 @@ cell's active particle block.
 function clean_particles!(particles::Particles, grid, args)
     check_particle_fields(particles, args)
     (; coords, index) = particles
-    dxi = compute_dx(grid)
     ni = size(index)
-    launch!(ka_backend(index), _clean!, ni, coords, grid, dxi, index, args)
+    launch!(ka_backend(index), _clean!, ni, coords, grid, index, args)
     return nothing
 end
 
-@kernel function _clean!(particle_coords, grid, dxi, index, args)
+@kernel function _clean!(particle_coords, grid, index, args)
     I = @index(Global, NTuple)
-    clean_kernel!(particle_coords, grid, @dxi(dxi, I...), index, args, I...)
+    clean_kernel!(particle_coords, grid, index, args, I...)
 end
 
 function clean_kernel!(
-        particle_coords, grid, dxi, index, args, cell_indices::Vararg{Int, N}
+        particle_coords, grid, index, args, cell_indices::Vararg{Int, N}
     ) where {N}
-    corner_xi = corner_coordinate(grid, cell_indices...)
     # iterate over particles in child cell
     for ip in cellaxes(index)
         pᵢ = cache_particle(particle_coords, ip, cell_indices)
 
         if CAI.@index index[ip, cell_indices...] # true if memory allocation is filled with a particle
-            if !(isincell(pᵢ, corner_xi, dxi))
+            # same membership rule as `move_particles!`, so particles it keeps are not removed here
+            if containing_cell(pᵢ, grid, cell_indices) != cell_indices
                 # remove particle from child cell
                 CAI.@index index[ip, cell_indices...] = false
                 empty_particle!(particle_coords, ip, cell_indices)
