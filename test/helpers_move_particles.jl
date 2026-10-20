@@ -233,3 +233,48 @@ function check_clean_particles(particles, fields)
     end
     return nothing
 end
+
+# Particles on cell faces (common in Float32): `v` lies on the vertex between the cells `a` and
+# `a + e₁`, and the full cell `f` holds one resident on its lower face along direction 2 and
+# receives `q` from its right neighbour. A face belongs to the cell above it, so `v` moves once
+# into `a + e₁`, `f` is settled and `q` is dropped. The second sweep must report neither
+# progress nor a full destination; otherwise `move_particles!` never ends (#387).
+function check_particles_on_cell_faces(particles, fields)
+    T = eltype(eltype(particles.coords[1]))
+    N = length(particles.coords)
+    max_xcell = particles.max_xcell
+    xvi = Array.(particles.xvi)
+    xci = Array.(particles.xci)
+    centre(cell) = ntuple(d -> T(xci[d][cell[d]]), Val(N))
+    a = ntuple(_ -> 3, Val(N))
+    f = ntuple(_ -> 4, Val(N))
+    right(cell) = ntuple(d -> cell[d] + (d == 1), Val(N))
+
+    v = ntuple(d -> d == 1 ? T(xvi[1][a[1] + 1]) : centre(a)[d], Val(N))
+    on_face = ntuple(d -> d == 2 ? T(xvi[2][f[2]]) : centre(f)[d], Val(N))
+    cells = [a; fill(f, max_xcell); right(f)]
+    slots = [1; 1:max_xcell; 1]
+    positions = [v; on_face; fill(centre(f), max_xcell - 1); centre(f)]
+    clear_particles!(particles, fields)
+    dev = TA(backend)
+    JustPIC.launch!(
+        JustPIC.ka_backend(particles.index), place_particles_kernel!, length(cells),
+        particles.index, particles.coords, fields,
+        ntuple(d -> dev(getindex.(cells, d)), Val(N)), dev(slots),
+        ntuple(d -> dev(getindex.(positions, d)), Val(N)), dev(T.(eachindex(cells))),
+    )
+
+    sweep() = JustPIC.sweep_cells!(
+        particles, particles.xvi, fields, particles.di.vertex,
+        JustPIC.physical_domain_limits(particles), ntuple(_ -> false, Val(N)),
+        ntuple(_ -> 1, Val(N)), false,
+    )
+    @test sweep() == (; jump = ntuple(_ -> 0, Val(N)), full = false, progress = true, dropped = 1)
+    @test sweep() == (; jump = ntuple(_ -> 0, Val(N)), full = false, progress = false, dropped = 0)
+
+    @test count(Array(particles.index.data)) == max_xcell + 1
+    @test CAI.@index(particles.index[1, right(a)...])
+    @test ntuple(d -> CAI.@index(particles.coords[d][1, right(a)...]), Val(N)) == v
+    @test all(CAI.@index(particles.index[slot, f...]) for slot in 1:max_xcell)
+    return nothing
+end

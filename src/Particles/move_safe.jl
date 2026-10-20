@@ -191,18 +191,19 @@ end
 end
 
 function _move_particles!(coords, grid, dxi, index, domain_limits, idx, args, bound)
-    # coordinate of the lower-most-left coordinate of the parent cell
-    corner_xi = corner_coordinate(grid, idx)
-    # iterate over neighbouring (child) cells
-    move_kernel!(coords, corner_xi, grid, dxi, index, domain_limits, args, idx, bound)
+    move_kernel!(coords, grid, index, domain_limits, args, idx, bound)
     return nothing
 end
 
+# Staying and moving are decided by the same lookup. A separate in-cell test that disagrees with
+# it on a cell face (e.g. a Float32 particle exactly on a vertex) would move the particle within
+# its own cell on every sweep, report progress forever, and never end `move_particles!`.
+@inline containing_cell(p::NTuple{N}, grid, I) where {N} =
+    ntuple(i -> half_open_cell(p[i], grid[i], I[i]), Val(N))
+
 function move_kernel!(
         coords,
-        corner_xi,
         grid,
-        di,
         index,
         domain_limits,
         args::NTuple{N2, Any},
@@ -210,7 +211,6 @@ function move_kernel!(
         bound,
     ) where {N1, N2}
 
-    dxi = @dxi di idx...
     full = progress = false
     jump = ntuple(_ -> 0, Val(N1))
 
@@ -219,9 +219,8 @@ function move_kernel!(
         doskip(index, ip, idx...) && continue
         pᵢ = cache_particle(coords, ip, idx)
 
-        # check whether the particle is
-        # within the same cell and skip it
-        isincell(pᵢ, corner_xi, dxi) && continue
+        new_cell = containing_cell(pᵢ, grid, idx)
+        new_cell == idx && continue
 
         # particle went of of the domain, get rid of it
         domain_check = !(indomain(pᵢ, domain_limits))
@@ -233,8 +232,6 @@ function move_kernel!(
         end
         domain_check && continue
 
-        new_cell = find_parent_cell_bisection(pᵢ, grid, idx)
-
         # too far for the cells swept concurrently: leave it for a wider sweep
         jumpᵢ = cell_jump(new_cell, idx, size(index), bound.periodicity)
         if any(jumpᵢ .> bound.max_jump)
@@ -244,7 +241,7 @@ function move_kernel!(
 
         # check whether there's empty space in parent cell
         free_idx = find_free_memory(index, new_cell...)
-        if iszero(free_idx) && !bound.drop && !settled(coords, grid, di, index, new_cell)
+        if iszero(free_idx) && !bound.drop && !settled(coords, grid, index, new_cell)
             jump = max.(jump, jumpᵢ)
             full = true
             continue
@@ -277,11 +274,9 @@ end
 
 # A full cell whose particles all lie inside it stays full for the rest of `move_particles!`.
 # The destination of a swept cell is never swept concurrently, so reading it is race free.
-@inline function settled(coords, grid, di, index, I)
-    corner_xi = corner_coordinate(grid, I)
-    dxi = @dxi di I...
+@inline function settled(coords, grid, index, I)
     for ip in cellaxes(index)
-        isincell(cache_particle(coords, ip, I), corner_xi, dxi) || return false
+        containing_cell(cache_particle(coords, ip, I), grid, I) == I || return false
     end
     return true
 end

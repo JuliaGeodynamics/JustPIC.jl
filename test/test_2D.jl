@@ -505,6 +505,10 @@ include(joinpath(@__DIR__, "helpers_move_particles.jl"))
         check_exit_unblocks_destination(backend, FT, Val(2))
     end
 
+    @testset "particles on cell faces settle" begin
+        check_particles_on_cell_faces(particles, fields)
+    end
+
     @testset "clean removes out-of-cell particles without compaction" begin
         check_clean_particles(particles, fields)
     end
