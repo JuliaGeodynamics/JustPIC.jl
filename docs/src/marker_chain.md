@@ -135,8 +135,10 @@ Limitations:
 - Only the semi-Lagrangian update is supported: `advect_markerchain!` and
   `move_particles!(::MarkerChain)` raise on a decomposed grid, since chain markers
   cannot move between ranks.
-- A vertex may move at most one cell along x per step, and at most one cell beyond its
-  rank's local grid along y; the update raises otherwise.
+- Per step, a vertex may move at most one cell along x, and must end inside its rank's
+  local grid along y, i.e. at most one cell beyond the slab it starts in; the update
+  raises otherwise. Only the end point is checked, not the intermediate Runge-Kutta
+  stages.
 - The chain must lie inside the global domain; the update raises otherwise.
 - The x direction must not be periodic, and every decomposed direction must use the
   default overlap of 2.
