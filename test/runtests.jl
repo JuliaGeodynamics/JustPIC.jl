@@ -18,14 +18,14 @@ const FULL_SUITES = (
     "test_marker_surface.jl", "test_validation.jl", "test_phase_injection.jl",
 )
 
-function run_suite(testdir, load_path, filename, tier)
+function run_suite(testdir, load_path, filename)
     path = joinpath(testdir, filename)
     printstyled("\nRunning $filename\n"; bold = true, color = :white)
     # Keep Pkg.test's resolved environment, including its GPU test dependencies.
     cmd = addenv(
         `$(Base.julia_cmd()) --startup-file=no --project=$(dirname(Base.active_project())) $path`,
         "JULIA_LOAD_PATH" => load_path,
-        "JULIA_JUSTPIC_ALLOW_SCALAR" => tier == "full" ? "true" : "false",
+        "JULIA_JUSTPIC_ALLOW_SCALAR" => filename in FULL_SUITES ? "true" : "false",
     )
     try
         run(cmd)
@@ -41,9 +41,11 @@ end
 
 function runtests(tier)
     testdir = @__DIR__
-    load_path = join(LOAD_PATH, Sys.iswindows() ? ';' : ':')
+    # Nested checks (e.g. Aqua's persistent-task probe) select their own project.
+    # Pkg.test can supply absolute LOAD_PATH entries, so retain `@` explicitly.
+    load_path = join(("@", LOAD_PATH...), Sys.iswindows() ? ';' : ':')
     suites = tier == "fast" ? FAST_SUITES : tier == "full" ? FULL_SUITES : (FAST_SUITES..., FULL_SUITES...)
-    failures = count(!run_suite(testdir, load_path, suite, tier) for suite in suites)
+    failures = count(!run_suite(testdir, load_path, suite) for suite in suites)
     println("\n$(length(suites) - failures)/$(length(suites)) test suites passed")
     return failures
 end

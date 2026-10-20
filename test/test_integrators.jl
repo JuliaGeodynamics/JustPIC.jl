@@ -9,7 +9,8 @@ elseif BACKEND_NAME == "Metal"
 end
 
 using JustPIC, Test
-import KernelAbstractions: CPU, @kernel, @index
+import KernelAbstractions: CPU
+import KernelAbstractions: @kernel, @index
 
 const backend = @static if BACKEND_NAME == "AMDGPU"
     AMDGPU.ROCBackend
@@ -27,6 +28,22 @@ else
 end
 include("helpers_backend.jl")
 check_backend(BACKEND_NAME, backend, FT)
+
+@kernel function rk2_stage_kernel!(result, α)
+    i = @index(Global, Linear)
+    T = eltype(result)
+    p = (T(1), T(2))
+    v0 = (T(3), T(4))
+    v1 = (T(5), T(6))
+    result[i] = JustPIC.second_stage(RungeKutta2(α), T(0.1), v0, v1, p)[1]
+end
+
+@testset "RK2 non-midpoint stage on backend" begin
+    # Enough evaluations to expose per-particle allocations in the CUDA device heap.
+    result = TA(backend)(zeros(FT, 2^21))
+    JustPIC.launch!(backend(), rk2_stage_kernel!, length(result), result, FT(2 / 3))
+    @test all(x -> x ≈ FT(1.45), Array(result))
+end
 
 @testset "Runge-Kutta 2" begin
     @test RungeKutta2().α == 0.5
