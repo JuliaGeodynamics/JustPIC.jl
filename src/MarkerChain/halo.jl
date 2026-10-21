@@ -104,7 +104,7 @@ function _reduce_chain_positions_y!(px, py, h, yv)
     end
     outside, too_far = MPI.Allreduce([any(iszero, w), too_far], |, gg.comm)
     outside && throw(ArgumentError("MarkerChain lies outside every local vertical velocity slab"))
-    too_far && error("a MarkerChain vertex moved more than one cell along y in one step; reduce dt")
+    too_far && error("a MarkerChain vertex left its rank's local grid along y in one step; reduce dt")
     if gg.dims[2] > 1
         px ./= w
         py ./= w

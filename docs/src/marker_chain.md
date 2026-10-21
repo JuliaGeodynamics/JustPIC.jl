@@ -138,7 +138,7 @@ Limitations:
 - Per step, a vertex may move at most one cell along x, and must end inside its rank's
   local grid along y, i.e. at most one cell beyond the slab it starts in; the update
   raises otherwise. Only the end point is checked, not the intermediate Runge-Kutta
-  stages.
+  stages. At the bottom and top of the global domain the update behaves as in serial.
 - The chain must lie inside the global domain; the update raises otherwise.
 - The x direction must not be periodic, and every decomposed direction must use the
   default overlap of 2.

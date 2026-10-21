@@ -21,7 +21,7 @@ Under an `ImplicitGlobalGrid` decomposition, `chain`, `V`, `grid_vxi` and `grid`
 those of the local subdomain, and `V` must have current halos. The advected vertices
 are combined across each y-column and the mean height is that of the whole chain. A
 vertex may move at most one cell along x per step, and must end inside its rank's
-local grid along y. The chain must lie inside the global domain, the x direction
+local grid along y unless it crosses the bottom or top of the global domain. The chain must lie inside the global domain, the x direction
 must not be periodic, and every decomposed direction must have an overlap of 2; the
 update raises on every rank otherwise.
 """

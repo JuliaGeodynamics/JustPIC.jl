@@ -120,7 +120,7 @@ far_y_msg = try
 catch err
     sprint(showerror, err)
 end
-far_y_on_all_ranks = MPI.Allreduce(occursin("more than one cell along y", far_y_msg), &, comm)
+far_y_on_all_ranks = MPI.Allreduce(occursin("local grid along y", far_y_msg), &, comm)
 
 # rock fractions of a local chain, halo entries included
 function rock_fractions(xv, yv, nx, ny)
