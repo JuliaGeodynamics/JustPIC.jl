@@ -78,7 +78,7 @@ steps:
 
       julia --project=. -e 'println("+++ :julia: Running tests")
                 using Pkg
-                Pkg.test(; test_args=["--backend=Metal"], coverage=true)'
+                Pkg.test(; test_args=["--backend=Metal"], julia_args=`-g2`, coverage=true)'
     agents:
       queue: "metal"
     timeout_in_minutes: 30
