@@ -26,6 +26,42 @@ function clear_particles!(particles, fields)
     return nothing
 end
 
+function check_boundary_move(backend, particles, fields)
+    T = eltype(eltype(particles.coords[1]))
+    N = length(particles.coords)
+    source = ntuple(_ -> 3, Val(N))
+    vertices = Array.(particles.xvi)
+    dev = TA(backend)
+    sweep() = JustPIC.sweep_cells!(
+        particles, particles.xvi, fields, particles.di.vertex,
+        JustPIC.physical_domain_limits(particles), ntuple(_ -> false, Val(N)),
+        ntuple(_ -> 1, Val(N)), false,
+    )
+    for d in 1:N, side in (0, 1)
+        destination = ntuple(i -> source[i] + (i == d ? side : 0), Val(N))
+        position = ntuple(Val(N)) do i
+            i == d ? vertices[i][source[i] + side] : (vertices[i][3] + vertices[i][4]) / 2
+        end
+        clear_particles!(particles, fields)
+        JustPIC.launch!(
+            JustPIC.ka_backend(particles.index), place_particles_kernel!, 1,
+            particles.index, particles.coords, fields,
+            ntuple(i -> dev([source[i]]), Val(N)), dev([1]),
+            ntuple(i -> dev([position[i]]), Val(N)), dev(T[1]),
+        )
+        # Two sweeps make a repeated self-move fail without hanging the test runner.
+        sweep()
+        @test !sweep().progress
+        @test count(Array(particles.index.data)) == 1
+        index_h = to_cpu(particles.index)
+        coords_h, fields_h = to_cpu.(particles.coords), to_cpu.(fields)
+        @test CAI.@index(index_h[1, destination...])
+        @test map(c -> CAI.@index(c[1, destination...]), coords_h) == position
+        @test map(f -> CAI.@index(f[1, destination...]), fields_h) == ntuple(k -> T(k), length(fields))
+    end
+    return nothing
+end
+
 # One source cell holds `leaving[k]` in slot `k`: a particle whose coordinates lie in the
 # neighbour `source + leaving[k]` (or in `source` itself for a zero offset). Every
 # destination cell listed in `free` is otherwise full, keeping only `free[offset]` empty.
