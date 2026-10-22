@@ -381,6 +381,10 @@ include(joinpath(@__DIR__, "helpers_move_particles.jl"))
     particles = init_particles(backend, 8, 8, 1, grid_vx, grid_vy, grid_vz)
     fields = init_cell_arrays(particles, Val(2))
 
+    @testset "cell boundaries settle without repeated movement" begin
+        check_boundary_move(backend, particles, fields)
+    end
+
     xm, xp, ym, yp, zm, zp = (-1, 0, 0), (1, 0, 0), (0, -1, 0), (0, 1, 0), (0, 0, -1), (0, 0, 1)
     scenarios = (
         "two destinations" => ([xm, xp], Dict(xm => [8], xp => [1])),

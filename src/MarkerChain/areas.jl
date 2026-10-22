@@ -279,10 +279,15 @@ end
 # handed, so in absolute coordinates a cell many cell widths from the origin falls inside its
 # own tolerance: a `Float32` cell a few thousand widths out is swallowed whole.
 @inline function recenter_on_cell(s::Segment, r::Rectangle{T}) where {T}
-    ox, oy = r.center[1], r.center[2]
+    oy = r.center[2]
+    half_width = r.l / 2
+    # `cell_rock_area` receives a left-to-right chord spanning the full cell width.
+    # Its endpoints therefore have known local x coordinates. Subtracting the
+    # absolute center instead can lose enough precision on small, offset cells
+    # that `boundary_param` no longer recognizes an endpoint as lying on an edge.
     s_local = Segment(
-        GridGeometryUtils.Point(s.p1[1] - ox, s.p1[2] - oy),
-        GridGeometryUtils.Point(s.p2[1] - ox, s.p2[2] - oy),
+        GridGeometryUtils.Point(-half_width, s.p1[2] - oy),
+        GridGeometryUtils.Point(half_width, s.p2[2] - oy),
     )
     return s_local, Rectangle((zero(T), zero(T)), r.l, r.h; θ = zero(T))
 end

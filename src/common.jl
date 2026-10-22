@@ -94,6 +94,7 @@ include("MarkerChain/resample.jl")
 export resample!
 
 include("MarkerChain/areas.jl")
+include("Particles/surface_injection.jl")
 # include("MarkerChain/areas0.jl")
 export compute_rock_fraction!
 

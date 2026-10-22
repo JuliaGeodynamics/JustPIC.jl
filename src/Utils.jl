@@ -167,7 +167,7 @@ starting from the initial guess `seed`.
 - `seed::Int`: Initial cell index guess used to start the search.
 
 # Returns
-- An integer index `i` such that `x[i] ≤ px ≤ x[i + 1]`.
+- An integer index `i` such that `x[i] ≤ px < x[i + 1]`, clamped at the domain ends.
 """
 @inline find_parent_cell_bisection(px::Number, x::AbstractVector, seed) =
     find_parent_cell_bisection(px, x, 1, length(x) - 1, clamp(seed, 1, length(x) - 1))
@@ -181,7 +181,7 @@ end
 
 @inline function find_parent_cell_bisection(px, x, lo, hi, seed)
     while true
-        x[seed] ≤ px ≤ x[seed + 1] && return seed
+        x[seed] ≤ px < x[seed + 1] && return seed
 
         if x[seed] < px
             lo = seed + 1
