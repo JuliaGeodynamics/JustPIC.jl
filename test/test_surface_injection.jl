@@ -8,6 +8,7 @@ elseif BACKEND_NAME == "Metal"
 end
 using JustPIC, Test
 import CellArraysIndexing as CAI
+import CellArrays: blocklength
 import KernelAbstractions: CPU
 const backend = BACKEND_NAME == "CUDA" ? CUDA.CUDABackend :
     BACKEND_NAME == "AMDGPU" ? AMDGPU.ROCBackend :
@@ -15,6 +16,10 @@ const backend = BACKEND_NAME == "CUDA" ? CUDA.CUDABackend :
 const FT = BACKEND_NAME == "Metal" || get(ENV, "JULIA_JUSTPIC_PRECISION", "") == "Float32" ? Float32 : Float64
 include("helpers_backend.jl")
 check_backend(BACKEND_NAME, backend, FT)
+
+# Device CellArrays store all cells in one struct-of-arrays block, unlike the
+# block-length-1 host copies returned by `to_cpu`.
+upload!(dst, src) = copyto!(dst.data, isone(blocklength(dst)) ? src.data : permutedims(src.data, (3, 2, 1)))
 
 function surface_fixture(; refined = false, capacity = 100, initial = 60, sloping = false)
     xv = refined ? FT[0, 0.8, 1.4, 3] : FT[0, 1, 2, 3]
@@ -37,8 +42,8 @@ function surface_fixture(; refined = false, capacity = 100, initial = 60, slopin
     CAI.@index hostphases[1, 3, 2] = FT(1)
     CAI.@index hosthistory[1, 3, 2] = FT(123)
     CAI.@index hosttemperature[1, 3, 2] = FT(800)
-    foreach((dst, src) -> copyto!(dst.data, src.data), p.coords, hostcoords)
-    foreach((dst, src) -> copyto!(dst.data, src.data), (phases, history, temperature), (hostphases, hosthistory, hosttemperature))
+    foreach(upload!, p.coords, hostcoords)
+    foreach(upload!, (phases, history, temperature), (hostphases, hosthistory, hosttemperature))
     return p, phases, (history, temperature), chain, xv, yv
 end
 
@@ -75,7 +80,7 @@ end
 @testset "Surface-aware injection" begin
     for refined in (false, true), sloping in (false, true)
         p, phases, args, chain, xv, yv = surface_fixture(; refined, sloping)
-        saved = copy.(getproperty.((p.coords..., phases, args...), :data))
+        saved = copy.(getproperty.(to_cpu.((p.coords..., phases, args...)), :data))
         original_index = to_cpu(JustPIC._copy(p.index))
         original_coords = to_cpu.(JustPIC._copy.(p.coords))
         original_phases = to_cpu(JustPIC._copy(phases))
@@ -93,9 +98,9 @@ end
         check_surface_support(p, phases, args, chain, xv, yv)
         # Valid pre-existing slots retain their values exactly, including stress/strain history.
         live = Array(original_index.data)
-        @test all(Array(p.index.data)[live])
+        @test all(to_cpu(p.index).data[live])
         for (A, before) in zip((p.coords..., phases, args...), saved)
-            @test Array(A.data)[live] == Array(before)[live]
+            @test to_cpu(A).data[live] == before[live]
         end
         count_before = sum(Array(p.index.data))
         inject_particles_phase!(p, phases, args, chain; air_phase = 5)
@@ -137,8 +142,8 @@ end
         CAI.@index px[ip, 2, 2] = FT(0.25) + FT(isodd(ip)) / 2
         CAI.@index py[ip, 2, 2] = FT(0.25) + FT((ip % 4) ≥ 2) / 2
     end
-    copyto!(p.coords[1].data, px.data)
-    copyto!(p.coords[2].data, py.data)
+    upload!(p.coords[1], px)
+    upload!(p.coords[2], py)
     @test_throws "targets unmet" inject_particles_phase!(p, phases, args, chain; air_phase = 5)
     @test_throws ArgumentError inject_particles_phase!(p, phases, args, chain; air_phase = 0)
     badchain = init_markerchain(backend, 4, 2, 8, FT[0, 1, 2, 4], FT(0))
@@ -150,7 +155,7 @@ end
     inject_particles_phase!(p, phases, args, chain; air_phase = 5)
     for step in 1:200
         rate = step ≤ 60 ? FT(0.005) : FT(-0.005)
-        @. p.coords[1].data += rate * (p.coords[1].data - FT(1.5))
+        @. p.coords[1].data += rate * (p.coords[1].data - $(FT(1.5)))
         move_particles!(p, (phases, args...))
         inject_particles_phase!(p, phases, args, chain; air_phase = 5)
         check_surface_support(p, phases, args, chain, xv, yv)
