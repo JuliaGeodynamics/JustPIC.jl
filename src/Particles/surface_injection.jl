@@ -184,8 +184,11 @@ end
             end
         end
     end
-    # A typed dummy tuple keeps the no-donor path inferable on devices.
-    values = map(A -> iszero(donor) ? zero(eltype(eltype(A))) : (CAI.@index A[donor, cell...]), args)
+    # A typed dummy tuple keeps the no-donor path inferable on devices; `let`
+    # stops the closure from boxing the loop-updated locals (dynamic dispatch on GPU).
+    values = let donor = donor, cell = cell
+        map(A -> iszero(donor) ? zero(eltype(eltype(A))) : (CAI.@index A[donor, cell...]), args)
+    end
     phase = iszero(donor) ? zero(eltype(eltype(phases))) : (CAI.@index phases[donor, cell...])
     return phase, values, !iszero(donor)
 end
