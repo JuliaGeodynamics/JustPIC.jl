@@ -64,7 +64,14 @@ end
 @testset "Persistent tasks" begin
     # Julia 1.10 can still be precompiling GPU extensions after the probe loads
     # JustPIC, especially with coverage and --pkgimages=no in CI.
-    Aqua.test_persistent_tasks(JustPIC; tmax = 120)
+    if BACKEND_NAME == "CPU"
+        Aqua.test_persistent_tasks(JustPIC; tmax = 120)
+    else
+        # Aqua ≥ 0.8.17 mirrors each dependency's Project.toml into the probe manifest, and
+        # CUDA_Runtime_jll ≥ 0.24 omits CUDA_Compiler_jll there, so the probe cannot
+        # precompile wherever a CUDA 13 driver selects the cuda+13 wrapper.
+        @test_skip Aqua.test_persistent_tasks(JustPIC; tmax = 120)
+    end
 end
 
 @testset "Migration lint" begin
