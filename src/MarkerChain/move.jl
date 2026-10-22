@@ -14,6 +14,7 @@ If a destination column is full, the marker is dropped. With `verbose=true`,
 the number of such overflows is printed.
 """
 function move_particles!(chain::MarkerChain; verbose = false)
+    _check_serial_chain_path("move_particles!(::MarkerChain)")
     (; coords, index, cell_vertices) = chain
     nxi = size(index, 1)
     grid = cell_vertices

@@ -72,6 +72,14 @@ steps:
       - JuliaCI/julia-coverage#v1:
           codecov: true
     command: |
+      # Co-resolving the AMDGPU and CUDA compiler stacks holds Metal.jl back
+      # to old releases, so the Metal job tests without them.
+      julia -e 'println("--- :julia: Removing AMDGPU and CUDA from the test target")
+                using TOML
+                project = TOML.parsefile("Project.toml")
+                filter!(!in(("AMDGPU", "CUDA")), project["targets"]["test"])
+                open(io -> TOML.print(io, project), "Project.toml", "w")'
+
       julia --project=. -e 'println("--- :julia: Instantiating project")
                 using Pkg
                 Pkg.instantiate()' || exit 3

@@ -61,10 +61,13 @@ end
     @test Aqua.test_stale_deps(JustPIC; ignore = [:CUDA, :AMDGPU, :Metal]).value
 end
 
-@testset "Persistent tasks" begin
-    # Julia 1.10 can still be precompiling GPU extensions after the probe loads
-    # JustPIC, especially with coverage and --pkgimages=no in CI.
-    Aqua.test_persistent_tasks(JustPIC; tmax = 120)
+# CPU only: Aqua's probe rebuilds the manifest from on-disk Project.tomls, which
+# misses registry-only deps of the CUDA JLLs that GPU CI promotes to hard deps.
+@static if BACKEND_NAME == "CPU"
+    @testset "Persistent tasks" begin
+        # Julia 1.10 with coverage and --pkgimages=no can take a while to exit.
+        Aqua.test_persistent_tasks(JustPIC; tmax = 120)
+    end
 end
 
 @testset "Migration lint" begin

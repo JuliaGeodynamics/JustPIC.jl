@@ -9,7 +9,7 @@ the combination.
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Material particles | Tested | Tested | Tested | Tested | Tested | Tested | Tested | Tested | Tested | Tested | Experimental |
 | Passive markers | Tested | Experimental | Tested | Experimental | Experimental | Experimental | Tested | Tested | Tested | Experimental | Unsupported |
-| Marker chains | Tested | Unsupported | Tested | Tested | Tested | Tested | Tested | Tested | Tested | Tested | Experimental |
+| Marker chains | Tested | Unsupported | Tested | Tested | Tested | Tested | Tested | Tested | Tested | Tested | Tested (semi-Lagrangian, CPU) |
 | Marker surfaces | Unsupported | Tested | Tested | Tested | Tested | Tested | Tested | Unsupported on Metal | Tested | Experimental | Tested |
 | Phase ratios | Tested | Tested | Tested | Tested | Tested | Tested | Tested | Tested | Tested | Experimental | Experimental |
 | Subgrid diffusion | Tested | Tested | Tested | Tested | Tested | Tested | Tested | Tested | Tested | Experimental | Experimental |

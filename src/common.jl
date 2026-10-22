@@ -83,6 +83,8 @@ export init_markerchain, fill_chain_from_chain!, fill_chain_from_vertices!
 include("MarkerChain/bilinear_MC.jl")
 export compute_topography_vertex!
 
+include("MarkerChain/halo.jl")
+
 include("MarkerChain/move.jl")
 export move_particles!
 
