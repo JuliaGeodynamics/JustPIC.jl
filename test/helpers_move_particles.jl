@@ -33,7 +33,7 @@ function check_boundary_move(backend, particles, fields)
     vertices = Array.(particles.xvi)
     dev = TA(backend)
     sweep() = JustPIC.sweep_cells!(
-        particles, particles.xvi, fields, particles.di.vertex,
+        particles, particles.xvi, fields,
         JustPIC.physical_domain_limits(particles), ntuple(_ -> false, Val(N)),
         ntuple(_ -> 1, Val(N)), false,
     )
