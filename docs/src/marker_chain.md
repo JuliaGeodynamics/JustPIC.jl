@@ -115,6 +115,37 @@ The lower-level `semilagrangian_advection!(chain, method, V, grid_vxi, xvi, dt)`
 updates `h_vertices`. It leaves marker coordinates and previous-step buffers unchanged,
 and applies neither smoothing nor mean-height correction.
 
+## Multi-GPU / MPI (ImplicitGlobalGrid)
+
+The semi-Lagrangian update works with [ImplicitGlobalGrid.jl](https://github.com/eth-cscs/ImplicitGlobalGrid.jl)
+domain decomposition of a 2D grid in x, y or both. Build the chain from the **local**
+(rank) vertex coordinates and pass the local velocity grids; the velocity must have
+current halos. When a global grid is active, `semilagrangian_advection_markerchain!`
+
+- combines the advected vertices across each y-column, so every vertex moves with the
+  velocity of the rank whose slab holds it,
+- conserves the mean height of the whole chain, and
+- exchanges the x-halo of the vertex heights.
+
+`compute_rock_fraction!` exchanges the halos of the rock fractions as well. No user
+action is required.
+
+Limitations:
+
+- Only the semi-Lagrangian update is supported: `advect_markerchain!` and
+  `move_particles!(::MarkerChain)` raise on a decomposed grid, since chain markers
+  cannot move between ranks.
+- Per step, a vertex may move at most one cell along x, and must end inside its rank's
+  local grid along y, i.e. at most one cell beyond the slab it starts in; the update
+  raises otherwise. Only the end point is checked, not the intermediate Runge-Kutta
+  stages. At the bottom and top of the global domain the update behaves as in serial.
+- The chain must lie inside the global domain; the update raises otherwise.
+- The x direction must not be periodic, and every decomposed direction must use the
+  default overlap of 2.
+- The y-column combination runs `Allreduce`s on the device arrays; on GPU this requires
+  GPU-aware MPI (`IGG_CUDAAWARE_MPI=1` / `IGG_ROCMAWARE_MPI=1`). Only the CPU path is
+  tested.
+
 ## Resampling and topography
 
 As a chain deforms, columns can become depleted or unevenly spaced. `resample!` refills any

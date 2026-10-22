@@ -95,7 +95,8 @@ end
 
 # Both advection wrappers finish by rebuilding the markers and refreshing old state.
 function finish_markerchain_step!(chain, target_mean)
-    isnothing(target_mean) || (chain.h_vertices .-= mean_height(chain) - target_mean)
+    isnothing(target_mean) ||
+        (chain.h_vertices .-= _global_mean_height(chain.h_vertices, chain.cell_vertices) - target_mean)
     reconstruct_chain_from_vertices!(chain)
     foreach((dst, src) -> copyto!(dst.data, src.data), chain.coords0, chain.coords)
     copyto!(chain.h_vertices0, chain.h_vertices)
@@ -184,8 +185,12 @@ the spurious spikes that semi-Lagrangian backtracking can introduce on a steep i
 it is applied automatically inside [`semilagrangian_advection_markerchain!`](@ref). Chains
 with fewer than three vertices are left untouched. This is not a strict slope bound.
 """
-smooth_slopes!(chain::MarkerChain, max_angle::Real) =
+function smooth_slopes!(chain::MarkerChain, max_angle::Real)
     smooth_slopes!(chain.h_vertices, chain.cell_vertices, max_angle)
+    # the end vertices of a rank are left unsmoothed; take them from their owners
+    _update_chain_halo!(chain.h_vertices)
+    return nothing
+end
 
 function smooth_slopes!(h_vertices, cell_vertices, max_angle::Real)
     n = length(h_vertices)

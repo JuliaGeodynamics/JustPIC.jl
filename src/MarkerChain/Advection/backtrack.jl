@@ -16,6 +16,14 @@ flux). Mean conservation uses cell-width weights, including on refined grids.
 `method` must be `RungeKutta2` or `RungeKutta4` (`Euler` is not supported). `grid_vxi` holds the staggered velocity grids and `grid` the chain's vertex
 grid `(xv, yv)`, whose horizontal coordinates must match `chain.cell_vertices`.
 The advected vertices must remain strictly ordered in x; reduce `dt` if they cross.
+
+Under an `ImplicitGlobalGrid` decomposition, `chain`, `V`, `grid_vxi` and `grid` are
+those of the local subdomain, and `V` must have current halos. The advected vertices
+are combined across each y-column and the mean height is that of the whole chain. A
+vertex may move at most one cell along x per step, and must end inside its rank's
+local grid along y unless it crosses the bottom or top of the global domain. The chain must lie inside the global domain, the x direction
+must not be periodic, and every decomposed direction must have an overlap of 2; the
+update raises on every rank otherwise.
 """
 function semilagrangian_advection_markerchain!(
         chain::MarkerChain, method::AbstractAdvectionIntegrator, V, grid_vxi, grid, dt;
@@ -23,7 +31,7 @@ function semilagrangian_advection_markerchain!(
     )
     angle = isnothing(max_slope_angle) ? 90 : max_slope_angle
     0 ≤ angle ≤ 90 || throw(ArgumentError("max_slope_angle must be in [0, 90] degrees or nothing"))
-    target_mean = conserve_mean ? mean_height(chain) : nothing
+    target_mean = conserve_mean ? _global_mean_height(chain.h_vertices, chain.cell_vertices) : nothing
     semilagrangian_advection!(chain, method, V, grid_vxi, grid, dt)
     angle < 90 && smooth_slopes!(chain, deg2rad(angle))
     return finish_markerchain_step!(chain, target_mean)
@@ -53,6 +61,7 @@ function semilagrangian_advection!(
         dt,
     ) where {N}
     (; h_vertices) = chain
+    _check_chain_grid()
     check_finite_scalar("dt", dt)
     check_velocity(V, grid_vxi, ka_backend(chain), eltype(h_vertices))
     length(grid[1]) == length(h_vertices) ||
@@ -69,12 +78,13 @@ function semilagrangian_advection!(
     grid_vxi = backend_grid(backend, grid_vxi, Tc)
     xv = backend_grid(backend, grid[1], Tc)
 
-    launch!(
-        backend, semilagrangian_advection_markerchain_kernel!, length(h_vertices),
-        h_new, h_vertices, method, V, grid_vxi, xv, dt
-    )
-    all(isfinite, h_new) || error("Marker-chain remapping found non-finite trajectories or crossed vertices; reduce dt and check the velocity field")
+    px, py = similar(h_vertices), similar(h_vertices)
+    _advect_chain_vertices!(px, py, h_vertices, method, V, grid_vxi, xv, dt)
+    _reduce_chain_positions_y!(px, py, h_vertices, grid_vxi[2][2])
+    _remap_chain_heights!(h_new, px, py, xv)
+    _check_chain_remap(h_new, px, xv)
     copyto!(h_vertices, h_new)
+    _update_chain_halo!(h_vertices)
     return nothing
 end
 
@@ -90,37 +100,63 @@ function semilagrangian_advection!(
     return nothing
 end
 
-@kernel function semilagrangian_advection_markerchain_kernel!(
-        h_new, h_old, method, V, grid_vxi, xv, dt
+"""
+    _advect_chain_vertices!(px, py, h, method, V, grid_vxi, xv, dt)
+
+Store in `(px[i], py[i])` the position of the chain vertex `(xv[i], h[i])` advected
+through `V` over `dt`.
+"""
+function _advect_chain_vertices!(px, py, h, method, V, grid_vxi, xv, dt)
+    launch!(
+        ka_backend(h), advect_chain_vertices_kernel!, length(h),
+        px, py, h, method, V, grid_vxi, xv, dt
     )
-    i = @index(Global)
-    h_new[i] = backtrack_surface_height(h_old, method, V, grid_vxi, xv, dt, i)
+    return nothing
 end
 
-@inline function backtrack_surface_height(h_old, method, V, grid_vxi, xv, dt, i)
-    n = length(h_old)
-    p = advect_particle_markerchain(method, (xv[i], h_old[i]), V, grid_vxi, nothing, dt, i)
-    all(isfinite, p) || return oftype(h_old[i], NaN)
-    if i < n
-        q = advect_particle_markerchain(method, (xv[i + 1], h_old[i + 1]), V, grid_vxi, nothing, dt, i + 1)
-        all(isfinite, q) && p[1] < q[1] || return oftype(h_old[i], NaN)
-    end
+@kernel function advect_chain_vertices_kernel!(px, py, h, method, V, grid_vxi, xv, dt)
+    i = @index(Global)
+    p = advect_particle_markerchain(method, (xv[i], h[i]), V, grid_vxi, nothing, dt, i)
+    px[i], py[i] = p
+end
 
-    left = advect_particle_markerchain(method, (xv[1], h_old[1]), V, grid_vxi, nothing, dt, 1)
-    right = advect_particle_markerchain(method, (xv[n], h_old[n]), V, grid_vxi, nothing, dt, n)
+"""
+    _remap_chain_heights!(h_new, px, py, xv)
+
+Sample the polyline through the advected vertices `(px, py)` at the vertices `xv`.
+Queries outside the advected polyline take the height of its nearest end. `h_new[i]` is
+`NaN` where the trajectory of vertex `i` is non-finite or where vertices `i` and `i + 1`
+crossed.
+"""
+function _remap_chain_heights!(h_new, px, py, xv)
+    launch!(ka_backend(h_new), remap_chain_heights_kernel!, length(h_new), h_new, px, py, xv)
+    return nothing
+end
+
+@kernel function remap_chain_heights_kernel!(h_new, px, py, xv)
+    i = @index(Global)
+    h_new[i] = _remap_chain_height(px, py, xv, i)
+end
+
+@inline function _remap_chain_height(px, py, xv, i)
+    n = length(px)
+    nan = oftype(py[i], NaN)
+    isfinite(px[i]) && isfinite(py[i]) || return nan
+    if i < n
+        isfinite(px[i + 1]) && isfinite(py[i + 1]) && px[i] < px[i + 1] || return nan
+    end
     x = xv[i]
-    x ≤ left[1] && return left[2]
-    x ≥ right[1] && return right[2]
+    x ≤ px[1] && return py[1]
+    x ≥ px[n] && return py[n]
     lo, hi = 1, n
     # Search a fixed set of advected vertices; no nonlinear characteristic solve.
     while hi - lo > 1
         mid = (lo + hi) ÷ 2
-        p = advect_particle_markerchain(method, (xv[mid], h_old[mid]), V, grid_vxi, nothing, dt, mid)
-        if p[1] ≤ x
-            lo, left = mid, p
+        if px[mid] ≤ x
+            lo = mid
         else
-            hi, right = mid, p
+            hi = mid
         end
     end
-    return _interp1D(x, left[1], right[1], left[2], right[2])
+    return _interp1D(x, px[lo], px[hi], py[lo], py[hi])
 end

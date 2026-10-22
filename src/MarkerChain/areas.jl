@@ -10,12 +10,19 @@ using the topography currently stored in `chain`.
 `xvi` are the cell vertices per direction and `dxi` the matching spacings: either one
 `Number` per direction for a uniform grid, or one `AbstractVector` of per-cell widths per
 direction for a refined one.
+
+Under an `ImplicitGlobalGrid` decomposition, `chain`, `xvi` and `dxi` are those of the
+local subdomain, and the overlap entries of every field are exchanged with the
+neighboring ranks, so the fractions match those of the global grid.
 """
 function compute_rock_fraction!(ratios, chain::MarkerChain, xvi, dxi)
     compute_area_below_chain_centers!(ratios.center, chain, xvi, dxi)
     compute_area_below_chain_vertex!(ratios.vertex, chain, xvi, dxi)
     compute_area_below_chain_vx!(ratios.Vx, chain, xvi, dxi)
     compute_area_below_chain_vy!(ratios.Vy, chain, xvi, dxi)
+    # the kernels treat the ends of the local arrays as domain boundaries
+    ImplicitGlobalGrid.grid_is_initialized() &&
+        update_halo!(ratios.center, ratios.vertex, ratios.Vx, ratios.Vy)
     return nothing
 end
 

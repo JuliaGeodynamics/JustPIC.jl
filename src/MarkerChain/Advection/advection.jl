@@ -13,6 +13,7 @@ Use this when evolving a free surface or interface represented by a
 function advect_markerchain!(
         chain::MarkerChain, method::AbstractAdvectionIntegrator, V, grid_vxi, dt
     )
+    _check_serial_chain_path("advect_markerchain!")
     target_mean = mean_height(chain)
     advection!(chain, method, V, grid_vxi, dt)
     move_particles!(chain)
