@@ -73,7 +73,7 @@ vy_stream(x, y) = -250 * cos(π * x) * sin(π * y)
 # Analytical flow solution
 vi_stream(x) = π * FT(1.0e-5) * (x - FT(0.5))
 
-phase_ratio_sums_ok(A) = all(x -> iszero(x) || x ≈ 1, sum.(A))
+phase_ratio_sums_ok(A) = all(x -> iszero(x) || x ≈ 1, sum.(to_cpu(A)))
 
 function setup_circle_particles(particles, pPhases, n_circle, x_circle, y_circle, x_shift)
     for ip in 1:n_circle
@@ -478,6 +478,10 @@ include(joinpath(@__DIR__, "helpers_move_particles.jl"))
     grid_vy = expand_range(xc), xv
     particles = init_particles(backend, 4, 4, 1, grid_vx, grid_vy)
     fields = init_cell_arrays(particles, Val(2))
+
+    @testset "cell boundaries settle without repeated movement" begin
+        check_boundary_move(backend, particles, fields)
+    end
 
     L, R, D, U = (-1, 0), (1, 0), (0, -1), (0, 1)
     scenarios = (

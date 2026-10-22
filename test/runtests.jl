@@ -16,6 +16,7 @@ const FULL_SUITES = (
     "test_CellArrays.jl", "test_markerchain_2D.jl", "test_refined_grid.jl",
     "test_save_load.jl", "test_interpolation_kernels.jl", "test_semilagrangian.jl",
     "test_marker_surface.jl", "test_validation.jl", "test_phase_injection.jl",
+    "test_surface_injection.jl",
 )
 
 function run_suite(testdir, load_path, filename)

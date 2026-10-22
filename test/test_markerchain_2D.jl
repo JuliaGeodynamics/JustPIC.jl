@@ -724,6 +724,55 @@ end
     end
 end
 
+@testset "MarkerChain small offset cut cells 2D" begin
+    # Rift-sized horizontal resolution: quarter cells are small compared with
+    # their absolute x coordinates. Recentring by subtraction used to leave
+    # chord endpoints outside GridGeometryUtils' relative boundary tolerance.
+    for T in TEST_PRECISIONS
+        xv = collect(range(T(-0.5), T(0.5); length = 1801))
+        for i in 2:(length(xv) - 1), side in (-1, 1)
+            width = side < 0 ? (xv[i] - xv[i - 1]) / 2 : (xv[i + 1] - xv[i]) / 2
+            x0 = side < 0 ? xv[i] - width : xv[i]
+            height = T(0.001)
+            r = JustPIC.Rectangle((x0 + width / 2, zero(T)), width, height; θ = zero(T))
+            for (y1, y2, expected) in (
+                    (zero(T), zero(T), T(0.5)),
+                    (-height, zero(T), T(0.125)),
+                    (height, -height, T(0.5)),
+                )
+                segment = Segment(Point(x0, y1), Point(x0 + width, y2))
+                fraction = JustPIC.cell_rock_area(segment, r)
+                @test fraction isa T
+                @test isapprox(fraction, expected; atol = 20 * eps(T), rtol = 20 * eps(T))
+            end
+        end
+    end
+
+    # Exercise all four actual kernels, including boundary and interior vertices,
+    # on a short nonuniform vertical grid with a flat interface through a cell.
+    xv = collect(range(FT(-0.5), FT(0.5); length = 1801))
+    yv = FT[-0.001, 0.0015, 0.004]
+    xvi = TA(backend)(xv), TA(backend)(yv)
+    dxi = TA(backend)(diff(xv)), TA(backend)(diff(yv))
+    chain = init_markerchain(backend, 3, 2, 6, xvi[1], zero(FT))
+    ratios = (
+        center = TA(backend)(zeros(FT, length(xv) - 1, length(yv) - 1)),
+        vertex = TA(backend)(zeros(FT, length(xv), length(yv))),
+        Vx = TA(backend)(zeros(FT, length(xv), length(yv) - 1)),
+        Vy = TA(backend)(zeros(FT, length(xv) - 1, length(yv))),
+    )
+    compute_rock_fraction!(ratios, chain, xvi, dxi)
+    for field in (ratios.center, ratios.vertex, ratios.Vx, ratios.Vy)
+        values = to_cpu(field)
+        @test all(isfinite, values)
+        @test all(0 .≤ values .≤ 1)
+    end
+    @test all(isapprox.(to_cpu(ratios.center)[:, 1], FT(0.4); atol = 20 * eps(FT)))
+    @test all(isapprox.(to_cpu(ratios.Vx)[:, 1], FT(0.4); atol = 20 * eps(FT)))
+    @test all(isapprox.(to_cpu(ratios.vertex)[:, 1], FT(0.8); atol = 20 * eps(FT)))
+    @test all(isapprox.(to_cpu(ratios.Vy)[:, 1], FT(0.8); atol = 20 * eps(FT)))
+end
+
 @testset "MarkerChain rock fraction 2D" begin
     # A 2x2 cell spanning x ∈ [1, 3], y ∈ [2, 4], repeated at offsets of many cell widths:
     # the geometry is evaluated relative to the cell, so the answers must not degrade as the
