@@ -120,6 +120,44 @@ update_phase_ratios!(phase_ratios, particles, phases)
 
 This is the preferred high-level style for simulation code, tests, and examples.
 
+### Injection against a free surface
+
+For 2D marker-chain models, opt into separate rock and air occupancy targets:
+
+```julia
+move_particles!(particles, (phases, particle_args...))
+# Advance the marker chain before replenishing the particles.
+inject_particles_phase!(particles, phases, particle_args, chain; air_phase = 5)
+update_phase_ratios!(phase_ratios, particles, phases)
+```
+
+This overload removes particles on the wrong side of the chain and seeds each
+nonempty rock/air portion of a quadrant directly, including thin slivers. It
+copies phase and all companion fields from a live same-side donor in the physical
+3×3 neighborhood. New particles do not become donors within the same call.
+Pass every history field that must follow the material in `particle_args`.
+Existing valid particles retain their histories. Grid-field injection remains
+available through the existing overload that takes `fields` as its fourth argument.
+
+To prescribe material entering through the vertical sides, supply a backend-callable
+`boundary_initializer(position, is_air)` returning `(phase, values)`. The tuple
+`values` must match `particle_args`; the phase must agree with the side of the
+chain, and all returned values must be finite. It is used only for newly injected
+particles in the leftmost/rightmost physical columns, regardless of flow direction.
+The caller chooses the incoming layers, temperature and deformation/stress history.
+
+The call throws if a rock/air target cannot be filled because donors are absent,
+capacity is exhausted or the initializer returns invalid data. Successful partial
+updates remain applied: save the pre-step state if rollback is needed. Ensure
+capacity allows both materials in cut quadrants, which can require one extra
+particle per quadrant beyond the usual rounded target. For a distributed run,
+physical boundaries and rank interfaces need separate treatment; this prototype
+uses only physical interior donors and has not been validated under MPI.
+
+Rejecting an unconverged mechanical solve and keeping a consistent accepted
+timestep remain responsibilities of the solver caller; injection cannot repair
+already-invalid mechanical history.
+
 ## API
 
 ### Containers
