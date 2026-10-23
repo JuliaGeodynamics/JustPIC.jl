@@ -206,7 +206,11 @@ ignored in the uniform case.
 """
 @inline parent_cell_index(x, xv::AbstractRange, seed) =
     clamp(cell_index(x, xv, step(xv)), 1, length(xv) - 1)
-@inline function parent_cell_index(x, xv::AbstractVector, seed)
+@inline parent_cell_index(x, xv::AbstractVector, seed) = half_open_cell(x, xv, seed)
+
+# Compares `x` only against the nodes of `xv`, so the result does not depend on `seed`: a point
+# on a vertex gets the same cell whichever neighbor the search starts from.
+@inline function half_open_cell(x, xv, seed)
     i = find_parent_cell_bisection(x, xv, seed)
     # the bisection brackets inclusively at both ends; cells are half-open
     # `[xv[i], xv[i + 1])`, so a point sitting exactly on an interior vertex

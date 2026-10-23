@@ -61,12 +61,16 @@ end
     @test Aqua.test_stale_deps(JustPIC; ignore = [:CUDA, :AMDGPU, :Metal]).value
 end
 
-# CPU only: Aqua's probe rebuilds the manifest from on-disk Project.tomls, which
-# misses registry-only deps of the CUDA JLLs that GPU CI promotes to hard deps.
-@static if BACKEND_NAME == "CPU"
-    @testset "Persistent tasks" begin
-        # Julia 1.10 with coverage and --pkgimages=no can take a while to exit.
+@testset "Persistent tasks" begin
+    # Julia 1.10 can still be precompiling GPU extensions after the probe loads
+    # JustPIC, especially with coverage and --pkgimages=no in CI.
+    if BACKEND_NAME == "CPU"
         Aqua.test_persistent_tasks(JustPIC; tmax = 120)
+    else
+        # Aqua ≥ 0.8.17 mirrors each dependency's Project.toml into the probe manifest, and
+        # CUDA_Runtime_jll ≥ 0.24 omits CUDA_Compiler_jll there, so the probe cannot
+        # precompile wherever a CUDA 13 driver selects the cuda+13 wrapper.
+        @test_skip Aqua.test_persistent_tasks(JustPIC; tmax = 120)
     end
 end
 

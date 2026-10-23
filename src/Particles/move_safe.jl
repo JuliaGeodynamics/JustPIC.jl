@@ -1,6 +1,6 @@
 """
     move_particles!(particles::AbstractParticles, args; periodic_1=false, periodic_2=false, periodic_3=false)
-    move_particles!(particles::AbstractParticles, grid, args, dxi; periodic_1=false, periodic_2=false, periodic_3=false)
+    move_particles!(particles::AbstractParticles, grid, args; periodic_1=false, periodic_2=false, periodic_3=false)
 
 Reassign particles to the correct parent cells after their coordinates have been
 updated.
@@ -14,7 +14,6 @@ layout.
 - `args`: tuple of per-particle fields that must move together with the particle
   coordinates.
 - `grid`: optional vertex grid coordinates used by the lower-level method.
-- `dxi`: optional grid spacing used by the lower-level method.
 - `periodic_1`, `periodic_2`, `periodic_3`: enable periodic wrapping in the
   corresponding coordinate direction.
 
@@ -36,9 +35,9 @@ layout.
   dropped. With `verbose=true`, the number of dropped particles is printed.
   Companion fields are dropped with the particle.
 """
-move_particles!(particles::AbstractParticles, args; periodic_1 = false, periodic_2 = false, periodic_3 = false, verbose = false) = move_particles!(particles, particles.xvi, args, particles.di.vertex; periodic_1 = periodic_1, periodic_2 = periodic_2, periodic_3 = periodic_3, verbose = verbose)
+move_particles!(particles::AbstractParticles, args; periodic_1 = false, periodic_2 = false, periodic_3 = false, verbose = false) = move_particles!(particles, particles.xvi, args; periodic_1 = periodic_1, periodic_2 = periodic_2, periodic_3 = periodic_3, verbose = verbose)
 
-function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args, dxi; periodic_1 = false, periodic_2 = false, periodic_3 = false, verbose = false) where {N}
+function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args; periodic_1 = false, periodic_2 = false, periodic_3 = false, verbose = false) where {N}
 
     (; index) = particles
     N == 2 && periodic_3 && throw(ArgumentError("periodic_3 is only valid for 3D particles"))
@@ -64,7 +63,7 @@ function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args, dx
     drop = false
     overflow = 0
     while true
-        sweep = sweep_cells!(particles, grid, args, dxi, domain_limits, periodicity, max_jump, drop)
+        sweep = sweep_cells!(particles, grid, args, domain_limits, periodicity, max_jump, drop)
         overflow += sweep.dropped
         far = any(sweep.jump .> max_jump)
         far || sweep.full || break
@@ -94,7 +93,7 @@ end
 # ring). Two cells of the same color are more than `2 * max_jump[i]` cells apart along at least
 # one direction `i`, so their write sets are disjoint and no two threads ever search or fill
 # slots in the same cell.
-function sweep_cells!(particles, grid, args, dxi, domain_limits, periodicity, max_jump, drop)
+function sweep_cells!(particles, grid, args, domain_limits, periodicity, max_jump, drop)
     (; coords, index) = particles
     backend = ka_backend(index)
     # Int32 flags and counters: Metal has no 64-bit integer atomics (see #362)
@@ -107,7 +106,7 @@ function sweep_cells!(particles, grid, args, dxi, domain_limits, periodicity, ma
     for colors in Iterators.product(map(axis -> 1:axis.ncolors, layout)...)
         launch!(
             backend, move_particles_ps!, nblocks,
-            coords, grid, dxi, index, domain_limits, args, bound, colors, layout
+            coords, grid, index, domain_limits, args, bound, colors, layout
         )
     end
     value(x) = Int(maximum(x))
@@ -149,13 +148,13 @@ end
 end
 
 @kernel function move_particles_ps!(
-        coords, grid, dxi, index, domain_limits, args, bound, colors::NTuple{N}, layout::NTuple{N}
+        coords, grid, index, domain_limits, args, bound, colors::NTuple{N}, layout::NTuple{N}
     ) where {N}
     I = @index(Global, NTuple)
     indices = ntuple(i -> color_cell(layout[i], colors[i], I[i]), Val(N))
 
     if all(>(0), indices)
-        _move_particles!(coords, grid, dxi, index, domain_limits, indices, args, bound)
+        move_kernel!(coords, grid, index, domain_limits, args, indices, bound)
     end
 end
 
@@ -190,19 +189,15 @@ end
     return ntuple(i -> axis_jump(dst[i], src[i], nxi[i], periodicity[i]), Val(N))
 end
 
-function _move_particles!(coords, grid, dxi, index, domain_limits, idx, args, bound)
-    # coordinate of the lower-most-left coordinate of the parent cell
-    corner_xi = corner_coordinate(grid, idx)
-    # iterate over neighbouring (child) cells
-    move_kernel!(coords, corner_xi, grid, dxi, index, domain_limits, args, idx, bound)
-    return nothing
-end
+# Staying and moving are decided by the same lookup. A separate in-cell test that disagrees with
+# it on a cell face (e.g. a Float32 particle exactly on a vertex) would move the particle within
+# its own cell on every sweep, report progress forever, and never end `move_particles!`.
+@inline containing_cell(p::NTuple{N}, grid, I) where {N} =
+    ntuple(i -> half_open_cell(p[i], grid[i], I[i]), Val(N))
 
 function move_kernel!(
         coords,
-        corner_xi,
         grid,
-        di,
         index,
         domain_limits,
         args::NTuple{N2, Any},
@@ -210,7 +205,6 @@ function move_kernel!(
         bound,
     ) where {N1, N2}
 
-    dxi = @dxi di idx...
     full = progress = false
     jump = ntuple(_ -> 0, Val(N1))
 
@@ -219,9 +213,8 @@ function move_kernel!(
         doskip(index, ip, idx...) && continue
         pᵢ = cache_particle(coords, ip, idx)
 
-        # check whether the particle is
-        # within the same cell and skip it
-        isincell(pᵢ, corner_xi, dxi) && continue
+        new_cell = containing_cell(pᵢ, grid, idx)
+        new_cell == idx && continue
 
         # particle went of of the domain, get rid of it
         domain_check = !(indomain(pᵢ, domain_limits))
@@ -233,8 +226,6 @@ function move_kernel!(
         end
         domain_check && continue
 
-        new_cell = find_parent_cell_bisection(pᵢ, grid, idx)
-
         # too far for the cells swept concurrently: leave it for a wider sweep
         jumpᵢ = cell_jump(new_cell, idx, size(index), bound.periodicity)
         if any(jumpᵢ .> bound.max_jump)
@@ -244,7 +235,7 @@ function move_kernel!(
 
         # check whether there's empty space in parent cell
         free_idx = find_free_memory(index, new_cell...)
-        if iszero(free_idx) && !bound.drop && !settled(coords, grid, di, index, new_cell)
+        if iszero(free_idx) && !bound.drop && !settled(coords, grid, index, new_cell)
             jump = max.(jump, jumpᵢ)
             full = true
             continue
@@ -277,11 +268,9 @@ end
 
 # A full cell whose particles all lie inside it stays full for the rest of `move_particles!`.
 # The destination of a swept cell is never swept concurrently, so reading it is race free.
-@inline function settled(coords, grid, di, index, I)
-    corner_xi = corner_coordinate(grid, I)
-    dxi = @dxi di I...
+@inline function settled(coords, grid, index, I)
     for ip in cellaxes(index)
-        isincell(cache_particle(coords, ip, I), corner_xi, dxi) || return false
+        containing_cell(cache_particle(coords, ip, I), grid, I) == I || return false
     end
     return true
 end
@@ -442,27 +431,26 @@ cell's active particle block.
 function clean_particles!(particles::Particles, grid, args)
     check_particle_fields(particles, args)
     (; coords, index) = particles
-    dxi = compute_dx(grid)
     ni = size(index)
-    launch!(ka_backend(index), _clean!, ni, coords, grid, dxi, index, args)
+    launch!(ka_backend(index), _clean!, ni, coords, grid, index, args)
     return nothing
 end
 
-@kernel function _clean!(particle_coords, grid, dxi, index, args)
+@kernel function _clean!(particle_coords, grid, index, args)
     I = @index(Global, NTuple)
-    clean_kernel!(particle_coords, grid, @dxi(dxi, I...), index, args, I...)
+    clean_kernel!(particle_coords, grid, index, args, I...)
 end
 
 function clean_kernel!(
-        particle_coords, grid, dxi, index, args, cell_indices::Vararg{Int, N}
+        particle_coords, grid, index, args, cell_indices::Vararg{Int, N}
     ) where {N}
-    corner_xi = corner_coordinate(grid, cell_indices...)
     # iterate over particles in child cell
     for ip in cellaxes(index)
         pᵢ = cache_particle(particle_coords, ip, cell_indices)
 
         if CAI.@index index[ip, cell_indices...] # true if memory allocation is filled with a particle
-            if !(isincell(pᵢ, corner_xi, dxi))
+            # same membership rule as `move_particles!`, so particles it keeps are not removed here
+            if containing_cell(pᵢ, grid, cell_indices) != cell_indices
                 # remove particle from child cell
                 CAI.@index index[ip, cell_indices...] = false
                 empty_particle!(particle_coords, ip, cell_indices)

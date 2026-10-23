@@ -4,7 +4,7 @@ include:
 unit_test:
   extends: .baremetal-runner-beverin-mi300
   variables:
-    JULIA: /users/lraess/julia_amd/juliaup/julia-1.12.6+0.x64.linux.gnu/bin/julia
+    JULIA: /users/lraess/julia_amd/julia_amd-1.12
     UENV: b2550889de318ab5
     SLURM_JOB_NUM_NODES: 1
     SLURM_NTASKS_PER_NODE: 1
@@ -26,7 +26,7 @@ unit_test:
 # ref_test:
 #   extends: .baremetal-runner-beverin-mi300
 #   variables:
-#     JULIA: /users/lraess/julia_amd/juliaup/julia-1.12.6+0.x64.linux.gnu/bin/julia
+#     JULIA: /users/lraess/julia_amd/julia_amd-1.12
 #     UENV: b2550889de318ab5
 #     JULIA_JUSTPIC_BACKEND: "AMDGPU"
 #     SLURM_JOB_NUM_NODES: 2
