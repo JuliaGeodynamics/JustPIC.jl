@@ -317,3 +317,17 @@ A thread-per-slot classify kernel was not faster.
 
 New test `check_full_destination_chain` (2D and 3D): particles bound for a
 settled full cell are dropped and free their source for an upstream particle.
+
+## Validation status
+
+- CPU: `test_3D`, `test_integrators`, `test_markerchain_2D`, `test_refined_grid`
+  pass. `test_2D` passes every testset through `Forced injection 2D` (all move
+  tests included) but crashes intermittently (exit 139, sometimes
+  `GC error (probable corruption)` during type inference) in `Pure shear 2D`.
+  The crash occurs on `main` too: running only that testset, 1/5 runs crashed
+  on `main` and 2/5 on this tree; `--check-bounds=yes` raises no `BoundsError`.
+  The testset defines a `@kernel` inside the `@testset` body.
+- CUDA: `test_2D`, `test_3D`, `test_markerchain_2D`, `test_refined_grid`,
+  `test_integrators` pass with `CUDA.allowscalar(true)`. Without it, the same
+  four files stop at a scalar-indexing error in test setup code (or
+  `MarkerChain/resample.jl:17`), identically on `main`.
