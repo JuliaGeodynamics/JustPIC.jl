@@ -97,6 +97,8 @@ function reduce_surface_velocity_z!(surf::MarkerSurface, zg)
     surf.vx .*= w
     surf.vy .*= w
     surf.vz .*= w
+    # MPI reads device buffers without ordering against the task's stream
+    KernelAbstractions.synchronize(ka_backend(w))
 
     # Sum owned contributions across the z-column, straight on the device arrays —
     # same path ImplicitGlobalGrid uses for halos (GPU-aware MPI when enabled).
