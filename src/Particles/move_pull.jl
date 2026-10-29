@@ -31,6 +31,9 @@ const SLOT_PULLED = Int8(-3)
 @inline code_bit(code::Integer) = one(UInt32) << (Int(code) - 1)
 const OUT_BIT = one(UInt32) << 31
 
+# Positions in the flag and counter buffer
+const FAR, MOVING, PENDING, PROGRESS, DROPPED = 1, 2, 3, 4, 5
+
 # Move the particles with the pull scheme and return the number dropped because their
 # destination stayed full, or `nothing`, without changing anything, if a particle is more
 # than one cell away from its parent cell.
@@ -39,43 +42,67 @@ function pull_particles!(particles, grid, args, domain_limits)
     backend = ka_backend(index)
     code = KernelAbstractions.zeros(backend, Int8, size(index)..., cellnum(index))
     outgoing = KernelAbstractions.zeros(backend, UInt32, size(index))
-    # Int32 flags and counters: Metal has no 64-bit integer atomics (see #362)
-    counter() = KernelAbstractions.zeros(backend, Int32, 1)
-    far, moving, pending, progress, dropped = ntuple(_ -> counter(), 5)
-    value(x) = Int(maximum(x))
+    # Int32: Metal has no 64-bit integer atomics (see #362). One buffer, so each round costs
+    # one copy to the device and one back.
+    counters = KernelAbstractions.zeros(backend, Int32, 5)
+    state = zeros(Int32, 5)
 
     launch!(
         backend, classify_moves_kernel!, size(index),
-        code, outgoing, coords, grid, index, domain_limits, far, moving
+        code, outgoing, coords, grid, index, domain_limits, counters
     )
-    iszero(value(far)) || return nothing
-    iszero(value(moving)) && return 0
+    copyto!(state, counters)
+    iszero(state[FAR]) || return nothing
+    iszero(state[MOVING]) && return 0
 
     # 0: pull and clear; 1: also drop particles bound for settled cells; 2: drop all waiting
     level = 0
     while true
-        fill!(pending, 0)
-        fill!(progress, 0)
+        state[PENDING] = state[PROGRESS] = 0
+        copyto!(counters, state)
         iszero(level) && launch!(backend, pull_particles_kernel!, size(index), code, outgoing, coords, index, args)
         launch!(
             backend, clear_moved_kernel!, size(index),
-            code, coords, index, args, outgoing, level, pending, progress, dropped
+            code, coords, index, args, outgoing, level, counters
         )
-        iszero(value(pending)) && break
-        level = iszero(value(progress)) ? level + 1 : 0
+        copyto!(state, counters)
+        iszero(state[PENDING]) && break
+        level = iszero(state[PROGRESS]) ? level + 1 : 0
     end
-    return value(dropped)
+    return Int(state[DROPPED])
 end
 
-@kernel function classify_moves_kernel!(code, outgoing, coords, grid, index, domain_limits, far, moving)
+# Cache the parent bounds once per cell. Uniform ranges also cache the neighboring
+# bounds: recomputing a LinRange node for every particle is costly in Float64.
+@inline move_cell_bounds(grid::AbstractVector, i) = (grid[i], grid[i + 1])
+@inline move_cell_bounds(grid::AbstractRange, i) =
+    (grid[max(i - 1, 1)], grid[i], grid[i + 1], grid[min(i + 2, length(grid))])
+
+@inline function move_cell_index(x, grid, i, bounds::NTuple{2})
+    lower, upper = bounds
+    lower <= x < upper && return i
+    return half_open_cell(x, grid, i)
+end
+
+@inline function move_cell_index(x, grid, i, bounds::NTuple{4})
+    left, lower, upper, right = bounds
+    lower <= x < upper && return i
+    i > 1 && left <= x < lower && return i - 1
+    i < length(grid) - 1 && upper <= x < right && return i + 1
+    return half_open_cell(x, grid, i)
+end
+
+@kernel function classify_moves_kernel!(code, outgoing, coords, grid, index, domain_limits, counters)
     I = @index(Global, NTuple)
+    N = length(I)
+    bounds = ntuple(d -> move_cell_bounds(grid[d], I[d]), Val(N))
     anyfar = anymoving = false
     mask = zero(UInt32)
     for ip in cellaxes(index)
         c = SLOT_STAY
         if !doskip(index, ip, I...)
             pᵢ = cache_particle(coords, ip, I)
-            new_cell = containing_cell(pᵢ, grid, I)
+            new_cell = ntuple(d -> move_cell_index(pᵢ[d], grid[d], I[d], bounds[d]), Val(N))
             if new_cell != I
                 offset = new_cell .- I
                 c = if !indomain(pᵢ, domain_limits)
@@ -93,8 +120,8 @@ end
         code[I..., ip] = c
     end
     outgoing[I...] = mask
-    raise!(far, anyfar)
-    raise!(moving, anymoving)
+    raise!(counters, FAR, anyfar)
+    raise!(counters, MOVING, anymoving)
 end
 
 # `outgoing` may have bits set for particles no longer waiting; it only prunes the scan.
@@ -124,7 +151,7 @@ end
 
 # `outgoing` is rewritten only at level 0 and read for neighbor cells only at level 1, so no
 # launch both reads and writes it.
-@kernel function clear_moved_kernel!(code, coords, index, args, outgoing, level, pending, progress, dropped)
+@kernel function clear_moved_kernel!(code, coords, index, args, outgoing, level, counters)
     I = @index(Global, NTuple)
     N = length(I)
     anypending = anyprogress = false
@@ -152,9 +179,9 @@ end
         ndropped += waiting
     end
     iszero(level) && (outgoing[I...] = mask)
-    raise!(pending, anypending)
-    raise!(progress, anyprogress)
-    iszero(ndropped) || KernelAbstractions.@atomic dropped[1] += convert(eltype(dropped), ndropped)
+    raise!(counters, PENDING, anypending)
+    raise!(counters, PROGRESS, anyprogress)
+    iszero(ndropped) || KernelAbstractions.@atomic counters[DROPPED] += convert(eltype(counters), ndropped)
 end
 
 # First slot after `last` that is free in cell `I`, or `lastindex(cellaxes(index)) + 1`.

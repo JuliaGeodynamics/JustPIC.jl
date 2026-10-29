@@ -472,6 +472,9 @@ end
 include(joinpath(@__DIR__, "helpers_move_particles.jl"))
 
 @testset "Particle movement fills free slots per destination 2D" begin
+    @testset "cached cell lookup preserves boundaries and long jumps" begin
+        check_cached_cell_lookup(backend, FT)
+    end
     xv = LinRange(FT(0), FT(1), 5)
     xc = LinRange(FT(0.125), FT(0.875), 4)
     grid_vx = xv, expand_range(xc)

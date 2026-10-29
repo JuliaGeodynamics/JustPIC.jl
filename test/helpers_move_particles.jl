@@ -1,6 +1,41 @@
 # Fixtures for the `move_particles!` slot-occupancy regression tests (2D and 3D).
 import KernelAbstractions: @kernel, @index
 
+@kernel function cached_cell_lookup_kernel!(actual, expected, grid, positions, seeds)
+    k = @index(Global)
+    x, i = positions[k], seeds[k]
+    actual[k] = JustPIC.move_cell_index(x, grid, i, JustPIC.move_cell_bounds(grid, i))
+    expected[k] = JustPIC.half_open_cell(x, grid, i)
+end
+
+function check_cached_cell_lookup(backend, ::Type{T}) where {T}
+    be = JustPIC.ka_backend(TA(backend)(zeros(T, 1)))
+    for nodes in (
+            LinRange(T(0), T(1), 7),
+            range(T(0); step = T(0.125), length = 7),
+            T[0, 0.03, 0.12, 0.35, 0.61, 0.82, 1],
+        )
+        grid = JustPIC.backend_grid(be, nodes, T)
+        vertices = collect(nodes)
+        queries = vcat(
+            prevfloat.(vertices), vertices, nextfloat.(vertices),
+            (vertices[1:(end - 1)] .+ vertices[2:end]) ./ 2,
+            T[-2, 3],
+        )
+        # Every seed: staying, neighboring, long-jump, boundary and clamped cases.
+        positions = repeat(queries, length(nodes) - 1)
+        seeds = repeat(Int32.(1:(length(nodes) - 1)); inner = length(queries))
+        actual = TA(backend)(zeros(Int32, length(positions)))
+        expected = similar(actual)
+        JustPIC.launch!(
+            be, cached_cell_lookup_kernel!, length(positions),
+            actual, expected, grid, TA(backend)(positions), TA(backend)(seeds),
+        )
+        @test Array(actual) == Array(expected)
+    end
+    return nothing
+end
+
 # Writes particle `n` into slot `slots[n]` of cell `(cells[1][n], cells[2][n], ...)`;
 # companion field `k` receives `k * ids[n]`.
 @kernel function place_particles_kernel!(

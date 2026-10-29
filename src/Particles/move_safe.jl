@@ -281,13 +281,14 @@ end
     return true
 end
 
-# Raise the shared maximum `x[1]` to `value`. The values are shared by all threads: update each
+# Raise the shared maximum `x[i]` to `value`. The values are shared by all threads: update each
 # at most once per cell, skipping zero local values without reading the shared counter.
-@inline function raise!(x, value)
+@inline function raise!(x, i, value)
     v = convert(eltype(x), value)
-    !iszero(v) && (KernelAbstractions.@atomic x[1] max v)
+    !iszero(v) && (KernelAbstractions.@atomic x[i] max v)
     return nothing
 end
+@inline raise!(x, value) = raise!(x, 1, value)
 
 @generated function look_around(px::NTuple{N, Number}, x::NTuple{N, AbstractVector}, I) where {N}
     return quote
