@@ -68,7 +68,7 @@ function main()
 
     niter = 100
     for it in 1:niter
-        advection!(particles, RungeKutta2(), V, dt)
+        advection_MQS!(particles, RungeKutta2(), V, dt)
         move_particles!(particles, particle_args)
         # reseed
         inject_particles!(particles, (pT,))

@@ -180,6 +180,11 @@ starting from the initial guess `seed`.
 end
 
 @inline function find_parent_cell_bisection(px, x, lo, hi, seed)
+    # on staggered grids the seed is often one cell off: test its neighbors before bisecting
+    # the whole axis (the bracket is unique, so the result does not change)
+    for i in (seed, seed - 1, seed + 1)
+        lo ≤ i ≤ hi && x[i] ≤ px < x[i + 1] && return i
+    end
     while true
         x[seed] ≤ px < x[seed + 1] && return seed
 

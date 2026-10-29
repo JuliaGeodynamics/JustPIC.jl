@@ -110,9 +110,7 @@ end
             method, pᵢ, V, grid_vi, local_limits, dxi, dt, I_inner, periodicity, domain_limits
         )
         # update particle coordinates
-        for k in 1:N
-            CAI.@index p[k][ipart, I_inner...] = pᵢ_new[k]
-        end
+        fill_particle!(p, pᵢ_new, ipart, I_inner)
     end
 end
 

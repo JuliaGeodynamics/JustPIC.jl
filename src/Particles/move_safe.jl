@@ -51,6 +51,12 @@ function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args; pe
             ArgumentError("particles found in the ghost cells of a periodic direction; they must be empty before `move_particles!`")
         )
         wrap_particles!(particles, periodicity, domain_limits)
+    else
+        dropped = pull_particles!(particles, grid, args, domain_limits)
+        if !isnothing(dropped)
+            verbose && println("move_particles!: dropped $dropped particles because destination cells were full")
+            return nothing
+        end
     end
 
     # The first sweep assumes that particles cross at most one cell along each direction, as
@@ -341,11 +347,14 @@ function cell_index_neighbour(x, xC, dx::AbstractVector, i::Integer, I)
     return error("Particle moved more than one cell away from the parent cell $I in $i, with xi $x")
 end
 
-function find_free_memory(index, I::Vararg{Int, N}) where {N}
-    for i in cellaxes(index)
-        (CAI.@index(index[i, I...])) || return i
+# First free slot of cell `I`, or 0 if the cell is full. The scan has no early exit so the
+# slot loads are independent and issue together instead of one dependent load per slot.
+@inline function find_free_memory(index, I::Vararg{Int, N}) where {N}
+    free = 0
+    for i in reverse(cellaxes(index))
+        free = ifelse(CAI.@index(index[i, I...]), free, i)
     end
-    return 0
+    return free
 end
 
 # half-open `[xmin, xmax)`, matching `isincell` and the interval `wrap_coordinate` maps into

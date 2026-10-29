@@ -205,6 +205,41 @@ function check_transiently_full_destination(particles, fields)
     return nothing
 end
 
+# Three cells in a row along the first direction: `c` is full and its particles stay, the full
+# cell `b` sends all its particles to `c`, and `a` sends one particle to `b`. The particles of
+# `b` can never enter `c` and are dropped, which frees `b` for the particle from `a`.
+function check_full_destination_chain(particles, fields)
+    T = eltype(eltype(particles.coords[1]))
+    N = length(particles.coords)
+    max_xcell = particles.max_xcell
+    a, b, c = ntuple(i -> ntuple(d -> d == 1 ? i + 1 : 3, Val(N)), 3)
+    xci = Array.(particles.xci)
+    centre(cell) = ntuple(d -> T(xci[d][cell[d]]), Val(N))
+
+    total = 2 * max_xcell + 1
+    cells = ntuple(d -> [fill(c[d], max_xcell); fill(b[d], max_xcell); a[d]], Val(N))
+    slots = [repeat(1:max_xcell, 2); 1]
+    positions = ntuple(d -> [fill(centre(c)[d], 2 * max_xcell); centre(b)[d]], Val(N))
+    clear_particles!(particles, fields)
+    dev = TA(backend)
+    JustPIC.launch!(
+        JustPIC.ka_backend(particles.index), place_particles_kernel!, total,
+        particles.index, particles.coords, fields,
+        ntuple(d -> dev(cells[d]), Val(N)), dev(slots),
+        ntuple(d -> dev(positions[d]), Val(N)), dev(T.(1:total)),
+    )
+    move_particles!(particles, fields)
+
+    index_h = to_cpu(particles.index)
+    fields_h = to_cpu.(fields)
+    ids(cell) = sort([CAI.@index(fields_h[1][slot, cell...]) for slot in 1:max_xcell if CAI.@index(index_h[slot, cell...])])
+    @test count(Array(particles.index.data)) == max_xcell + 1
+    @test ids(c) == T.(1:max_xcell)
+    @test ids(b) == [T(total)]
+    @test isempty(ids(a))
+    return nothing
+end
+
 # All three cells are full and swept in order a, b, c. The particles in c leave
 # the domain, so later sweeps must propagate its vacancies without dropping a or b.
 function check_exit_unblocks_destination(backend, ::Type{T}, ::Val{N}) where {T, N}

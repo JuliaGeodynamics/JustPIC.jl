@@ -54,6 +54,7 @@ export init_particles, init_cell_arrays
 include("Particles/utils.jl")
 
 include("Particles/move_safe.jl")
+include("Particles/move_pull.jl")
 export move_particles!
 
 include("Particles/Advection/Euler.jl")
