@@ -92,6 +92,7 @@ end
     ) where {N, F}
     I = @index(Global, NTuple)
     I_inner = I .+ 1
+    cached_grid = cache_cell_nodes(grid, I_inner)
 
     # iterate over particles in the I-th cell
     for ipart in cellaxes(index)
@@ -101,7 +102,7 @@ end
         pᵢ = get_particle_coords(p, ipart, I_inner...)
         # advect particle
         pᵢ_new = advect_particle(
-            method, pᵢ, V, grid, local_limits, dxi, dt, interpolation_fn, I_inner,
+            method, pᵢ, V, cached_grid, local_limits, dxi, dt, interpolation_fn, I_inner,
             periodicity, domain_limits
         )
         # update particle coordinates

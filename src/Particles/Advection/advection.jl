@@ -82,6 +82,36 @@ function advection!(
     return nothing
 end
 
+# A `LinRange` computes every node with a Float64 division (`Base.lerpi`), which dominates
+# the velocity lookups on GPUs with slow Float64. The advection kernels cache the nodes around
+# their cell once: the seed and its neighbors, which cover the staggered parent cells; other
+# indices fall back to the range, so every lookup returns the same value as before. Ranges
+# that index with one multiply-add (`recast_grid`) are cheaper to recompute than to cache.
+struct CachedNodes{T, G <: AbstractRange{T}} <: AbstractVector{T}
+    grid::G
+    seed::Int
+    nodes::NTuple{4, T}
+end
+
+Base.size(x::CachedNodes) = size(x.grid)
+Base.IndexStyle(::Type{<:CachedNodes}) = IndexLinear()
+Base.@propagate_inbounds function Base.getindex(x::CachedNodes, i::Int)
+    @boundscheck checkbounds(x.grid, i)
+    j = i - x.seed + 2
+    1 ≤ j ≤ 4 && return @inbounds x.nodes[j]
+    return @inbounds x.grid[i]
+end
+
+@inline cache_nodes(grid, _) = grid
+@inline function cache_nodes(grid::LinRange{T}, seed) where {T}
+    # clamped entries lie outside `grid` and are never returned
+    nodes = ntuple(j -> grid[clamp(seed + j - 2, 1, length(grid))], Val(4))
+    return CachedNodes{T, typeof(grid)}(grid, seed, nodes)
+end
+
+@inline cache_cell_nodes(grid_vi::NTuple{N, NTuple{N, Any}}, I::NTuple{N, Int}) where {N} =
+    ntuple(c -> ntuple(d -> cache_nodes(grid_vi[c][d], I[d]), Val(N)), Val(N))
+
 # DIMENSION AGNOSTIC KERNELS
 
 @kernel function advection_kernel!(
@@ -98,6 +128,7 @@ end
     ) where {N}
     I = @index(Global, NTuple)
     I_inner = I .+ 1
+    grid = cache_cell_nodes(grid_vi, I_inner)
 
     # iterate over particles in the I-th cell
     for ipart in cellaxes(index)
@@ -107,7 +138,7 @@ end
         pᵢ = get_particle_coords(p, ipart, I_inner...)
         # advect particle
         pᵢ_new = advect_particle(
-            method, pᵢ, V, grid_vi, local_limits, dxi, dt, I_inner, periodicity, domain_limits
+            method, pᵢ, V, grid, local_limits, dxi, dt, I_inner, periodicity, domain_limits
         )
         # update particle coordinates
         fill_particle!(p, pᵢ_new, ipart, I_inner)
