@@ -57,24 +57,19 @@ end
 
 # INNERMOST INTERPOLATION KERNEL
 
-@generated function _grid2particle_classic!(
+@inline function _grid2particle_classic!(
         Fp, p, xvi, di, F, index, idx, ::Val{N}, mask
     ) where {N}
-    return quote
-        Base.@_inline_meta
-        Fi = field_corners(F, idx .+ mask)
-        xi_corner = corner_coordinate(xvi, idx)
-        # iterate over all the particles within the cells of index `idx`
-        Base.@nexprs $N ip -> begin
-            # skip lines below if there is no particle in this piece of memory
-            @inbounds if !doskip(index, ip, idx...)
-                # cache particle coordinates
-                pᵢ = get_particle_coords(p, ip, idx...)
-                # Interpolate field F onto particle
-                CAI.@index Fp[ip, idx...] = _grid2particle(pᵢ, xi_corner, di, Fi)
-            end
+    Fi = field_corners(F, idx .+ mask)
+    xi_corner = corner_coordinate(xvi, idx)
+    # Keep code size independent of the number of particle slots per cell.
+    @inbounds for ip in 1:N
+        if !doskip(index, ip, idx...)
+            pᵢ = get_particle_coords(p, ip, idx...)
+            CAI.@index Fp[ip, idx...] = _grid2particle(pᵢ, xi_corner, di, Fi)
         end
     end
+    return nothing
 end
 
 @generated function _grid2particle_classic!(
@@ -84,7 +79,7 @@ end
         Base.@_inline_meta
         Fi = Base.@ntuple $NF field -> field_corners(F[field], idx .+ mask)
         xi_corner = corner_coordinate(xvi, idx)
-        Base.@nexprs $NP ip -> begin
+        @inbounds for ip in 1:$NP
             @inbounds if !doskip(index, ip, idx...)
                 pᵢ = get_particle_coords(p, ip, idx...)
                 Base.@nexprs $NF field -> begin

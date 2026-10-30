@@ -44,18 +44,19 @@ end
 
 ## interpolation kernels
 
-function phase_ratio_weights(
-        pxi::NTuple{NP, Any}, ph::SVector{N1, T}, cell_center, di, ::Val{NC}
-    ) where {N1, NC, NP, T}
+# Read slots directly: caching whole cells overflows the small POCL worker stacks on Windows.
+@inline function phase_ratio_weights(
+        pxi::NTuple{N, Any}, phases, I::NTuple{N, Integer}, cell_center, di, ::Val{NC}
+    ) where {N, NC}
 
     # Initialize phase ratio weights
-    w = ntuple(_ -> zero(T), Val(NC))
+    w = ntuple(_ -> zero(eltype(eltype(phases))), Val(NC))
 
-    for i in eachindex(ph)
-        p = getindex.(pxi, i)
+    for ip in cellaxes(phases)
+        p = ntuple(i -> CAI.@index(pxi[i][ip, I...]), Val(N))
         isnan(first(p)) && continue
         x = @inline bilinear_weight(cell_center, p, di)
-        ph_local = ph[i]
+        ph_local = CAI.@index phases[ip, I...]
         # this is doing sum(w * δij(i, phase)), where δij is the Kronecker delta
         w = w .+ x .* ntuple(j -> (ph_local == j), Val(NC))
     end

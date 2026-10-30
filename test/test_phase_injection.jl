@@ -17,6 +17,28 @@ include("helpers_backend.jl")
 check_backend(BACKEND_NAME, backend, FT)
 BACKEND_NAME != "CPU" && getproperty(Main, Symbol(BACKEND_NAME)).allowscalar(false)
 
+@testset "Nearest injection with 150 slots" begin
+    for N in (2, 3)
+        xv = LinRange(FT(0), FT(1), 4)
+        xcg = LinRange(-FT(1) / 6, FT(7) / 6, 5)
+        grids = ntuple(d -> ntuple(i -> i == d ? xv : xcg, N), N)
+        particles = init_particles(backend, 125, 150, 100, grids...)
+        values, = init_cell_arrays(particles, Val(1))
+        fill!(values.data, FT(3))
+        # Keep one donor per physical cell and refill the other quadrants.
+        for ip in 2:particles.max_xcell
+            fill!(field(particles.index, ip), false)
+            fill!(field(values, ip), FT(NaN))
+        end
+        before = count(Array(particles.index.data))
+        inject_particles!(particles, (values,))
+        active = Array(particles.index.data)
+        @test count(active) > before
+        @test all(==(FT(3)), Array(values.data)[active])
+        @test all(coord -> all(isfinite, Array(coord.data)[active]), particles.coords)
+    end
+end
+
 function mixed_injection_prototype(::Val{N}, refined) where {N}
     ni = ntuple(d -> 3 + d, Val(N))
     xv = ntuple(Val(N)) do d

@@ -96,12 +96,12 @@ end
     xvi_quadrants = quadrant_corners(corner_coordinate(grid, idx_cell), di_quadrant)
     # integer ceiling division: `a / b` is a Float64 divide, which Metal cannot do
     min_xQuadrant = cld(min_xcell, length(xvi_quadrants))
-    pcell = extract_particle_cell_coordinates(coords, idx_cell...)
+    # Read slots directly instead of caching whole cells as large static vectors.
     counts = map(xvi_quadrants) do vertex
         n = 0
         for i in cellaxes(index)
             (CAI.@index index[i, idx_cell...]) || continue
-            n += isincell(extract_particle_coordinates(pcell, i), vertex, di_quadrant)
+            n += isincell(get_particle_coords(coords, i, idx_cell...), vertex, di_quadrant)
         end
         n
     end
