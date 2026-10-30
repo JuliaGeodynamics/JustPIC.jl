@@ -1,6 +1,6 @@
 name = "JustPIC"
 uuid = "10dc771f-8528-4cd9-9d3b-b21b2e693339"
-version = "0.7.15"
+version = "0.7.16"
 authors = ["Albert De Montserrat <albertdemontserratnavarro@eaps.ethz.ch>"]
 
 [deps]
@@ -33,7 +33,7 @@ CellArrays = "0.3"
 CellArraysIndexing = "0.2.2"
 GridGeometryUtils = "0.3.1"
 ImplicitGlobalGrid = "0.16, 0.17"
-JLD2 = "0.5, 0.6"
+JLD2 = "0.6"
 KernelAbstractions = "0.9, 0.10"
 LinearAlgebra = "1.10, 1.11, 1.12, 1.13"
 MPI = "0.20"

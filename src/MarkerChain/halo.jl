@@ -97,6 +97,8 @@ function _reduce_chain_positions_y!(px, py, h, yv)
         # non-owners may hold non-finite extrapolations; zero them, not scale them
         @. px = ifelse(w > 0, px, zero(T))
         @. py = ifelse(w > 0, py, zero(T))
+        # MPI reads device buffers without ordering against the task's stream
+        KernelAbstractions.synchronize(ka_backend(px))
         ycol = _column_comm(gg.comm, (false, true, false))
         MPI.Allreduce!(px, +, ycol)
         MPI.Allreduce!(py, +, ycol)
