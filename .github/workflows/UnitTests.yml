@@ -90,6 +90,20 @@ jobs:
           julia --project=. -e 'using MPI;
           run(`$(mpiexec()) -n 4 $(Base.julia_cmd()) --project=. test/test_marker_surface_mpi.jl`)'
 
+  cell_halo_mpi:
+    name: CellArray halo MPI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: '1'
+      - uses: julia-actions/julia-buildpkg@latest
+      - name: Run four-rank update_cell_halo! test
+        run: >-
+          julia --project=. -e 'using MPI;
+          run(`$(mpiexec()) -n 4 $(Base.julia_cmd()) --project=. test/test_cell_halo_mpi.jl`)'
+
   markerchain_mpi:
     name: MarkerChain MPI (${{ matrix.dims }})
     runs-on: ubuntu-latest
