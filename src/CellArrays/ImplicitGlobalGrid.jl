@@ -17,6 +17,8 @@ each rank.
 - For MPI particle advection, halo exchange is usually required before
   `move_particles!` so that particles that crossed a rank boundary are visible
   to the neighboring rank.
+- The whole overlap is exchanged, so cells held by two neighboring ranks end
+  up with identical particles, taken from the rank that owns each cell.
 - With periodic boundary conditions, `update_cell_halo!` exchanges the overlap
   across the periodic domain boundaries as configured in `init_global_grid`.
 - If particles are reinjected with `inject_particles!`, refresh the halos again
@@ -41,17 +43,26 @@ function update_cell_halo!(
     )
     ni = size(x[1])
     backend = ka_backend(x[1])
+    halowidths = cell_halowidths(ni)
     for xᵢ in x
         size(xᵢ) == ni || throw(DimensionMismatch("CellArrays must have the same grid size"))
         ka_backend(xᵢ) == backend || throw(ArgumentError("CellArrays must use the same backend"))
         tmp = KernelAbstractions.zeros(backend, eltype(xᵢ.data), ni...)
         for ip in cellaxes(xᵢ)
             launch!(backend, move_CellArray_to_Array_kernel!, ni, tmp, xᵢ, ip)
-            update_halo!(tmp)
+            update_halo!((A = tmp, halowidths))
             launch!(backend, move_Array_to_CellArray_kernel!, ni, xᵢ, tmp, ip)
         end
     end
     return nothing
+end
+
+# Exchange half of the IGG overlap `overlaps + size - nxyz` from each side, so every cell
+# held by two ranks has one owner. Particle CellArrays (one ghost per side) get width 2;
+# IGG's default width of 1 left the two inner shared cells unsynchronized.
+function cell_halowidths(ni::NTuple{N, Integer}) where {N}
+    gg = ImplicitGlobalGrid.global_grid()
+    return ntuple(d -> max(1, (gg.overlaps[d] + get(ni, d, 1) - gg.nxyz[d]) ÷ 2), Val(3))
 end
 
 @kernel function move_Array_to_CellArray_kernel!(A::CellArray, B::AbstractArray, ip)
