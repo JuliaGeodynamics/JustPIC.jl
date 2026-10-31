@@ -26,9 +26,7 @@ end
     # index corresponding to the cell center
     cell_center = ntuple(i -> xci[i][I_inner[i]], Val(N))
     # phase ratios weights (∑w = 1.0)
-    w = phase_ratio_weights(
-        getindex.(pxi, I_inner...), phases[I_inner...], cell_center, di, nphases(ratio_centers)
-    )
+    w = phase_ratio_weights(pxi, phases, I_inner, cell_center, di, nphases(ratio_centers))
     # update phase ratios array
     for k in 1:numphases(ratio_centers)
         CAI.@index ratio_centers[k, I...] = w[k]
