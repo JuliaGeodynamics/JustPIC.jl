@@ -67,6 +67,38 @@ end
     end
 end
 
+@testset "Grid-to-particle interpolation with 150 slots" begin
+    for N in (2, 3)
+        @testset "$(N)D" begin
+            xv = LinRange(FT(0), FT(1), 4)
+            xc = LinRange(FT(1) / 6, FT(5) / 6, 3)
+            grids = ntuple(d -> ntuple(i -> i == d ? xv : expand_range(xc), N), N)
+            particles = init_particles(backend, 125, 150, 100, grids...)
+            scalar, a, b = init_cell_arrays(particles, Val(3))
+            sentinel = FT(-777)
+            foreach(field -> fill!(field.data, sentinel), (scalar, a, b))
+
+            xvi = JustPIC.add_periodic_ghost_nodes.(ntuple(_ -> xv, N))
+            linear = TA(backend)([sum(x) for x in Iterators.product(xvi...)])
+            constant_field = TA(backend)(fill(FT(3), length.(xvi)))
+            grid2particle!(scalar, linear, particles)
+            grid2particle!((a, b), (linear, constant_field), particles)
+
+            active = Array(particles.index.data)
+            expected = sum(Array(coord.data) for coord in particles.coords)
+            @test count(active) > 0
+            @test any(.!active)
+            @test Array(scalar.data)[active] ≈ expected[active]
+            @test Array(a.data)[active] ≈ expected[active]
+            @test Array(b.data)[active] ≈ fill(FT(3), count(active))
+            for field in (scalar, a, b)
+                @test all(==(sentinel), Array(field.data)[.!active])
+                @test eltype(field.data) === FT
+            end
+        end
+    end
+end
+
 @testset "Interpolations 2D" begin
     nxcell, max_xcell, min_xcell = 5, 5, 1
     n = 5 # number of vertices

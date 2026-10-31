@@ -121,13 +121,18 @@ end
     @test_throws "targets unmet" inject_particles_phase!(p, phases, args, chain; air_phase = 5)
 
     p, phases, args, chain, xv, yv = surface_fixture()
+    # Inactive history is unspecified; removed particles may also leave NaNs.
+    args[1].data .= ifelse.(p.index.data, args[1].data, FT(NaN))
     initializer = (position, is_air) -> (is_air ? FT(5) : FT(2), (is_air ? FT(-7) : FT(42), is_air ? FT(0) : FT(900)))
     inject_particles_phase!(p, phases, args, chain; air_phase = 5, boundary_initializer = initializer)
     check_surface_support(p, phases, args, chain, xv, yv)
     phase, history = to_cpu.((phases, args[1]))
     @test any(==(FT(2)), phase[2, 2])
     @test any(==(FT(2)), phase[4, 2])
-    @test all(v -> v in (FT(123), FT(-100), FT(42), FT(-7)), vcat((collect(history[i, j]) for i in 2:4, j in 2:3)...))
+    live = to_cpu(p.index).data
+    @test any(.!live)
+    @test any(isnan, history.data[.!live])
+    @test all(v -> v in (FT(123), FT(-100), FT(42), FT(-7)), history.data[live])
 
     p, phases, args, chain, xv, yv = surface_fixture()
     invalid_initializer = (position, is_air) -> (FT(5), (FT(NaN), FT(0)))
