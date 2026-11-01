@@ -21,9 +21,10 @@ In both cases `max_xcell` is raised to the resulting number of particles per
 cell if it is smaller.
 
 The particle vertex and center grids stored in the returned container are
-extended with ghost nodes. By default, ghost nodes use periodic spacing. Set
-`periodic` to `false` in nonperiodic dimensions to extend each boundary using
-its local edge spacing. The staggered velocity grids are stored as provided.
+extended with ghost nodes. By default, ghost nodes use nonperiodic spacing. Set
+`periodic` to `true` in periodic dimensions to extend each boundary using the
+local edge spacing across the duplicate ghost cell. The staggered velocity grids
+are stored as provided.
 
 # Arguments
 - `backend`: KernelAbstractions backend type such as `CPU`.
@@ -36,7 +37,7 @@ its local edge spacing. The staggered velocity grids are stored as provided.
   vector per spatial dimension. Coordinate vectors may live on any backend;
   they are copied to the host to build the grids.
 - `periodic`: tuple of booleans indicating periodic dimensions. Defaults to
-  `true` in every dimension for compatibility.
+  `false` in every dimension.
 
 # Returns
 - A `Particles` object whose coordinates and occupancy arrays are ready for

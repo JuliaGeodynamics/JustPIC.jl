@@ -55,7 +55,12 @@ end
 function add_nonperiodic_ghost_nodes(x::AbstractVector, lower_boundary, upper_boundary)
     length(x) ≥ 2 || throw(ArgumentError("At least two grid nodes are required"))
 
-    return vcat(2 * lower_boundary - x[1], x, 2 * upper_boundary - x[end])
+    dx_left = x[2] - x[1]
+    dx_right = x[end] - x[end - 1]
+    xI = x[1] - dx_left
+    xF = x[end] + dx_right
+
+    return vcat(xI, x, xF)
 end
 
 @inline function wrap_coordinate(x, periodic, limits)

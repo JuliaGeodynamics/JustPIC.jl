@@ -115,7 +115,7 @@ Base.getindex(p::ForceInjectionPoint2D, i::Int) = p.coords[i]
     grid_vel = grid_vx, grid_vy
     # Initialize particles & particle fields
     particles = JustPIC.init_particles(
-        backend, nxcell, max_xcell, min_xcell, grid_vel...,
+        backend, nxcell, max_xcell, min_xcell, grid_vel...; periodic = (true, true),
     )
 
     arrays = JustPIC.SubgridDiffusionCellArrays(particles)
@@ -445,7 +445,7 @@ end
         backend, 8, 12, 4, grid_vx, grid_vy; periodic = (true, false),
     )
 
-    extend_nonperiodic(x, lower, upper) = vcat(2 * lower - x[1], x, 2 * upper - x[end])
+    extend_nonperiodic(x, lower, upper) = vcat(x[1] - (x[2] - x[1]), x, x[end] + (x[end] - x[end - 1]))
     @test Array.(particles.xvi) == (JustPIC.add_periodic_ghost_nodes(xv), extend_nonperiodic(yv, yv[1], yv[end]))
     @test Array.(particles.xci) == (JustPIC.add_periodic_ghost_nodes(xc), extend_nonperiodic(yc, yv[1], yv[end]))
 
@@ -665,8 +665,8 @@ end
         backend, nxcell, max_xcell, min_xcell, grid_vi...,
     )
 
-    @test Array.(particles.xvi) == JustPIC.add_periodic_ghost_nodes.(xvi)
-    @test Array.(particles.xci) == JustPIC.add_periodic_ghost_nodes.(xci)
+    @test Array.(particles.xvi) == JustPIC.add_nonperiodic_ghost_nodes.(xvi, first.(xvi), last.(xvi))
+    @test Array.(particles.xci) == JustPIC.add_nonperiodic_ghost_nodes.(xci, first.(xvi), last.(xvi))
     @test Array.(particles.xi_vel[1]) == grid_vi[1]
     @test Array.(particles.xi_vel[2]) == grid_vi[2]
 end
