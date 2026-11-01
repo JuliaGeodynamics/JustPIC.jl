@@ -63,6 +63,9 @@ function add_nonperiodic_ghost_nodes(x::AbstractVector, lower_boundary, upper_bo
     return vcat(xI, x, xF)
 end
 
+# Uniform grids have the same edge spacing under either boundary convention.
+add_nonperiodic_ghost_nodes(x::AbstractRange, lower_boundary, upper_boundary) = add_periodic_ghost_nodes(x)
+
 @inline function wrap_coordinate(x, periodic, limits)
     periodic || return x
     xmin, xmax = limits

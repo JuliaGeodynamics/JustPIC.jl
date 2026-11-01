@@ -99,6 +99,25 @@ end
 Base.isnan(p::ForceInjectionPoint2D) = !p.active
 Base.getindex(p::ForceInjectionPoint2D, i::Int) = p.coords[i]
 
+@testset "Uniform nonperiodic grids stay as ranges" begin
+    for xv in (LinRange(FT(0), FT(1), 5), range(FT(0); step = FT(0.25), length = 5))
+        xc = xv isa LinRange ? LinRange(FT(0.125), FT(0.875), 4) : range(FT(0.125); step = FT(0.25), length = 4)
+        xc_ghosted = JustPIC.add_periodic_ghost_nodes(xc)
+        for N in (2, 3)
+            grids = ntuple(d -> ntuple(i -> i == d ? xv : xc_ghosted, N), N)
+            for periodic in (ntuple(_ -> false, N), ntuple(d -> isone(d), N))
+                _, xci, xvi, di, _ = JustPIC.staggered_grids(backend, grids; periodic)
+                @test all(x -> x isa AbstractRange{FT}, xci)
+                @test all(x -> x isa AbstractRange{FT}, xvi)
+                @test all(x -> collect(x) ≈ FT[-0.125, 0.125, 0.375, 0.625, 0.875, 1.125], xci)
+                @test all(x -> collect(x) ≈ FT[-0.25, 0, 0.25, 0.5, 0.75, 1, 1.25], xvi)
+                @test all(dx -> dx isa FT && dx ≈ FT(0.25), di.center)
+                @test all(dx -> dx isa FT && dx ≈ FT(0.25), di.vertex)
+            end
+        end
+    end
+end
+
 @testset "Subgrid diffusion 2D" begin
     nxcell, max_xcell, min_xcell = 12, 12, 1
     n = 5 # number of vertices
@@ -463,10 +482,10 @@ end
         backend, 8, 12, 4, (xr, expand_range(cr)), (expand_range(cr), xr);
         periodic = (false, false),
     )
-    @test all(x -> x isa TA(backend), particles_range.xvi)
-    @test all(x -> x isa TA(backend), particles_range.xci)
-    @test Array.(particles_range.xvi) == (extend_nonperiodic(xr, xr[1], xr[end]), extend_nonperiodic(xr, xr[1], xr[end]))
-    @test Array.(particles_range.xci) == (extend_nonperiodic(cr, xr[1], xr[end]), extend_nonperiodic(cr, xr[1], xr[end]))
+    @test all(x -> x isa AbstractRange{FT}, particles_range.xvi)
+    @test all(x -> x isa AbstractRange{FT}, particles_range.xci)
+    @test all(isapprox.(Array.(particles_range.xvi), (extend_nonperiodic(xr, xr[1], xr[end]), extend_nonperiodic(xr, xr[1], xr[end]))))
+    @test all(isapprox.(Array.(particles_range.xci), (extend_nonperiodic(cr, xr[1], xr[end]), extend_nonperiodic(cr, xr[1], xr[end]))))
 end
 
 include(joinpath(@__DIR__, "helpers_move_particles.jl"))

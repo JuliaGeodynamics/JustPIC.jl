@@ -25,7 +25,8 @@ physical boundary values, not additional physical cells.
 The diagonal coordinate of each velocity component is the vertex coordinate;
 the off-diagonal coordinate is the cell-center coordinate. `init_particles`
 derives `particles.xvi` and `particles.xci` from these grids and adds one
-periodic ghost node on each side.
+ghost node on each side. Ghost nodes are nonperiodic unless `periodic` is set
+for that dimension.
 
 ```julia
 using JustPIC
