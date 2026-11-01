@@ -66,7 +66,7 @@ function init_particles(
         max_xcell,
         min_xcell,
         xi_vel::Vararg{Tuple{Vararg{AbstractVector}}, N1};
-        periodic = ntuple(_ -> true, N1),
+        periodic = ntuple(_ -> false, N1),
     ) where {N1}
 
     return init_particles(backend, nxcell, max_xcell, min_xcell, xi_vel; periodic)
@@ -88,7 +88,7 @@ function init_particles(
         max_xcell,
         min_xcell,
         xi_vel_cpu::NTuple{N, NTuple{N, AbstractVector}};
-        periodic::NTuple{N, Bool} = ntuple(_ -> true, Val(N)),
+        periodic::NTuple{N, Bool} = ntuple(_ -> false, Val(N)),
     ) where {N}
 
     check_particle_capacity(nxcell, max_xcell, min_xcell)
@@ -103,7 +103,7 @@ function init_particles(
         max_xcell,
         min_xcell,
         xi_vel_cpu::NTuple{N, NTuple{N, AbstractRange}};
-        periodic::NTuple{N, Bool} = ntuple(_ -> true, Val(N)),
+        periodic::NTuple{N, Bool} = ntuple(_ -> false, Val(N)),
     ) where {N}
 
     check_particle_capacity(nxcell, max_xcell, min_xcell)
@@ -147,7 +147,7 @@ spacing for each dimension. The velocity grids may live on any backend.
 """
 function staggered_grids(
         backend, xi_vel_any::NTuple{N, NTuple{N, AbstractVector}};
-        periodic::NTuple{N, Bool} = ntuple(_ -> true, Val(N)),
+        periodic::NTuple{N, Bool} = ntuple(_ -> false, Val(N)),
     ) where {N}
     # Grid construction indexes individual coordinates, which device arrays disallow.
     xi_vel_cpu = map(x -> map(host_vector, x), xi_vel_any)
@@ -167,7 +167,7 @@ end
 
 function staggered_grids(
         backend, xi_vel_cpu::NTuple{N, NTuple{N, AbstractRange}};
-        periodic::NTuple{N, Bool} = ntuple(_ -> true, Val(N)),
+        periodic::NTuple{N, Bool} = ntuple(_ -> false, Val(N)),
     ) where {N}
     T = eltype(first(first(xi_vel_cpu)))
     xi_vel = recast_grid(xi_vel_cpu, T)
