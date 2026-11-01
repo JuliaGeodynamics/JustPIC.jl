@@ -18,7 +18,7 @@ Particles are initialized on the staggered velocity grid in the usual way:
 grid_vx = xv, expand_range(yc)
 grid_vy = expand_range(xc), yv
 particles = init_particles(
-    backend, nxcell, max_xcell, min_xcell, grid_vx, grid_vy
+    backend, nxcell, max_xcell, min_xcell, grid_vx, grid_vy; periodic = (true, false)
 )
 ```
 

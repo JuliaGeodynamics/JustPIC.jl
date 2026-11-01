@@ -44,7 +44,7 @@ function main()
     grid_vy = expand_range(xc), yv
     grid_vel = grid_vx, grid_vy
     particles = init_particles(
-        backend, nxcell, max_xcell, min_xcell, grid_vel...,
+        backend, nxcell, max_xcell, min_xcell, grid_vel...; periodic = (true, false),
     )
 
     # Cell fields -------------------------------

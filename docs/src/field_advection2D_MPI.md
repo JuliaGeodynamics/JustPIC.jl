@@ -72,7 +72,7 @@ nxcell    = 24 # initial number of particles per cell
 max_xcell = 48 # maximum number of particles per cell
 min_xcell = 14 # minimum number of particles per cell
 particles = init_particles(
-    backend, nxcell, max_xcell, min_xcell, grid_vx, grid_vy
+    backend, nxcell, max_xcell, min_xcell, grid_vx, grid_vy; periodic = (true, true)
 )
 ```
 
@@ -130,8 +130,8 @@ end
 
 For periodic MPI runs, there are two separate mechanisms working together:
 
-- `init_particles` extends the particle vertex and center grids with periodic
-  ghost nodes.
+- `init_particles` with `periodic = (true, true)` extends the particle vertex
+  and center grids with periodic ghost nodes.
 - `update_cell_halo!` exchanges the overlapping `CellArray` halos between MPI
   ranks, including across periodic rank boundaries configured by
   `init_global_grid`. You can pass all coordinate, index, and per-particle
