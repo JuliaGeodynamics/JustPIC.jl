@@ -51,6 +51,12 @@ function move_particles!(particles::AbstractParticles, grid::NTuple{N}, args; pe
             ArgumentError("particles found in the ghost cells of a periodic direction; they must be empty before `move_particles!`")
         )
         wrap_particles!(particles, periodicity, domain_limits)
+    else
+        dropped = pull_particles!(particles, grid, args, domain_limits)
+        if !isnothing(dropped)
+            verbose && println("move_particles!: dropped $dropped particles because destination cells were full")
+            return nothing
+        end
     end
 
     # The first sweep assumes that particles cross at most one cell along each direction, as
@@ -275,13 +281,14 @@ end
     return true
 end
 
-# Raise the shared maximum `x[1]` to `value`. The values are shared by all threads: update each
+# Raise the shared maximum `x[i]` to `value`. The values are shared by all threads: update each
 # at most once per cell, skipping zero local values without reading the shared counter.
-@inline function raise!(x, value)
+@inline function raise!(x, i, value)
     v = convert(eltype(x), value)
-    !iszero(v) && (KernelAbstractions.@atomic x[1] max v)
+    !iszero(v) && (KernelAbstractions.@atomic x[i] max v)
     return nothing
 end
+@inline raise!(x, value) = raise!(x, 1, value)
 
 @generated function look_around(px::NTuple{N, Number}, x::NTuple{N, AbstractVector}, I) where {N}
     return quote
@@ -341,11 +348,14 @@ function cell_index_neighbour(x, xC, dx::AbstractVector, i::Integer, I)
     return error("Particle moved more than one cell away from the parent cell $I in $i, with xi $x")
 end
 
-function find_free_memory(index, I::Vararg{Int, N}) where {N}
-    for i in cellaxes(index)
-        (CAI.@index(index[i, I...])) || return i
+# First free slot of cell `I`, or 0 if the cell is full. The scan has no early exit so the
+# slot loads are independent and issue together instead of one dependent load per slot.
+@inline function find_free_memory(index, I::Vararg{Int, N}) where {N}
+    free = 0
+    for i in reverse(cellaxes(index))
+        free = ifelse(CAI.@index(index[i, I...]), free, i)
     end
-    return 0
+    return free
 end
 
 # half-open `[xmin, xmax)`, matching `isincell` and the interval `wrap_coordinate` maps into

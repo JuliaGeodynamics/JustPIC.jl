@@ -90,9 +90,7 @@ end
         # advect particle
         pᵢ_new = advect_particle_markerchain(method, pᵢ, V, grid, local_limits, dt, i)
         # update particle coordinates
-        for k in 1:N
-            @inbounds CAI.@index p[k][ipart, i] = pᵢ_new[k]
-        end
+        fill_particle!(p, pᵢ_new, ipart, i)
     end
 end
 

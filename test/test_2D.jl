@@ -491,6 +491,9 @@ end
 include(joinpath(@__DIR__, "helpers_move_particles.jl"))
 
 @testset "Particle movement fills free slots per destination 2D" begin
+    @testset "cached cell lookup preserves boundaries and long jumps" begin
+        check_cached_cell_lookup(backend, FT)
+    end
     xv = LinRange(FT(0), FT(1), 5)
     xc = LinRange(FT(0.125), FT(0.875), 4)
     grid_vx = xv, expand_range(xc)
@@ -522,6 +525,10 @@ include(joinpath(@__DIR__, "helpers_move_particles.jl"))
 
     @testset "transiently full destination keeps its incoming particles" begin
         check_transiently_full_destination(particles, fields)
+    end
+
+    @testset "particles bound for a settled full cell free their source" begin
+        check_full_destination_chain(particles, fields)
     end
 
     @testset "domain exits unblock incoming particles" begin

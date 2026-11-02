@@ -1,6 +1,41 @@
 # Fixtures for the `move_particles!` slot-occupancy regression tests (2D and 3D).
 import KernelAbstractions: @kernel, @index
 
+@kernel function cached_cell_lookup_kernel!(actual, expected, grid, positions, seeds)
+    k = @index(Global)
+    x, i = positions[k], seeds[k]
+    actual[k] = JustPIC.move_cell_index(x, grid, i, JustPIC.move_cell_bounds(grid, i))
+    expected[k] = JustPIC.half_open_cell(x, grid, i)
+end
+
+function check_cached_cell_lookup(backend, ::Type{T}) where {T}
+    be = JustPIC.ka_backend(TA(backend)(zeros(T, 1)))
+    for nodes in (
+            LinRange(T(0), T(1), 7),
+            range(T(0); step = T(0.125), length = 7),
+            T[0, 0.03, 0.12, 0.35, 0.61, 0.82, 1],
+        )
+        grid = JustPIC.backend_grid(be, nodes, T)
+        vertices = collect(nodes)
+        queries = vcat(
+            prevfloat.(vertices), vertices, nextfloat.(vertices),
+            (vertices[1:(end - 1)] .+ vertices[2:end]) ./ 2,
+            T[-2, 3],
+        )
+        # Every seed: staying, neighboring, long-jump, boundary and clamped cases.
+        positions = repeat(queries, length(nodes) - 1)
+        seeds = repeat(Int32.(1:(length(nodes) - 1)); inner = length(queries))
+        actual = TA(backend)(zeros(Int32, length(positions)))
+        expected = similar(actual)
+        JustPIC.launch!(
+            be, cached_cell_lookup_kernel!, length(positions),
+            actual, expected, grid, TA(backend)(positions), TA(backend)(seeds),
+        )
+        @test Array(actual) == Array(expected)
+    end
+    return nothing
+end
+
 # Writes particle `n` into slot `slots[n]` of cell `(cells[1][n], cells[2][n], ...)`;
 # companion field `k` receives `k * ids[n]`.
 @kernel function place_particles_kernel!(
@@ -202,6 +237,41 @@ function check_transiently_full_destination(particles, fields)
         @test sort([CAI.@index(fields_h[1][slot, cell...]) for slot in 1:max_xcell]) == T.(ids)
         @test all(CAI.@index(fields_h[2][slot, cell...]) == 2 * CAI.@index(fields_h[1][slot, cell...]) for slot in 1:max_xcell)
     end
+    return nothing
+end
+
+# Three cells in a row along the first direction: `c` is full and its particles stay, the full
+# cell `b` sends all its particles to `c`, and `a` sends one particle to `b`. The particles of
+# `b` can never enter `c` and are dropped, which frees `b` for the particle from `a`.
+function check_full_destination_chain(particles, fields)
+    T = eltype(eltype(particles.coords[1]))
+    N = length(particles.coords)
+    max_xcell = particles.max_xcell
+    a, b, c = ntuple(i -> ntuple(d -> d == 1 ? i + 1 : 3, Val(N)), 3)
+    xci = Array.(particles.xci)
+    centre(cell) = ntuple(d -> T(xci[d][cell[d]]), Val(N))
+
+    total = 2 * max_xcell + 1
+    cells = ntuple(d -> [fill(c[d], max_xcell); fill(b[d], max_xcell); a[d]], Val(N))
+    slots = [repeat(1:max_xcell, 2); 1]
+    positions = ntuple(d -> [fill(centre(c)[d], 2 * max_xcell); centre(b)[d]], Val(N))
+    clear_particles!(particles, fields)
+    dev = TA(backend)
+    JustPIC.launch!(
+        JustPIC.ka_backend(particles.index), place_particles_kernel!, total,
+        particles.index, particles.coords, fields,
+        ntuple(d -> dev(cells[d]), Val(N)), dev(slots),
+        ntuple(d -> dev(positions[d]), Val(N)), dev(T.(1:total)),
+    )
+    move_particles!(particles, fields)
+
+    index_h = to_cpu(particles.index)
+    fields_h = to_cpu.(fields)
+    ids(cell) = sort([CAI.@index(fields_h[1][slot, cell...]) for slot in 1:max_xcell if CAI.@index(index_h[slot, cell...])])
+    @test count(Array(particles.index.data)) == max_xcell + 1
+    @test ids(c) == T.(1:max_xcell)
+    @test ids(b) == [T(total)]
+    @test isempty(ids(a))
     return nothing
 end
 
