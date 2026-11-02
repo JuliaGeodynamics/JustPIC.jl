@@ -219,7 +219,7 @@ end
     grid_vel = grid_vx, grid_vy, grid_vz
     # Initialize particles -------------------------------
     particles = JustPIC.init_particles(
-        backend, nxcell, max_xcell, min_xcell, grid_vel...
+        backend, nxcell, max_xcell, min_xcell, grid_vel...; periodic = (true, true, true),
     )
     arrays = JustPIC.SubgridDiffusionCellArrays(particles)
     # Test they are allocated in the right backend
@@ -362,7 +362,7 @@ end
         backend, 8, 12, 4, grid_vx, grid_vy, grid_vz; periodic = (false, false, false),
     )
 
-    extend_nonperiodic(x, lower, upper) = vcat(2 * lower - x[1], x, 2 * upper - x[end])
+    extend_nonperiodic(x, lower, upper) = vcat(x[1] - (x[2] - x[1]), x, x[end] + (x[end] - x[end - 1]))
     @test Array.(particles.xvi) == (
         extend_nonperiodic(xv, xv[1], xv[end]),
         extend_nonperiodic(yv, yv[1], yv[end]),
@@ -476,8 +476,8 @@ end
         backend, nxcell, max_xcell, min_xcell, grid_vi...,
     )
 
-    @test Array.(particles.xvi) == JustPIC.add_periodic_ghost_nodes.(xvi)
-    @test Array.(particles.xci) == JustPIC.add_periodic_ghost_nodes.(xci)
+    @test Array.(particles.xvi) == JustPIC.add_nonperiodic_ghost_nodes.(xvi, first.(xvi), last.(xvi))
+    @test Array.(particles.xci) == JustPIC.add_nonperiodic_ghost_nodes.(xci, first.(xvi), last.(xvi))
     @test Array.(particles.xi_vel[1]) == grid_vi[1]
     @test Array.(particles.xi_vel[2]) == grid_vi[2]
     @test Array.(particles.xi_vel[3]) == grid_vi[3]

@@ -68,7 +68,7 @@ vertices:
 Vx = TA(backend)([vx_stream(x, y) for x in grid_vx[1], y in grid_vx[2]]);
 Vy = TA(backend)([vy_stream(x, y) for x in grid_vy[1], y in grid_vy[2]]);
 xvi_particles = Array.(particles.xvi)
-T  = TA(backend)([y for x in xvi_particles[1], y in xvi_particles[2]]); # includes periodic ghost nodes
+T  = TA(backend)([y for x in xvi_particles[1], y in xvi_particles[2]]); # includes ghost nodes
 V  = Vx, Vy;
 ```
 

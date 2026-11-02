@@ -203,16 +203,27 @@ end
         Base.@nexprs $NF j -> begin
             F = fields[j]
             layout = layouts[j]
-            iscenter = isone(layout.iscenter)
-            idx = iscenter ? shifted_index(p_new, xci, idx_cell) : idx_cell
-            field_idx = clamp.(idx .- layout.offset, 1, size(F) .- 1)
-            grid_idx = field_idx .+ layout.offset
-            xi = iscenter ? grid_center : grid
-            spacing = iscenter ? (@dxi(dxi_center, grid_idx...)) : di
-            corners = field_corners(F, field_idx)
-            value = _grid2particle(p_new, xi, spacing, corners, grid_idx)
-            lower, upper = extrema(corners)
-            CAI.@index args[j][ip, idx_cell...] = clamp(value, lower, upper)
+            if isone(layout.iscenter)
+                idx = shifted_index(p_new, xci, idx_cell)
+                field_idx = clamp.(idx .- layout.offset, 1, size(F) .- 1)
+                grid_idx = field_idx .+ layout.offset
+                xi = grid_center
+                spacing = @dxi(dxi_center, grid_idx...)
+                corners = field_corners(F, field_idx)
+                value = _grid2particle(p_new, xi, spacing, corners, grid_idx)
+                lower, upper = extrema(corners)
+                CAI.@index args[j][ip, idx_cell...] = clamp(value, lower, upper)
+            else
+                idx = idx_cell
+                field_idx = clamp.(idx .- layout.offset, 1, size(F) .- 1)
+                grid_idx = field_idx .+ layout.offset
+                xi = grid
+                spacing = di
+                corners = field_corners(F, field_idx)
+                value = _grid2particle(p_new, xi, spacing, corners, grid_idx)
+                lower, upper = extrema(corners)
+                CAI.@index args[j][ip, idx_cell...] = clamp(value, lower, upper)
+            end
         end
         nothing
     end
