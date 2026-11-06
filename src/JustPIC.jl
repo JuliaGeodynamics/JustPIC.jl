@@ -11,7 +11,7 @@ using LinearAlgebra: det, diag
 # what `@kernel` bodies need. It also brings the KA backends `CPU` and the abstract
 # supertype `Backend`. The vendor backends `CUDA.CUDABackend`, `AMDGPU.ROCBackend`,
 # `Metal.MetalBackend` are introduced by the respective package extensions. JustPIC
-# no longer defines its own backend tags.
+# defines no backend tags of its own.
 using KernelAbstractions
 
 # CellArraysIndexing element access is used through the `CAI.@index` qualifier so it

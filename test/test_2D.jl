@@ -363,6 +363,15 @@ end
     @test JustPIC.find_parent_cell_bisection(last(x), x, length(x)) == length(x) - 1
 end
 
+@testset "Ghost nodes 2D" begin
+    x = FT[0.0, 0.25, 0.5]
+    dx = FT(0.25)
+    @test Array(add_ghost_nodes(x, dx; backend)) ≈ FT[-0.25, 0.0, 0.25, 0.5, 0.75]
+    # only the lower end lies on the global boundary (0, 1)
+    @test Array(add_global_ghost_nodes(x, dx, (FT(0), FT(1)); backend)) ≈ FT[-0.25, 0.0, 0.25, 0.5]
+    @test (@test_deprecated add_ghost_nodes(x, dx, (FT(0), FT(1)))) == add_ghost_nodes(x, dx)
+end
+
 @testset "Periodic ghost nodes 2D" begin
     xv_uniform = LinRange(FT(0), FT(1), 5)
     xv_uniform_periodic = JustPIC.add_periodic_ghost_nodes(xv_uniform)

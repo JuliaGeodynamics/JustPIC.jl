@@ -97,6 +97,13 @@ end
 
 ## MIDPOINTS: AKA SHEAR STRESS-NODES (ONLY IN 3D)
 
+"""
+    phase_ratios_midpoint!(phase_midpoint, particles, phases, dimension)
+
+Recompute the phase fractions at the 3D cell-edge midpoints of the `dimension` plane
+(`:xy`, `:yz`, or `:xz`), where shear stresses live, writing them into
+`phase_midpoint` (for example `phase_ratios.xy`). Throws for 2D particles.
+"""
 function phase_ratios_midpoint!(
         phase_midpoint, particles::Particles{B, N}, phases, dimension
     ) where {B, N}

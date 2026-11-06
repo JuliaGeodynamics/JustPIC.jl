@@ -1,5 +1,12 @@
 ## Kernels to compute phase ratios at the centers
 
+"""
+    phase_ratios_center!(phase_ratios, particles, phases)
+
+Recompute `phase_ratios.center`, the phase fractions at cell centers, from the
+particle phase labels `phases`. [`update_phase_ratios!`](@ref) updates every location
+at once.
+"""
 function phase_ratios_center!(phase_ratios::JustPIC.PhaseRatios, particles, phases)
     check_phase_ratio_inputs(phase_ratios, particles, phases)
     return _phase_ratios_center!(phase_ratios, particles, phases)
