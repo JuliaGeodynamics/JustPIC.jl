@@ -40,3 +40,6 @@ out/
 
 # VSCode
 .vscode
+
+# Publication bot
+_pubbot/.cache

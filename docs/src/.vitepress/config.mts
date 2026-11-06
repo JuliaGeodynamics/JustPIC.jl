@@ -22,6 +22,7 @@ const nav = [
   { text: "Documentation", link: "/particles" },
   { text: "API", link: "/API" },
   { text: "Performance", link: "/performance" },
+  { text: "Publications", link: "/publications" },
   {
     component: 'VersionPicker'
   }
