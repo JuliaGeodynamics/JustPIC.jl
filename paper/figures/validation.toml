@@ -1,33 +1,33 @@
 backend = "CPU"
 cairomakie_version = "0.15.15"
-docs_manifest_sha256 = "782637ac98f672f6c82e77a6041dac5bc51ae7f11c5420702fb8370a8abee70a"
-git_revision = "efb7b64920031673bb228cb3f48da880cb89f22b"
-julia_version = "1.13.3"
-justpic_source = "C:\\Users\\Albert\\Documents\\DevPkgs\\JustPIC.jl\\src\\JustPIC.jl"
+docs_manifest_sha256 = "fe413be7fd5aeae5fd4f63ca8c3bd034ce1dbbdb3d9ea459ae493350e42b287f"
+git_revision = "5c5563986880663c35faec25795b6b90e5303805"
+julia_version = "1.13.2"
+justpic_source = "/Users/albert/Documents/DevPkgs/JustPIC.jl/src/JustPIC.jl"
 justpic_version = "0.7.16"
 precision = "Float64 (plotted), Float32 (small self-checks)"
-script_sha256 = "1923c9f222ffcf9fb74ec014c863e6aed023c0d57dd77e3591291f87e2a08b67"
+script_sha256 = "80af60f102a338eb0c3f2691ffd0a0d895155bf85cf937d3a210f5436a6a158a"
+
+[deformation]
+cells_per_axis = 48
+duration = 2.0
+max_particle_return_error = 2.7577786180356384e-9
+particles = 18304
+steps = 480
 
 [float32_self_checks]
-max_analytical_rotation_error = 4.576500600705913e-7
+deformation_cells_per_axis = 16
+deformation_steps = 240
+max_deformation_return_error = 8.02584872872103e-6
 max_particle_return_error = 2.073350742648472e-6
-relative_grid_return_error = 2.5678853035060456e-6
-torus_cells_per_axis = 16
-torus_steps = 60
+relative_grid_return_error = 2.4663645490363706e-6
 vortex_cells_per_axis = 24
 vortex_steps = 240
-
-[torus]
-angle_radians = 1.4
-cells_per_axis = 40
-max_analytical_rotation_error = 6.752029307455584e-11
-particles = 10680
-steps = 120
 
 [vortex]
 cells_per_axis = 160
 duration = 3.0
 max_particle_return_error = 9.982619785424644e-11
 particles = 409600
-relative_grid_return_error = 2.070713266624033e-10
+relative_grid_return_error = 2.070712843780212e-10
 steps = 960

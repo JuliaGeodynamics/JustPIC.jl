@@ -1,0 +1,7 @@
+cairomakie_version = "0.15.15"
+deformation_renderer = "GLMakie: lit spheres, SSAO, FXAA, spatial streamlines; raster embedded in PDF/SVG"
+docs_manifest_sha256 = "fe413be7fd5aeae5fd4f63ca8c3bd034ce1dbbdb3d9ea459ae493350e42b287f"
+figure_data_sha256 = "76488ff3848fb7ecdfa5ec07bb101a33867646272067246315fc7daea3099754"
+glmakie_version = "0.13.15"
+script_sha256 = "72dbb105a1408824272d0938f2a6f125ce4ee6e7f74a6cee9d88a087e550cce6"
+vortex_renderer = "CairoMakie: raster scalar field, vector contours, streamlines and typography"

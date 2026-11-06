@@ -1,3 +1,4 @@
 !*.png
 !*.pdf
 !figure_data.jld2
+!*.svg

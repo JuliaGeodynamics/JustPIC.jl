@@ -142,15 +142,93 @@ An isolated benchmark environment records timings and execution metadata for
 particle and interpolation workloads. These facilities provide ways to evaluate
 a selected release.
 
-Figures \ref{fig:vortex} and \ref{fig:torus} illustrate grid-field transport in
-two dimensions and particle trajectories in three dimensions. Both use
-prescribed velocity fields, isolating particle operations from a host physical
-solver. The generating script includes checks against flow reversal and an
-analytical rotation, respectively.
+# Numerical illustrations
 
-![Reversible vortex transport on a 160 × 160 unit-square grid. A smooth annular scalar is sampled onto a regular lattice of sixteen particles per cell, advected through a divergence-free vortex, and reconstructed at grid vertices at three times. The velocity amplitude is multiplied by cos(πt/3), sampled at step midpoints, so the flow reverses after t = 1.5. Particle integration uses RK4 over 960 steps, without injection. All panels share the scalar colour scale; the initial panel is also reconstructed from particles. \label{fig:vortex}](figures/vortex_transport.png)
+Figures \ref{fig:vortex} and \ref{fig:deformation} isolate particle transport and
+particle–grid coupling using prescribed, nondimensional velocity fields on a
+unit square and unit cube, respectively. Both examples use fourth-order
+Runge–Kutta integration on the CPU, without particle injection; the generating
+script checks that particle counts remain unchanged.
 
-![Three-dimensional particle transport under solid-body rotation. Particles selected from a regular lattice inside a torus are advanced using JustPIC on a 40³ grid through angles of 0, 0.7, and 1.4 radians about the unit vector parallel to (1, 0.4, 0.7). Colour denotes initial azimuth and follows each particle; the shapes are particle scatter plots, with no fitted surface. RK4 uses 120 steps and no injection. Axes are normalised by the unit-cube side length and show its central region. \label{fig:torus}](figures/torus_rotation.png)
+For the two-dimensional reversible vortex, the velocity is
+
+$$
+\mathbf{u}(x,y,t)=
+\begin{pmatrix}
+\sin^2(\pi x)\sin(2\pi y)\\
+-\sin^2(\pi y)\sin(2\pi x)
+\end{pmatrix}
+\cos\left(\frac{\pi t}{3}\right),
+\qquad (x,y)\in[0,1]^2,\quad 0\leq t\leq3.
+$$
+
+This field is divergence-free and has zero normal velocity at the boundaries.
+Its time-dependent factor reverses sign at $t=1.5$, and its integral over the
+full interval is zero, so exact trajectories retrace their paths and return to
+their initial positions at $t=3$. The transported scalar starts as a smooth ring,
+
+$$
+q_0(x,y)=\exp\left[-\left(\frac{r-0.14}{0.025}\right)^2\right],
+\qquad r=\sqrt{(x-0.5)^2+(y-0.72)^2}.
+$$
+
+Grid-to-particle interpolation assigns this field to sixteen particles per cell
+on a $160\times160$ grid. Each particle retains its scalar value as it moves,
+representing material transport governed by
+$\partial_t q+\mathbf{u}\cdot\nabla q=0$. Particle-to-grid interpolation
+reconstructs the three displayed snapshots. The middle panel shows stretching
+into a thin filament; the final panel shows recovery after reversal. All three
+panels, including the initial state, use the same reconstruction and colour
+scale. The 960-step integration samples the velocity amplitude at each step
+midpoint. The script checks finite reconstructions, particle return distances,
+and the relative grid-field return error.
+
+![Reversible vortex at $t=0$, $1.5$, and $3$ (left to right). Colour shows the reconstructed scalar; white contours mark $q=0.25$ and $0.65$. Faint streamlines show the spatial flow pattern; arrows indicate the initial and reversed directions. At the midpoint the instantaneous velocity is zero, so the curves provide a reference pattern without arrowheads. \label{fig:vortex}](figures/vortex_transport.png)
+
+The three-dimensional example subjects a toroidal cloud to a reversible
+stretching and folding flow,
+
+$$
+\mathbf{u}(x,y,z,t)=
+\begin{pmatrix}
+2\sin^2(\pi x)\sin(2\pi y)\sin(2\pi z)\\
+-\sin^2(\pi y)\sin(2\pi x)\sin(2\pi z)\\
+-\sin^2(\pi z)\sin(2\pi x)\sin(2\pi y)
+\end{pmatrix}
+\cos\left(\frac{\pi t}{2}\right),
+\qquad (x,y,z)\in[0,1]^3,\quad 0\leq t\leq2.
+$$
+
+The three spatial derivatives cancel, making the prescribed flow
+divergence-free, and its normal velocity vanishes on the cube boundaries.
+Particles are selected from a regular lattice with eight candidates per cell
+on a $48^3$ grid, retaining those initially inside the torus
+
+$$
+\left[\sqrt{(x_0-0.5)^2+(y_0-0.5)^2}-0.25\right]^2
++(z_0-0.5)^2<0.065^2.
+$$
+
+The initially compact ring develops opposing curled lobes and narrow strands as
+particles move through regions of different velocity. At $t=1$, the accumulated
+forward deformation is greatest: the cloud has folded out of its original plane
+while its coloured bands remain attached to the material. The time-dependent
+factor then changes sign, causing exact trajectories to retrace their paths and
+restore the torus at $t=2$. Colour encodes each particle's initial azimuth,
+$\phi_0=\operatorname{atan2}(y_0-0.5,x_0-0.5)$, allowing the rearrangement and
+recovery of material to be followed across all three panels.
+
+The run uses 480 integration steps with the amplitude sampled at step midpoints.
+All 18,304 selected particles are retained, and the maximum final displacement
+from their initial positions is $2.8\times10^{-9}$ unit lengths. The generating
+script also checks finite, in-domain snapshots and repeats the experiment at
+lower resolution in single precision. This example exercises three-dimensional
+advection and the relocation of particle-associated information across cell
+boundaries during substantial deformation. The rendered spheres represent
+individual particles; their lighting and illustrative size make the folded
+structure visible without fitting a surface to the cloud.
+
+![Twist, fold, recover: three-dimensional particle transport at $t=0$, $1$, and $2$ (left to right). A toroidal cloud stretches into opposing curled lobes and narrow strands, then recovers as the divergence-free flow reverses. Colour tracks initial particle azimuth, showing the rearrangement and restoration of material. Faint streamlines show the spatial flow pattern, with arrows before and after reversal; at the stationary midpoint, curves are shown only as a reference pattern. The camera, coordinate limits, and colour scale are identical across panels; coordinates are normalised by the cube side length. \label{fig:deformation}](figures/deformation_3d.png)
 
 # Research impact statement
 
