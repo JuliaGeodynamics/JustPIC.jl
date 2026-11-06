@@ -41,6 +41,7 @@ makedocs(;
         "Support matrix" => "support_matrix.md",
         "Public API" => "API.md",
         "Performance" => "performance.md",
+        "Publications" => "publications.md",
     ],
 )
 
