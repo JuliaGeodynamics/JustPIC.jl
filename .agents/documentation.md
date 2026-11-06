@@ -6,8 +6,8 @@
 julia --project=docs docs/make.jl
 ```
 
-`docs/make.jl` pushes the repo root onto `LOAD_PATH`, so the in-repo JustPIC is used
-directly — no `Pkg.develop` needed. Instantiate once with
+`docs/Project.toml` points JustPIC at the repo root through `[sources]`, so the
+in-repo JustPIC is used directly — no `Pkg.develop` needed. Instantiate once with
 `julia --project=docs -e 'using Pkg; Pkg.instantiate()'`.
 
 ## Fast Local Builds
@@ -30,6 +30,10 @@ LiveServer.serve(dir = "docs/build/1")
 - Doc sources in `docs/src/*.md`; example walk-throughs are plain markdown
   (`field_advection2D.md` etc.) with fenced julia blocks
 - The public API page is `docs/src/API.md` — update it when exports change
+- `docs/src/support_matrix.md` records release support; update it with the test suite
+  and release checklist
+- A comment line between a docstring and its definition detaches the docstring; put
+  comments inside or after the definition
 - Example scripts referenced by the docs live in `docs/examples/`
 - The site is built with DocumenterVitepress: `pages` in `docs/make.jl` sets the sidebar;
   the top navigation bar is fixed in `docs/src/.vitepress/config.mts`

@@ -1,12 +1,15 @@
 # Field advection in 2D
 
+The complete script is
+[`docs/examples/field_advection2D.jl`](https://github.com/JuliaGeodynamics/JustPIC.jl/blob/main/docs/examples/field_advection2D.jl).
+
 First, load JustPIC:
 
 ```julia
 using JustPIC
 ```
 
-We need to specify what backend are we running our simulation on. For convenience we define the backend as a constant. In this case we use the CPU backend, but we could also use the CUDA (`CUDA.CUDABackend`) or AMDGPU (`AMDGPU.ROCBackend`) backends.
+Next, choose the backend the simulation runs on. For convenience we define it as a constant. This example uses the CPU backend; after loading the corresponding package, the CUDA (`CUDA.CUDABackend`), AMDGPU (`AMDGPU.ROCBackend`), or Metal (`Metal.MetalBackend`) backends work the same way.
 
 ```julia
 const backend = JustPIC.CPU
@@ -100,7 +103,7 @@ for it in 1:niter
 end
 ```
 
-# Pure shear in 2D
+## Pure shear in 2D
 
 An example of two-dimensional pure shear flow is provided in
 [`scripts/pureshear_ALE.jl`](https://github.com/JuliaGeodynamics/JustPIC.jl/blob/main/scripts/pureshear_ALE.jl).

@@ -3,7 +3,10 @@
 Every public entry point checks its arguments on the host before it launches a kernel
 that writes user data. A check that fails throws an `ArgumentError` or a
 `DimensionMismatch` that names the offending argument, so the input data are left
-unchanged. This page lists the policies these checks enforce.
+unchanged. Failures that depend on the data rather than on the arguments can surface
+after kernels have run: the marker-chain overload of `inject_particles_phase!` throws
+when a rock or air target cannot be filled and keeps the updates already applied (see
+[Particles](particles.md)). This page lists the policies the argument checks enforce.
 
 ## Precision, backend, and shape
 

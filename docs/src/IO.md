@@ -81,13 +81,19 @@ stored arrays back to the active backend:
 ```julia
 data          = load_checkpoint("my_file.jld2")
 particles     = TA(backend)(Float64, data["particles"])
-phases        = TA(backend)(Float64, data["phases"])
 phase_ratios  = TA(backend)(Float64, data["phase_ratios"])
-particle_args = TA(backend).(Float64, data["particle_args"])
+phases        = data["phases"]
+particle_args = data["particle_args"]
 ```
-`TA(backend)` selects the backend-appropriate array type, so the same checkpoint
-can be restored onto CPU or accelerator arrays. On multiple MPI ranks, each rank
-reads its own file with `load_checkpoint(dst, me)`.
+`TA(backend)(T, x)` moves a JustPIC container such as `Particles` or
+`PhaseRatios` to `backend`, converting its values to `T`, so the same checkpoint
+can be restored onto CPU or accelerator arrays. Plain `CellArray`s such as
+`phases` and `particle_args` load as CPU `CellArray`s. On a GPU backend, move
+them with the same call, `TA(backend)(Float64, data["phases"])` and
+`TA(backend).(Float64, data["particle_args"])`; on the CPU, use them as loaded
+or change their precision with `to_cpu(Float64, data["phases"])`.
+
+On multiple MPI ranks, each rank reads its own file with `load_checkpoint(dst, me)`.
 
 ## Compatibility
 
@@ -98,7 +104,7 @@ coordinates and global grid size). `load_checkpoint` enforces the following:
 
 - A checkpoint with a newer schema version than the running JustPIC supports is
   rejected with an error.
-- A checkpoint without a schema version, written by JustPIC 0.7 or earlier,
+- A checkpoint without a schema version, written by JustPIC 0.7.9 or earlier,
   loads with a warning and without further checks.
 - A rank-local checkpoint must have been written by the same rank. When
   ImplicitGlobalGrid is initialized, the number of ranks, process grid,

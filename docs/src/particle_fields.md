@@ -7,8 +7,9 @@ them with `init_cell_arrays` so their slots and backend match `particles`:
 pT, pρ, = init_cell_arrays(particles, Val(2))
 ```
 
-The returned fields can be scalar or tuple-valued. Tuple allocation is useful
-for vector quantities:
+`init_cell_arrays(particles, Val(N))` returns a tuple of `N` scalar fields. The
+transfer routines accept such tuples directly, which is convenient for vector
+quantities:
 
 ```julia
 pV = init_cell_arrays(particles, Val(2))
@@ -26,11 +27,13 @@ inject_particles!(particles, (pT, pρ))
 Only active particle slots contain valid values. Unused slots are represented
 by the occupancy/index mask and must not be included in reductions.
 
-For a field with explicit cell-array dimensions, use `cell_array`:
+For per-cell data that is not one value per particle slot, such as one value per
+material phase in each cell, allocate the `CellArray` with `cell_array`:
 
 ```julia
-phase = cell_array(backend, zero(Float32), (nphases,), size(particles.index))
+n_phases = 3
+phase_data = cell_array(backend, 0.0, (n_phases,), size(particles.index))
 ```
 
-See [CellArrays](CellArrays.md) for halo exchange, indexing, and conversion
-details.
+See [CellArrays](CellArrays.md) for indexing and halo exchange, and
+[`to_cpu`](@ref) for copying fields to host memory.

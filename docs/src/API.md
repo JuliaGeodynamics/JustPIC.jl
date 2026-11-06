@@ -20,6 +20,8 @@ helpers and provides a searchable index of everything.
 | Marker-chain surface tracking | [Marker chain](marker_chain.md) |
 | Marker-surface (3D free surface) tracking | [Marker surface](marker_surface.md) |
 | Checkpointing and restart | [I/O](IO.md) |
+| Argument checks and failure behavior | [Input validation](validation.md) |
+| Supported dimension, backend, precision, and grid combinations | [Support matrix](support_matrix.md) |
 
 ## Backends
 
@@ -28,11 +30,13 @@ path and the vendor backends `CUDA.CUDABackend`, `AMDGPU.ROCBackend`,
 `Metal.MetalBackend`, introduced by the respective package extensions. Load the
 vendor package to activate its extension; JustPIC defines no backend tags of its own.
 
-`TA(backend)` selects the plain array type for a backend, and `launch!` runs a
-KernelAbstractions kernel on it, synchronizing before returning.
+`TA(backend)` selects the plain array type for a backend, `ka_backend(x)`
+recovers the backend that stores `x`, and `launch!` runs a KernelAbstractions
+kernel on it, synchronizing before returning.
 
 ```@docs
 TA
+ka_backend
 launch!
 ```
 
@@ -40,6 +44,21 @@ launch!
 
 ```@docs
 add_periodic_ghost_nodes
+add_ghost_nodes
+add_global_ghost_nodes
+inner_size
+```
+
+## Kernel helpers
+
+Helpers for user kernels that loop over particle slots or grid cells.
+
+```@docs
+doskip
+@dxi
+@dx
+@dy
+@dz
 ```
 
 ## Container conversion
