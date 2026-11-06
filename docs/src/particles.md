@@ -137,8 +137,8 @@ nonempty rock/air portion of a quadrant directly, including thin slivers. It
 copies phase and all companion fields from a live same-side donor in the physical
 3×3 neighborhood. New particles do not become donors within the same call.
 Pass every history field that must follow the material in `particle_args`.
-Existing valid particles retain their histories. Grid-field injection remains
-available through the existing overload that takes `fields` as its fourth argument.
+Existing valid particles retain their histories. To initialize new particles from
+grid fields instead, use the overload that takes `fields` as its fourth argument.
 
 To prescribe material entering through the vertical sides, supply a backend-callable
 `boundary_initializer(position, is_air)` returning `(phase, values)`. The tuple
@@ -151,9 +151,9 @@ The call throws if a rock/air target cannot be filled because donors are absent,
 capacity is exhausted or the initializer returns invalid data. Successful partial
 updates remain applied: save the pre-step state if rollback is needed. Ensure
 capacity allows both materials in cut quadrants, which can require one extra
-particle per quadrant beyond the usual rounded target. For a distributed run,
-physical boundaries and rank interfaces need separate treatment; this prototype
-uses only physical interior donors and has not been validated under MPI.
+particle per quadrant beyond the usual rounded target. Donors are taken only
+from the physical interior, so rank interfaces of a distributed run are not
+treated separately; this overload is not validated under MPI.
 
 Rejecting an unconverged mechanical solve and keeping a consistent accepted
 timestep remain responsibilities of the solver caller; injection cannot repair
@@ -164,6 +164,7 @@ already-invalid mechanical history.
 ### Containers
 
 ```@docs
+AbstractParticles
 Particles
 PassiveMarkers
 ```
@@ -208,13 +209,19 @@ inject_particles!
 inject_particles_phase!
 clean_particles!
 force_injection!
+cell_index
 ```
 
 ### Phase ratios and subgrid diffusion
 
 ```@docs
 PhaseRatios
+update_phase_ratios!
+phase_ratios_center!
+phase_ratios_vertex!
+phase_ratios_midpoint!
 nphases
+numphases
 subgrid_diffusion!
 subgrid_diffusion_centroid!
 SubgridDiffusionCellArrays

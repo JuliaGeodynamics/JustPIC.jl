@@ -19,6 +19,13 @@ import KernelAbstractions
 # Backend accessors
 # ---------------------------------------------------------------------------
 
+"""
+    ka_backend(x)
+
+Return the KernelAbstractions backend instance (for example `CPU()`) that stores `x`:
+an array, a `CellArray`, or a `Particles`, `MarkerChain`, `PassiveMarkers`, or
+`PhaseRatios` container.
+"""
 @inline ka_backend(A::AbstractArray) = KernelAbstractions.get_backend(A)
 @inline ka_backend(A::CellArray) = KernelAbstractions.get_backend(A.data)
 @inline ka_backend(p::Particles) = KernelAbstractions.get_backend(p.index.data)

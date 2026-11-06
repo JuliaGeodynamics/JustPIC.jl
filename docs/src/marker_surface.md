@@ -33,7 +33,7 @@ For coupling with a Stokes solver, the volumetric fraction of each cell that lie
 compute_rock_fraction!(ratios, surf, xvi, dxi)
 ```
 
-`ratios` is a named tuple of arrays sized at cell centres, vertices, faces, and edges. The function evaluates the geometric fraction of every corresponding control volume from a piecewise-planar surface, splitting each cell into eight triangles that meet at the cell center.
+`ratios` is a named tuple of arrays sized at cell centers, vertices, faces, and edges. The function evaluates the geometric fraction of every corresponding control volume from a piecewise-planar surface, splitting each cell into eight triangles that meet at the cell center.
 
 ## Examples
 
@@ -44,9 +44,9 @@ grids and regenerate the figures below:
 julia --project=docs docs/examples/marker_surface.jl
 ```
 
-The batch example uses CairoMakie, colouring synthetic surfaces with Makie's
-`:oleron` colormap and Matterhorn elevations with `:grayC10`. GLMakie 0.13
-remains available in the docs environment for interactive rendering.
+The example renders with CairoMakie, coloring synthetic surfaces with Makie's
+`:oleron` colormap and Matterhorn elevations with `:grayC10`. The docs
+environment also includes GLMakie for interactive rendering.
 
 The nonperiodic figures use a 193×193, approximately 8 m sample centered on
 the Matterhorn summit (45.9763° N, 7.6586° E). It combines
@@ -74,7 +74,7 @@ surf = init_marker_surface(backend, xv, yv, 0.5;
                            periodic_2 = false)  # y non-periodic
 ```
 
-Under periodic boundaries the ghost cells used by the advection stencil wrap to the opposite side instead of being linearly extrapolated, the slope-limiter's neighbour lookups use `mod1` indexing, and the redundant boundary nodes (`topo[1, :]` and `topo[end, :]`) are kept synchronised after every update. This follows the same convention used by `move_particles!(…; periodic_1, periodic_2, periodic_3)` in JustPIC's particle advection.
+Under periodic boundaries the ghost cells used by the advection stencil wrap to the opposite side instead of being linearly extrapolated, the slope-limiter's neighbor lookups use `mod1` indexing, and the redundant boundary nodes (`topo[1, :]` and `topo[end, :]`) are kept synchronized after every update. This follows the same convention used by `move_particles!(…; periodic_1, periodic_2, periodic_3)` in JustPIC's particle advection.
 
 The periodic figures below translate a Gaussian bump with a uniform `Vx = 0.2` for 25 steps of `dt = 0.05`. Centered at `x = 0.9` to begin with, it crosses the right boundary and re-enters on the left, ending near `x = 0.16` — the rise at both x edges of either figure is the same bump seen across the seam. `scripts/marker_surface_advection_periodic.jl` runs the same setup with a live GLMakie view.
 
@@ -88,7 +88,7 @@ The marker surface works with [ImplicitGlobalGrid.jl](https://github.com/eth-csc
 domain decomposition, including full 3D (x, y and z) decomposition. Build the
 surface from the **local** (rank) vertex coordinates; when a global grid is
 active, `advect_marker_surface!` and maximum-angle smoothing automatically
-exchange the topography's x/y halo between neighbouring ranks
+exchange the topography's x/y halo between neighboring ranks
 (`ImplicitGlobalGrid.update_halo!`). When the grid is
 decomposed in z, the surface velocity is additionally combined across each
 z-column so every node is interpolated from the rank whose slab contains the

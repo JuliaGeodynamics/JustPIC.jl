@@ -28,14 +28,14 @@ Pkg.add("JustPIC")
 
 The CPU backend is available immediately. For GPU execution, install the
 matching optional package (`CUDA`, `AMDGPU`, or `Metal`) and select its
-KernelAbstractions backend. See the [mixed CPU/GPU guide](https://juliageodynamics.github.io/JustPIC.jl/dev/mixed_CPU_GPU/).
+KernelAbstractions backend. See the [backends guide](https://juliageodynamics.github.io/JustPIC.jl/dev/backends/).
 
 ## What it provides
 
 - Cell-local particle storage with injection, cleanup, and locality-preserving
   movement.
-- Euler, RK2, and RK4 particle advection, plus linear, MQS, and
-  semi-Lagrangian variants.
+- Euler, RK2, and RK4 particle advection with linear, LinP, or MQS velocity
+  interpolation, plus semi-Lagrangian variants.
 - Grid-to-particle, particle-to-grid, and particle-to-centroid interpolation.
 - Phase-ratio updates, subgrid diffusion, and passive markers.
 - Marker chains for free-surface and topography tracking, including advection

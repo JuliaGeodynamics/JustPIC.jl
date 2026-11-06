@@ -1,3 +1,12 @@
+"""
+    add_global_ghost_nodes(x, dx, origin; backend = CPU)
+
+Extend the rank-local coordinates `x` with a ghost node at each end that lies on the
+global domain boundary `origin = (lower, upper)`: `first(x) - dx` when
+`first(x) == lower` and `last(x) + dx` when `last(x) == upper`. Ends inside the
+global domain, such as boundaries between MPI ranks, are left unchanged. The result
+is an array of type `TA(backend)`.
+"""
 function add_global_ghost_nodes(x::AbstractArray, dx, origin; backend = CPU)
     x1, x2 = extrema(x)
     xI = x1 - dx
@@ -7,12 +16,25 @@ function add_global_ghost_nodes(x::AbstractArray, dx, origin; backend = CPU)
     return x = TA(backend)(x)
 end
 
-function add_ghost_nodes(x::AbstractArray, dx, origin; backend = CPU)
+"""
+    add_ghost_nodes(x, dx; backend = CPU)
+
+Extend the coordinates `x` with one ghost node on each side, at `first(x) - dx` and
+`last(x) + dx`, and return them as an array of type `TA(backend)`. To extend only the
+ends on the global domain boundary, use [`add_global_ghost_nodes`](@ref).
+"""
+function add_ghost_nodes(x::AbstractArray, dx; backend = CPU)
     x1, x2 = extrema(x)
-    xI = x1 - dx
-    xF = x2 + dx
-    # LinRange(xI, xF, length(x)+2)
-    return x = TA(backend)(vcat(xI, Array(x), xF))
+    return TA(backend)(vcat(x1 - dx, Array(x), x2 + dx))
+end
+
+function add_ghost_nodes(x::AbstractArray, dx, origin; backend = CPU)
+    Base.depwarn(
+        "`add_ghost_nodes(x, dx, origin)` is deprecated because `origin` is unused; " *
+            "call `add_ghost_nodes(x, dx)` instead.",
+        :add_ghost_nodes
+    )
+    return add_ghost_nodes(x, dx; backend)
 end
 
 """
@@ -91,6 +113,13 @@ end
 @inline _idx(args::Vararg{Int, N}) where {N} = ntuple(i -> 1:args[i], Val(N))
 @inline _idx(args::NTuple{N, Int}) where {N} = _idx(args...)
 
+"""
+    doskip(index, ip, I...)
+
+Return `true` when slot `ip` of cell `I` is empty in the occupancy mask `index`
+(for example `particles.index`). Use it to skip inactive slots in kernels that loop
+over particles.
+"""
 @inline doskip(index, ip, I::Vararg{Int64, N}) where {N} =
     iszero(@inbounds CAI.@index index[ip, I...])
 
@@ -117,6 +146,13 @@ function get_particle_coords(p::NTuple{N}, ip) where {N}
     end
 end
 
+"""
+    inner_size(A)
+    inner_size(A::Tuple)
+
+Return the size of `A` without one ghost layer on each side, `size(A) .- 2`. For a
+tuple, return the inner size of its first element.
+"""
 @inline inner_size(A::AbstractArray) = size(A) .- 2
 @inline inner_size(A::Tuple) = inner_size(first(A))
 @inline function inner_ranges(A::AbstractArray{T, N}) where {T, N}
@@ -131,6 +167,15 @@ end
 # MACROS TO INDEX GRID ARRAYS #
 ###############################
 
+"""
+    @dxi(dxi, I, J)
+    @dxi(dxi, I, J, K)
+
+Return the spacing of cell `(I, J[, K])` in every direction for the spacing tuple
+`dxi`. Each entry of `dxi` is either a `Number`, the spacing of a uniform grid, or a
+vector of per-cell widths of a refined grid, indexed by the cell index. See also
+[`@dx`](@ref), [`@dy`](@ref), and [`@dz`](@ref).
+"""
 macro dxi(args...)
     return :(_dxi($(esc.(args)...)))
 end
@@ -138,18 +183,33 @@ end
 Base.@propagate_inbounds @inline _dxi(dxi::NTuple{2, Union{Number, AbstractVector}}, I::Integer, J::Integer) = _dx(dxi, I), _dy(dxi, J)
 Base.@propagate_inbounds @inline _dxi(dxi::NTuple{3, Union{Number, AbstractVector}}, I::Integer, J::Integer, K::Integer) = _dx(dxi, I), _dy(dxi, J), _dz(dxi, K)
 
+"""
+    @dx(dxi, I)
+
+Return the `x` spacing of cell `I` for the spacing tuple `dxi`; see [`@dxi`](@ref).
+"""
 macro dx(args...)
     return :(_dx($(esc.(args)...)))
 end
 
 Base.@propagate_inbounds @inline _dx(dx::NTuple{N, Union{Number, AbstractVector}}, I::Integer) where {N} = getindex_dxi(dx[1], I)
 
+"""
+    @dy(dxi, J)
+
+Return the `y` spacing of cell `J` for the spacing tuple `dxi`; see [`@dxi`](@ref).
+"""
 macro dy(args...)
     return :(_dy($(esc.(args)...)))
 end
 
 Base.@propagate_inbounds @inline _dy(dy::NTuple{N, Union{Number, AbstractVector}}, I::Integer) where {N} = getindex_dxi(dy[2], I)
 
+"""
+    @dz(dxi, K)
+
+Return the `z` spacing of cell `K` for the 3D spacing tuple `dxi`; see [`@dxi`](@ref).
+"""
 macro dz(args...)
     return :(_dz($(esc.(args)...)))
 end

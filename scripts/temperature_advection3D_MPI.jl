@@ -45,9 +45,9 @@ function main()
     end
 
     # staggered grid for the velocity components
-    grid_vx = xv, add_ghost_nodes(yc, dy, (0.0, Ly)), add_ghost_nodes(zc, dz, (0.0, Lz))
-    grid_vy = add_ghost_nodes(xc, dx, (0.0, Lx)), yv, add_ghost_nodes(zc, dz, (0.0, Lz))
-    grid_vz = add_ghost_nodes(xc, dx, (0.0, Lx)), add_ghost_nodes(yc, dy, (0.0, Ly)), zv
+    grid_vx = xv, add_ghost_nodes(yc, dy), add_ghost_nodes(zc, dz)
+    grid_vy = add_ghost_nodes(xc, dx), yv, add_ghost_nodes(zc, dz)
+    grid_vz = add_ghost_nodes(xc, dx), add_ghost_nodes(yc, dy), zv
     grid_vel = grid_vx, grid_vy, grid_vz
 
     particles = init_particles(

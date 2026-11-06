@@ -1,6 +1,13 @@
 ## Kernels to compute phase ratios at the vertices
 
 
+"""
+    phase_ratios_vertex!(phase_ratios, particles, phases)
+
+Recompute `phase_ratios.vertex`, the phase fractions at grid vertices, from the
+particle phase labels `phases`. [`update_phase_ratios!`](@ref) updates every location
+at once.
+"""
 function phase_ratios_vertex!(phase_ratios::JustPIC.PhaseRatios, particles, phases)
     check_phase_ratio_inputs(phase_ratios, particles, phases)
     return _phase_ratios_vertex!(phase_ratios, particles, phases)

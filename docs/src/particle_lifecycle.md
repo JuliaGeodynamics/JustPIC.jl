@@ -29,8 +29,9 @@ regular = init_particles(backend, (4, 4), 48, 12, grid_vx, grid_vy)
 pT, = init_cell_arrays(particles, Val(1))
 ```
 
-`max_xcell` reserves slots per cell; `min_xcell` controls reinjection. It is
-not a live-particle count. Use the occupancy mask when counting active slots.
+`max_xcell` reserves slots per cell; `min_xcell` controls reinjection.
+`particles.np` is the reserved capacity, not a live-particle count; count
+active slots with the occupancy mask `particles.index`.
 
 ## Move and inject
 

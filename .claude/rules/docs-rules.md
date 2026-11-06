@@ -12,8 +12,8 @@ julia --project=docs -e 'using Pkg; Pkg.instantiate()'   # once
 julia --project=docs docs/make.jl
 ```
 
-`docs/make.jl` pushes the repo root onto `LOAD_PATH` — the in-repo JustPIC is used
-directly, no `Pkg.develop` needed.
+`docs/Project.toml` points JustPIC at the repo root through `[sources]` — the in-repo
+JustPIC is used directly, no `Pkg.develop` needed.
 
 ## Fast Local Builds
 

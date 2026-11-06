@@ -1,12 +1,15 @@
 # Field advection in 3D
 
+The complete script is
+[`docs/examples/field_advection3D.jl`](https://github.com/JuliaGeodynamics/JustPIC.jl/blob/main/docs/examples/field_advection3D.jl).
+
 First, load JustPIC:
 
 ```julia
 using JustPIC
 ```
 
-We need to specify what backend are we running our simulation on. For convenience we define the backend as a constant. In this case we use the CPU backend, but we could also use the CUDA (`CUDA.CUDABackend`) or AMDGPU (`AMDGPU.ROCBackend`) backends.
+Next, choose the backend the simulation runs on. For convenience we define it as a constant. This example uses the CPU backend; after loading the corresponding package, the CUDA (`CUDA.CUDABackend`), AMDGPU (`AMDGPU.ROCBackend`), or Metal (`Metal.MetalBackend`) backends work the same way.
 
 ```julia
 const backend = JustPIC.CPU
@@ -24,7 +27,7 @@ Define the model domain:
 
 ```julia
 n  = 64             # number of nodes
-nx  = ny = nz = n-1 # number of cells in x and y
+nx  = ny = nz = n-1 # number of cells in x, y, and z
 Lx  = Ly = Lz = 1.0 # domain size
 ni  = nx, ny, nz
 Li  = Lx, Ly, Lz
@@ -96,7 +99,8 @@ grid2particle!(pT, T, particles)
 We can now start the time loop:
 
 ```julia
-dt = min(dx / maximum(abs.(Vx)), dy / maximum(abs.(Vy)), dz / maximum(abs.(Vz))) / 2
+# Vy is zero, so the y direction does not limit the time step
+dt = min(dx / maximum(abs.(Vx)), dz / maximum(abs.(Vz))) / 2
 
 niter = 250
 for it in 1:niter

@@ -54,5 +54,6 @@ particle2centroid!(C_out, pC, particles; ghost_1=false, ghost_2=false)
 ```
 
 Use the ghosted layout for boundary-sensitive calculations unless the physical
-only behavior is intentional. Unlike `grid2particle!`, centroid interpolation
-uses the `ghosted` keyword rather than per-direction `ghost_i` keywords.
+only behavior is intentional. `ghosted` sets every direction at once;
+`ghost_1`, `ghost_2`, and `ghost_3` override it for single directions, as in
+`grid2particle!`.

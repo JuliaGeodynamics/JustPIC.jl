@@ -16,19 +16,19 @@ Information is transferred from nodal or staggered grids to particle-carried
 fields with linear interpolation. The one-dimensional linear interpolation
 kernel is
 
-$v_{\text{p}} = t v_0  + (1 -t) v_1$
+$v_{\text{p}} = (1 - t) v_0 + t v_1$
 
-where the $t$, $v_0$, and $v_1$ are graphically described below.
+where $t$ is the normalized distance from the node of $v_0$, as shown below.
 
 ![Linear interpolation between the nodal values `v0` and `v1`](assets/lerp.png)
 
-Numerically, it is more appropriately implemented as a double [fma](https://en.wikipedia.org/wiki/Multiply%E2%80%93accumulate_operation) as it is slightly more accurate than a naive implementation:
+It is implemented as two nested `muladd`s, which compile to [fused multiply-adds](https://en.wikipedia.org/wiki/Multiply%E2%80%93accumulate_operation) where the hardware supports them and are then slightly more accurate than the naive expression:
 
 ```julia
-v_p = fma(t, v1, fma(-t, v0, v0))
+v_p = muladd(t, v1, muladd(-t, v0, v0))
 ```
 
-Bi- and tri-linear interpolation over a rectangular or cubic cells is thus nothing else than a chain of lerp kernels along the different dimensions of the cell. For example, the bilinear interpolation requires two lerps along the left and right sides of the cell, followed by a lerp on the horizontal direction; and trilinear interpolation requires two bilinear kernels and one lerp.
+Bi- and tri-linear interpolation over rectangular or cuboid cells is thus nothing else than a chain of lerp kernels along the different dimensions of the cell. For example, the bilinear interpolation requires two lerps along the left and right sides of the cell, followed by a lerp on the horizontal direction; and trilinear interpolation requires two bilinear kernels and one lerp.
 
 N-linear interpolation is implemented recursively to keep the code dimension
 agnostic while staying friendly to compiler specialization.
@@ -79,9 +79,11 @@ grid2particle!(Fp, F_physical, particles; ghost_1=false, ghost_2=false)
 Information on particles can be accumulated back to grid nodes with inverse
 distance weighting:
 
-$v_{i,j} = \frac{\sum^N_{k=1} \omega_k v_k}{\sum^n_{k=1} \omega_k}$
+$v_{i,j} = \frac{\sum_{k=1}^{N} \omega_k v_k}{\sum_{k=1}^{N} \omega_k}$
 
-where the weight is $\omega_i = d^{-n}$, with $d$ being the distance between the particle and the node, and $n$ a integer number.
+where the sums run over the $N$ particles in the cells around the node, and the
+weight is $\omega_k = d_k^{-2}$, with $d_k$ the distance between particle $k$ and
+the node.
 
 On shared-memory hardware this typically requires atomics. JustPIC avoids that
 by looping over grid nodes and scanning only the neighboring particle cells that

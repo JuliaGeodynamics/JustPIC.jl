@@ -50,19 +50,19 @@ and the arrays local to each MPI rank
 xvi = xv, yv = let
     dummy = zeros(n, n) 
     xv  = TA(backend)([x_g(i, dx, dummy) for i in axes(dummy, 1)])
-    yv  = TA(backend)([y_g(i, dx, dummy) for i in axes(dummy, 2)])
+    yv  = TA(backend)([y_g(i, dy, dummy) for i in axes(dummy, 2)])
     xv, yv
 end
 # nodal centers
 xci = xc, yc = let
     dummy = zeros(nx, ny) 
     xc  = TA(backend)([x_g(i, dx, dummy) for i in axes(dummy, 1)])
-    yc  = TA(backend)([y_g(i, dx, dummy) for i in axes(dummy, 2)])
+    yc  = TA(backend)([y_g(i, dy, dummy) for i in axes(dummy, 2)])
     xc, yc
 end
 # staggered grid for the velocity components
-grid_vx = xv, add_ghost_nodes(yc, dy, (0.0, Ly))
-grid_vy = add_ghost_nodes(xc, dx, (0.0, Lx)), yv
+grid_vx = xv, add_ghost_nodes(yc, dy)
+grid_vy = add_ghost_nodes(xc, dx), yv
 ```
 
 And we continue with business as usual
@@ -171,12 +171,21 @@ T_v      = zeros(nx_v, ny_v)          # initialize global `T`
 T_nohalo = TA(backend)(zeros(size(T) .- 2)) # local `T` without overlapping halo
 ```
 
-Visualization with GLMakie.jl
+After each update, strip the halo from the local `T` and gather the rank-local
+pieces into `T_v` on rank 0:
+```julia
+@views T_nohalo .= T[2:(end - 1), 2:(end - 1)]
+gather!(Array(T_nohalo), T_v)
+```
+
+Visualization with GLMakie.jl, on rank 0
 ```julia
 using GLMakie
-x_global = range(0, Lx, length=size(T_v,1))
-y_global = range(0, Ly, length=size(T_v,2))
-heatmap(x_global, y_global, T_v)
+if me == 0
+    x_global = range(0, Lx, length=size(T_v,1))
+    y_global = range(0, Ly, length=size(T_v,2))
+    heatmap(x_global, y_global, T_v)
+end
 ```
 
 ## Going 3D

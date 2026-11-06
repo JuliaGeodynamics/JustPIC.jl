@@ -11,10 +11,10 @@ velocity nodes, and in 3D also at edge-midpoint locations.
 - `particles`: particle container providing positions.
 - `phases`: per-particle phase labels.
 """
-# 2D version, shear stress defined at cell vertices
 function update_phase_ratios!(
         phase_ratios::JustPIC.PhaseRatios{B, T}, particles, phases
     ) where {B, T <: AbstractMatrix}
+    # 2D: shear stress is defined at cell vertices
     check_phase_ratio_inputs(phase_ratios, particles, phases)
     _phase_ratios_center!(phase_ratios, particles, phases)
     _phase_ratios_vertex!(phase_ratios, particles, phases)

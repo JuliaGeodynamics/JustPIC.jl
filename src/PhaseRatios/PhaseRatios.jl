@@ -39,6 +39,13 @@ This method returns a `Val` wrapper for the phase count; use `numphases` when
 you need the integer directly.
 """
 @inline nphases(x::PhaseRatios) = nphases(x.center)
+
+"""
+    numphases(x::PhaseRatios)
+
+Return the number of phases in `x` as an `Int`. See [`nphases`](@ref) for the `Val`
+form.
+"""
 @inline numphases(x::PhaseRatios) = numphases(x.center)
 
 @inline function nphases(

@@ -8,15 +8,16 @@ grid_vx = xv, yc_ghosted
 grid_vy = xc_ghosted, yv
 ```
 
-The layout can be sketched as follows (`•` are vertices, `×` are centroids;
-`u` and `v` are staggered velocity locations):
+The layout can be sketched as follows (`•` are vertices, `×` are centroids,
+`u` is `Vx` at `(xv, yc)` on the vertical cell faces, and `v` is `Vy` at
+`(xc, yv)` on the horizontal cell faces):
 
 ```text
-•──────u──────•──────u──────•
-│      ×      │      ×      │
-v      │      v      │      v
-│      ×      │      ×      │
-•──────u──────•──────u──────•
+•───────v───────•───────v───────•
+│               │               │
+u       ×       u       ×       u
+│               │               │
+•───────v───────•───────v───────•
 ```
 
 The outermost coordinate values used by interpolation are ghost images of the
@@ -40,6 +41,11 @@ grid_vx = xv, add_periodic_ghost_nodes(yc)
 grid_vy = add_periodic_ghost_nodes(xc), yv
 particles = init_particles(JustPIC.CPU, 16, 24, 8, grid_vx, grid_vy)
 ```
+
+On a uniform range, `add_periodic_ghost_nodes` adds one node at each end with the
+grid spacing, which is also the nonperiodic ghost, so this domain is nonperiodic.
+On a refined coordinate vector the two differ: a periodic ghost takes the spacing
+of the opposite boundary cell.
 
 The resulting layouts are:
 

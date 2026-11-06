@@ -60,7 +60,7 @@ Pkg.add("JustPIC")
 ```
 
 To run on a GPU, additionally install the matching backend package (`CUDA`,
-`AMDGPU`, or `Metal`) and select its backend — see [Mixed CPU/GPU](mixed_CPU_GPU.md).
+`AMDGPU`, or `Metal`) and select its backend — see [Backends](backends.md).
 
 ## Getting started
 
@@ -98,13 +98,22 @@ and [Interpolations](interpolations.md) for the full workflow, or the runnable
 
 ## Manual
 
-- [Particles](particles.md) — the `Particles` container and its lifecycle
+- [Particles](particles.md) and [Particle lifecycle](particle_lifecycle.md) — the
+  `Particles` container and the interpolate/advect/move/inject time step
+- [Grid layouts](grid_layouts.md) — vertex, centroid, and staggered velocity grids
+- [Backends](backends.md) — running on CPU, CUDA, AMDGPU, and Metal
 - [CellArrays](CellArrays.md) — the cell-local storage layout
-- [Interpolations](interpolations.md) and [Velocity interpolation](velocity_interpolation.md)
-- [Marker chain](marker_chain.md) — free-surface / topography tracking
+- [Interpolations](interpolations.md), [PIC/FLIP](pic_flip.md), and
+  [Velocity interpolation](velocity_interpolation.md)
+- [Particle fields](particle_fields.md) — per-particle data carried with the particles
+- [Marker chain](marker_chain.md) — 2D free-surface / topography tracking
 - [Marker surface](marker_surface.md) — 3D free-surface / topography tracking
+- Examples: [2D](field_advection2D.md), [2D with MPI](field_advection2D_MPI.md),
+  [3D](field_advection3D.md), [periodic](donut_advection_periodic.md), and
+  [PIC/FLIP](temperature_flip.md) advection
 - [I/O](IO.md) — checkpointing and restart
-- [Mixed CPU/GPU](mixed_CPU_GPU.md)
+- [Mixed CPU/GPU](mixed_CPU_GPU.md) — particles on the CPU alongside a GPU solver
+- [Input validation](validation.md) and [Support matrix](support_matrix.md)
 - [Public API](API.md)
 - [Performance](performance.md) — benchmark history on CPU and GPU backends
 
