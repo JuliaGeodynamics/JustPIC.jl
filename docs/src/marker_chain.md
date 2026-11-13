@@ -115,6 +115,32 @@ The lower-level `semilagrangian_advection!(chain, method, V, grid_vxi, xvi, dt)`
 updates `h_vertices`. It leaves marker coordinates and previous-step buffers unchanged,
 and applies neither smoothing nor mean-height correction.
 
+## Periodic x boundaries
+
+Pass `periodic_1 = true` to both the semi-Lagrangian update and the rock-fraction
+calculation for a surface that repeats in x:
+
+```julia
+semilagrangian_advection_markerchain!(
+    chain, RungeKutta2(), V, grid_vxi, xvi, dt; periodic_1 = true,
+)
+compute_rock_fraction!(ratios, chain, xvi, dxi; periodic_1 = true)
+```
+
+Initialize the chain with equal heights at its two endpoints and supply a velocity
+field periodic in x, including its ghost values. RK2 and RK4 wrap intermediate
+trajectory positions before sampling velocity. The remap carries topography across
+the seam and gives both endpoints the same height. Slope smoothing also uses the
+neighbors across the seam. For vertex and x-velocity rock fractions, both seam
+planes receive the same fraction from the control volume spanning the last and
+first cells, weighted by their widths on refined grids.
+
+The lower-level `semilagrangian_advection!` and `smooth_slopes!` also accept
+`periodic_1 = true`. Lagrangian marker-chain advection does not support this option.
+The whole x period must be on one rank; decomposition along x is rejected. When
+using ImplicitGlobalGrid, keep its x direction nonperiodic (`periodx = 0`): the
+marker-chain option handles this local wrap independently of MPI halos.
+
 ## Multi-GPU / MPI (ImplicitGlobalGrid)
 
 The semi-Lagrangian update works with [ImplicitGlobalGrid.jl](https://github.com/eth-cscs/ImplicitGlobalGrid.jl)

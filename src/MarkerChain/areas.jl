@@ -1,5 +1,5 @@
 """
-    compute_rock_fraction!(ratios, chain::MarkerChain, xvi, dxi)
+    compute_rock_fraction!(ratios, chain::MarkerChain, xvi, dxi; periodic_1 = false)
 
 Fill `ratios` with the fraction of each control volume that lies below the marker
 chain.
@@ -11,14 +11,20 @@ using the topography currently stored in `chain`.
 `Number` per direction for a uniform grid, or one `AbstractVector` of per-cell widths per
 direction for a refined one.
 
+With `periodic_1 = true` the x direction wraps: the control volumes of the first and last
+x-vertices (in `ratios.vertex` and `ratios.Vx`) are one volume that straddles the seam, made of
+the first and the last cell, and both ends get its fraction.
+
 Under an `ImplicitGlobalGrid` decomposition, `chain`, `xvi` and `dxi` are those of the
 local subdomain, and the overlap entries of every field are exchanged with the
-neighboring ranks, so the fractions match those of the global grid.
+neighboring ranks, so the fractions match those of the global grid. `periodic_1 = true`
+requires the x direction on a single rank.
 """
-function compute_rock_fraction!(ratios, chain::MarkerChain, xvi, dxi)
+function compute_rock_fraction!(ratios, chain::MarkerChain, xvi, dxi; periodic_1::Bool = false)
+    _check_periodic_chain(periodic_1)
     compute_area_below_chain_centers!(ratios.center, chain, xvi, dxi)
-    compute_area_below_chain_vertex!(ratios.vertex, chain, xvi, dxi)
-    compute_area_below_chain_vx!(ratios.Vx, chain, xvi, dxi)
+    compute_area_below_chain_vertex!(ratios.vertex, chain, xvi, dxi, periodic_1)
+    compute_area_below_chain_vx!(ratios.Vx, chain, xvi, dxi, periodic_1)
     compute_area_below_chain_vy!(ratios.Vy, chain, xvi, dxi)
     # the kernels treat the ends of the local arrays as domain boundaries
     ImplicitGlobalGrid.grid_is_initialized() &&
@@ -61,43 +67,55 @@ end
     ratio[i, j] = cell_rock_area(s, r)
 end
 
-function compute_area_below_chain_vx!(ratio_velocity, chain, xvi, dxi)
+function compute_area_below_chain_vx!(ratio_velocity, chain, xvi, dxi, periodic = false)
     topo_y = chain.h_vertices
     nx, ny = size(ratio_velocity)
 
     launch!(
         ka_backend(ratio_velocity), _compute_area_below_chain_vx!, (nx, ny),
-        ratio_velocity, topo_y, xvi..., nx, dxi
+        ratio_velocity, topo_y, xvi..., nx, dxi, periodic
     )
     return nothing
 end
 
-@kernel function _compute_area_below_chain_vx!(
-        ratios::AbstractArray{T}, topo_y, xv, yv, nx, dxi
-    ) where {T}
-    I = @index(Global, NTuple)
-    i, j = I
-
-    dy = @dy dxi j
-    ω = zero(T) # total area of the sampled sub-cells
-    tmp = zero(T)
-    # we can cache the potential coordinates
-    x, y = if 1 < i < nx
+# The x-stencil `(x, y)` of the chain around vertex `i` of `nx`. With `periodic`, vertex 1 sees
+# the last cell one period back as its left neighbour; vertex `nx` is never asked for, since it
+# is evaluated as vertex 1.
+@inline function _chain_stencil_x(xv, topo_y, i, nx, periodic)
+    return if 1 < i < nx
         (xv[i - 1], xv[i], xv[i + 1]), (topo_y[i - 1], topo_y[i], topo_y[i + 1])
+    elseif i == 1 && periodic
+        (xv[nx - 1] - (xv[nx] - xv[1]), xv[1], xv[2]), (topo_y[nx - 1], topo_y[1], topo_y[2])
     elseif i == 1
         (xv[i], xv[i], xv[i + 1]), (topo_y[i], topo_y[i], topo_y[i + 1])
     else
         (xv[i - 1], xv[i], xv[i]), (topo_y[i - 1], topo_y[i], topo_y[i])
     end
+end
+
+@kernel function _compute_area_below_chain_vx!(
+        ratios::AbstractArray{T}, topo_y, xv, yv, nx, dxi, periodic
+    ) where {T}
+    I = @index(Global, NTuple)
+    iw, j = I
+    # the two ends of a periodic direction are one plane, evaluated as its first copy
+    i = ifelse(periodic && iw == nx, 1, iw)
+
+    dy = @dy dxi j
+    ω = zero(T) # total area of the sampled sub-cells
+    tmp = zero(T)
+    # we can cache the potential coordinates
+    x, y = _chain_stencil_x(xv, topo_y, i, nx, periodic)
 
     ox = xv[i]
     oy = yv[j]
     for (l, ii) in enumerate((i - 1):i)
-        !(0 < ii < nx) && continue
+        periodic || 0 < ii < nx || continue
 
         # the two halves of the control volume straddle the vertex `ox`, each half as wide
-        # as the column it is cut from and as tall as the row it sits in
-        half_dx = (@dx dxi ii) / 2
+        # as the column it is cut from (across the seam on a periodic chain) and as tall as
+        # the row it sits in
+        half_dx = (@dx dxi mod1(ii, nx - 1)) / 2
         min_corner = (ifelse(ii < i, ox - half_dx, ox), oy)
         p1 = GridGeometryUtils.Point(x[l], y[l])
         p2 = GridGeometryUtils.Point(x[l + 1], y[l + 1])
@@ -119,7 +137,7 @@ end
         tmp += cell_rock_area(s, r) * dA
         ω += dA
     end
-    ratios[i, j] = tmp / ω
+    ratios[iw, j] = tmp / ω
 end
 
 function compute_area_below_chain_vy!(ratio_velocity, chain, xvi, dxi)
@@ -177,45 +195,41 @@ end
     ratios[i, j] = tmp / ω
 end
 
-function compute_area_below_chain_vertex!(ratio_vertex, chain, xvi, dxi)
+function compute_area_below_chain_vertex!(ratio_vertex, chain, xvi, dxi, periodic = false)
     topo_y = chain.h_vertices
     ni = size(ratio_vertex)
 
     launch!(
         ka_backend(ratio_vertex), _compute_area_below_chain_vertex!, ni,
-        ratio_vertex, topo_y, xvi..., ni..., dxi
+        ratio_vertex, topo_y, xvi..., ni..., dxi, periodic
     )
     return nothing
 end
 
 @kernel function _compute_area_below_chain_vertex!(
-        ratios::AbstractArray{T}, topo_y, xv, yv, nx, ny, dxi
+        ratios::AbstractArray{T}, topo_y, xv, yv, nx, ny, dxi, periodic
     ) where {T}
     I = @index(Global, NTuple)
-    i, j = I
+    iw, j = I
+    # the two ends of a periodic direction are one plane, evaluated as its first copy
+    i = ifelse(periodic && iw == nx, 1, iw)
 
     ω = zero(T) # total area of the sampled sub-cells
     tmp = zero(T)
     # we can cache the potential coordinates
-    x, y = if 1 < i < nx
-        (xv[i - 1], xv[i], xv[i + 1]), (topo_y[i - 1], topo_y[i], topo_y[i + 1])
-    elseif i == 1
-        (xv[i], xv[i], xv[i + 1]), (topo_y[i], topo_y[i], topo_y[i + 1])
-    else
-        (xv[i - 1], xv[i], xv[i]), (topo_y[i - 1], topo_y[i], topo_y[i])
-    end
+    x, y = _chain_stencil_x(xv, topo_y, i, nx, periodic)
 
     ox = xv[i]
     oy = yv[j]
 
     for (k, jj) in enumerate((j - 1):j)
         for (l, ii) in enumerate((i - 1):i)
-            !(0 < ii < nx) && continue
+            periodic || 0 < ii < nx || continue
             !(0 < jj < ny) && continue
 
             # each quadrant of the control volume is half as wide and half as tall as the
-            # cell it is cut from
-            half_dx = (@dx dxi ii) / 2
+            # cell it is cut from (across the seam on a periodic chain)
+            half_dx = (@dx dxi mod1(ii, nx - 1)) / 2
             half_dy = (@dy dxi jj) / 2
             min_corner = (
                 ifelse(ii < i, ox - half_dx, ox),
@@ -242,7 +256,7 @@ end
             ω += dA
         end
     end
-    ratios[i, j] = tmp / ω
+    ratios[iw, j] = tmp / ω
 end
 
 #############################

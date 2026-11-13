@@ -1251,3 +1251,140 @@ end
         @test isapprox(vy[i, j], expected; atol, rtol = atol)
     end
 end
+
+@testset "MarkerChain periodic x 2D ($method)" for method in (RungeKutta2(), RungeKutta4())
+    n = 17
+    xv, yv, grid_vx, grid_vy = markerchain_velocity_grid(n)
+    grid_vi = grid_vx, grid_vy
+    grid = xv, yv
+    dx = xv[2] - xv[1]
+    xvi = TA(backend)(collect(xv)), TA(backend)(collect(yv))
+    dxi = dx, yv[2] - yv[1]
+    tol = FT === Float32 ? 1.0f-5 : 1.0e-10
+
+    # periodic in x, with slopes steep enough near the seam to trigger the slope smoothing
+    profile(shift) = [FT(0.5) + FT(0.3) * sinpi(2 * (x - FT(0.1) - shift * dx)) for x in xv]
+    unique_vertices(h) = h[1:(end - 1)]
+
+    # uniform vx, and a vy periodic in x, translated by `shift` cells
+    function periodic_velocity(vx, shift)
+        Vx = fill(vx, length(grid_vx[1]), length(grid_vx[2]))
+        Vy = [FT(0.05) * sinpi(2 * (x - shift * dx)) for x in grid_vy[1], _ in grid_vy[2]]
+        return TA(backend)(Vx), TA(backend)(Vy)
+    end
+
+    function advect(h0, V, dt; kwargs...)
+        chain = init_markerchain(backend, 3, 2, 6, xv, FT(0))
+        fill_chain_from_vertices!(chain, TA(backend)(h0))
+        semilagrangian_advection_markerchain!(chain, method, V, grid_vi, grid, dt; periodic_1 = true, kwargs...)
+        assert_chain_invariants(chain)
+        return to_cpu(chain.h_vertices)
+    end
+
+    # a uniform flow over a whole number of cells carries the surface that many cells across
+    # the seam: every advected vertex lands on a grid vertex
+    k, vx = 3, FT(0.25)
+    h0 = profile(0)
+    V = constant_markerchain_velocity(grid_vx, grid_vy, vx, FT(0))
+    h = advect(h0, V, k * dx / vx; max_slope_angle = nothing)
+    expected = circshift(unique_vertices(h0), k)
+    @test isapprox(unique_vertices(h), expected; atol = tol, rtol = tol)
+    @test h[end] == h[1]
+
+    # A leftward shift of 2.3 cells, through a vy that varies in x, with slope smoothing:
+    # translating the surface and the flow by `m` cells gives the step's result translated by
+    # `m` cells, the seam included. The midpoint stage of the first vertex lies beyond the
+    # ghost column, where only a wrapped position samples the right velocity.
+    m, dt = 5, FT(2.3) * dx / vx
+    a = advect(profile(0), periodic_velocity(-vx, 0), dt)
+    b = advect(profile(m), periodic_velocity(-vx, m), dt)
+    @test a[end] == a[1] && b[end] == b[1]
+    @test isapprox(circshift(unique_vertices(a), m), unique_vertices(b); atol = tol, rtol = tol)
+    @test chain_mean(a) ≈ chain_mean(profile(0))
+
+    # rock fractions: the two seam planes carry one control volume, and the fractions
+    # translate with the surface
+    make_ratios() = (
+        center = TA(backend)(zeros(FT, n - 1, n - 1)),
+        vertex = TA(backend)(zeros(FT, n, n)),
+        Vx = TA(backend)(zeros(FT, n, n - 1)),
+        Vy = TA(backend)(zeros(FT, n - 1, n)),
+    )
+    function fractions(h)
+        chain = init_markerchain(backend, 3, 2, 6, xv, FT(0))
+        fill_chain_from_vertices!(chain, TA(backend)(h))
+        ratios = make_ratios()
+        compute_rock_fraction!(ratios, chain, xvi, dxi; periodic_1 = true)
+        return map(to_cpu, ratios)
+    end
+    ra, rb = fractions(profile(0)), fractions(profile(m))
+    for f in (ra.vertex, ra.Vx)
+        @test f[1, :] == f[end, :]
+    end
+    for name in (:vertex, :Vx)
+        @test isapprox(
+            circshift(getproperty(ra, name)[1:(end - 1), :], (m, 0)), getproperty(rb, name)[1:(end - 1), :];
+            atol = tol, rtol = tol
+        )
+    end
+    for name in (:center, :Vy)
+        @test isapprox(circshift(getproperty(ra, name), (m, 0)), getproperty(rb, name); atol = tol, rtol = tol)
+    end
+end
+
+@testset "MarkerChain periodic refined seam 2D" begin
+    n = 9
+    xv = markerchain_graded_grid(n)
+    yv = reverse(one(FT) .- markerchain_graded_grid(n))
+    dx, dy = diff(xv), diff(yv)
+    h = FT(0.5) .+ FT(0.2) .* sinpi.(2 .* xv)
+    h[end] = h[1]
+    chain = init_markerchain(backend, 3, 2, 6, TA(backend)(xv), FT(0))
+    fill_chain_from_vertices!(chain, TA(backend)(h))
+    ratios = (
+        center = TA(backend)(zeros(FT, n - 1, n - 1)),
+        vertex = TA(backend)(zeros(FT, n, n)),
+        Vx = TA(backend)(zeros(FT, n, n - 1)),
+        Vy = TA(backend)(zeros(FT, n - 1, n)),
+    )
+    compute_rock_fraction!(ratios, chain, map(x -> TA(backend)(x), (xv, yv)), map(x -> TA(backend)(x), (dx, dy)); periodic_1 = true)
+    atol = FT === Float32 ? 1.0f-4 : 1.0e-9
+    # Integrate the two seam halves independently; their widths differ on this grid.
+    sl = (h[1] - h[end - 1]) / dx[end]
+    sr = (h[2] - h[1]) / dx[1]
+    seam_fraction(y0, y1) = (
+        dx[end] * markerchain_rock_fraction(h[1], sl, -dx[end] / 2, FT(0), y0, y1) +
+            dx[1] * markerchain_rock_fraction(h[1], sr, FT(0), dx[1] / 2, y0, y1)
+    ) / (dx[end] + dx[1])
+    vx, vertex = to_cpu(ratios.Vx), to_cpu(ratios.vertex)
+    for j in 1:(n - 1)
+        @test isapprox(vx[1, j], seam_fraction(yv[j], yv[j + 1]); atol, rtol = atol)
+    end
+    for j in 1:n
+        y0 = j == 1 ? yv[j] : yv[j] - dy[j - 1] / 2
+        y1 = j == n ? yv[j] : yv[j] + dy[j] / 2
+        @test isapprox(vertex[1, j], seam_fraction(y0, y1); atol, rtol = atol)
+    end
+    @test vx[1, :] == vx[end, :]
+    @test vertex[1, :] == vertex[end, :]
+    for f in ratios
+        @test all(x -> isfinite(x) && 0 ≤ x ≤ 1, to_cpu(f))
+    end
+end
+
+@testset "MarkerChain periodic full rotation 2D ($method)" for method in (RungeKutta2(), RungeKutta4())
+    n = 17
+    xv, yv, grid_vx, grid_vy = markerchain_velocity_grid(n)
+    h = FT(0.5) .+ FT(0.1) .* sinpi.(2 .* collect(xv))
+    h[end] = h[1]
+    chain = init_markerchain(backend, 3, 2, 6, xv, FT(0))
+    fill_chain_from_vertices!(chain, TA(backend)(h))
+    V = constant_markerchain_velocity(grid_vx, grid_vy, FT(1), FT(0))
+    dt = xv[2] - xv[1]
+    for _ in 1:(n - 1)
+        semilagrangian_advection_markerchain!(chain, method, V, (grid_vx, grid_vy), (xv, yv), dt; periodic_1 = true, max_slope_angle = nothing)
+        @test to_cpu(chain.h_vertices)[1] == to_cpu(chain.h_vertices)[end]
+    end
+    @test to_cpu(chain.h_vertices) ≈ h
+    assert_chain_invariants(chain)
+end

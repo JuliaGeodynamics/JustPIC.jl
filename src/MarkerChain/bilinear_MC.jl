@@ -174,7 +174,7 @@ function _reconstruct_h_from_vertex_kernel!(
 end
 
 """
-    smooth_slopes!(chain::MarkerChain, max_angle::Real)
+    smooth_slopes!(chain::MarkerChain, max_angle::Real; periodic_1 = false)
 
 Smooth local slopes exceeding `max_angle` (in radians) in one pass.
 
@@ -184,15 +184,18 @@ refined grids and reduces to a 3-point average on uniform grids. This suppresses
 the spurious spikes that semi-Lagrangian backtracking can introduce on a steep interface;
 it is applied automatically inside [`semilagrangian_advection_markerchain!`](@ref). Chains
 with fewer than three vertices are left untouched. This is not a strict slope bound.
+With `periodic_1 = true` the two end vertices are one interior vertex of a surface that
+repeats in x: it is smoothed with its neighbours across the seam and written to both ends.
 """
-function smooth_slopes!(chain::MarkerChain, max_angle::Real)
-    smooth_slopes!(chain.h_vertices, chain.cell_vertices, max_angle)
+function smooth_slopes!(chain::MarkerChain, max_angle::Real; periodic_1::Bool = false)
+    _check_periodic_chain(periodic_1)
+    smooth_slopes!(chain.h_vertices, chain.cell_vertices, max_angle; periodic_1)
     # the end vertices of a rank are left unsmoothed; take them from their owners
     _update_chain_halo!(chain.h_vertices)
     return nothing
 end
 
-function smooth_slopes!(h_vertices, cell_vertices, max_angle::Real)
+function smooth_slopes!(h_vertices, cell_vertices, max_angle::Real; periodic_1::Bool = false)
     n = length(h_vertices)
 
     n < 3 && return nothing  # Need at least 3 vertices for smoothing
@@ -202,8 +205,8 @@ function smooth_slopes!(h_vertices, cell_vertices, max_angle::Real)
     h_smoothed = copy(h_vertices)
 
     launch!(
-        ka_backend(h_vertices), smooth_slopes_kernel!, n - 2,
-        h_smoothed, h_vertices, cell_vertices, tan_max_angle
+        ka_backend(h_vertices), smooth_slopes_kernel!, periodic_1 ? n - 1 : n - 2,
+        h_smoothed, h_vertices, cell_vertices, tan_max_angle, periodic_1
     )
 
     # Copy results back
@@ -212,15 +215,18 @@ function smooth_slopes!(h_vertices, cell_vertices, max_angle::Real)
 end
 
 @kernel function smooth_slopes_kernel!(
-        h_smoothed, h_vertices, cell_vertices, tan_max_angle
+        h_smoothed, h_vertices, cell_vertices, tan_max_angle, periodic
     )
     i0 = @index(Global)
-    i = i0 + 1
+    n = length(h_vertices)
+    # a periodic chain also smooths vertex 1, whose left neighbour is vertex n - 1 one period back
+    i = periodic ? i0 : i0 + 1
+    seam = i == 1
 
     # Each thread handles one vertex independently
-    dx_left = cell_vertices[i] - cell_vertices[i - 1]
+    dx_left = seam ? cell_vertices[n] - cell_vertices[n - 1] : cell_vertices[i] - cell_vertices[i - 1]
     dx_right = cell_vertices[i + 1] - cell_vertices[i]
-    dh_left = h_vertices[i] - h_vertices[i - 1]
+    dh_left = h_vertices[i] - h_vertices[ifelse(seam, n - 1, i - 1)]
     dh_right = h_vertices[i + 1] - h_vertices[i]
 
     slope_left = abs(dh_left / dx_left)
@@ -228,7 +234,9 @@ end
 
     # If either adjacent slope is too steep, apply smoothing
     if slope_left > tan_max_angle || slope_right > tan_max_angle
-        h_smoothed[i] = h_vertices[i] +
+        h = h_vertices[i] +
             (dx_left * dh_right - dx_right * dh_left) / (2 * (dx_left + dx_right))
+        h_smoothed[i] = h
+        seam && (h_smoothed[n] = h)
     end
 end

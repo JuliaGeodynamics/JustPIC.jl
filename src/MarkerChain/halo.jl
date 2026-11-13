@@ -159,6 +159,14 @@ function _check_serial_chain_path(name)
     return nothing
 end
 
+# A periodic chain wraps within its local arrays, which hold the whole period only when the x
+# direction is not split across ranks.
+function _check_periodic_chain(periodic::Bool)
+    periodic && ImplicitGlobalGrid.grid_is_initialized() && ImplicitGlobalGrid.global_grid().dims[1] > 1 &&
+        throw(ArgumentError("periodic_1 requires the x direction of the global grid on a single rank"))
+    return nothing
+end
+
 # The global grid is the same on every rank, so these throws need no reduction.
 function _check_chain_grid()
     ImplicitGlobalGrid.grid_is_initialized() || return nothing
