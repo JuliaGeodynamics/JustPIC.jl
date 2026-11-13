@@ -151,6 +151,16 @@ lagrangian_msgs = map(
 end
 lagrangian_rejected = all(m -> occursin("use semilagrangian_advection_markerchain!", m), lagrangian_msgs)
 
+@testset "MarkerChain periodic x decomposition guard" begin
+    if dims[1] > 1
+        h_before = copy(lagrangian.h_vertices)
+        @test_throws ArgumentError semilagrangian_advection_markerchain!(lagrangian, RungeKutta2(), V, grid_vxi, (xv, yv), dt; periodic_1 = true)
+        @test_throws ArgumentError JustPIC.smooth_slopes!(lagrangian, π / 4; periodic_1 = true)
+        @test_throws ArgumentError compute_rock_fraction!(ratios_dist, lagrangian, (xv, yv), (diff(xv), diff(yv)); periodic_1 = true)
+        @test lagrangian.h_vertices == h_before
+    end
+end
+
 finalize_global_grid(; finalize_MPI = false)
 
 # serial reference on the full global grid
